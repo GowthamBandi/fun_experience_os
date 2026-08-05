@@ -3,7 +3,18 @@
 
 - **Approved Baseline Commit**: `c79050d`
 - **Data Mode**: `NEXT_PUBLIC_DATA_MODE=prototype` (Firebase inactive)
-- **Status**: Complete ✅
+- **Status**: Complete ✅ (With Correction 1 applied)
+
+---
+
+### Mandatory Correction 1 Summary (Role-Restricted Emergency Access)
+- **Allowed Simulated Emergency Access Roles**:
+  - `platform-owner` (Platform Owner)
+  - `super-admin` (Super Admin)
+  - `safety` (Safety & Moderation Officer)
+  - `ops-manager` (Operations Manager)
+- **Explicitly Excluded Roles**: `finance`, `marketing`, `analyst`, `venue-manager`, `coordinator`, `regional-partner`, `city-manager`, `staff`.
+- **Role Test Verification**: Verified via `verifyEmergencyAccessRoleRestrictions` and enforced in `EmergencyAccessModal.tsx` & `emergencyAccess.ts`.
 
 ---
 
@@ -34,5 +45,5 @@
    - Handover readiness status (*“Ready to hand over to Live Operations”*).
 
 5. **Simulated Emergency Identity Access**:
-   - Restricted to simulated roles (`super-admin`, `safety`, `ops-manager`, `platform-owner`, `finance`).
+   - Strictly restricted to allowed roles (`platform-owner`, `super-admin`, `safety`, `ops-manager`). Excludes `finance`, `marketing`, `analyst`, `venue-manager`, `coordinator`.
    - Requires non-empty justification reason, logs permanent audit entry, 5-minute countdown, automatic re-mask.

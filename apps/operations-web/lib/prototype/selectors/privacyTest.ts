@@ -1,5 +1,6 @@
 import type { PrototypeState } from "../scenarios/state";
 import { selectPreRevealPreview, selectPostRevealPreview } from "./reveal";
+import { requestEmergencyIdentityAccess } from "../services/emergencyAccess";
 
 const FORBIDDEN_KEYS = [
   "legalName",
@@ -35,6 +36,44 @@ export function verifyParticipantPrivacyCompliance(
 
   checkObject(prePreview, "PreRevealPreview");
   checkObject(postPreview, "PostRevealPreview");
+
+  return {
+    compliant: violations.length === 0,
+    violations,
+  };
+}
+
+export function verifyEmergencyAccessRoleRestrictions(
+  state: PrototypeState
+): { compliant: boolean; violations: string[] } {
+  const violations: string[] = [];
+
+  const allowedRoles = ["platform-owner", "super-admin", "safety", "ops-manager"];
+  const forbiddenRoles = ["finance", "marketing", "analyst", "venue-manager", "coordinator", "regional-partner", "city-manager", "staff"];
+
+  // Test allowed roles
+  allowedRoles.forEach((roleId) => {
+    const res = requestEmergencyIdentityAccess(state, {
+      operatorId: `op-${roleId}`,
+      operatorRole: roleId,
+      reason: "Medical emergency verification",
+    });
+    if (res.error) {
+      violations.push(`Role test failure: Allowed role '${roleId}' was wrongly rejected: ${res.error}`);
+    }
+  });
+
+  // Test forbidden roles
+  forbiddenRoles.forEach((roleId) => {
+    const res = requestEmergencyIdentityAccess(state, {
+      operatorId: `op-${roleId}`,
+      operatorRole: roleId,
+      reason: "Medical emergency verification",
+    });
+    if (!res.error) {
+      violations.push(`Security Violation: Disallowed role '${roleId}' was wrongly granted emergency identity access!`);
+    }
+  });
 
   return {
     compliant: violations.length === 0,

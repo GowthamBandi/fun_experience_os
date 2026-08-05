@@ -14,13 +14,12 @@ export function requestEmergencyIdentityAccess(
 ): { state: PrototypeState; accessLog?: EmergencyAccessLog; error?: string } {
   const { sessionId, bookingId, operatorId, operatorRole, reason } = params;
 
-  // Allowed roles per Correction 1: super-admin, safety, ops-manager (or platform-owner)
+  // Allowed roles per Correction 1: platform-owner, super-admin, safety, ops-manager ONLY
   const allowed =
     operatorRole === "super-admin" ||
     operatorRole === "safety" ||
     operatorRole === "ops-manager" ||
-    operatorRole === "platform-owner" ||
-    operatorRole === "finance";
+    operatorRole === "platform-owner";
 
   if (!allowed) {
     return {

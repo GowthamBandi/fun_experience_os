@@ -35,9 +35,20 @@ export function EmergencyAccessModal({
     return () => clearInterval(interval);
   }, [unmasked, onClose]);
 
+  const isAllowedRole =
+    operatorRole === "super-admin" ||
+    operatorRole === "safety" ||
+    operatorRole === "ops-manager" ||
+    operatorRole === "platform-owner";
+
   const handleRequest = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
+
+    if (!isAllowedRole) {
+      setErrorMsg(`Access Denied: Role '${operatorRole}' is not authorized to request emergency identity access.`);
+      return;
+    }
 
     if (!reason.trim() || reason.trim().length < 5) {
       setErrorMsg("A valid, detailed operational/safety reason is required.");
