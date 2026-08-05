@@ -46,7 +46,10 @@ const STEPS: WalkthroughStep[] = [
   { label: "Allocate Teams ('The Formation')", milestone: "SA-P2F Teams", route: "/missions/s-1/teams", desc: "Run animated deterministic random allocation ('The Formation') and manual team moves." },
   { label: "Audit Reveal Readiness", milestone: "SA-P2F Reveal", route: "/missions/s-1/reveal", desc: "Verify 10-point reveal checklist, readiness status, and pre/post reveal privacy previews." },
   { label: "Door Check-In & QR Simulation", milestone: "SA-P2F Door", route: "/missions/s-1/check-in", desc: "Simulate QR scan, temp ID search, late/no-show/denied states, and Live Operations handover." },
-  { label: "Identity Pattern Catalog", milestone: "SA-P2F Identity", route: "/identity-patterns", desc: "Manage non-identifying temporary identity code formats." },
+  { label: "Live Operations Command Center", milestone: "SA-P2G Live", route: "/missions/s-1/live", desc: "Open session, start runtime clock, run activity segments, and manage emergency mode." },
+  { label: "Score & Outcome Entry", milestone: "SA-P2G Results", route: "/missions/s-1/results", desc: "Record match scores, outcomes, draft saves, and audited result corrections." },
+  { label: "Completion Checklist & Finalization", milestone: "SA-P2G Completion", route: "/missions/s-1/completion", desc: "Verify 11-point completion checklist, resolve blockers, and finalize session." },
+  { label: "Session Operations Summary", milestone: "SA-P2G Summary", route: "/missions/s-1/summary", desc: "Review attendance totals, revenue, duration, match results, and completion snapshot." },
   { label: "Role-Scoped Catalog", milestone: "Review", route: "/catalog/experiences", desc: "Switch to a territory role to see scoped template visibility." }
 ];
 

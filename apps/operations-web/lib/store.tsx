@@ -74,7 +74,7 @@ import {
   promoteWaitlistUser,
   generateTemporaryIds,
   allocateTeams,
-  completeSession,
+  completeSession as completeSessionRepo,
   cancelSession,
   updateSessionStatus,
   updateMatchScore,
@@ -113,6 +113,23 @@ import {
   checkInStaff,
   requestEmergencyIdentityAccess,
   closeEmergencyIdentityAccess,
+  openSession,
+  startLiveSession,
+  pauseLiveSession,
+  resumeLiveSession,
+  enterEmergencyMode,
+  exitEmergencyMode,
+  endLiveSession,
+  createActivitySegment,
+  startActivitySegment,
+  completeActivitySegment,
+  skipActivitySegment,
+  createDraftResult,
+  confirmResult,
+  correctResult,
+  addLiveOperationalNote,
+  updateEquipmentStatus,
+  completeLiveSession,
   pushAudit,
   pushSignal,
   type FranchiseInput,
@@ -260,6 +277,25 @@ interface StoreValue {
   checkInStaff: (sessionId: string, crewId: string, operatorId?: string) => void;
   requestEmergencyIdentityAccess: (params: { sessionId?: string; bookingId?: string; operatorId: string; operatorRole: string; reason: string }) => { state: PrototypeState; accessLog?: any; error?: string };
   closeEmergencyIdentityAccess: (logId: string, operatorId?: string) => void;
+
+  // SA-P2G Live Operations Commands
+  openSession: (sessionId: string, operatorId?: string) => { state: PrototypeState; error?: string };
+  startLiveSession: (sessionId: string, operatorId?: string) => { state: PrototypeState; error?: string };
+  pauseLiveSession: (sessionId: string, reason: string, operatorId?: string) => { state: PrototypeState; error?: string };
+  resumeLiveSession: (sessionId: string, operatorId?: string) => { state: PrototypeState; error?: string };
+  enterEmergencyMode: (params: { sessionId: string; reason: string; immediateAction: string; safetyContactConfirmed: boolean; operatorId?: string; operatorRole?: string }) => { state: PrototypeState; error?: string };
+  exitEmergencyMode: (params: { sessionId: string; exitReason: string; operatorId?: string; operatorRole?: string }) => { state: PrototypeState; error?: string };
+  endLiveSession: (sessionId: string, operatorId?: string) => { state: PrototypeState; error?: string };
+  createActivitySegment: (input: { sessionId: string; name: string; type: any; teamIds?: string[]; notes?: string }, operatorId?: string) => { state: PrototypeState; segment?: any; error?: string };
+  startActivitySegment: (sessionId: string, segmentId: string, operatorId?: string) => { state: PrototypeState; error?: string };
+  completeActivitySegment: (sessionId: string, segmentId: string, operatorId?: string) => { state: PrototypeState; error?: string };
+  skipActivitySegment: (sessionId: string, segmentId: string, reason: string, operatorId?: string) => { state: PrototypeState; error?: string };
+  createDraftResult: (params: { sessionId: string; segmentId: string; resultType: any; teamScores?: any[]; winnerTeamId?: string; outcome?: string; operatorId?: string }) => { state: PrototypeState; error?: string };
+  confirmResult: (sessionId: string, segmentId: string, operatorId?: string) => { state: PrototypeState; error?: string };
+  correctResult: (params: { sessionId: string; segmentId: string; resultType: any; teamScores?: any[]; winnerTeamId?: string; outcome?: string; reason: string; operatorId?: string }) => { state: PrototypeState; error?: string };
+  addLiveOperationalNote: (input: { sessionId: string; type: any; severity: any; note: string; relatedSegmentId?: string; followUpRequired?: boolean }, operatorId?: string) => { state: PrototypeState; note?: any; error?: string };
+  updateEquipmentStatus: (params: { sessionId: string; equipmentId: string; status?: any; issuedCount?: number; missingCount?: number; damagedCount?: number; returnedCount?: number; note?: string; operatorId?: string }) => { state: PrototypeState; error?: string };
+  completeLiveSession: (sessionId: string, overrideReason?: string, operatorId?: string) => { state: PrototypeState; error?: string };
 
   // Incident / signal / audit helpers
   addIncident: (i: Incident) => void;
@@ -452,7 +488,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const promoteWaitlistUserCb = useCallback((sessionId: string) => commit((prev) => promoteWaitlistUser(prev, sessionId, operatorId)), [commit, operatorId]);
   const generateTemporaryIdsCb = useCallback((sessionId: string) => commit((prev) => generateTemporaryIds(prev, sessionId, operatorId)), [commit, operatorId]);
   const allocateTeamsCb = useCallback((sessionId: string) => commit((prev) => allocateTeams(prev, sessionId, operatorId)), [commit, operatorId]);
-  const completeSessionCb = useCallback((sessionId: string) => commit((prev) => completeSession(prev, sessionId, operatorId)), [commit, operatorId]);
+  const completeSessionCb = useCallback((sessionId: string) => commit((prev) => completeSessionRepo(prev, sessionId, operatorId)), [commit, operatorId]);
   const cancelSessionCb = useCallback((sessionId: string, reason: string) => commit((prev) => cancelSession(prev, sessionId, reason, operatorId)), [commit, operatorId]);
   const updateSessionStatusCb = useCallback((id: string, status: SessionStatus) => commit((prev) => updateSessionStatus(prev, id, status, operatorId)), [commit, operatorId]);
   const updateMatchScoreCb = useCallback(
@@ -644,6 +680,229 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [commit, operatorId]
   );
 
+  /* ------------------- SA-P2G Live Operations Commands ------------------- */
+
+  const openSessionCb = useCallback(
+    (sessionId: string) => {
+      let res: any;
+      commit((prev) => {
+        const out = openSession(prev, sessionId, operatorId);
+        res = out;
+        return out.state;
+      });
+      return res;
+    },
+    [commit, operatorId]
+  );
+
+  const startLiveSessionCb = useCallback(
+    (sessionId: string) => {
+      let res: any;
+      commit((prev) => {
+        const out = startLiveSession(prev, sessionId, operatorId);
+        res = out;
+        return out.state;
+      });
+      return res;
+    },
+    [commit, operatorId]
+  );
+
+  const pauseLiveSessionCb = useCallback(
+    (sessionId: string, reason: string) => {
+      let res: any;
+      commit((prev) => {
+        const out = pauseLiveSession(prev, sessionId, reason, operatorId);
+        res = out;
+        return out.state;
+      });
+      return res;
+    },
+    [commit, operatorId]
+  );
+
+  const resumeLiveSessionCb = useCallback(
+    (sessionId: string) => {
+      let res: any;
+      commit((prev) => {
+        const out = resumeLiveSession(prev, sessionId, operatorId);
+        res = out;
+        return out.state;
+      });
+      return res;
+    },
+    [commit, operatorId]
+  );
+
+  const enterEmergencyModeCb = useCallback(
+    (params: any) => {
+      let res: any;
+      commit((prev) => {
+        const out = enterEmergencyMode(prev, { ...params, operatorId: params.operatorId || operatorId });
+        res = out;
+        return out.state;
+      });
+      return res;
+    },
+    [commit, operatorId]
+  );
+
+  const exitEmergencyModeCb = useCallback(
+    (params: any) => {
+      let res: any;
+      commit((prev) => {
+        const out = exitEmergencyMode(prev, { ...params, operatorId: params.operatorId || operatorId });
+        res = out;
+        return out.state;
+      });
+      return res;
+    },
+    [commit, operatorId]
+  );
+
+  const endLiveSessionCb = useCallback(
+    (sessionId: string) => {
+      let res: any;
+      commit((prev) => {
+        const out = endLiveSession(prev, sessionId, operatorId);
+        res = out;
+        return out.state;
+      });
+      return res;
+    },
+    [commit, operatorId]
+  );
+
+  const createActivitySegmentCb = useCallback(
+    (input: any) => {
+      let res: any;
+      commit((prev) => {
+        const out = createActivitySegment(prev, input, operatorId);
+        res = out;
+        return out.state;
+      });
+      return res;
+    },
+    [commit, operatorId]
+  );
+
+  const startActivitySegmentCb = useCallback(
+    (sessionId: string, segmentId: string) => {
+      let res: any;
+      commit((prev) => {
+        const out = startActivitySegment(prev, sessionId, segmentId, operatorId);
+        res = out;
+        return out.state;
+      });
+      return res;
+    },
+    [commit, operatorId]
+  );
+
+  const completeActivitySegmentCb = useCallback(
+    (sessionId: string, segmentId: string) => {
+      let res: any;
+      commit((prev) => {
+        const out = completeActivitySegment(prev, sessionId, segmentId, operatorId);
+        res = out;
+        return out.state;
+      });
+      return res;
+    },
+    [commit, operatorId]
+  );
+
+  const skipActivitySegmentCb = useCallback(
+    (sessionId: string, segmentId: string, reason: string) => {
+      let res: any;
+      commit((prev) => {
+        const out = skipActivitySegment(prev, sessionId, segmentId, reason, operatorId);
+        res = out;
+        return out.state;
+      });
+      return res;
+    },
+    [commit, operatorId]
+  );
+
+  const createDraftResultCb = useCallback(
+    (params: any) => {
+      let res: any;
+      commit((prev) => {
+        const out = createDraftResult(prev, { ...params, operatorId: params.operatorId || operatorId });
+        res = out;
+        return out.state;
+      });
+      return res;
+    },
+    [commit, operatorId]
+  );
+
+  const confirmResultCb = useCallback(
+    (sessionId: string, segmentId: string) => {
+      let res: any;
+      commit((prev) => {
+        const out = confirmResult(prev, sessionId, segmentId, operatorId);
+        res = out;
+        return out.state;
+      });
+      return res;
+    },
+    [commit, operatorId]
+  );
+
+  const correctResultCb = useCallback(
+    (params: any) => {
+      let res: any;
+      commit((prev) => {
+        const out = correctResult(prev, { ...params, operatorId: params.operatorId || operatorId });
+        res = out;
+        return out.state;
+      });
+      return res;
+    },
+    [commit, operatorId]
+  );
+
+  const addLiveOperationalNoteCb = useCallback(
+    (input: any) => {
+      let res: any;
+      commit((prev) => {
+        const out = addLiveOperationalNote(prev, input, operatorId);
+        res = out;
+        return out.state;
+      });
+      return res;
+    },
+    [commit, operatorId]
+  );
+
+  const updateEquipmentStatusCb = useCallback(
+    (params: any) => {
+      let res: any;
+      commit((prev) => {
+        const out = updateEquipmentStatus(prev, { ...params, operatorId: params.operatorId || operatorId });
+        res = out;
+        return out.state;
+      });
+      return res;
+    },
+    [commit, operatorId]
+  );
+
+  const completeLiveSessionCb = useCallback(
+    (sessionId: string, overrideReason?: string) => {
+      let res: any;
+      commit((prev) => {
+        const out = completeLiveSession(prev, sessionId, overrideReason, operatorId);
+        res = out;
+        return out.state;
+      });
+      return res;
+    },
+    [commit, operatorId]
+  );
+
   /* ------------------------ incident / signal helpers ------------------------ */
 
   const addIncident = useCallback((i: Incident) => {
@@ -801,6 +1060,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       checkInStaff: checkInStaffCb,
       requestEmergencyIdentityAccess: requestEmergencyIdentityAccessCb,
       closeEmergencyIdentityAccess: closeEmergencyIdentityAccessCb,
+      openSession: openSessionCb,
+      startLiveSession: startLiveSessionCb,
+      pauseLiveSession: pauseLiveSessionCb,
+      resumeLiveSession: resumeLiveSessionCb,
+      enterEmergencyMode: enterEmergencyModeCb,
+      exitEmergencyMode: exitEmergencyModeCb,
+      endLiveSession: endLiveSessionCb,
+      createActivitySegment: createActivitySegmentCb,
+      startActivitySegment: startActivitySegmentCb,
+      completeActivitySegment: completeActivitySegmentCb,
+      skipActivitySegment: skipActivitySegmentCb,
+      createDraftResult: createDraftResultCb,
+      confirmResult: confirmResultCb,
+      correctResult: correctResultCb,
+      addLiveOperationalNote: addLiveOperationalNoteCb,
+      updateEquipmentStatus: updateEquipmentStatusCb,
+      completeLiveSession: completeLiveSessionCb,
       addIncident,
       updateIncident,
       addSignal,
@@ -903,6 +1179,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     checkInStaffCb,
     requestEmergencyIdentityAccessCb,
     closeEmergencyIdentityAccessCb,
+    openSessionCb,
+    startLiveSessionCb,
+    pauseLiveSessionCb,
+    resumeLiveSessionCb,
+    enterEmergencyModeCb,
+    exitEmergencyModeCb,
+    endLiveSessionCb,
+    createActivitySegmentCb,
+    startActivitySegmentCb,
+    completeActivitySegmentCb,
+    skipActivitySegmentCb,
+    createDraftResultCb,
+    confirmResultCb,
+    correctResultCb,
+    addLiveOperationalNoteCb,
+    updateEquipmentStatusCb,
+    completeLiveSessionCb,
     addIncident,
     updateIncident,
     addSignal,

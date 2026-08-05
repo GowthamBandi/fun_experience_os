@@ -698,3 +698,191 @@ export interface PromoCode {
   discount: string;
   status: "active" | "expired";
 }
+
+/* ------------------------------------------------------------------
+ * SA-P2G: Live Session Operations, Scoring & Completion
+ * ------------------------------------------------------------------ */
+
+export type LiveSessionStatus =
+  | "Ready"
+  | "Opening"
+  | "Live"
+  | "Paused"
+  | "Emergency"
+  | "Ending"
+  | "Ended"
+  | "Completed";
+
+export interface LiveSessionState {
+  id: string;
+  sessionId: SessionId;
+  status: LiveSessionStatus;
+  accumulatedActiveSeconds: number;
+  activeStartedAt?: string;
+  pausedAt?: string;
+  resumedAt?: string;
+  endedAt?: string;
+  completedAt?: string;
+  pauseReason?: string;
+  emergencyMode: boolean;
+  emergencyReason?: string;
+  emergencyAction?: string;
+  safetyContactConfirmed?: boolean;
+  currentStage?: string;
+  currentMatchId?: string;
+  activeTeamIds?: string[];
+  operationalOwnerId?: string;
+  updatedAt: string;
+}
+
+export type ActivitySegmentType =
+  | "Briefing"
+  | "Warm-up"
+  | "Match"
+  | "Round"
+  | "Activity"
+  | "Break"
+  | "Cooldown"
+  | "Wrap-up";
+
+export type ActivitySegmentStatus =
+  | "Planned"
+  | "Ready"
+  | "Active"
+  | "Paused"
+  | "Completed"
+  | "Skipped"
+  | "Cancelled";
+
+export interface ActivitySegment {
+  id: string;
+  sessionId: SessionId;
+  name: string;
+  type: ActivitySegmentType;
+  sequence: number;
+  status: ActivitySegmentStatus;
+  plannedStart?: string;
+  actualStart?: string;
+  actualEnd?: string;
+  teamIds?: string[];
+  notes?: string;
+  resultId?: string;
+  skipReason?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ResultStatus = "Draft" | "Confirmed" | "Corrected" | "Disputed";
+export type ResultType = "score" | "outcome" | "draw" | "abandoned" | "walkover" | "no-contest";
+
+export interface TeamScore {
+  teamId: string;
+  score: number;
+}
+
+export interface ResultRevision {
+  revisionNumber: number;
+  resultType: ResultType;
+  teamScores?: TeamScore[];
+  winnerTeamId?: string;
+  outcome?: string;
+  status: ResultStatus;
+  recordedBy: string;
+  recordedAt: string;
+  reason?: string;
+}
+
+export interface SegmentResult {
+  id: string;
+  sessionId: SessionId;
+  segmentId: string;
+  resultType: ResultType;
+  teamScores?: TeamScore[];
+  winnerTeamId?: string;
+  outcome?: string;
+  status: ResultStatus;
+  recordedBy: string;
+  recordedAt: string;
+  correctedAt?: string;
+  correctionReason?: string;
+  approvedBy?: string;
+  revisions: ResultRevision[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type LiveNoteType =
+  | "general"
+  | "staff"
+  | "equipment"
+  | "venue"
+  | "participant"
+  | "safety"
+  | "timing"
+  | "rule"
+  | "other";
+
+export type LiveNoteSeverity = "info" | "warning" | "critical";
+
+export interface LiveOperationalNote {
+  id: string;
+  sessionId: SessionId;
+  type: LiveNoteType;
+  severity: LiveNoteSeverity;
+  time: string;
+  operatorId: string;
+  relatedSegmentId?: string;
+  note: string;
+  resolutionState: "open" | "resolved" | "carried-forward";
+  followUpRequired: boolean;
+  createdAt: string;
+}
+
+export type EquipmentItemStatus = "required" | "available" | "in-use" | "missing" | "damaged" | "returned";
+
+export interface EquipmentCheckItem {
+  id: string;
+  sessionId: SessionId;
+  equipmentName: string;
+  isCritical: boolean;
+  requiredCount: number;
+  availableCount: number;
+  issuedCount: number;
+  missingCount: number;
+  damagedCount: number;
+  returnedCount: number;
+  status: EquipmentItemStatus;
+  note?: string;
+  updatedAt: string;
+}
+
+export interface SessionCompletionSnapshot {
+  sessionId: SessionId;
+  completedAt: string;
+  completedBy: string;
+  attendanceTotals: {
+    expected: number;
+    checkedIn: number;
+    late: number;
+    missing: number;
+    noShow: number;
+    denied: number;
+    fillRate: number;
+  };
+  durationSeconds: number;
+  finalResults: SegmentResult[];
+  financialSummary: {
+    grossRevenue: number;
+    refundsTotal: number;
+    netTake: number;
+  };
+  staffSummary: {
+    leadCoordinator: string;
+    safetyContact: string;
+    staffCheckedIn: number;
+  };
+  equipmentExceptions: EquipmentCheckItem[];
+  safetySignals: string[];
+  followUpItems: string[];
+  label: string;
+}

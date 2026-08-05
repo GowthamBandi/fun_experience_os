@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useStore } from "@/lib/store";
 import { sessionViews, bookingsForSession, venueName, type SessionView } from "@/lib/prototype/repositories";
 import { fillRate, inr } from "@/lib/format";
@@ -107,9 +108,22 @@ function SessionDetail({ session }: { session: SessionView }) {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <StatusChip value={session.status} />
-        <span className="text-xs text-ink-mut">{venue}</span>
+      <div className="flex items-center justify-between border-b border-white/10 pb-3">
+        <div className="flex items-center gap-3">
+          <StatusChip value={session.status} />
+          <span className="text-xs text-ink-mut">{venue}</span>
+        </div>
+        <div className="flex items-center gap-1.5 font-mono text-xs">
+          <Link href={`/missions/${session.id}/live`}>
+            <Button variant="lamp" className="h-7 px-2.5 text-[11px]">⚡ Live Control</Button>
+          </Link>
+          <Link href={`/missions/${session.id}/results`}>
+            <Button variant="ghost" className="h-7 px-2.5 text-[11px]">🎯 Results</Button>
+          </Link>
+          <Link href={`/missions/${session.id}/completion`}>
+            <Button variant="ghost" className="h-7 px-2.5 text-[11px]">🛡️ Completion</Button>
+          </Link>
+        </div>
       </div>
       <div className="grid grid-cols-3 gap-3">
         <div className="solid rounded-xl p-3">

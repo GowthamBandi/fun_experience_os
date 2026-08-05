@@ -16,7 +16,16 @@ export interface OperationsAlert {
     | "identity-generation-incomplete"
     | "unassigned-participants"
     | "reveal-blocked"
-    | "checkin-below-minimum";
+    | "checkin-below-minimum"
+    | "session-unopened"
+    | "session-running-late"
+    | "minimum-attendance-risk"
+    | "missing-staff"
+    | "critical-equipment-missing"
+    | "session-paused-too-long"
+    | "emergency-active"
+    | "result-incomplete"
+    | "completion-blocked";
   title: string;
   trigger: string;
   evidence: string;
@@ -155,6 +164,62 @@ export function generateOperationsAlerts(state: PrototypeState): OperationsAlert
       status: "active",
     });
   }
+
+  // 5. SA-P2G Live Session Alerts
+  (state.liveSessionStates ?? []).forEach((lss) => {
+    // Critical Equipment Missing Alert
+    const eqItems = (state.equipmentCheckItems ?? []).filter((e) => e.sessionId === lss.sessionId);
+    const criticalMissing = eqItems.filter((e) => e.isCritical && e.missingCount > 0);
+    if (criticalMissing.length > 0) {
+      alerts.push({
+        id: `alert-eq-missing-${lss.sessionId}`,
+        severity: "high",
+        type: "critical-equipment-missing",
+        title: `Critical Equipment Missing: Session ${lss.sessionId}`,
+        trigger: "Critical session equipment unavailable or missing",
+        evidence: `Missing items: ${criticalMissing.map((e) => `${e.equipmentName} (${e.missingCount})`).join(", ")}`,
+        impact: "Active match or segment cannot commence safely without required equipment",
+        recommendedAction: "Issue replacement equipment or adjust run plan",
+        relatedEntityIds: [lss.sessionId],
+        generatedAt: nowStr,
+        status: "active",
+      });
+    }
+
+    // Emergency Active Alert
+    if (lss.status === "Emergency" || lss.emergencyMode) {
+      alerts.push({
+        id: `alert-emergency-${lss.sessionId}`,
+        severity: "critical",
+        type: "emergency-active",
+        title: `Emergency Mode Active: Session ${lss.sessionId}`,
+        trigger: `Emergency mode triggered: ${lss.emergencyReason || "Safety event"}`,
+        evidence: `Reason: ${lss.emergencyReason || "Operational safety hold"}, Action: ${lss.emergencyAction || "None"}`,
+        impact: "Live activity paused; requires safety clearance to resume",
+        recommendedAction: "Confirm safety contact presence, complete emergency action, and exit emergency mode",
+        relatedEntityIds: [lss.sessionId],
+        generatedAt: nowStr,
+        status: "active",
+      });
+    }
+
+    // Session Paused Too Long Alert
+    if (lss.status === "Paused") {
+      alerts.push({
+        id: `alert-paused-${lss.sessionId}`,
+        severity: "medium",
+        type: "session-paused-too-long",
+        title: `Session Paused: Session ${lss.sessionId}`,
+        trigger: `Live session currently paused (${lss.pauseReason || "Operational delay"})`,
+        evidence: `Pause reason: ${lss.pauseReason || "Operational delay"}`,
+        impact: "Run-of-show timeline delay; venue playing area slot risk",
+        recommendedAction: "Resolve pause condition and click Resume in Command Center",
+        relatedEntityIds: [lss.sessionId],
+        generatedAt: nowStr,
+        status: "active",
+      });
+    }
+  });
 
   return alerts;
 }

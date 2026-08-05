@@ -25,7 +25,13 @@ import type {
   Team,
   TeamAssignment,
   CheckInRecord,
-  EmergencyAccessLog
+  EmergencyAccessLog,
+  LiveSessionState,
+  ActivitySegment,
+  SegmentResult,
+  LiveOperationalNote,
+  EquipmentCheckItem,
+  SessionCompletionSnapshot
 } from "../entities";
 
 export interface PrototypeState {
@@ -47,6 +53,12 @@ export interface PrototypeState {
   teamAssignments: TeamAssignment[];
   checkInRecords: CheckInRecord[];
   emergencyAccessLogs: EmergencyAccessLog[];
+  liveSessionStates: LiveSessionState[];
+  activitySegments: ActivitySegment[];
+  segmentResults: SegmentResult[];
+  liveOperationalNotes: LiveOperationalNote[];
+  equipmentCheckItems: EquipmentCheckItem[];
+  sessionCompletionSnapshots: SessionCompletionSnapshot[];
   crew: CrewMember[];
   shifts: Shift[];
   tournaments: Tournament[];

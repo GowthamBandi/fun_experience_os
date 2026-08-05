@@ -371,3 +371,4 @@ export * from "./bookingValidation";
 export * from "./identityValidation";
 export * from "./teamValidation";
 export * from "./checkInValidation";
+export * from "./liveSessionValidation";
