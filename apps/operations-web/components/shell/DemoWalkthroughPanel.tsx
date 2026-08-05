@@ -42,14 +42,11 @@ const STEPS: WalkthroughStep[] = [
   { label: "Generate Temp IDs", milestone: "Teams & Reveal", route: "/missions", desc: "Generate masked participant identifiers (e.g. CR-07)." },
   { label: "Allocate Teams", milestone: "Teams & Reveal", route: "/missions", desc: "Run the animated random team separator." },
   { label: "Trigger Reveal", milestone: "Teams & Reveal", route: "/missions", desc: "Unlock reveal conditions and verify checklist." },
-  { label: "Check In", milestone: "Live", route: "/bookings", desc: "Perform QR check-in simulation on the expected roster." },
-  { label: "Start Live Session", milestone: "Live", route: "/missions", desc: "Activate live clock, matches, and safety alerts." },
-  { label: "Dispatch Reservation Hold", milestone: "SA-P2E Operations", route: "/bookings/new", desc: "Dispatch a new reservation hold on sellable capacity." },
-  { label: "Confirm Payment Settlement", milestone: "SA-P2E Operations", route: "/bookings", desc: "Convert reservation hold into a confirmed booking and update ledger." },
-  { label: "Manage Session Queue", milestone: "SA-P2E Operations", route: "/missions/s-2/waitlist", desc: "Extend waitlist offer holds and process promotions." },
-  { label: "Process Refund Approval", milestone: "SA-P2E Finance", route: "/money/refunds", desc: "Finance role-authorized review and approval of customer refund requests." },
-  { label: "Audit Reconciliation", milestone: "SA-P2E Finance", route: "/money/reconciliation", desc: "Audit settlement mismatches between payment gateway and booking ledger." },
-  { label: "Review Financial Operations", milestone: "SA-P2E Finance", route: "/money", desc: "Review tonight's gross revenue, pending, net take, and break-even status." },
+  { label: "Review Participant Pool", milestone: "SA-P2F Roster", route: "/missions/s-1/participants", desc: "Inspect eligible participant pool, temporary identities, and emergency audit tools." },
+  { label: "Allocate Teams ('The Formation')", milestone: "SA-P2F Teams", route: "/missions/s-1/teams", desc: "Run animated deterministic random allocation ('The Formation') and manual team moves." },
+  { label: "Audit Reveal Readiness", milestone: "SA-P2F Reveal", route: "/missions/s-1/reveal", desc: "Verify 10-point reveal checklist, readiness status, and pre/post reveal privacy previews." },
+  { label: "Door Check-In & QR Simulation", milestone: "SA-P2F Door", route: "/missions/s-1/check-in", desc: "Simulate QR scan, temp ID search, late/no-show/denied states, and Live Operations handover." },
+  { label: "Identity Pattern Catalog", milestone: "SA-P2F Identity", route: "/identity-patterns", desc: "Manage non-identifying temporary identity code formats." },
   { label: "Role-Scoped Catalog", milestone: "Review", route: "/catalog/experiences", desc: "Switch to a territory role to see scoped template visibility." }
 ];
 

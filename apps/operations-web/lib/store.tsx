@@ -95,6 +95,24 @@ import {
   rejectRefund,
   completeRefund,
   reconcilePayment,
+  createIdentityPattern,
+  generateTemporaryIdentities,
+  lockTemporaryIdentities,
+  revokeTemporaryIdentity,
+  createTeams,
+  allocateTeamsRandomly,
+  moveTeamParticipant,
+  swapTeamParticipants,
+  lockTeams,
+  unlockTeamsWithOverride,
+  triggerReveal,
+  delayReveal,
+  cancelReveal,
+  createCheckInRecords,
+  updateCheckInStatus,
+  checkInStaff,
+  requestEmergencyIdentityAccess,
+  closeEmergencyIdentityAccess,
   pushAudit,
   pushSignal,
   type FranchiseInput,
@@ -222,6 +240,26 @@ interface StoreValue {
   rejectRefund: (refundId: string, reason?: string, operatorId?: string) => void;
   completeRefund: (refundId: string, operatorId?: string) => void;
   reconcilePayment: (paymentId: string, operatorId?: string) => void;
+
+  // SA-P2F Operations Commands
+  createIdentityPattern: (input: { name: string; prefix: string; separator?: string; numberLength?: number; aliasStyle?: string }, operatorId?: string) => { state: PrototypeState; pattern?: any; error?: string };
+  generateTemporaryIdentities: (sessionId: string, patternId?: string, operatorId?: string) => void;
+  lockTemporaryIdentities: (sessionId: string, operatorId?: string) => void;
+  revokeTemporaryIdentity: (identityId: string, reason: string, operatorId?: string) => void;
+  createTeams: (sessionId: string, numTeams?: number, teamCapacity?: number, operatorId?: string) => void;
+  allocateTeamsRandomly: (sessionId: string, operatorId?: string) => void;
+  moveTeamParticipant: (params: { sessionId: string; bookingId: string; targetTeamId: string; reason: string; operatorId?: string }) => { state: PrototypeState; error?: string };
+  swapTeamParticipants: (params: { sessionId: string; bookingIdA: string; bookingIdB: string; reason: string; operatorId?: string }) => { state: PrototypeState; error?: string };
+  lockTeams: (sessionId: string, operatorId?: string) => void;
+  unlockTeamsWithOverride: (sessionId: string, reason: string, operatorId?: string) => void;
+  triggerReveal: (sessionId: string, overrideReason?: string, operatorId?: string) => { state: PrototypeState; error?: string };
+  delayReveal: (sessionId: string, newRevealTime: string, reason: string, operatorId?: string) => void;
+  cancelReveal: (sessionId: string, reason: string, operatorId?: string) => void;
+  createCheckInRecords: (sessionId: string, operatorId?: string) => void;
+  updateCheckInStatus: (params: { sessionId: string; bookingId: string; targetStatus: any; method?: any; denialReason?: string; auditOverrideReason?: string; operatorId?: string }) => { state: PrototypeState; error?: string };
+  checkInStaff: (sessionId: string, crewId: string, operatorId?: string) => void;
+  requestEmergencyIdentityAccess: (params: { sessionId?: string; bookingId?: string; operatorId: string; operatorRole: string; reason: string }) => { state: PrototypeState; accessLog?: any; error?: string };
+  closeEmergencyIdentityAccess: (logId: string, operatorId?: string) => void;
 
   // Incident / signal / audit helpers
   addIncident: (i: Incident) => void;
@@ -466,6 +504,146 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const completeRefundCb = useCallback((refundId: string) => commit((prev) => completeRefund(prev, refundId, operatorId)), [commit, operatorId]);
   const reconcilePaymentCb = useCallback((paymentId: string) => commit((prev) => reconcilePayment(prev, paymentId, operatorId)), [commit, operatorId]);
 
+  /* ------------------- SA-P2F Operations Commands ------------------- */
+
+  const createIdentityPatternCb = useCallback(
+    (input: any) => {
+      let res: any;
+      commit((prev) => {
+        const out = createIdentityPattern(prev, input, operatorId);
+        res = out;
+        return out.state;
+      });
+      return res;
+    },
+    [commit, operatorId]
+  );
+
+  const generateTemporaryIdentitiesCb = useCallback(
+    (sessionId: string, patternId?: string) => commit((prev) => generateTemporaryIdentities(prev, sessionId, patternId, operatorId)),
+    [commit, operatorId]
+  );
+
+  const lockTemporaryIdentitiesCb = useCallback(
+    (sessionId: string) => commit((prev) => lockTemporaryIdentities(prev, sessionId, operatorId)),
+    [commit, operatorId]
+  );
+
+  const revokeTemporaryIdentityCb = useCallback(
+    (identityId: string, reason: string) => commit((prev) => revokeTemporaryIdentity(prev, identityId, reason, operatorId)),
+    [commit, operatorId]
+  );
+
+  const createTeamsCb = useCallback(
+    (sessionId: string, numTeams?: number, teamCapacity?: number) => commit((prev) => createTeams(prev, sessionId, numTeams, teamCapacity, operatorId)),
+    [commit, operatorId]
+  );
+
+  const allocateTeamsRandomlyCb = useCallback(
+    (sessionId: string) => commit((prev) => allocateTeamsRandomly(prev, sessionId, operatorId)),
+    [commit, operatorId]
+  );
+
+  const moveTeamParticipantCb = useCallback(
+    (params: any) => {
+      let res: any;
+      commit((prev) => {
+        const out = moveTeamParticipant(prev, { ...params, operatorId: params.operatorId || operatorId });
+        res = out;
+        return out.state;
+      });
+      return res;
+    },
+    [commit, operatorId]
+  );
+
+  const swapTeamParticipantsCb = useCallback(
+    (params: any) => {
+      let res: any;
+      commit((prev) => {
+        const out = swapTeamParticipants(prev, { ...params, operatorId: params.operatorId || operatorId });
+        res = out;
+        return out.state;
+      });
+      return res;
+    },
+    [commit, operatorId]
+  );
+
+  const lockTeamsCb = useCallback(
+    (sessionId: string) => commit((prev) => lockTeams(prev, sessionId, operatorId)),
+    [commit, operatorId]
+  );
+
+  const unlockTeamsWithOverrideCb = useCallback(
+    (sessionId: string, reason: string) => commit((prev) => unlockTeamsWithOverride(prev, sessionId, reason, operatorId)),
+    [commit, operatorId]
+  );
+
+  const triggerRevealCb = useCallback(
+    (sessionId: string, overrideReason?: string) => {
+      let res: any;
+      commit((prev) => {
+        const out = triggerReveal(prev, sessionId, overrideReason, operatorId);
+        res = out;
+        return out.state;
+      });
+      return res;
+    },
+    [commit, operatorId]
+  );
+
+  const delayRevealCb = useCallback(
+    (sessionId: string, newRevealTime: string, reason: string) => commit((prev) => delayReveal(prev, sessionId, newRevealTime, reason, operatorId)),
+    [commit, operatorId]
+  );
+
+  const cancelRevealCb = useCallback(
+    (sessionId: string, reason: string) => commit((prev) => cancelReveal(prev, sessionId, reason, operatorId)),
+    [commit, operatorId]
+  );
+
+  const createCheckInRecordsCb = useCallback(
+    (sessionId: string) => commit((prev) => createCheckInRecords(prev, sessionId, operatorId)),
+    [commit, operatorId]
+  );
+
+  const updateCheckInStatusCb = useCallback(
+    (params: any) => {
+      let res: any;
+      commit((prev) => {
+        const out = updateCheckInStatus(prev, { ...params, operatorId: params.operatorId || operatorId });
+        res = out;
+        return out.state;
+      });
+      return res;
+    },
+    [commit, operatorId]
+  );
+
+  const checkInStaffCb = useCallback(
+    (sessionId: string, crewId: string) => commit((prev) => checkInStaff(prev, sessionId, crewId, operatorId)),
+    [commit, operatorId]
+  );
+
+  const requestEmergencyIdentityAccessCb = useCallback(
+    (params: any) => {
+      let res: any;
+      commit((prev) => {
+        const out = requestEmergencyIdentityAccess(prev, { ...params, operatorId: params.operatorId || operatorId });
+        res = out;
+        return out.state;
+      });
+      return res;
+    },
+    [commit, operatorId]
+  );
+
+  const closeEmergencyIdentityAccessCb = useCallback(
+    (logId: string) => commit((prev) => closeEmergencyIdentityAccess(prev, logId, operatorId)),
+    [commit, operatorId]
+  );
+
   /* ------------------------ incident / signal helpers ------------------------ */
 
   const addIncident = useCallback((i: Incident) => {
@@ -605,6 +783,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       rejectRefund: rejectRefundCb,
       completeRefund: completeRefundCb,
       reconcilePayment: reconcilePaymentCb,
+      createIdentityPattern: createIdentityPatternCb,
+      generateTemporaryIdentities: generateTemporaryIdentitiesCb,
+      lockTemporaryIdentities: lockTemporaryIdentitiesCb,
+      revokeTemporaryIdentity: revokeTemporaryIdentityCb,
+      createTeams: createTeamsCb,
+      allocateTeamsRandomly: allocateTeamsRandomlyCb,
+      moveTeamParticipant: moveTeamParticipantCb,
+      swapTeamParticipants: swapTeamParticipantsCb,
+      lockTeams: lockTeamsCb,
+      unlockTeamsWithOverride: unlockTeamsWithOverrideCb,
+      triggerReveal: triggerRevealCb,
+      delayReveal: delayRevealCb,
+      cancelReveal: cancelRevealCb,
+      createCheckInRecords: createCheckInRecordsCb,
+      updateCheckInStatus: updateCheckInStatusCb,
+      checkInStaff: checkInStaffCb,
+      requestEmergencyIdentityAccess: requestEmergencyIdentityAccessCb,
+      closeEmergencyIdentityAccess: closeEmergencyIdentityAccessCb,
       addIncident,
       updateIncident,
       addSignal,
@@ -689,6 +885,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     rejectRefundCb,
     completeRefundCb,
     reconcilePaymentCb,
+    createIdentityPatternCb,
+    generateTemporaryIdentitiesCb,
+    lockTemporaryIdentitiesCb,
+    revokeTemporaryIdentityCb,
+    createTeamsCb,
+    allocateTeamsRandomlyCb,
+    moveTeamParticipantCb,
+    swapTeamParticipantsCb,
+    lockTeamsCb,
+    unlockTeamsWithOverrideCb,
+    triggerRevealCb,
+    delayRevealCb,
+    cancelRevealCb,
+    createCheckInRecordsCb,
+    updateCheckInStatusCb,
+    checkInStaffCb,
+    requestEmergencyIdentityAccessCb,
+    closeEmergencyIdentityAccessCb,
     addIncident,
     updateIncident,
     addSignal,

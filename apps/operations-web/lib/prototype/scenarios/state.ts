@@ -19,7 +19,13 @@ import type {
   DayPoint,
   PromoCode,
   Payment,
-  Refund
+  Refund,
+  TemporaryIdentity,
+  IdentityPattern,
+  Team,
+  TeamAssignment,
+  CheckInRecord,
+  EmergencyAccessLog
 } from "../entities";
 
 export interface PrototypeState {
@@ -35,6 +41,12 @@ export interface PrototypeState {
   bookings: Booking[];
   payments: Payment[];
   refunds: Refund[];
+  temporaryIdentities: TemporaryIdentity[];
+  identityPatterns: IdentityPattern[];
+  teams: Team[];
+  teamAssignments: TeamAssignment[];
+  checkInRecords: CheckInRecord[];
+  emergencyAccessLogs: EmergencyAccessLog[];
   crew: CrewMember[];
   shifts: Shift[];
   tournaments: Tournament[];

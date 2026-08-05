@@ -12,7 +12,11 @@ export interface OperationsAlert {
     | "payment-failure-spike"
     | "below-breakeven"
     | "crew-shortage"
-    | "revenue-risk";
+    | "revenue-risk"
+    | "identity-generation-incomplete"
+    | "unassigned-participants"
+    | "reveal-blocked"
+    | "checkin-below-minimum";
   title: string;
   trigger: string;
   evidence: string;

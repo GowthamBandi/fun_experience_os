@@ -16,6 +16,12 @@ import type {
   BookingSource,
   Payment,
   Refund,
+  IdentityPattern,
+  TemporaryIdentity,
+  Team,
+  TeamAssignment,
+  CheckInRecord,
+  EmergencyAccessLog,
   CrewMember,
   Shift,
   Tournament,
@@ -1394,3 +1400,232 @@ export const SEED_REFUNDS: Refund[] = [
     updatedAt: "Yesterday, 14:10"
   }
 ];
+
+export const SEED_IDENTITY_PATTERNS: IdentityPattern[] = [
+  {
+    id: "pat-cr",
+    name: "Cricket Standard",
+    prefix: "CR",
+    separator: "-",
+    numberLength: 2,
+    aliasStyle: "StrikeMaster",
+    example: "CR-07",
+    status: "active",
+    createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: "2026-01-01T00:00:00Z"
+  },
+  {
+    id: "pat-mx",
+    name: "Matrix Arena",
+    prefix: "MX",
+    separator: "-",
+    numberLength: 3,
+    aliasStyle: "CyberPulse",
+    example: "MX-014",
+    status: "active",
+    createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: "2026-01-01T00:00:00Z"
+  },
+  {
+    id: "pat-night",
+    name: "Night Owls",
+    prefix: "NIGHT",
+    separator: "-",
+    numberLength: 2,
+    aliasStyle: "NightRider",
+    example: "NIGHT-22",
+    status: "active",
+    createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: "2026-01-01T00:00:00Z"
+  },
+  {
+    id: "pat-ember",
+    name: "Ember League",
+    prefix: "Ember",
+    separator: "-",
+    numberLength: 2,
+    aliasStyle: "EmberFlame",
+    example: "Ember-05",
+    status: "active",
+    createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: "2026-01-01T00:00:00Z"
+  },
+  {
+    id: "pat-falcon",
+    name: "Falcon Squad",
+    prefix: "Falcon",
+    separator: "-",
+    numberLength: 2,
+    aliasStyle: "FalconWing",
+    example: "Falcon-12",
+    status: "active",
+    createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: "2026-01-01T00:00:00Z"
+  }
+];
+
+export const SEED_TEMPORARY_IDENTITIES: TemporaryIdentity[] = [
+  {
+    id: "tid-b-1",
+    sessionId: "s-1",
+    bookingId: "b-1",
+    participantAlias: "Rohan V.",
+    temporaryCode: "CR-01",
+    patternId: "pat-cr",
+    generationVersion: 1,
+    status: "locked",
+    generatedAt: "Today, 10:00",
+    lockedAt: "Today, 10:15",
+    updatedAt: "Today, 10:15"
+  },
+  {
+    id: "tid-b-2",
+    sessionId: "s-1",
+    bookingId: "b-2",
+    participantAlias: "Anita P.",
+    temporaryCode: "CR-02",
+    patternId: "pat-cr",
+    generationVersion: 1,
+    status: "locked",
+    generatedAt: "Today, 10:00",
+    lockedAt: "Today, 10:15",
+    updatedAt: "Today, 10:15"
+  },
+  {
+    id: "tid-b-3",
+    sessionId: "s-1",
+    bookingId: "b-3",
+    participantAlias: "Karan S.",
+    temporaryCode: "CR-03",
+    patternId: "pat-cr",
+    generationVersion: 1,
+    status: "locked",
+    generatedAt: "Today, 10:00",
+    lockedAt: "Today, 10:15",
+    updatedAt: "Today, 10:15"
+  },
+  {
+    id: "tid-b-4",
+    sessionId: "s-1",
+    bookingId: "b-4",
+    participantAlias: "Priya M.",
+    temporaryCode: "CR-04",
+    patternId: "pat-cr",
+    generationVersion: 1,
+    status: "locked",
+    generatedAt: "Today, 10:00",
+    lockedAt: "Today, 10:15",
+    updatedAt: "Today, 10:15"
+  }
+];
+
+export const SEED_TEAMS: Team[] = [
+  {
+    id: "team-s1-a",
+    sessionId: "s-1",
+    name: "Red Falcons",
+    code: "RF",
+    capacity: 6,
+    status: "locked",
+    lockedAt: "Today, 10:30",
+    createdAt: "Today, 10:00",
+    updatedAt: "Today, 10:30"
+  },
+  {
+    id: "team-s1-b",
+    sessionId: "s-1",
+    name: "Blue Vipers",
+    code: "BV",
+    capacity: 6,
+    status: "locked",
+    lockedAt: "Today, 10:30",
+    createdAt: "Today, 10:00",
+    updatedAt: "Today, 10:30"
+  }
+];
+
+export const SEED_TEAM_ASSIGNMENTS: TeamAssignment[] = [
+  {
+    id: "ta-b-1",
+    sessionId: "s-1",
+    teamId: "team-s1-a",
+    bookingId: "b-1",
+    temporaryIdentityId: "tid-b-1",
+    assignmentMethod: "random",
+    assignedAt: "Today, 10:20",
+    status: "active"
+  },
+  {
+    id: "ta-b-2",
+    sessionId: "s-1",
+    teamId: "team-s1-a",
+    bookingId: "b-2",
+    temporaryIdentityId: "tid-b-2",
+    assignmentMethod: "random",
+    assignedAt: "Today, 10:20",
+    status: "active"
+  },
+  {
+    id: "ta-b-3",
+    sessionId: "s-1",
+    teamId: "team-s1-b",
+    bookingId: "b-3",
+    temporaryIdentityId: "tid-b-3",
+    assignmentMethod: "random",
+    assignedAt: "Today, 10:20",
+    status: "active"
+  },
+  {
+    id: "ta-b-4",
+    sessionId: "s-1",
+    teamId: "team-s1-b",
+    bookingId: "b-4",
+    temporaryIdentityId: "tid-b-4",
+    assignmentMethod: "random",
+    assignedAt: "Today, 10:20",
+    status: "active"
+  }
+];
+
+export const SEED_CHECK_IN_RECORDS: CheckInRecord[] = [
+  {
+    id: "chk-b-1",
+    sessionId: "s-1",
+    bookingId: "b-1",
+    temporaryIdentityId: "tid-b-1",
+    status: "checked-in",
+    method: "qr-simulation",
+    checkedInAt: "Today, 18:45",
+    updatedAt: "Today, 18:45"
+  },
+  {
+    id: "chk-b-2",
+    sessionId: "s-1",
+    bookingId: "b-2",
+    temporaryIdentityId: "tid-b-2",
+    status: "checked-in",
+    method: "temp-id-search",
+    checkedInAt: "Today, 18:50",
+    updatedAt: "Today, 18:50"
+  },
+  {
+    id: "chk-b-3",
+    sessionId: "s-1",
+    bookingId: "b-3",
+    temporaryIdentityId: "tid-b-3",
+    status: "expected",
+    updatedAt: "Today, 18:00"
+  },
+  {
+    id: "chk-b-4",
+    sessionId: "s-1",
+    bookingId: "b-4",
+    temporaryIdentityId: "tid-b-4",
+    status: "late",
+    method: "manual-override",
+    markedLateAt: "Today, 19:10",
+    updatedAt: "Today, 19:10"
+  }
+];
+
+export const SEED_EMERGENCY_ACCESS_LOGS: EmergencyAccessLog[] = [];

@@ -475,6 +475,121 @@ export interface Refund {
   updatedAt: string;
 }
 
+/* ------------------------------------------------------------------
+ * SA-P2F: Temporary Identity, Team Formation, Reveal & Check-In
+ * ------------------------------------------------------------------ */
+
+export type TemporaryIdentityStatus =
+  | "not-generated"
+  | "generated"
+  | "locked"
+  | "revealed"
+  | "revoked";
+
+export interface TemporaryIdentity {
+  id: string;
+  sessionId: SessionId;
+  bookingId: BookingId;
+  participantAlias: string;
+  temporaryCode: string;
+  patternId: string;
+  generationVersion: number;
+  status: TemporaryIdentityStatus;
+  generatedAt: string;
+  regeneratedAt?: string;
+  lockedAt?: string;
+  revealedAt?: string;
+  revokedAt?: string;
+  revocationReason?: string;
+  createdBy?: string;
+  updatedAt: string;
+}
+
+export interface IdentityPattern {
+  id: string;
+  name: string;
+  prefix: string;
+  separator: string;
+  numberLength: number;
+  aliasStyle: string;
+  example: string;
+  status: "active" | "draft" | "deprecated";
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type TeamStatus = "draft" | "allocated" | "locked" | "revealed";
+
+export interface Team {
+  id: string;
+  sessionId: SessionId;
+  name: string;
+  code: string;
+  capacity: number;
+  status: TeamStatus;
+  lockedAt?: string;
+  revealedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type AssignmentMethod = "random" | "manual" | "balanced";
+export type TeamAssignmentStatus = "active" | "moved" | "removed";
+
+export interface TeamAssignment {
+  id: string;
+  sessionId: SessionId;
+  teamId: string;
+  bookingId: BookingId;
+  temporaryIdentityId?: string;
+  assignmentMethod: AssignmentMethod;
+  assignedAt: string;
+  movedAt?: string;
+  movedBy?: string;
+  reason?: string;
+  status: TeamAssignmentStatus;
+}
+
+export type CheckInStatus =
+  | "expected"
+  | "checked-in"
+  | "late"
+  | "no-show"
+  | "denied";
+
+export type CheckInMethod =
+  | "qr-simulation"
+  | "temp-id-search"
+  | "manual-override";
+
+export interface CheckInRecord {
+  id: string;
+  sessionId: SessionId;
+  bookingId: BookingId;
+  temporaryIdentityId?: string;
+  status: CheckInStatus;
+  method?: CheckInMethod;
+  checkedInAt?: string;
+  markedLateAt?: string;
+  markedNoShowAt?: string;
+  deniedAt?: string;
+  denialReason?: string;
+  handledBy?: string;
+  note?: string;
+  updatedAt: string;
+}
+
+export interface EmergencyAccessLog {
+  id: string;
+  sessionId?: SessionId;
+  bookingId?: BookingId;
+  operatorId: string;
+  reason: string;
+  requestedAt: string;
+  expiresAt: string;
+  status: "active" | "expired" | "closed";
+}
+
 export interface CrewMember {
   id: CrewId;
   territoryId: TerritoryId;

@@ -5,3 +5,8 @@ export * from "./bookings";
 export * from "./operations";
 export * from "./money";
 export * from "./catalog";
+export * from "./identity";
+export * from "./teams";
+export * from "./reveal";
+export * from "./checkIn";
+export * from "./emergencyAccess";
