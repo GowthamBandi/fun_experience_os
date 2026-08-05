@@ -326,32 +326,153 @@ export interface ScheduledSession {
   cancellationThreshold: number;
 }
 
+export type ReservationStatus =
+  | "none"
+  | "active"
+  | "offer-hold"
+  | "converted"
+  | "expired"
+  | "released";
+
+export type PaymentStatus =
+  | "none"
+  | "not-started"
+  | "pending"
+  | "initiated"
+  | "confirmed"
+  | "failed"
+  | "refund-pending"
+  | "refunded"
+  | "reconciled";
+
 export type BookingStatus =
   | "reserved"
   | "payment-pending"
   | "payment-confirmed"
   | "checked-in"
+  | "confirmed"
   | "payment-failed"
   | "reservation-expired"
+  | "waitlisted"
   | "waitlist-joined"
+  | "waitlist-offered"
   | "waitlist-promoted"
   | "complimentary"
   | "cancelled"
-  | "no-show";
+  | "cancelled-user"
+  | "cancelled-company"
+  | "no-show"
+  | "refund-pending"
+  | "refunded"
+  | "completed";
+
+export type BookingSource =
+  | "customer-app"
+  | "admin"
+  | "complimentary"
+  | "waitlist-promotion"
+  | "campaign";
+
+export type BookingType =
+  | "individual"
+  | "group"
+  | "complimentary"
+  | "admin";
 
 export interface Booking {
   id: BookingId;
+  bookingCode?: string;
   sessionId: SessionId;
+  participantId?: string;
   alias: string;
   phoneMask: string;
-  tempId: string;
-  amount: number;
+  tempId?: string;
+  source?: BookingSource;
+  bookingType?: BookingType;
+  reservationStatus?: ReservationStatus;
+  paymentStatus?: PaymentStatus;
   status: BookingStatus;
-  method: string;
-  createdAt: string;
+  amount: number;
+  discount?: number;
+  tax?: number;
+  platformFee?: number;
+  finalAmount?: number;
+  method?: string;
+  reservedAt?: string;
+  reservationExpiresAt?: string;
+  confirmedAt?: string;
+  cancelledAt?: string;
+  cancellationReason?: string;
   waitlistOrder?: number;
+  waitlistPosition?: number;
   waitlistOfferExpiresAt?: string;
+  checkedIn?: boolean;
+  noShow?: boolean;
+  createdAt: string;
+  updatedAt?: string;
+  createdBy?: string;
   team?: string;
+}
+
+export type PaymentRecordStatus =
+  | "initiated"
+  | "pending"
+  | "confirmed"
+  | "failed"
+  | "cancelled"
+  | "reconciled";
+
+export interface Payment {
+  id: string;
+  bookingId: BookingId;
+  sessionId: SessionId;
+  provider?: string;
+  providerReference?: string;
+  amount: number;
+  status: PaymentRecordStatus;
+  paymentMethod?: string;
+  initiatedAt: string;
+  confirmedAt?: string;
+  failedAt?: string;
+  failureReason?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type RefundType =
+  | "full"
+  | "partial"
+  | "company-cancellation"
+  | "user-cancellation"
+  | "duplicate-payment"
+  | "manual-adjustment";
+
+export type RefundStatus =
+  | "requested"
+  | "under-review"
+  | "approved"
+  | "processing"
+  | "completed"
+  | "failed"
+  | "rejected";
+
+export interface Refund {
+  id: string;
+  paymentId?: string;
+  bookingId: BookingId;
+  sessionId: SessionId;
+  type: RefundType;
+  amount: number;
+  reason: string;
+  status: RefundStatus;
+  requestedAt: string;
+  approvedAt?: string;
+  completedAt?: string;
+  failedAt?: string;
+  failureReason?: string;
+  approvedBy?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CrewMember {

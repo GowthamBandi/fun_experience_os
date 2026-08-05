@@ -17,7 +17,9 @@ import type {
   Signal,
   AuditEvent,
   DayPoint,
-  PromoCode
+  PromoCode,
+  Payment,
+  Refund
 } from "../entities";
 
 export interface PrototypeState {
@@ -31,6 +33,8 @@ export interface PrototypeState {
   templateVersions: TemplateVersion[];
   sessions: ScheduledSession[];
   bookings: Booking[];
+  payments: Payment[];
+  refunds: Refund[];
   crew: CrewMember[];
   shifts: Shift[];
   tournaments: Tournament[];

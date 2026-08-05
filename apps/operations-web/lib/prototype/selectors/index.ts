@@ -3,3 +3,7 @@ export * from "./lookups";
 export * from "./views";
 export * from "./geo";
 export * from "./catalog";
+export * from "./capacity";
+export * from "./intelligence";
+export * from "./bookings";
+export * from "./money";

@@ -29,7 +29,10 @@ export function generateTemporaryIds(state: PrototypeState, sessionId: string, o
   const missing = sessionBookings.filter((b) => !b.tempId && b.status !== "cancelled");
   if (missing.length === 0) return state;
 
-  let counter = tempIdNumber(sessionBookings.map((b) => b.tempId).filter(Boolean), format);
+  let counter = tempIdNumber(
+    sessionBookings.map((b) => b.tempId).filter((x): x is string => Boolean(x)),
+    format
+  );
   const ids: Record<string, string> = {};
   for (const b of missing) {
     ids[b.id] = nextTempId(format, counter);

@@ -366,3 +366,5 @@ export function validateTemplateForm(input: TemplateInput, state: PrototypeState
 
   return { issues, ready: !issues.some((i) => i.severity === "error") };
 }
+
+export * from "./bookingValidation";

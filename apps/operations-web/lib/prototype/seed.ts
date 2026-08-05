@@ -10,6 +10,12 @@ import type {
   ScheduledSession,
   Booking,
   BookingStatus,
+  ReservationStatus,
+  PaymentStatus,
+  BookingType,
+  BookingSource,
+  Payment,
+  Refund,
   CrewMember,
   Shift,
   Tournament,
@@ -1004,12 +1010,86 @@ const B = (
   alias: string,
   tempId: string,
   amount: number,
-  status: BookingStatus,
+  rawStatus: string,
   createdAt: string,
   method: string = "card",
   phoneMask: string = "•••• 12",
   waitlistOrder?: number
-): Booking => ({ id, sessionId, alias, phoneMask, tempId, amount, status, createdAt, method, ...(waitlistOrder ? { waitlistOrder } : {}) });
+): Booking => {
+  let status: BookingStatus = "confirmed";
+  let reservationStatus: ReservationStatus = "converted";
+  let paymentStatus: PaymentStatus = "confirmed";
+  let bookingType: BookingType = "individual";
+  let source: BookingSource = "customer-app";
+
+  if (rawStatus === "payment-confirmed" || rawStatus === "checked-in") {
+    status = "confirmed";
+    reservationStatus = "converted";
+    paymentStatus = "confirmed";
+  } else if (rawStatus === "payment-pending" || rawStatus === "reserved") {
+    status = "payment-pending";
+    reservationStatus = "active";
+    paymentStatus = "pending";
+  } else if (rawStatus === "payment-failed") {
+    status = "payment-failed";
+    reservationStatus = "released";
+    paymentStatus = "failed";
+  } else if (rawStatus === "reservation-expired") {
+    status = "reservation-expired";
+    reservationStatus = "expired";
+    paymentStatus = "not-started";
+  } else if (rawStatus === "waitlist-joined") {
+    status = "waitlisted";
+    reservationStatus = "none";
+    paymentStatus = "not-started";
+  } else if (rawStatus === "waitlist-offered") {
+    status = "waitlist-offered";
+    reservationStatus = "offer-hold";
+    paymentStatus = "not-started";
+  } else if (rawStatus === "complimentary") {
+    status = "confirmed";
+    reservationStatus = "converted";
+    paymentStatus = "confirmed";
+    bookingType = "complimentary";
+    source = "admin";
+  } else if (rawStatus === "cancelled") {
+    status = "cancelled-user";
+    reservationStatus = "released";
+    paymentStatus = "refunded";
+  }
+
+  const bookingCode = `BK-${id.toUpperCase().replace("-", "")}`;
+
+  return {
+    id,
+    bookingCode,
+    sessionId,
+    participantId: `usr-${alias.toLowerCase()}`,
+    alias,
+    phoneMask,
+    tempId,
+    source,
+    bookingType,
+    reservationStatus,
+    paymentStatus,
+    status,
+    amount,
+    discount: 0,
+    tax: Math.round(amount * 0.18),
+    platformFee: Math.round(amount * 0.05),
+    finalAmount: amount,
+    method,
+    reservedAt: createdAt,
+    confirmedAt: status === "confirmed" ? createdAt : undefined,
+    waitlistOrder,
+    waitlistPosition: waitlistOrder,
+    checkedIn: rawStatus === "checked-in",
+    noShow: false,
+    createdAt,
+    updatedAt: createdAt,
+    createdBy: source === "admin" ? "OP-SYS" : `usr-${alias.toLowerCase()}`
+  };
+};
 
 export const SEED_BOOKINGS: Booking[] = [
   // s-1 — Evening Box Cricket (live)
@@ -1276,4 +1356,41 @@ export const SEED_PROMOS: PromoCode[] = [
   { code: "MIDNIGHT50", label: "Late join · ₹50 off", discount: "₹50", status: "active" },
   { code: "DOUBLESUP", label: "Bring a friend · 15% off", discount: "15%", status: "active" },
   { code: "MONSOON", label: "Rainy night · 25% off", discount: "25%", status: "expired" }
+];
+
+export const SEED_PAYMENTS: Payment[] = SEED_BOOKINGS.filter(
+  (b) => b.paymentStatus === "confirmed" || b.paymentStatus === "pending" || b.paymentStatus === "failed"
+).map((b) => ({
+  id: `pay-${b.id}`,
+  bookingId: b.id,
+  sessionId: b.sessionId,
+  provider: "razorpay_sim",
+  providerReference: `pay_ref_${b.id}`,
+  amount: b.amount,
+  status: b.paymentStatus === "confirmed" ? "confirmed" : b.paymentStatus === "failed" ? "failed" : "pending",
+  paymentMethod: b.method || "card",
+  initiatedAt: b.createdAt,
+  confirmedAt: b.confirmedAt,
+  failedAt: b.paymentStatus === "failed" ? b.createdAt : undefined,
+  createdAt: b.createdAt,
+  updatedAt: b.createdAt
+}));
+
+export const SEED_REFUNDS: Refund[] = [
+  {
+    id: "ref-001",
+    paymentId: "pay-b-1",
+    bookingId: "b-1",
+    sessionId: "s-1",
+    type: "user-cancellation",
+    amount: 499,
+    reason: "Customer schedule conflict",
+    status: "completed",
+    requestedAt: "Yesterday, 14:00",
+    approvedAt: "Yesterday, 14:05",
+    completedAt: "Yesterday, 14:10",
+    approvedBy: "FIN-01",
+    createdAt: "Yesterday, 14:00",
+    updatedAt: "Yesterday, 14:10"
+  }
 ];

@@ -82,6 +82,19 @@ import {
   toggleTemplate as toggleTemplateCommand,
   simulateRefund,
   retryPayment,
+  createBookingReservation,
+  confirmBookingPayment,
+  failBookingPayment,
+  expireReservation,
+  joinWaitlist,
+  offerWaitlistSlot,
+  acceptWaitlistOffer,
+  expireWaitlistOffer,
+  initiateRefund,
+  approveRefund,
+  rejectRefund,
+  completeRefund,
+  reconcilePayment,
   pushAudit,
   pushSignal,
   type FranchiseInput,
@@ -194,6 +207,21 @@ interface StoreValue {
   toggleTemplate: (id: string) => void;
   simulateRefund: (transactionId: string) => void;
   retryPayment: (transactionId: string) => void;
+
+  // SA-P2E Operations Commands
+  createBookingReservation: (params: { sessionId: string; alias: string; phoneMask?: string; bookingType?: any; source?: any; amount?: number; operatorId?: string }) => { state: PrototypeState; booking?: Booking; error?: string };
+  confirmBookingPayment: (id: string, method?: string) => void;
+  failBookingPayment: (id: string, reason?: string) => void;
+  expireReservation: (id: string) => void;
+  joinWaitlist: (params: { sessionId: string; alias: string; phoneMask?: string; operatorId?: string }) => void;
+  offerWaitlistSlot: (sessionId: string, operatorId?: string) => void;
+  acceptWaitlistOffer: (bookingId: string, operatorId?: string) => void;
+  expireWaitlistOffer: (bookingId: string, operatorId?: string) => void;
+  initiateRefund: (params: { bookingId: string; amount: number; reason: string; type?: any; operatorId?: string }) => { state: PrototypeState; refund?: any; error?: string };
+  approveRefund: (refundId: string, operatorId?: string) => void;
+  rejectRefund: (refundId: string, reason?: string, operatorId?: string) => void;
+  completeRefund: (refundId: string, operatorId?: string) => void;
+  reconcilePayment: (paymentId: string, operatorId?: string) => void;
 
   // Incident / signal / audit helpers
   addIncident: (i: Incident) => void;
@@ -399,6 +427,45 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const simulateRefundCb = useCallback((transactionId: string) => commit((prev) => simulateRefund(prev, transactionId, operatorId)), [commit, operatorId]);
   const retryPaymentCb = useCallback((transactionId: string) => commit((prev) => retryPayment(prev, transactionId, operatorId)), [commit, operatorId]);
 
+  const createBookingReservationCb = useCallback(
+    (params: any) => {
+      let res: any;
+      commit((prev) => {
+        const out = createBookingReservation(prev, { ...params, operatorId: params.operatorId || operatorId });
+        res = out;
+        return out.state;
+      });
+      return res;
+    },
+    [commit, operatorId]
+  );
+
+  const confirmBookingPaymentCb = useCallback((id: string, method = "card") => commit((prev) => confirmBookingPayment(prev, id, method, operatorId)), [commit, operatorId]);
+  const failBookingPaymentCb = useCallback((id: string, reason?: string) => commit((prev) => failBookingPayment(prev, id, reason, operatorId)), [commit, operatorId]);
+  const expireReservationCb = useCallback((id: string) => commit((prev) => expireReservation(prev, id, operatorId)), [commit, operatorId]);
+  const joinWaitlistCb = useCallback((params: any) => commit((prev) => joinWaitlist(prev, { ...params, operatorId: params.operatorId || operatorId })), [commit, operatorId]);
+  const offerWaitlistSlotCb = useCallback((sessionId: string) => commit((prev) => offerWaitlistSlot(prev, sessionId, operatorId)), [commit, operatorId]);
+  const acceptWaitlistOfferCb = useCallback((bookingId: string) => commit((prev) => acceptWaitlistOffer(prev, bookingId, operatorId)), [commit, operatorId]);
+  const expireWaitlistOfferCb = useCallback((bookingId: string) => commit((prev) => expireWaitlistOffer(prev, bookingId, operatorId)), [commit, operatorId]);
+
+  const initiateRefundCb = useCallback(
+    (params: any) => {
+      let res: any;
+      commit((prev) => {
+        const out = initiateRefund(prev, { ...params, operatorId: params.operatorId || operatorId });
+        res = out;
+        return out.state;
+      });
+      return res;
+    },
+    [commit, operatorId]
+  );
+
+  const approveRefundCb = useCallback((refundId: string) => commit((prev) => approveRefund(prev, refundId, operatorId)), [commit, operatorId]);
+  const rejectRefundCb = useCallback((refundId: string, reason?: string) => commit((prev) => rejectRefund(prev, refundId, reason, operatorId)), [commit, operatorId]);
+  const completeRefundCb = useCallback((refundId: string) => commit((prev) => completeRefund(prev, refundId, operatorId)), [commit, operatorId]);
+  const reconcilePaymentCb = useCallback((paymentId: string) => commit((prev) => reconcilePayment(prev, paymentId, operatorId)), [commit, operatorId]);
+
   /* ------------------------ incident / signal helpers ------------------------ */
 
   const addIncident = useCallback((i: Incident) => {
@@ -525,6 +592,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       toggleTemplate: toggleTemplateCb,
       simulateRefund: simulateRefundCb,
       retryPayment: retryPaymentCb,
+      createBookingReservation: createBookingReservationCb,
+      confirmBookingPayment: confirmBookingPaymentCb,
+      failBookingPayment: failBookingPaymentCb,
+      expireReservation: expireReservationCb,
+      joinWaitlist: joinWaitlistCb,
+      offerWaitlistSlot: offerWaitlistSlotCb,
+      acceptWaitlistOffer: acceptWaitlistOfferCb,
+      expireWaitlistOffer: expireWaitlistOfferCb,
+      initiateRefund: initiateRefundCb,
+      approveRefund: approveRefundCb,
+      rejectRefund: rejectRefundCb,
+      completeRefund: completeRefundCb,
+      reconcilePayment: reconcilePaymentCb,
       addIncident,
       updateIncident,
       addSignal,
@@ -596,6 +676,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     toggleTemplateCb,
     simulateRefundCb,
     retryPaymentCb,
+    createBookingReservationCb,
+    confirmBookingPaymentCb,
+    failBookingPaymentCb,
+    expireReservationCb,
+    joinWaitlistCb,
+    offerWaitlistSlotCb,
+    acceptWaitlistOfferCb,
+    expireWaitlistOfferCb,
+    initiateRefundCb,
+    approveRefundCb,
+    rejectRefundCb,
+    completeRefundCb,
+    reconcilePaymentCb,
     addIncident,
     updateIncident,
     addSignal,
