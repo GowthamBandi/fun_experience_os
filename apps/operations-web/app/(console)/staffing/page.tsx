@@ -2,8 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
-import { repos } from "@/lib/data/mock";
-import type { CrewMember, Shift } from "@/lib/types";
+import { crewViews, sessionViews, venueName, LIVE_STATUSES, type CrewView } from "@/lib/prototype/repositories";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PermissionDenied } from "@/components/ui/panels";
 import { DataTable, type Column } from "@/components/ui/table";
@@ -13,28 +12,26 @@ import { Drawer } from "@/components/ui/overlays";
 import { Stagger, Item } from "@/components/motion/Motion";
 
 export default function StaffingPage() {
-  const { territory, canAccess } = useStore();
+  const { territory, canAccess, state } = useStore();
   const [query, setQuery] = useState("");
-  const [open, setOpen] = useState<CrewMember | null>(null);
+  const [open, setOpen] = useState<CrewView | null>(null);
 
   const crew = useMemo(
     () =>
-      repos.crew()
-        .filter((c) => c.territoryId === territory.id)
-        .filter((c) => !query || c.name.toLowerCase().includes(query.toLowerCase()) || c.role.toLowerCase().includes(query.toLowerCase())),
-    [territory.id, query],
+      crewViews(state, territory.id)
+        .filter((c) => !query || c.name.toLowerCase().includes(query.toLowerCase()) || c.roleName.toLowerCase().includes(query.toLowerCase())),
+    [state, territory.id, query],
   );
 
   if (!canAccess("/staffing")) return <PageFrame><PermissionDenied module="Staffing" /></PageFrame>;
 
-  const shiftFor = (id: string) => repos.shifts().find((s) => s.crewId === id);
-  const cover = (m: CrewMember): number => {
-    const missions = repos.sessions().filter((s) => s.territoryId === m.territoryId && (s.status === "live" || s.status === "closing"));
+  const cover = (m: CrewView): number => {
+    const missions = sessionViews(state, m.territoryId).filter((s) => LIVE_STATUSES.has(s.status));
     if (!missions.length) return 0;
     return Math.min(100, Math.round((missions.filter((s) => s.venueId === m.venueId).length / missions.length) * 100));
   };
 
-  const columns: Column<CrewMember>[] = [
+  const columns: Column<CrewView>[] = [
     {
       key: "name",
       header: "Crew",
@@ -45,9 +42,9 @@ export default function StaffingPage() {
         </div>
       ),
     },
-    { key: "role", header: "Role", render: (m) => <Badge className="border border-white/8 bg-white/4 text-ink-sec">{m.role.replace("-", " ")}</Badge> },
+    { key: "role", header: "Role", render: (m) => <Badge className="border border-white/8 bg-white/4 text-ink-sec">{m.roleName}</Badge> },
     { key: "shift", header: "Shift", render: (m) => {
-      const s = shiftFor(m.id);
+      const s = m.shift;
       return <span className="text-xs tabular text-ink-sec">{s ? `${s.from} → ${s.to} · ${s.zone}` : "—"}</span>;
     } },
     { key: "cover", header: "Cover", render: (m) => <span className="tabular text-ink-sec">{cover(m)}%</span> },
@@ -84,12 +81,12 @@ export default function StaffingPage() {
           <div className="space-y-4">
             <div className="flex items-center gap-2"><StatusChip value={open.status} /></div>
             {(() => {
-              const s = shiftFor(open.id) as Shift | undefined;
+              const s = open.shift;
               return s ? (
                 <div className="solid rounded-xl p-4">
                   <p className="overline">Tonight&apos;s shift</p>
-                  <p className="mt-1 text-sm tabular text-ink-lum">{s.from} → {s.to} · {s.venue}</p>
-                  <p className="text-xs text-ink-mut">{s.zone}</p>
+                  <p className="mt-1 text-sm tabular text-ink-lum">{s.from} → {s.to} · {s.zone}</p>
+                  <p className="text-xs text-ink-mut">{venueName(state, s.venueId)}</p>
                 </div>
               ) : null;
             })()}

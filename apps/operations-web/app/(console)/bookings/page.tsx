@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
-import { repos } from "@/lib/data/mock";
+import { bookingViews, sessionTitle } from "@/lib/prototype/repositories";
 import { inr } from "@/lib/format";
-import type { Booking, BookingStatus } from "@/lib/types";
+import type { BookingView } from "@/lib/prototype/repositories";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PermissionDenied } from "@/components/ui/panels";
 import { DataTable, type Column } from "@/components/ui/table";
@@ -12,15 +12,13 @@ import { FilterRail, SearchInput } from "@/components/ui/fields";
 import { StatusChip, Button } from "@/components/ui/primitives";
 import { Stagger, Item } from "@/components/motion/Motion";
 
-const STATUSES = ["confirmed", "checked-in", "cancelled", "no-show"] as const;
+const STATUSES = ["payment-confirmed", "checked-in", "cancelled", "no-show"] as const;
 
 export default function BookingsPage() {
-  const { territory, canAccess } = useStore();
+  const { territory, canAccess, state, strikeBooking } = useStore();
   const [status, setStatus] = useState<(typeof STATUSES)[number] | "all">("all");
   const [query, setQuery] = useState("");
-  const [bookings, setBookings] = useState(repos.bookings());
-
-  const sessionTitle = (id: string) => repos.sessions().find((s) => s.id === id)?.title ?? id;
+  const bookings = bookingViews(state, territory.id);
 
   const rows = useMemo(() => {
     return bookings
@@ -30,7 +28,7 @@ export default function BookingsPage() {
 
   if (!canAccess("/bookings")) return <PageFrame><PermissionDenied module="Bookings" /></PageFrame>;
 
-  const columns: Column<Booking>[] = [
+  const columns: Column<BookingView>[] = [
     {
       key: "alias",
       header: "Participant",
@@ -42,7 +40,7 @@ export default function BookingsPage() {
       ),
     },
     { key: "temp", header: "Temp ID", render: (b) => <span className="tabular text-ink-sec">{b.tempId}</span> },
-    { key: "mission", header: "Mission", render: (b) => <span className="text-ink-sec">{sessionTitle(b.sessionId)}</span> },
+    { key: "mission", header: "Mission", render: (b) => <span className="text-ink-sec">{b.sessionTitle}</span> },
     { key: "amount", header: "Paid", align: "right", render: (b) => <span className="tabular text-ink-lum">{inr(b.amount)}</span> },
     { key: "status", header: "Status", render: (b) => <StatusChip value={b.status} /> },
     {
@@ -50,8 +48,8 @@ export default function BookingsPage() {
       header: "",
       align: "right",
       render: (b) =>
-        b.status === "confirmed" ? (
-          <Button variant="lamp" className="h-8 px-3 text-xs" onClick={() => strike(b.id)}>
+        b.status === "payment-confirmed" ? (
+          <Button variant="lamp" className="h-8 px-3 text-xs" onClick={() => strikeBooking(b.id)}>
             Strike
           </Button>
         ) : (
@@ -59,9 +57,6 @@ export default function BookingsPage() {
         ),
     },
   ];
-
-  const strike = (id: string) =>
-    setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status: "checked-in" as BookingStatus } : b)));
 
   return (
     <PageFrame>

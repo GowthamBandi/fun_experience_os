@@ -1,18 +1,20 @@
 "use client";
 
 import { useStore } from "@/lib/store";
-import { repos } from "@/lib/data/mock";
+import { territoryViews, venueViews } from "@/lib/prototype/repositories";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PermissionDenied } from "@/components/ui/panels";
-import { StatusChip, Badge } from "@/components/ui/primitives";
+import { StatusChip, Badge, Button } from "@/components/ui/primitives";
 import { Stagger, Item } from "@/components/motion/Motion";
+import Link from "next/link";
+import { Plus, Building2 } from "lucide-react";
 
 export default function LocationsPage() {
-  const { operator, canAccess } = useStore();
+  const { operator, canAccess, state } = useStore();
 
   if (!canAccess("/locations")) return <PageFrame><PermissionDenied module="Locations" /></PageFrame>;
 
-  const territories = repos.territories();
+  const territories = territoryViews(state);
 
   return (
     <PageFrame>
@@ -20,11 +22,21 @@ export default function LocationsPage() {
         overline="Locations"
         title="The map"
         sub="Territories and their venues. Scope narrows to your territory; the map stays whole."
+        right={
+          canAccess("/locations/venues") ? (
+            <Link href="/locations/venues">
+              <Button variant="secondary">
+                <Building2 className="h-4 w-4" />
+                Manage venues
+              </Button>
+            </Link>
+          ) : undefined
+        }
       />
 
       <Stagger className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-2">
         {territories.map((t) => {
-          const venues = repos.venues().filter((v) => v.territoryId === t.id);
+          const venues = venueViews(state, t.id);
           const inScope = operator?.territoryId === t.id;
           return (
             <Item key={t.id}>
@@ -36,10 +48,14 @@ export default function LocationsPage() {
                   </div>
                   <Badge className="border border-white/8 bg-white/4 text-ink-sec">{t.fill}% fill</Badge>
                 </div>
-                <p className="mt-1 text-xs text-ink-mut">{t.code} · {t.venues} venues · {t.tonight} missions tonight</p>
+                <p className="mt-1 text-xs text-ink-mut">{t.code} · {t.venuesCount} venues · {t.tonight} missions tonight</p>
                 <div className="mt-4 space-y-1.5">
                   {venues.map((v) => (
-                    <div key={v.id} className="solid flex items-center justify-between rounded-xl px-3 py-2">
+                    <Link
+                      key={v.id}
+                      href={`/locations/venues/${v.id}`}
+                      className="solid flex items-center justify-between rounded-xl px-3 py-2 transition-colors hover:bg-white/4"
+                    >
                       <div className="min-w-0">
                         <p className="truncate text-sm text-ink-sec">{v.name}</p>
                         <p className="text-[11px] text-ink-mut">{v.areas.join(" · ")}</p>
@@ -48,7 +64,7 @@ export default function LocationsPage() {
                         <span className="text-[11px] tabular text-ink-mut">{v.utilization}% used</span>
                         <StatusChip value={v.status} />
                       </div>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               </div>

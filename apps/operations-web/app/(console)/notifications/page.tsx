@@ -1,18 +1,17 @@
 "use client";
 
 import { useStore } from "@/lib/store";
-import { repos } from "@/lib/data/mock";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PermissionDenied } from "@/components/ui/panels";
 import { StatusChip } from "@/components/ui/primitives";
 import { Stagger, Item } from "@/components/motion/Motion";
 
 export default function NotificationsPage() {
-  const { canAccess, markAllRead } = useStore();
+  const { canAccess, markAllRead, state } = useStore();
 
   if (!canAccess("/notifications")) return <PageFrame><PermissionDenied module="Notifications" /></PageFrame>;
 
-  const signals = repos.signals();
+  const signals = state.signals;
 
   return (
     <PageFrame>

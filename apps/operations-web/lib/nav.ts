@@ -18,8 +18,10 @@ export const NAV: NavItem[] = [
   { href: "/people", label: "People", keyword: "people participants safety incidents", roles: ["platform-owner", "super-admin", "regional-partner", "safety", "support", "finance"] },
   { href: "/money", label: "Money", keyword: "money payments refunds revenue finance", roles: ["platform-owner", "super-admin", "regional-partner", "city-manager", "finance"] },
   { href: "/tournaments", label: "Tournaments", keyword: "tournaments brackets knockout", roles: ["platform-owner", "super-admin", "regional-partner", "city-manager", "ops-manager", "coordinator"] },
+  { href: "/franchises", label: "Franchises", keyword: "franchises partners chains legal", roles: ["platform-owner", "super-admin", "regional-partner", "finance", "analyst"] },
+  { href: "/territories", label: "Territories", keyword: "territories regions scopes", roles: ["platform-owner", "super-admin", "regional-partner", "city-manager", "ops-manager", "analyst"] },
   { href: "/locations", label: "Locations", keyword: "locations venues arenas cities", roles: ["platform-owner", "super-admin", "regional-partner", "city-manager", "venue-manager"] },
-  { href: "/catalog", label: "Catalog", keyword: "catalog activities formats pricing", roles: ["platform-owner", "super-admin", "regional-partner", "city-manager", "marketing"] },
+  { href: "/catalog", label: "Catalog", keyword: "catalog activities formats pricing templates categories", roles: ["platform-owner", "super-admin", "regional-partner", "city-manager", "ops-manager", "venue-manager", "safety", "finance", "marketing", "analyst"] },
   { href: "/staffing", label: "Staffing", keyword: "staffing crew assignments", roles: ["platform-owner", "super-admin", "regional-partner", "city-manager", "ops-manager", "venue-manager"] },
   { href: "/notifications", label: "Notifications", keyword: "notifications alerts signals", roles: ["platform-owner", "super-admin", "regional-partner", "city-manager", "ops-manager", "marketing", "support"] },
   { href: "/analytics", label: "Analytics", keyword: "analytics reports insight data", roles: ["platform-owner", "super-admin", "regional-partner", "city-manager", "finance", "analyst"] },
@@ -28,5 +30,10 @@ export const NAV: NavItem[] = [
 
 export const navFor = (role: RoleId): NavItem[] => NAV.filter((n) => n.roles.includes(role));
 
-export const canAccess = (href: string, role: RoleId): boolean =>
-  NAV.find((n) => n.href === href)?.roles.includes(role) ?? false;
+/** Access check that resolves a page (incl. nested sub-routes) to its module in NAV. */
+export const canAccess = (href: string, role: RoleId): boolean => {
+  const exact = NAV.find((n) => n.href === href);
+  if (exact) return exact.roles.includes(role);
+  const section = NAV.find((n) => n.href.length > 1 && (href === n.href || href.startsWith(n.href + "/")));
+  return section?.roles.includes(role) ?? false;
+};

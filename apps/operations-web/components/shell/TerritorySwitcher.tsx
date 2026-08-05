@@ -3,16 +3,18 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Building2, Check } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { repos, TERRITORIES } from "@/lib/data/mock";
+import { territoryViews } from "@/lib/prototype/repositories";
 import { cn } from "@/lib/format";
 import { useClickOutside } from "@/lib/hooks";
 import { useState } from "react";
 
 /** The scope control — a territory is owned, not merely selected. */
 export function TerritorySwitcher({ collapsed }: { collapsed: boolean }) {
-  const { territory, switchTerritory } = useStore();
+  const { territory, switchTerritory, state } = useStore();
   const [open, setOpen] = useState(false);
   const ref = useClickOutside<HTMLDivElement>(() => setOpen(false));
+  const territories = territoryViews(state);
+  const active = territories.find((t) => t.id === territory.id);
 
   return (
     <div ref={ref} className="relative">
@@ -31,7 +33,7 @@ export function TerritorySwitcher({ collapsed }: { collapsed: boolean }) {
           <span className="min-w-0 flex-1">
             <span className="block truncate text-xs font-medium text-ink-lum">{territory.name}</span>
             <span className="block text-[11px] text-ink-mut">
-              {territory.tonight} tonight · {territory.fill}% fill
+              {active?.tonight ?? territory.tonight} tonight · {active?.fill ?? territory.fill}% fill
             </span>
           </span>
         )}
@@ -48,30 +50,29 @@ export function TerritorySwitcher({ collapsed }: { collapsed: boolean }) {
             role="listbox"
             aria-label="Territory"
           >
-            {TERRITORIES.map((t) => {
-              const venueCount = repos.venues().filter((v) => v.territoryId === t.id).length;
-              const active = t.id === territory.id;
+            {territories.map((t) => {
+              const isActive = t.id === territory.id;
               return (
                 <button
                   key={t.id}
                   role="option"
-                  aria-selected={active}
+                  aria-selected={isActive}
                   onClick={() => {
                     switchTerritory(t.id);
                     setOpen(false);
                   }}
                   className={cn(
                     "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors",
-                    active ? "bg-white/8" : "hover:bg-white/5",
+                    isActive ? "bg-white/8" : "hover:bg-white/5",
                   )}
                 >
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-xs font-medium text-ink-lum">{t.name}</span>
                     <span className="block text-[11px] text-ink-mut">
-                      {t.code} · {venueCount} arenas
+                      {t.code} · {t.venuesCount} arenas
                     </span>
                   </span>
-                  {active && <Check className="h-3.5 w-3.5 text-[#ffd28a]" />}
+                  {isActive && <Check className="h-3.5 w-3.5 text-[#ffd28a]" />}
                 </button>
               );
             })}

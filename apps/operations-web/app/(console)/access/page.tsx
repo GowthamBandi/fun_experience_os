@@ -1,29 +1,23 @@
 "use client";
 
 import { useStore } from "@/lib/store";
-import { repos } from "@/lib/data/mock";
+import { ROLES, operatorName } from "@/lib/data/mock";
 import { NAV } from "@/lib/nav";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PermissionDenied } from "@/components/ui/panels";
 import { Badge } from "@/components/ui/primitives";
 import { Stagger, Item } from "@/components/motion/Motion";
-import type { RoleId } from "@/lib/types";
-
-const AUDIT = [
-  { id: "a-1", at: "19:04", actor: "Noor Fatima", action: "switched scope to Hyderabad Central", target: "City Manager" },
-  { id: "a-2", at: "18:52", actor: "Ishaan Gupta", action: "viewed the ledger", target: "Money" },
-  { id: "a-3", at: "18:41", actor: "Aditya Rao", action: "granted finance read access", target: "Analytics" },
-  { id: "a-4", at: "18:12", actor: "Ravi Teja", action: "struck a booking at the door", target: "Bookings" },
-];
+import type { Role } from "@/lib/types";
 
 export default function AccessPage() {
-  const { canAccess, operator } = useStore();
+  const { canAccess, operator, state } = useStore();
 
   if (!canAccess("/access")) return <PageFrame><PermissionDenied module="Access" /></PageFrame>;
 
-  const roles = repos.roles();
+  const roles = ROLES;
   const chain = roles.filter((r) => r.kind === "chain");
   const functional = roles.filter((r) => r.kind === "functional");
+  const audits = state.audits;
 
   return (
     <PageFrame>
@@ -45,15 +39,15 @@ export default function AccessPage() {
         <Item>
           <p className="overline mb-3">Audit trail</p>
           <div className="solid overflow-hidden rounded-panel">
-            {AUDIT.map((a) => (
+            {audits.map((a) => (
               <div key={a.id} className="flex items-start justify-between gap-4 border-b border-white/4 px-4 py-3 last:border-0">
                 <div className="min-w-0">
                   <p className="text-sm text-ink-lum">
-                    <span className="font-medium">{a.actor}</span> <span className="text-ink-sec">{a.action}</span>
+                    <span className="font-medium">{operatorName(a.operatorId)}</span> <span className="text-ink-sec">{a.action}</span>
                   </p>
-                  <p className="mt-0.5 text-[11px] text-ink-mut">{a.target}</p>
+                  <p className="mt-0.5 text-[11px] text-ink-mut">{a.description}</p>
                 </div>
-                <span className="shrink-0 text-[11px] tabular text-ink-mut">{a.at}</span>
+                <span className="shrink-0 text-[11px] tabular text-ink-mut">{a.timestamp}</span>
               </div>
             ))}
           </div>
@@ -68,7 +62,7 @@ export default function AccessPage() {
   );
 }
 
-function AccessMatrix({ roles }: { roles: Array<{ id: RoleId; name: string; scope: string }> }) {
+function AccessMatrix({ roles }: { roles: Array<Pick<Role, "id" | "name" | "scope">> }) {
   return (
     <div className="solid overflow-x-auto rounded-panel">
       <table className="w-full min-w-[720px] text-sm">

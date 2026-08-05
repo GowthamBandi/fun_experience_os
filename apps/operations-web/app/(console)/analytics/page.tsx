@@ -1,7 +1,6 @@
 "use client";
 
 import { useStore } from "@/lib/store";
-import { repos } from "@/lib/data/mock";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PermissionDenied } from "@/components/ui/panels";
 import { Card, PanelHeader, Stat } from "@/components/ui/panels";
@@ -9,11 +8,11 @@ import { LineChart, Bars, Donut } from "@/components/ui/charts";
 import { Stagger, Item } from "@/components/motion/Motion";
 
 export default function AnalyticsPage() {
-  const { territory, canAccess } = useStore();
+  const { territory, canAccess, state } = useStore();
 
   if (!canAccess("/analytics")) return <PageFrame><PermissionDenied module="Analytics" /></PageFrame>;
 
-  const analytics = repos.analytics();
+  const analytics = state.analytics;
 
   const totalRevenue = analytics.reduce((a, d) => a + d.revenue, 0);
   const totalBookings = analytics.reduce((a, d) => a + d.bookings, 0);

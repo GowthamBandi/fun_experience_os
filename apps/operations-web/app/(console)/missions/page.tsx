@@ -2,9 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
-import { repos } from "@/lib/data/mock";
+import { sessionViews, bookingsForSession, venueName, type SessionView } from "@/lib/prototype/repositories";
 import { fillRate, inr } from "@/lib/format";
-import type { Session } from "@/lib/types";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PermissionDenied } from "@/components/ui/panels";
 import { DataTable, type Column } from "@/components/ui/table";
@@ -13,25 +12,23 @@ import { StatusChip, FillMeter, Button } from "@/components/ui/primitives";
 import { Drawer } from "@/components/ui/overlays";
 import { Stagger, Item } from "@/components/motion/Motion";
 
-const STATUSES = ["live", "closing", "open", "scheduled", "draft", "closed", "cancelled"] as const;
+const STATUSES = ["live", "check-in-open", "booking-open", "full", "scheduled", "draft", "cancelled"] as const;
 
 export default function MissionsPage() {
-  const { territory, canAccess } = useStore();
+  const { territory, canAccess, state } = useStore();
   const [status, setStatus] = useState<(typeof STATUSES)[number] | "all">("all");
   const [query, setQuery] = useState("");
-  const [openSession, setOpenSession] = useState<Session | null>(null);
+  const [openSession, setOpenSession] = useState<SessionView | null>(null);
 
   const rows = useMemo(() => {
-    return repos
-      .sessions()
-      .filter((s) => s.territoryId === territory.id)
+    return sessionViews(state, territory.id)
       .filter((s) => (status === "all" ? true : s.status === status))
       .filter((s) => !query || s.title.toLowerCase().includes(query.toLowerCase()));
-  }, [territory.id, status, query]);
+  }, [state, territory.id, status, query]);
 
   if (!canAccess("/missions")) return <PageFrame><PermissionDenied module="Missions" /></PageFrame>;
 
-  const columns: Column<Session>[] = [
+  const columns: Column<SessionView>[] = [
     {
       key: "title",
       header: "Mission",
@@ -102,19 +99,17 @@ function PageFrame({ children }: { children: React.ReactNode }) {
   return <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8">{children}</div>;
 }
 
-function SessionDetail({ session }: { session: Session }) {
-  const { territory } = useStore();
-  const [bookings, setBookings] = useState(
-    repos.bookings().filter((b) => b.sessionId === session.id),
-  );
-  const venue = repos.venues().find((v) => v.id === session.venueId);
+function SessionDetail({ session }: { session: SessionView }) {
+  const { territory, state, strikeBooking } = useStore();
+  const bookings = bookingsForSession(state, session.id);
+  const venue = venueName(state, session.venueId);
   const fill = fillRate(session.booked, session.capacity);
 
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3">
         <StatusChip value={session.status} />
-        <span className="text-xs text-ink-mut">{venue?.name ?? session.venueId}</span>
+        <span className="text-xs text-ink-mut">{venue}</span>
       </div>
       <div className="grid grid-cols-3 gap-3">
         <div className="solid rounded-xl p-3">
@@ -144,13 +139,11 @@ function SessionDetail({ session }: { session: Session }) {
               </div>
               <div className="flex items-center gap-2">
                 <StatusChip value={b.status} />
-                {b.status !== "checked-in" && (
+                {b.status === "payment-confirmed" && (
                   <Button
                     variant="lamp"
                     className="h-8 px-3 text-xs"
-                    onClick={() =>
-                      setBookings((prev) => prev.map((x) => (x.id === b.id ? { ...x, status: "checked-in" } : x)))
-                    }
+                    onClick={() => strikeBooking(b.id)}
                   >
                     Strike
                   </Button>

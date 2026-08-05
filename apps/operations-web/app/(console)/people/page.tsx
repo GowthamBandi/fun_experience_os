@@ -1,36 +1,33 @@
 "use client";
 
 import { useStore } from "@/lib/store";
-import { repos } from "@/lib/data/mock";
+import { incidentViews, bookingViews, type IncidentView, type BookingView } from "@/lib/prototype/repositories";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PermissionDenied } from "@/components/ui/panels";
 import { DataTable, type Column } from "@/components/ui/table";
 import { StatusChip } from "@/components/ui/primitives";
 import { Stagger, Item } from "@/components/motion/Motion";
-import type { Booking, Incident } from "@/lib/types";
 
 export default function PeoplePage() {
-  const { territory, canAccess } = useStore();
+  const { territory, canAccess, state } = useStore();
 
   if (!canAccess("/people")) return <PageFrame><PermissionDenied module="People & safety" /></PageFrame>;
 
-  const incidents = repos.incidents();
-  const bookings = repos.bookings();
+  const incidents = incidentViews(state);
+  const bookings = bookingViews(state, territory.id);
 
-  const sessionTitle = (id: string) => repos.sessions().find((s) => s.id === id)?.title ?? id;
-
-  const incidentColumns: Column<Incident>[] = [
+  const incidentColumns: Column<IncidentView>[] = [
     { key: "kind", header: "Signal", render: (i) => <span className="font-medium text-ink-lum">{i.kind}</span> },
-    { key: "mission", header: "Mission", render: (i) => <span className="text-ink-sec">{sessionTitle(i.sessionId)}</span> },
+    { key: "mission", header: "Mission", render: (i) => <span className="text-ink-sec">{i.sessionTitle}</span> },
     { key: "severity", header: "Weight", render: (i) => <StatusChip value={i.severity} /> },
     { key: "status", header: "Status", render: (i) => <StatusChip value={i.status} /> },
     { key: "at", header: "Reported", render: (i) => <span className="tabular text-ink-mut">{i.reportedAt}</span> },
   ];
 
-  const participantColumns: Column<Booking>[] = [
+  const participantColumns: Column<BookingView>[] = [
     { key: "alias", header: "Alias", render: (b) => <span className="font-medium text-ink-lum">{b.alias}</span> },
     { key: "temp", header: "Temp ID", render: (b) => <span className="tabular text-ink-sec">{b.tempId}</span> },
-    { key: "mission", header: "Mission", render: (b) => <span className="text-ink-sec">{sessionTitle(b.sessionId)}</span> },
+    { key: "mission", header: "Mission", render: (b) => <span className="text-ink-sec">{b.sessionTitle}</span> },
     { key: "phone", header: "Contact", render: (b) => <span className="tabular text-ink-mut">{b.phoneMask}</span> },
     { key: "status", header: "Status", render: (b) => <StatusChip value={b.status} /> },
   ];

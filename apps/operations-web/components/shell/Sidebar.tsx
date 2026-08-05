@@ -10,7 +10,9 @@ import {
   ChevronLeft,
   Compass,
   CreditCard,
+  Globe,
   Group,
+  Landmark,
   MapPin,
   Megaphone,
   ShieldCheck,
@@ -33,6 +35,8 @@ const ICONS: Record<string, typeof Compass> = {
   "/people": Users,
   "/money": Wallet,
   "/tournaments": Trophy,
+  "/franchises": Landmark,
+  "/territories": Globe,
   "/locations": MapPin,
   "/catalog": Store,
   "/staffing": Group,
@@ -77,7 +81,7 @@ export function Sidebar() {
       <nav className="mt-4 flex-1 space-y-0.5 overflow-y-auto px-3 pb-4" aria-label="Modules">
         {items.map((item, i) => {
           const Icon = ICONS[item.href] ?? Compass;
-          const active = pathname === item.href;
+          const active = pathname === item.href || (item.href.length > 1 && pathname.startsWith(item.href + "/"));
           return (
             <motion.div
               key={item.href}

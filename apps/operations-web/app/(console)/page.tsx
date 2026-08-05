@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, CalendarRange, ScanLine } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { repos } from "@/lib/data/mock";
+import { sessionViews, LIVE_STATUSES } from "@/lib/prototype/repositories";
 import { fillRate, inr } from "@/lib/format";
 import { Stagger, Item, Fade } from "@/components/motion/Motion";
 import { Card, PanelHeader, Stat } from "@/components/ui/panels";
@@ -12,16 +12,16 @@ import { StatusChip, FillMeter } from "@/components/ui/primitives";
 import { LineChart, Bars, Donut } from "@/components/ui/charts";
 
 export default function CommandPage() {
-  const { operator, territory } = useStore();
+  const { operator, territory, state } = useStore();
   const router = useRouter();
   const [struck, setStruck] = useState<string | null>(null);
 
-  const sessions = repos.sessions().filter((s) => s.territoryId === territory.id);
-  const analytics = repos.analytics();
-  const signals = repos.signals();
+  const sessions = sessionViews(state, territory.id);
+  const analytics = state.analytics;
+  const signals = state.signals;
 
   const tonight = sessions.filter((s) => s.date === "Today");
-  const live = sessions.filter((s) => s.status === "live" || s.status === "closing");
+  const live = sessions.filter((s) => LIVE_STATUSES.has(s.status));
   const take = tonight.reduce((a, s) => a + s.price * s.booked, 0);
   const booked = tonight.reduce((a, s) => a + s.booked, 0);
   const avgFill = tonight.length

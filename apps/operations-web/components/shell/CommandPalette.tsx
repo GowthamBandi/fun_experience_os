@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, Building2, Compass, Fingerprint } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { NAV } from "@/lib/nav";
-import { TERRITORIES } from "@/lib/data/mock";
+import { territoryViews } from "@/lib/prototype/repositories";
 import { useHotkey } from "@/lib/hooks";
 import { cn } from "@/lib/format";
 
@@ -20,7 +20,7 @@ interface Entry {
 }
 
 export function CommandPalette() {
-  const { paletteOpen, setPaletteOpen, role, switchRole, switchTerritory, markAllRead } = useStore();
+  const { paletteOpen, setPaletteOpen, role, switchTerritory, state } = useStore();
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [index, setIndex] = useState(0);
@@ -45,7 +45,7 @@ export function CommandPalette() {
       href: n.href,
       icon: Compass,
     }));
-    const territories: Entry[] = TERRITORIES.filter((t) => !q || t.name.toLowerCase().includes(q)).map((t) => ({
+    const territories: Entry[] = territoryViews(state).filter((t) => !q || t.name.toLowerCase().includes(q)).map((t) => ({
       kind: "territory",
       label: t.name,
       sub: `${t.tonight} missions tonight`,
@@ -64,7 +64,7 @@ export function CommandPalette() {
       },
     ];
     return [...pages, ...territories, ...roles];
-  }, [query, role.id, switchTerritory, setPaletteOpen]);
+  }, [query, role.id, switchTerritory, setPaletteOpen, state]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

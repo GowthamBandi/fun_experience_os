@@ -2,9 +2,8 @@
 
 import { useMemo } from "react";
 import { useStore } from "@/lib/store";
-import { repos } from "@/lib/data/mock";
+import { transactionViews, type TransactionView } from "@/lib/prototype/repositories";
 import { inr } from "@/lib/format";
-import type { Transaction } from "@/lib/types";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PermissionDenied } from "@/components/ui/panels";
 import { Card, Stat } from "@/components/ui/panels";
@@ -13,27 +12,25 @@ import { StatusChip, Badge } from "@/components/ui/primitives";
 import { Stagger, Item } from "@/components/motion/Motion";
 
 export default function MoneyPage() {
-  const { territory, canAccess } = useStore();
+  const { territory, canAccess, state } = useStore();
 
-  const tx = repos.transactions().filter((t) => t.territoryId === territory.id);
-  const promos = repos.promoCodes();
+  const tx = transactionViews(state, territory.id);
+  const promos = state.promoCodes;
 
   const settled = useMemo(() => tx.filter((t) => t.status === "settled" && t.amount > 0).reduce((a, t) => a + t.amount, 0), [tx]);
   const pending = useMemo(() => tx.filter((t) => t.status === "pending").reduce((a, t) => a + t.amount, 0), [tx]);
   const refunded = useMemo(() => tx.filter((t) => t.status === "settled" && t.amount < 0).reduce((a, t) => a + t.amount, 0), [tx]);
 
-  const sessionTitle = (id: string) => repos.sessions().find((s) => s.id === id)?.title ?? id;
-
   if (!canAccess("/money")) return <PageFrame><PermissionDenied module="Money" /></PageFrame>;
 
-  const columns: Column<Transaction>[] = [
+  const columns: Column<TransactionView>[] = [
     { key: "id", header: "Ref", render: (t) => <span className="tabular text-ink-sec">{t.id}</span> },
     {
       key: "detail",
       header: "Detail",
       render: (t) => (
         <div>
-          <p className="font-medium text-ink-lum">{sessionTitle(t.sessionId)}</p>
+          <p className="font-medium text-ink-lum">{t.sessionTitle}</p>
           <p className="text-[11px] text-ink-mut">{t.method} · {t.at}</p>
         </div>
       ),

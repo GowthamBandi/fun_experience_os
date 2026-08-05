@@ -8,6 +8,8 @@ import { useClickOutside } from "@/lib/hooks";
 import { cn } from "@/lib/format";
 import { statusTone } from "@/components/ui/primitives";
 
+import type { Signal } from "@/lib/prototype/entities";
+
 const KIND_ICON = {
   join: LogIn,
   strike: ScanLine,
@@ -17,7 +19,9 @@ const KIND_ICON = {
 } as const;
 
 export function SignalCenter() {
-  const { signals, unreadCount, setSignalOpen, signalOpen, markAllRead } = useStore();
+  const { state, setSignalOpen, signalOpen, markAllRead } = useStore();
+  const signals = state.signals;
+  const unreadCount = signals.filter((s) => !s.read).length;
   const ref = useClickOutside<HTMLDivElement>(() => setSignalOpen(false));
 
   return (
@@ -52,8 +56,8 @@ export function SignalCenter() {
               </button>
             </div>
             <div className="max-h-[380px] overflow-y-auto">
-              {signals.map((s, i) => {
-                const Icon = KIND_ICON[s.kind] ?? Bell;
+              {signals.map((s: Signal, i: number) => {
+                const Icon = KIND_ICON[s.kind as keyof typeof KIND_ICON] ?? Bell;
                 return (
                   <motion.div
                     key={s.id}

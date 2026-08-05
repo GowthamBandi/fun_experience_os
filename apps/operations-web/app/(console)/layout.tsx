@@ -14,12 +14,12 @@ export default function ConsoleLayout({ children }: { children: ReactNode }) {
   }, [hydrated, authed, router]);
 
   if (!hydrated) {
-    return <div className="dusk-field h-screen w-screen" aria-hidden />;
+    return <div className="dusk-field grain h-screen w-screen" aria-hidden />;
   }
 
   if (!authed) {
     return (
-      <div className="dusk-field flex h-screen items-center justify-center">
+      <div className="dusk-field grain flex h-screen items-center justify-center">
         <div className="tide w-48" />
       </div>
     );
