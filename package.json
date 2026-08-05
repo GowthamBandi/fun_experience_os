@@ -1,0 +1,12 @@
+{
+  "name": "experience-os-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Orchestration scripts for the Experience OS monorepo. No application dependencies live here.",
+  "scripts": {
+    "firebase:emulators": "firebase emulators:start --project demo-experience-os",
+    "firebase:emulators:exec": "firebase emulators:exec --project demo-experience-os",
+    "test:rules": "firebase emulators:exec --project demo-experience-os --only firestore \"npm --prefix firebase/firestore test\"",
+    "test:functions": "firebase emulators:exec --project demo-experience-os --only functions \"npm --prefix firebase/functions test\""
+  }
+}

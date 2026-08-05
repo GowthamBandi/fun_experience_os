@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Deny ALL reads and writes — no exceptions in this baseline.
+    // Auth, domain data, and role-based rules will be added in later phases.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

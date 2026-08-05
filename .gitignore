@@ -43,3 +43,18 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Next.js / Firebase — local environment secrets
+.env.local
+.env.*.local
+
+# Firebase emulator exports and debug logs
+*-debug.log
+firebase-export-*
+.firebase/
+
+# Firebase Functions build output
+firebase/functions/lib/
+
+# Node modules
+node_modules/
