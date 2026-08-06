@@ -35,7 +35,7 @@ const refundRate = (state: PrototypeState, sessionIds: Set<string>): number => {
 };
 
 const openIncidents = (state: PrototypeState, sessionIds: Set<string>) =>
-  state.incidents.filter((i) => sessionIds.has(i.sessionId) && !["resolved", "closed"].includes(i.status)).length;
+  state.incidents.filter((i) => i.sessionId && sessionIds.has(i.sessionId) && !["resolved", "closed"].includes(i.status as string)).length;
 
 const staffingHealth = (state: PrototypeState, territoryIds: Set<string>, venueIds?: Set<string>): number => {
   const crew = state.crew.filter((c) => territoryIds.has(c.territoryId) && (!venueIds || venueIds.has(c.venueId)));

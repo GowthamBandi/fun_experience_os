@@ -8,6 +8,11 @@ import { selectSessionSummary } from "@/lib/prototype/selectors/completion";
 import { sessionTitle } from "@/lib/prototype/selectors/lookups";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatusChip, Button } from "@/components/ui/primitives";
+import {
+  MissionWorkspaceHeader,
+  MissionStageNavigation,
+  MissionBackNavigation,
+} from "@/components/missions/shared";
 
 export default function SessionSummaryPage() {
   const params = useParams();
@@ -24,23 +29,22 @@ export default function SessionSummaryPage() {
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6 font-mono text-xs">
+      {/* Back button & Breadcrumbs */}
+      <MissionBackNavigation currentStageName="Final Summary" />
+
       <PageHeader
         overline={`Session Operations Summary · ${summary.session.id}`}
         title={`Operational Summary: ${sessionTitle(state, summary.session.id)}`}
         sub="Attendance totals, duration, match outcomes, revenue breakdown, staff attendance, equipment exceptions, and safety signals."
-        right={
-          <div className="flex items-center gap-2">
-            <StatusChip value={summary.lss.status} />
-            <Link href="/missions">
-              <Button variant="ghost" className="h-8 px-3 text-xs">
-                ← Missions Overview
-              </Button>
-            </Link>
-          </div>
-        }
       />
 
-      {/* Mandatory Snapshot Banner per Correction 15 */}
+      {/* Persistent global header */}
+      <MissionWorkspaceHeader />
+
+      {/* Progress navigation */}
+      <MissionStageNavigation />
+
+      {/* Mandatory Snapshot Banner */}
       <div className="bg-purple-950/60 border border-purple-800/80 p-3 rounded text-[11px] text-purple-300 italic font-medium flex items-center justify-between">
         <span>“Prototype completion snapshot — production reporting storage is not connected.”</span>
         <span className="font-mono text-[10px] text-purple-400 border border-purple-800 px-2 py-0.5 rounded font-bold">

@@ -130,6 +130,46 @@ import {
   addLiveOperationalNote,
   updateEquipmentStatus,
   completeLiveSession,
+  createTournament,
+  assignTournamentTeams,
+  generateSingleEliminationBracket,
+  publishTournament,
+  assignMatchReferee,
+  updateMatchReadiness,
+  startTournamentMatch,
+  pauseTournamentMatch,
+  resumeTournamentMatch,
+  confirmTournamentMatchResult,
+  verifyTournamentMatchResult,
+  correctTournamentMatchResult,
+  declareWalkover,
+  disqualifyTeam,
+  abandonMatch,
+  advanceVerifiedWinner,
+  completeTournament,
+  reportIncident,
+  acknowledgeIncident,
+  triageIncident,
+  assignInvestigator,
+  escalateIncident,
+  updateInvestigation,
+  resolveIncident,
+  closeIncident,
+  addEvidencePlaceholder,
+  createFollowUp,
+  submitDispute,
+  assignDisputeReviewer,
+  requestDisputeEvidence,
+  decideDispute,
+  closeDispute,
+  createModerationCase,
+  proposeModerationAction,
+  approveModerationAction,
+  rejectModerationAction,
+  revokeModerationAction,
+  recommendRefundException,
+  approveRefundException,
+  rejectRefundException,
   pushAudit,
   pushSignal,
   type FranchiseInput,
@@ -296,6 +336,56 @@ interface StoreValue {
   addLiveOperationalNote: (input: { sessionId: string; type: any; severity: any; note: string; relatedSegmentId?: string; followUpRequired?: boolean }, operatorId?: string) => { state: PrototypeState; note?: any; error?: string };
   updateEquipmentStatus: (params: { sessionId: string; equipmentId: string; status?: any; issuedCount?: number; missingCount?: number; damagedCount?: number; returnedCount?: number; note?: string; operatorId?: string }) => { state: PrototypeState; error?: string };
   completeLiveSession: (sessionId: string, overrideReason?: string, operatorId?: string) => { state: PrototypeState; error?: string };
+
+  // Tournament
+  createTournament: (params: any) => void;
+  assignTournamentTeams: (tournamentId: string, teamIds: string[]) => void;
+  generateSingleEliminationBracket: (tournamentId: string) => void;
+  publishTournament: (tournamentId: string) => void;
+  assignMatchReferee: (tournamentId: string, matchId: string, refereeId: string) => void;
+  updateMatchReadiness: (tournamentId: string, matchId: string, status: "scheduled" | "ready") => void;
+  startTournamentMatch: (tournamentId: string, matchId: string) => void;
+  pauseTournamentMatch: (tournamentId: string, matchId: string) => void;
+  resumeTournamentMatch: (tournamentId: string, matchId: string) => void;
+  confirmTournamentMatchResult: (params: any) => void;
+  verifyTournamentMatchResult: (tournamentId: string, matchId: string) => void;
+  correctTournamentMatchResult: (params: any) => void;
+  declareWalkover: (tournamentId: string, matchId: string, winnerTeamId: string, reason: string) => void;
+  disqualifyTeam: (tournamentId: string, teamId: string, reason: string) => void;
+  abandonMatch: (tournamentId: string, matchId: string, reason: string) => void;
+  advanceVerifiedWinner: (tournamentId: string, matchId: string) => void;
+  completeTournament: (tournamentId: string, winnerTeamId: string) => void;
+
+  // Safety
+  reportIncident: (params: any) => void;
+  acknowledgeIncident: (incidentId: string) => void;
+  triageIncident: (params: any) => void;
+  assignInvestigator: (incidentId: string, investigatorId: string) => void;
+  escalateIncident: (incidentId: string, reason: string) => void;
+  updateInvestigation: (incidentId: string, summary: string) => void;
+  resolveIncident: (incidentId: string, resolution: string) => void;
+  closeIncident: (incidentId: string, notes: string) => void;
+  addEvidencePlaceholder: (params: any) => void;
+  createFollowUp: (incidentId: string, followUpOwnerId: string, dueAt: string) => void;
+
+  // Disputes
+  submitDispute: (params: any) => void;
+  assignDisputeReviewer: (disputeId: string, reviewerId: string) => void;
+  requestDisputeEvidence: (disputeId: string) => void;
+  decideDispute: (params: any) => void;
+  closeDispute: (disputeId: string) => void;
+
+  // Moderation
+  createModerationCase: (params: any) => void;
+  proposeModerationAction: (params: any) => void;
+  approveModerationAction: (actionId: string) => void;
+  rejectModerationAction: (actionId: string, reason: string) => void;
+  revokeModerationAction: (actionId: string, reason: string) => void;
+
+  // Refund Exceptions
+  recommendRefundException: (params: any) => void;
+  approveRefundException: (exceptionId: string) => void;
+  rejectRefundException: (exceptionId: string, reason: string) => void;
 
   // Incident / signal / audit helpers
   addIncident: (i: Incident) => void;
@@ -903,6 +993,56 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [commit, operatorId]
   );
 
+  // Tournament Callbacks
+  const createTournamentCb = useCallback((params: any) => commit((prev) => createTournament(prev, params, operatorId)), [commit, operatorId]);
+  const assignTournamentTeamsCb = useCallback((tournamentId: string, teamIds: string[]) => commit((prev) => assignTournamentTeams(prev, tournamentId, teamIds, operatorId)), [commit, operatorId]);
+  const generateSingleEliminationBracketCb = useCallback((tournamentId: string) => commit((prev) => generateSingleEliminationBracket(prev, tournamentId, operatorId)), [commit, operatorId]);
+  const publishTournamentCb = useCallback((tournamentId: string) => commit((prev) => publishTournament(prev, tournamentId, operatorId)), [commit, operatorId]);
+  const assignMatchRefereeCb = useCallback((tournamentId: string, matchId: string, refereeId: string) => commit((prev) => assignMatchReferee(prev, tournamentId, matchId, refereeId, operatorId)), [commit, operatorId]);
+  const updateMatchReadinessCb = useCallback((tournamentId: string, matchId: string, status: "scheduled" | "ready") => commit((prev) => updateMatchReadiness(prev, tournamentId, matchId, status, operatorId)), [commit, operatorId]);
+  const startTournamentMatchCb = useCallback((tournamentId: string, matchId: string) => commit((prev) => startTournamentMatch(prev, tournamentId, matchId, operatorId)), [commit, operatorId]);
+  const pauseTournamentMatchCb = useCallback((tournamentId: string, matchId: string) => commit((prev) => pauseTournamentMatch(prev, tournamentId, matchId, operatorId)), [commit, operatorId]);
+  const resumeTournamentMatchCb = useCallback((tournamentId: string, matchId: string) => commit((prev) => resumeTournamentMatch(prev, tournamentId, matchId, operatorId)), [commit, operatorId]);
+  const confirmTournamentMatchResultCb = useCallback((params: any) => commit((prev) => confirmTournamentMatchResult(prev, params, operatorId)), [commit, operatorId]);
+  const verifyTournamentMatchResultCb = useCallback((tournamentId: string, matchId: string) => commit((prev) => verifyTournamentMatchResult(prev, tournamentId, matchId, operatorId)), [commit, operatorId]);
+  const correctTournamentMatchResultCb = useCallback((params: any) => commit((prev) => correctTournamentMatchResult(prev, params, operatorId)), [commit, operatorId]);
+  const declareWalkoverCb = useCallback((tournamentId: string, matchId: string, winnerTeamId: string, reason: string) => commit((prev) => declareWalkover(prev, tournamentId, matchId, winnerTeamId, reason, operatorId)), [commit, operatorId]);
+  const disqualifyTeamCb = useCallback((tournamentId: string, teamId: string, reason: string) => commit((prev) => disqualifyTeam(prev, tournamentId, teamId, reason, operatorId)), [commit, operatorId]);
+  const abandonMatchCb = useCallback((tournamentId: string, matchId: string, reason: string) => commit((prev) => abandonMatch(prev, tournamentId, matchId, reason, operatorId)), [commit, operatorId]);
+  const advanceVerifiedWinnerCb = useCallback((tournamentId: string, matchId: string) => commit((prev) => advanceVerifiedWinner(prev, tournamentId, matchId, operatorId)), [commit, operatorId]);
+  const completeTournamentCb = useCallback((tournamentId: string, winnerTeamId: string) => commit((prev) => completeTournament(prev, tournamentId, winnerTeamId, operatorId)), [commit, operatorId]);
+
+  // Safety Callbacks
+  const reportIncidentCb = useCallback((params: any) => commit((prev) => reportIncident(prev, params, operatorId)), [commit, operatorId]);
+  const acknowledgeIncidentCb = useCallback((incidentId: string) => commit((prev) => acknowledgeIncident(prev, incidentId, operatorId)), [commit, operatorId]);
+  const triageIncidentCb = useCallback((params: any) => commit((prev) => triageIncident(prev, params, operatorId)), [commit, operatorId]);
+  const assignInvestigatorCb = useCallback((incidentId: string, investigatorId: string) => commit((prev) => assignInvestigator(prev, incidentId, investigatorId, operatorId)), [commit, operatorId]);
+  const escalateIncidentCb = useCallback((incidentId: string, reason: string) => commit((prev) => escalateIncident(prev, incidentId, reason, operatorId)), [commit, operatorId]);
+  const updateInvestigationCb = useCallback((incidentId: string, summary: string) => commit((prev) => updateInvestigation(prev, incidentId, summary, operatorId)), [commit, operatorId]);
+  const resolveIncidentCb = useCallback((incidentId: string, resolution: string) => commit((prev) => resolveIncident(prev, incidentId, resolution, operatorId)), [commit, operatorId]);
+  const closeIncidentCb = useCallback((incidentId: string, notes: string) => commit((prev) => closeIncident(prev, incidentId, notes, operatorId)), [commit, operatorId]);
+  const addEvidencePlaceholderCb = useCallback((params: any) => commit((prev) => addEvidencePlaceholder(prev, params, operatorId)), [commit, operatorId]);
+  const createFollowUpCb = useCallback((incidentId: string, followUpOwnerId: string, dueAt: string) => commit((prev) => createFollowUp(prev, incidentId, followUpOwnerId, dueAt, operatorId)), [commit, operatorId]);
+
+  // Disputes Callbacks
+  const submitDisputeCb = useCallback((params: any) => commit((prev) => submitDispute(prev, params, operatorId)), [commit, operatorId]);
+  const assignDisputeReviewerCb = useCallback((disputeId: string, reviewerId: string) => commit((prev) => assignDisputeReviewer(prev, disputeId, reviewerId, operatorId)), [commit, operatorId]);
+  const requestDisputeEvidenceCb = useCallback((disputeId: string) => commit((prev) => requestDisputeEvidence(prev, disputeId, operatorId)), [commit, operatorId]);
+  const decideDisputeCb = useCallback((params: any) => commit((prev) => decideDispute(prev, params, operatorId)), [commit, operatorId]);
+  const closeDisputeCb = useCallback((disputeId: string) => commit((prev) => closeDispute(prev, disputeId, operatorId)), [commit, operatorId]);
+
+  // Moderation Callbacks
+  const createModerationCaseCb = useCallback((params: any) => commit((prev) => createModerationCase(prev, params, operatorId)), [commit, operatorId]);
+  const proposeModerationActionCb = useCallback((params: any) => commit((prev) => proposeModerationAction(prev, params, operatorId)), [commit, operatorId]);
+  const approveModerationActionCb = useCallback((actionId: string) => commit((prev) => approveModerationAction(prev, actionId, operatorId)), [commit, operatorId]);
+  const rejectModerationActionCb = useCallback((actionId: string, reason: string) => commit((prev) => rejectModerationAction(prev, actionId, reason, operatorId)), [commit, operatorId]);
+  const revokeModerationActionCb = useCallback((actionId: string, reason: string) => commit((prev) => revokeModerationAction(prev, actionId, reason, operatorId)), [commit, operatorId]);
+
+  // Refund Exceptions Callbacks
+  const recommendRefundExceptionCb = useCallback((params: any) => commit((prev) => recommendRefundException(prev, params, operatorId)), [commit, operatorId]);
+  const approveRefundExceptionCb = useCallback((exceptionId: string) => commit((prev) => approveRefundException(prev, exceptionId, operatorId)), [commit, operatorId]);
+  const rejectRefundExceptionCb = useCallback((exceptionId: string, reason: string) => commit((prev) => rejectRefundException(prev, exceptionId, reason, operatorId)), [commit, operatorId]);
+
   /* ------------------------ incident / signal helpers ------------------------ */
 
   const addIncident = useCallback((i: Incident) => {
@@ -1077,6 +1217,46 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addLiveOperationalNote: addLiveOperationalNoteCb,
       updateEquipmentStatus: updateEquipmentStatusCb,
       completeLiveSession: completeLiveSessionCb,
+      createTournament: createTournamentCb,
+      assignTournamentTeams: assignTournamentTeamsCb,
+      generateSingleEliminationBracket: generateSingleEliminationBracketCb,
+      publishTournament: publishTournamentCb,
+      assignMatchReferee: assignMatchRefereeCb,
+      updateMatchReadiness: updateMatchReadinessCb,
+      startTournamentMatch: startTournamentMatchCb,
+      pauseTournamentMatch: pauseTournamentMatchCb,
+      resumeTournamentMatch: resumeTournamentMatchCb,
+      confirmTournamentMatchResult: confirmTournamentMatchResultCb,
+      verifyTournamentMatchResult: verifyTournamentMatchResultCb,
+      correctTournamentMatchResult: correctTournamentMatchResultCb,
+      declareWalkover: declareWalkoverCb,
+      disqualifyTeam: disqualifyTeamCb,
+      abandonMatch: abandonMatchCb,
+      advanceVerifiedWinner: advanceVerifiedWinnerCb,
+      completeTournament: completeTournamentCb,
+      reportIncident: reportIncidentCb,
+      acknowledgeIncident: acknowledgeIncidentCb,
+      triageIncident: triageIncidentCb,
+      assignInvestigator: assignInvestigatorCb,
+      escalateIncident: escalateIncidentCb,
+      updateInvestigation: updateInvestigationCb,
+      resolveIncident: resolveIncidentCb,
+      closeIncident: closeIncidentCb,
+      addEvidencePlaceholder: addEvidencePlaceholderCb,
+      createFollowUp: createFollowUpCb,
+      submitDispute: submitDisputeCb,
+      assignDisputeReviewer: assignDisputeReviewerCb,
+      requestDisputeEvidence: requestDisputeEvidenceCb,
+      decideDispute: decideDisputeCb,
+      closeDispute: closeDisputeCb,
+      createModerationCase: createModerationCaseCb,
+      proposeModerationAction: proposeModerationActionCb,
+      approveModerationAction: approveModerationActionCb,
+      rejectModerationAction: rejectModerationActionCb,
+      revokeModerationAction: revokeModerationActionCb,
+      recommendRefundException: recommendRefundExceptionCb,
+      approveRefundException: approveRefundExceptionCb,
+      rejectRefundException: rejectRefundExceptionCb,
       addIncident,
       updateIncident,
       addSignal,
@@ -1196,6 +1376,46 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     addLiveOperationalNoteCb,
     updateEquipmentStatusCb,
     completeLiveSessionCb,
+    createTournamentCb,
+    assignTournamentTeamsCb,
+    generateSingleEliminationBracketCb,
+    publishTournamentCb,
+    assignMatchRefereeCb,
+    updateMatchReadinessCb,
+    startTournamentMatchCb,
+    pauseTournamentMatchCb,
+    resumeTournamentMatchCb,
+    confirmTournamentMatchResultCb,
+    verifyTournamentMatchResultCb,
+    correctTournamentMatchResultCb,
+    declareWalkoverCb,
+    disqualifyTeamCb,
+    abandonMatchCb,
+    advanceVerifiedWinnerCb,
+    completeTournamentCb,
+    reportIncidentCb,
+    acknowledgeIncidentCb,
+    triageIncidentCb,
+    assignInvestigatorCb,
+    escalateIncidentCb,
+    updateInvestigationCb,
+    resolveIncidentCb,
+    closeIncidentCb,
+    addEvidencePlaceholderCb,
+    createFollowUpCb,
+    submitDisputeCb,
+    assignDisputeReviewerCb,
+    requestDisputeEvidenceCb,
+    decideDisputeCb,
+    closeDisputeCb,
+    createModerationCaseCb,
+    proposeModerationActionCb,
+    approveModerationActionCb,
+    rejectModerationActionCb,
+    revokeModerationActionCb,
+    recommendRefundExceptionCb,
+    approveRefundExceptionCb,
+    rejectRefundExceptionCb,
     addIncident,
     updateIncident,
     addSignal,

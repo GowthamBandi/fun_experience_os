@@ -4,16 +4,20 @@ import { useStore } from "@/lib/store";
 import { tournamentViews, type TournamentView } from "@/lib/prototype/repositories";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PermissionDenied } from "@/components/ui/panels";
-import { StatusChip, Badge } from "@/components/ui/primitives";
+import { StatusChip, Badge, Button } from "@/components/ui/primitives";
 import { Stagger, Item } from "@/components/motion/Motion";
+import Link from "next/link";
+import { Plus } from "lucide-react";
 
-const initials = (name: string) =>
+const initials = (name?: string) =>
   name
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+    ? name
+        .split(" ")
+        .map((w) => w[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase()
+    : "??";
 
 export default function TournamentsPage() {
   const { territory, canAccess, state } = useStore();
@@ -28,6 +32,14 @@ export default function TournamentsPage() {
         overline={`Tournaments · ${territory.name}`}
         title="The knockout"
         sub="Ladders, brackets and titles playing out across the territory tonight."
+        right={
+          <Link href="/tournaments/new">
+            <Button className="gap-1.5">
+              <Plus className="h-4 w-4" />
+              Create Tournament
+            </Button>
+          </Link>
+        }
       />
 
       {tournaments.length === 0 ? (
@@ -49,7 +61,7 @@ export default function TournamentsPage() {
 }
 
 function BracketCard({ t }: { t: TournamentView }) {
-  const rounds = [...new Set(t.brackets.map((m) => m.round))];
+  const rounds = [...new Set(t.brackets.map((m) => m.round || m.roundLabel))];
   return (
     <div className="glass rounded-panel p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -63,6 +75,9 @@ function BracketCard({ t }: { t: TournamentView }) {
         <div className="flex items-center gap-2">
           <Badge className="border border-[#f7b955]/30 bg-[#f7b955]/10 text-[#ffd28a]">{t.venueName}</Badge>
           <Badge className="border border-white/8 bg-white/4 text-ink-sec">{t.phase}</Badge>
+          <Link href={`/tournaments/${t.id}`}>
+            <Button variant="secondary" className="h-7 text-xs px-2.5 rounded-lg">Workspace</Button>
+          </Link>
         </div>
       </div>
 

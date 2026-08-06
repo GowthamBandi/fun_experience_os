@@ -146,3 +146,22 @@ All 16 routes defined in the Next.js application have been inspected:
 - **Animation Ease**: All framer-motion elements and CSS transitions follow `cubic-bezier(0.19, 1, 0.22, 1)`.
 - **Reduced Motion**: Respects `prefers-reduced-motion` settings natively.
 - **Form Semantics**: Screen-reader friendly landmarks (`main`, `aria-label` for OTP fields).
+
+---
+
+## 7. Milestone SA-P2H — Tournaments, Safety, Disputes, Moderation & Refund Exceptions (2026-08-06)
+
+### Architecture
+- **Central State**: Added arrays for `tournamentMatches`, `evidenceItems`, `disputes`, `moderationCases`, `moderationActions`, `refundExceptions` in `PrototypeState`.
+- **Selectors**: Integrated new selectors for tournament details, progress, safety logs, triage queue, disputes log, moderation cases, and refund exception queue.
+- **Services**: Created tournament, safety, dispute, moderation, and refund exception service command suites.
+- **Role Scoping & Restrictions**: Gated role access policies for safety and moderation actions.
+
+### Interaction Validations
+- Verified tournament creation via `/tournaments/new` wizard.
+- Verified bracket rendering and match actions (scoring, walkovers, referee assignments) on `/tournaments/[id]`.
+- Verified safety log entry, triage, investigator assignment, and follow-up logging on `/safety`.
+- Verified dispute decision flow on `/safety`.
+- Verified moderation warning proposal and approval gates on `/safety` and `/people`.
+- Verified exception refund recommendation and finance approval workflows on `/safety` and `/money/refunds`.
+

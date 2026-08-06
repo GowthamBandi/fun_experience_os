@@ -10,7 +10,9 @@ import type {
   TemplateStatus,
   TerritoryId,
   Transaction,
-  VenueId
+  VenueId,
+  IncidentSeverity,
+  IncidentStatus
 } from "../entities";
 import type { PrototypeState } from "../scenarios";
 import {
@@ -229,11 +231,11 @@ export function transactionViews(state: PrototypeState, territoryId?: TerritoryI
 
 export interface IncidentView {
   id: string;
-  sessionId: SessionId;
+  sessionId?: SessionId;
   sessionTitle: string;
   kind: string;
-  severity: "low" | "medium" | "high";
-  status: string;
+  severity: IncidentSeverity;
+  status: IncidentStatus;
   reportedAt: string;
 }
 
@@ -241,11 +243,11 @@ export function incidentViews(state: PrototypeState): IncidentView[] {
   return state.incidents.map((i) => ({
     id: i.id,
     sessionId: i.sessionId,
-    sessionTitle: sessionTitle(state, i.sessionId),
-    kind: i.type,
-    severity: i.severity,
-    status: i.status,
-    reportedAt: i.time
+    sessionTitle: i.sessionId ? sessionTitle(state, i.sessionId) : "No linked session",
+    kind: i.category || i.type || "other",
+    severity: i.severity || "medium",
+    status: i.status || "reported",
+    reportedAt: i.reportedAt || i.time || "—"
   }));
 }
 
@@ -270,6 +272,7 @@ export function crewViews(state: PrototypeState, territoryId?: TerritoryId): Cre
 export interface TournamentView {
   id: string;
   title: string;
+  code?: string;
   territoryId: TerritoryId;
   venueName: string;
   format: string;
@@ -278,25 +281,40 @@ export interface TournamentView {
   phase: string;
   status: string;
   date: string;
-  brackets: Array<{ id: string; round: string; teamA: string; teamB: string; scoreA?: number; scoreB?: number; winner?: string; status: string }>;
+  brackets: Array<{ id: string; roundLabel?: string; round?: string; teamAId?: string; teamBId?: string; teamA?: string; teamB?: string; scoreA?: number; scoreB?: number; winnerTeamId?: string; winner?: string; status: string }>;
 }
 
 export function tournamentViews(state: PrototypeState, territoryId?: TerritoryId): TournamentView[] {
   const byTerritory = territoryId ? state.tournaments.filter((t) => t.territoryId === territoryId) : state.tournaments;
   return byTerritory.map((t) => {
-    const rounds = [...new Set(t.brackets.map((m) => m.round))];
+    const matches = state.tournamentMatches.filter((m) => m.tournamentId === t.id);
+    const rounds = [...new Set(matches.map((m) => m.roundLabel || m.round || `Round ${m.roundNumber}`))];
     return {
       id: t.id,
       title: t.name,
+      code: t.code,
       territoryId: t.territoryId,
       venueName: venueName(state, t.venueId),
       format: t.format.replace("-", " "),
-      teams: t.teamCount,
+      teams: t.teamIds?.length ?? (t as any).teamCount ?? 0,
       round: rounds[0] ?? "—",
-      phase: t.date,
+      phase: t.scheduledStart || (t as any).date || "—",
       status: t.status,
-      date: t.date,
-      brackets: t.brackets
+      date: t.scheduledStart || (t as any).date || "—",
+      brackets: matches.map((m) => ({
+        id: m.id,
+        roundLabel: m.roundLabel,
+        round: m.round || m.roundLabel,
+        teamAId: m.teamAId,
+        teamBId: m.teamBId,
+        teamA: m.teamA || m.teamAId,
+        teamB: m.teamB || m.teamBId,
+        scoreA: m.scoreA,
+        scoreB: m.scoreB,
+        winnerTeamId: m.winnerTeamId,
+        winner: m.winner || m.winnerTeamId,
+        status: m.status
+      }))
     };
   });
 }

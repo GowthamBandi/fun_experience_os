@@ -5,7 +5,7 @@ import { incidentViews, bookingViews, type IncidentView, type BookingView } from
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PermissionDenied } from "@/components/ui/panels";
 import { DataTable, type Column } from "@/components/ui/table";
-import { StatusChip } from "@/components/ui/primitives";
+import { StatusChip, Badge } from "@/components/ui/primitives";
 import { Stagger, Item } from "@/components/motion/Motion";
 
 export default function PeoplePage() {
@@ -30,6 +30,25 @@ export default function PeoplePage() {
     { key: "mission", header: "Mission", render: (b) => <span className="text-ink-sec">{b.sessionTitle}</span> },
     { key: "phone", header: "Contact", render: (b) => <span className="tabular text-ink-mut">{b.phoneMask}</span> },
     { key: "status", header: "Status", render: (b) => <StatusChip value={b.status} /> },
+    {
+      key: "safety",
+      header: "Safety & Restriction",
+      render: (b) => {
+        const activeActions = (state.moderationActions ?? []).filter(
+          (a) =>
+            a.status === "active" &&
+            (a.subjectTemporaryId === b.tempId || a.subjectPersonId === b.tempId || a.subjectTemporaryId === b.alias)
+        );
+        if (activeActions.length > 0) {
+          return (
+            <Badge className="bg-danger/10 border border-danger/30 text-danger text-[10px] py-0.5 px-1.5 rounded">
+              ⚠️ Restricted
+            </Badge>
+          );
+        }
+        return <span className="text-xs text-[#12b76a]">✅ Clear</span>;
+      }
+    }
   ];
 
   return (

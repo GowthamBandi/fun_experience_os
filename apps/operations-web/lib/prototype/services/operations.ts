@@ -148,13 +148,11 @@ export function updateMatchScore(
 ): PrototypeState {
   const next: PrototypeState = {
     ...state,
-    tournaments: state.tournaments.map((t) => {
-      if (t.id !== tournamentId) return t;
-      return {
-        ...t,
-        brackets: t.brackets.map((m) => (m.id === matchId ? { ...m, scoreA, scoreB, winner, status } : m))
-      };
-    })
+    tournamentMatches: state.tournamentMatches.map((m) =>
+      m.id === matchId && m.tournamentId === tournamentId
+        ? { ...m, scoreA, scoreB, winnerTeamId: winner, winner, status }
+        : m
+    )
   };
   return pushAudit(next, {
     action: "Match Score Submitted",

@@ -375,30 +375,26 @@ export const applyScenario = (name: string, state: PrototypeState): PrototypeSta
 
     case "Tournament Day": {
       next.tournaments = next.tournaments.map((t) => {
-        if (t.id === "tr-1") {
-          return {
-            ...t,
-            status: "live" as const,
-            brackets: [
-              { id: "m-1", tournamentId: "tr-1", round: "Semi-finals", teamA: "Ravi's XI", teamB: "Midnight Drive", scoreA: 74, scoreB: 68, winner: "Ravi's XI", status: "completed" as const, refereeId: "op-5" },
-              { id: "m-2", tournamentId: "tr-1", round: "Semi-finals", teamA: "Net Runners", teamB: "Smash Order", scoreA: 82, scoreB: 79, winner: "Net Runners", status: "completed" as const, refereeId: "op-5" },
-              { id: "m-5", tournamentId: "tr-1", round: "Final", teamA: "Ravi's XI", teamB: "Net Runners", status: "live" as const, refereeId: "op-5" }
-            ]
-          };
-        }
-        if (t.id === "tr-2") {
-          return {
-            ...t,
-            brackets: [
-              { id: "m-3", tournamentId: "tr-2", round: "Semi-finals", teamA: "Smash Order", teamB: "Net Kings", scoreA: 21, scoreB: 14, winner: "Smash Order", status: "completed" as const, refereeId: "op-7" },
-              { id: "m-4", tournamentId: "tr-2", round: "Semi-finals", teamA: "Featherstorm", teamB: "Backline", scoreA: 21, scoreB: 18, winner: "Featherstorm", status: "completed" as const, refereeId: "op-7" },
-              { id: "m-6", tournamentId: "tr-2", round: "Final", teamA: "Smash Order", teamB: "Featherstorm", status: "live" as const, refereeId: "op-7" }
-            ]
-          };
-        }
+        if (t.id === "tr-1") return { ...t, status: "live" as const };
         return t;
       });
-      next.signals.unshift(signal("system", "TOURNAMENT DAY: Finals live — Ravi's XI vs Net Runners, Smash Order vs Featherstorm.", "s-10"));
+      next.tournamentMatches = next.tournamentMatches.map((m) => {
+        if (m.id === "m-1") return { ...m, scoreA: 74, scoreB: 68, winnerTeamId: "Ravi's XI", winner: "Ravi's XI", status: "completed" as const, resultType: "score" as const, startedAt: "Today, 14:00", endedAt: "Today, 14:35", verifiedAt: "Today, 14:37", verifiedBy: "op-5" };
+        if (m.id === "m-2") return { ...m, scoreA: 82, scoreB: 79, winnerTeamId: "Net Runners", winner: "Net Runners", status: "completed" as const, resultType: "score" as const, startedAt: "Today, 14:40", endedAt: "Today, 15:10", verifiedAt: "Today, 15:12", verifiedBy: "op-5" };
+        if (m.id === "m-5") return { ...m, teamAId: "Ravi's XI", teamBId: "Net Runners", teamA: "Ravi's XI", teamB: "Net Runners", status: "live" as const, startedAt: "Today, 15:20" };
+        return m;
+      });
+
+      // tr-2 already live from seed, just update match results
+      next.tournamentMatches = next.tournamentMatches.map((m) => {
+        if (m.id === "m-3") return { ...m, scoreA: 21, scoreB: 14, winnerTeamId: "Smash Order", winner: "Smash Order", status: "completed" as const, resultType: "score" as const };
+        if (m.id === "m-4") return { ...m, scoreA: 21, scoreB: 18, winnerTeamId: "Featherstorm", winner: "Featherstorm", status: "completed" as const, resultType: "score" as const };
+        if (m.id === "m-6") return { ...m, teamAId: "Smash Order", teamBId: "Featherstorm", teamA: "Smash Order", teamB: "Featherstorm", status: "live" as const };
+        return m;
+      });
+
+      next.signals.unshift(signal("alert", "Tournament Day active — Badminton Masters Cup finals underway.", "s-6"));
+      next.signals.unshift(signal("strike", "Sunday Cricket Knockout bracket published — 4 teams ready.", "s-10"));
       next.audits.unshift(nowAudit(name));
       break;
     }

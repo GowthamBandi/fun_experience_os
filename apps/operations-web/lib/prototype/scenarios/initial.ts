@@ -31,7 +31,13 @@ import {
   SEED_SIGNALS,
   SEED_AUDITS,
   SEED_ANALYTICS,
-  SEED_PROMOS
+  SEED_PROMOS,
+  SEED_TOURNAMENT_MATCHES,
+  SEED_EVIDENCE_ITEMS,
+  SEED_DISPUTES,
+  SEED_MODERATION_CASES,
+  SEED_MODERATION_ACTIONS,
+  SEED_REFUND_EXCEPTIONS
 } from "../seed";
 import type { PrototypeState } from "./state";
 
@@ -64,8 +70,14 @@ export const getInitialState = (): PrototypeState => ({
   crew: [...SEED_CREW],
   shifts: [...SEED_SHIFTS],
   tournaments: [...SEED_TOURNAMENTS],
+  tournamentMatches: [...SEED_TOURNAMENT_MATCHES],
   transactions: [...SEED_TRANSACTIONS],
   incidents: [...SEED_INCIDENTS],
+  evidenceItems: [...SEED_EVIDENCE_ITEMS],
+  disputes: [...SEED_DISPUTES],
+  moderationCases: [...SEED_MODERATION_CASES],
+  moderationActions: [...SEED_MODERATION_ACTIONS],
+  refundExceptions: [...SEED_REFUND_EXCEPTIONS],
   signals: [...SEED_SIGNALS],
   audits: [...SEED_AUDITS],
   analytics: [...SEED_ANALYTICS],

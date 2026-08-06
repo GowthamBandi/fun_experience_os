@@ -35,7 +35,13 @@ export function validatePrototypeState(state: PrototypeState): ValidationIssue[]
     { name: "crew", ids: state.crew.map((x) => x.id) },
     { name: "shift", ids: state.shifts.map((x) => x.id) },
     { name: "tournament", ids: state.tournaments.map((x) => x.id) },
-    { name: "incident", ids: state.incidents.map((x) => x.id) }
+    { name: "tournament-match", ids: state.tournamentMatches.map((x) => x.id) },
+    { name: "incident", ids: state.incidents.map((x) => x.id) },
+    { name: "evidence-item", ids: state.evidenceItems.map((x) => x.id) },
+    { name: "dispute", ids: state.disputes.map((x) => x.id) },
+    { name: "moderation-case", ids: state.moderationCases.map((x) => x.id) },
+    { name: "moderation-action", ids: state.moderationActions.map((x) => x.id) },
+    { name: "refund-exception", ids: state.refundExceptions.map((x) => x.id) }
   ];
 
   /* 1 — duplicate IDs */
@@ -86,14 +92,17 @@ export function validatePrototypeState(state: PrototypeState): ValidationIssue[]
     if (!has(state.venues, sh.venueId)) missing(sh.id, "shift", sh.venueId, "venue");
   }
   for (const t of state.tournaments) {
-    if (!has(state.sessions, t.linkedSessionId)) missing(t.id, "tournament", t.linkedSessionId, "linked session");
+    const sessionId = t.sessionIds?.[0] || t.linkedSessionId;
+    if (sessionId && !has(state.sessions, sessionId)) missing(t.id, "tournament", sessionId, "linked session");
     if (!has(state.territories, t.territoryId)) missing(t.id, "tournament", t.territoryId, "territory");
     if (!has(state.venues, t.venueId)) missing(t.id, "tournament", t.venueId, "venue");
   }
-  for (const m of state.tournaments.flatMap((t) => t.brackets)) {
+  for (const m of state.tournamentMatches) {
     if (!has(state.tournaments, m.tournamentId)) missing(m.id, "match", m.tournamentId, "tournament");
   }
-  for (const i of state.incidents) if (!has(state.sessions, i.sessionId)) missing(i.id, "incident", i.sessionId, "session");
+  for (const i of state.incidents) {
+    if (i.sessionId && !has(state.sessions, i.sessionId)) missing(i.id, "incident", i.sessionId, "session");
+  }
 
   /* 3 — invalid city ↔ territory relationship */
   for (const c of state.cities) {
@@ -149,17 +158,18 @@ export function validatePrototypeState(state: PrototypeState): ValidationIssue[]
   }
 
   /* 8 — invalid tournament matches */
-  for (const t of state.tournaments) {
-    for (const m of t.brackets) {
-      if (m.teamA === m.teamB) {
-        issues.push(issue("error", "INVALID_MATCH", m.id, `Match ${m.id} has the same team on both sides ("${m.teamA}").`, m.id));
-      }
-      if (m.status === "completed" && m.winner && m.winner !== m.teamA && m.winner !== m.teamB) {
-        issues.push(issue("error", "INVALID_MATCH", m.id, `Match ${m.id} winner "${m.winner}" is not a participating team.`, m.id));
-      }
-      if (m.status === "completed" && (m.scoreA === undefined || m.scoreB === undefined)) {
-        issues.push(issue("warning", "INVALID_MATCH", m.id, `Match ${m.id} completed without a score.`, m.id));
-      }
+  for (const m of state.tournamentMatches) {
+    const teamA = m.teamAId || m.teamA;
+    const teamB = m.teamBId || m.teamB;
+    const winner = m.winnerTeamId || m.winner;
+    if (teamA && teamB && teamA === teamB) {
+      issues.push(issue("error", "INVALID_MATCH", m.id, `Match ${m.id} has the same team on both sides ("${teamA}").`, m.id));
+    }
+    if (m.status === "completed" && winner && winner !== teamA && winner !== teamB) {
+      issues.push(issue("error", "INVALID_MATCH", m.id, `Match ${m.id} winner "${winner}" is not a participating team.`, m.id));
+    }
+    if (m.status === "completed" && (m.scoreA === undefined || m.scoreB === undefined)) {
+      issues.push(issue("warning", "INVALID_MATCH", m.id, `Match ${m.id} completed without a score.`, m.id));
     }
   }
 
@@ -372,3 +382,7 @@ export * from "./identityValidation";
 export * from "./teamValidation";
 export * from "./checkInValidation";
 export * from "./liveSessionValidation";
+export * from "./tournamentValidation";
+export * from "./safetyValidation";
+export * from "./disputeValidation";
+export * from "./moderationValidation";

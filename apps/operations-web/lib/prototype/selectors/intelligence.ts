@@ -5,6 +5,17 @@ export interface OperationsAlert {
   id: string;
   severity: "low" | "medium" | "high" | "critical";
   type:
+    | "critical-incident-unacknowledged"
+    | "triage-overdue"
+    | "investigation-overdue"
+    | "repeated-venue-incidents"
+    | "repeated-participant-misconduct"
+    | "tournament-behind-schedule"
+    | "result-verification-backlog"
+    | "referee-shortage"
+    | "abandoned-match-unresolved"
+    | "refund-exception-pending"
+    | "evidence-placeholder-incomplete"
     | "capacity-warning"
     | "venue-overbooked"
     | "heavy-waitlist"
@@ -220,6 +231,251 @@ export function generateOperationsAlerts(state: PrototypeState): OperationsAlert
       });
     }
   });
+
+  // ==========================================
+  // SA-P2H: TOURNAMENT & SAFETY INCIDENT ALERTS
+  // ==========================================
+
+  // 1. Critical Incident Unacknowledged
+  (state.incidents ?? []).forEach((i) => {
+    if (i.severity === "critical" && i.status === "reported") {
+      alerts.push({
+        id: `alert-critical-unack-${i.id}`,
+        severity: "critical",
+        type: "critical-incident-unacknowledged",
+        title: `Critical Incident Awaiting Ack: ${i.incidentCode || i.id}`,
+        trigger: `Critical severity incident reported at ${i.reportedAt || i.time} not yet acknowledged`,
+        evidence: `Incident code: ${i.incidentCode || i.id}, Status: ${i.status}`,
+        impact: "Safety hazard escalation delay; customer liability exposure",
+        recommendedAction: "Acknowledge the incident immediately and assign dispatcher",
+        relatedEntityIds: [i.id],
+        generatedAt: nowStr,
+        status: "active"
+      });
+    }
+  });
+
+  // 2. Triage Overdue
+  (state.incidents ?? []).forEach((i) => {
+    if (
+      (i.severity === "critical" || i.severity === "high") &&
+      (i.status === "reported" || i.status === "acknowledged")
+    ) {
+      alerts.push({
+        id: `alert-triage-overdue-${i.id}`,
+        severity: "high",
+        type: "triage-overdue",
+        title: `Incident Triage Overdue: ${i.incidentCode || i.id}`,
+        trigger: `Severe incident (${i.severity}) remains untriaged after report`,
+        evidence: `Severity: ${i.severity}, Status: ${i.status}`,
+        impact: "Unresolved immediate risk to participants and operations",
+        recommendedAction: "Complete the triage checklist to assess risk and document actions",
+        relatedEntityIds: [i.id],
+        generatedAt: nowStr,
+        status: "active"
+      });
+    }
+  });
+
+  // 3. Investigation Overdue
+  (state.incidents ?? []).forEach((i) => {
+    if (
+      (i.severity === "critical" || i.severity === "high") &&
+      (i.status === "triaged" || i.status === "active") &&
+      !i.investigatorId
+    ) {
+      alerts.push({
+        id: `alert-investigation-overdue-${i.id}`,
+        severity: "high",
+        type: "investigation-overdue",
+        title: `Investigation Assignment Pending: ${i.incidentCode || i.id}`,
+        trigger: `Incident status is ${i.status} but no investigator has been assigned`,
+        evidence: `Incident: ${i.incidentCode || i.id}, Investigator: None`,
+        impact: "Case resolution stalls; unresolved liability and safety concerns",
+        recommendedAction: "Assign a lead investigator to compile evidence and resolution plan",
+        relatedEntityIds: [i.id],
+        generatedAt: nowStr,
+        status: "active"
+      });
+    }
+  });
+
+  // 4. Repeated Venue Incidents
+  const venueCounts: { [key: string]: number } = {};
+  (state.incidents ?? []).forEach((i) => {
+    if (i.venueId) {
+      venueCounts[i.venueId] = (venueCounts[i.venueId] || 0) + 1;
+    }
+  });
+  Object.entries(venueCounts).forEach(([vId, count]) => {
+    if (count >= 3) {
+      alerts.push({
+        id: `alert-venue-incidents-${vId}`,
+        severity: "high",
+        type: "repeated-venue-incidents",
+        title: `Repeated Venue Safety Issues: ${vId}`,
+        trigger: `${count} safety incidents recorded at this venue`,
+        evidence: `Incident count: ${count}`,
+        impact: "Systemic venue hazards; potential compliance or liability risk",
+        recommendedAction: "Initiate comprehensive venue safety review with facility manager",
+        relatedEntityIds: [vId],
+        generatedAt: nowStr,
+        status: "active"
+      });
+    }
+  });
+
+  // 5. Repeated Participant Misconduct
+  const subjectCounts: { [key: string]: number } = {};
+  (state.incidents ?? []).forEach((i) => {
+    const category = i.category || i.type || "";
+    if (
+      (category === "misconduct" || category.toLowerCase().includes("misconduct")) &&
+      i.participantTemporaryIds
+    ) {
+      i.participantTemporaryIds.forEach((pId) => {
+        subjectCounts[pId] = (subjectCounts[pId] || 0) + 1;
+      });
+    }
+  });
+  Object.entries(subjectCounts).forEach(([pId, count]) => {
+    if (count >= 2) {
+      alerts.push({
+        id: `alert-subject-misconduct-${pId}`,
+        severity: "high",
+        type: "repeated-participant-misconduct",
+        title: `Repeated Misconduct Alert: ${pId}`,
+        trigger: `${count} misconduct incidents linked to this temporary ID`,
+        evidence: `Disruptions: ${count}`,
+        impact: "Disruptive presence; participant safety and experience risk",
+        recommendedAction: "Initiate moderation case and propose warning or temporary suspension",
+        relatedEntityIds: [pId],
+        generatedAt: nowStr,
+        status: "active"
+      });
+    }
+  });
+
+  // 6. Tournament Behind Schedule
+  const liveTournaments = (state.tournaments ?? []).filter((t) => t.status === "live");
+  liveTournaments.forEach((t) => {
+    const matches = (state.tournamentMatches ?? []).filter(
+      (m) => m.tournamentId === t.id && (m.status === "scheduled" || m.status === "live" || m.status === "paused")
+    );
+    if (matches.length > 0) {
+      const pausedMatch = matches.find((m) => m.status === "paused");
+      if (pausedMatch) {
+        alerts.push({
+          id: `alert-tr-delayed-${t.id}`,
+          severity: "medium",
+          type: "tournament-behind-schedule",
+          title: `Tournament Match Stalled: ${t.name}`,
+          trigger: `Match ${pausedMatch.id} is paused`,
+          evidence: `Match: ${pausedMatch.roundLabel || "—"}, Status: paused`,
+          impact: "Bracket scheduling delay; venue court lease overrun risk",
+          recommendedAction: "Coordinate with referee to resume play or declare walkover/abandonment",
+          relatedEntityIds: [t.id, pausedMatch.id],
+          generatedAt: nowStr,
+          status: "active"
+        });
+      }
+    }
+  });
+
+  // 7. Result Verification Backlog
+  const pendingVerifications = (state.tournamentMatches ?? []).filter((m) => m.status === "awaiting-verification");
+  if (pendingVerifications.length >= 2) {
+    alerts.push({
+      id: "alert-verification-backlog",
+      severity: "medium",
+      type: "result-verification-backlog",
+      title: "Match Result Verification Backlog",
+      trigger: `${pendingVerifications.length} completed matches awaiting score verification`,
+      evidence: `Pending matches: ${pendingVerifications.map((m) => m.id).join(", ")}`,
+      impact: "Bracket progression blocked; tournament delays",
+      recommendedAction: "Verify results immediately to advance winners to next round",
+      relatedEntityIds: pendingVerifications.map((m) => m.id),
+      generatedAt: nowStr,
+      status: "active"
+    });
+  }
+
+  // 8. Referee Shortage
+  const activeTrs = (state.tournaments ?? []).filter((t) => t.status === "published" || t.status === "live");
+  activeTrs.forEach((t) => {
+    const unassignedMatches = (state.tournamentMatches ?? []).filter(
+      (m) => m.tournamentId === t.id && !m.refereeId && !m.isBye
+    );
+    if (unassignedMatches.length > 0) {
+      alerts.push({
+        id: `alert-ref-shortage-${t.id}`,
+        severity: "high",
+        type: "referee-shortage",
+        title: `Referee Assignment Pending: ${t.name}`,
+        trigger: `${unassignedMatches.length} active bracket matches lack an assigned referee`,
+        evidence: `Unassigned: ${unassignedMatches.map((m) => m.id).join(", ")}`,
+        impact: "Matches cannot commence on schedule; bracket delay risk",
+        recommendedAction: "Assign qualified crew member as referee in tournament manager",
+        relatedEntityIds: [t.id],
+        generatedAt: nowStr,
+        status: "active"
+      });
+    }
+  });
+
+  // 9. Abandoned Match Unresolved
+  const abandonedMatches = (state.tournamentMatches ?? []).filter((m) => m.status === "abandoned");
+  abandonedMatches.forEach((m) => {
+    alerts.push({
+      id: `alert-abandoned-match-${m.id}`,
+      severity: "high",
+      type: "abandoned-match-unresolved",
+      title: `Unresolved Abandoned Match: ${m.id}`,
+      trigger: "Match was abandoned and has no resolution",
+      evidence: `Match: ${m.id}, Reason: ${m.abandonReason || "None specified"}`,
+      impact: "Tournament bracket progression blocked",
+      recommendedAction: "Declare walkover or schedule replacement match in admin settings",
+      relatedEntityIds: [m.tournamentId, m.id],
+      generatedAt: nowStr,
+      status: "active"
+    });
+  });
+
+  // 10. Refund Exception Pending
+  const pendingRex = (state.refundExceptions ?? []).filter((re) => re.status === "recommended");
+  if (pendingRex.length > 0) {
+    alerts.push({
+      id: "alert-refund-exceptions-pending",
+      severity: "medium",
+      type: "refund-exception-pending",
+      title: "Refund Exceptions Pending Approval",
+      trigger: `${pendingRex.length} refund exceptions awaiting Finance review`,
+      evidence: `Recommended exceptions: ${pendingRex.length}`,
+      impact: "Customer credit delayed; unresolved customer service issues",
+      recommendedAction: "Finance role must review and approve or reject recommended exceptions",
+      relatedEntityIds: pendingRex.map((re) => re.id),
+      generatedAt: nowStr,
+      status: "active"
+    });
+  }
+
+  // 11. Evidence Placeholder Incomplete
+  const pendingEvidence = (state.evidenceItems ?? []).filter((e) => e.status === "pending");
+  if (pendingEvidence.length > 0) {
+    alerts.push({
+      id: "alert-evidence-incomplete",
+      severity: "low",
+      type: "evidence-placeholder-incomplete",
+      title: "Evidence Item Collection Pending",
+      trigger: `${pendingEvidence.length} evidence placeholders awaiting document upload`,
+      evidence: `Pending evidence IDs: ${pendingEvidence.map((e) => e.id).join(", ")}`,
+      impact: "Incident investigation cannot be fully completed or reviewed",
+      recommendedAction: "Collect and upload the requested incident evidence files",
+      relatedEntityIds: pendingEvidence.map((e) => e.id),
+      generatedAt: nowStr,
+      status: "active"
+    });
+  }
 
   return alerts;
 }

@@ -54,6 +54,7 @@ Stack direction: **Flutter** (participant app) · **Next.js + TypeScript** (Supe
 | SA-0C | Decision-resolution: 61 canonical decisions (DEC-SA-001…061), open-question registry (OQ-SA-001…066), assumptions/risk register | Complete |
 | SA-0D | CTO consolidation: master state, decision/assumption/risk consolidation, domain + module + feature review, this document | Complete |
 | SA-1A | Experience design: franchise hierarchy + operating model, complete auth experience + 9 screen specs, Experience OS design system + motion | Complete |
+| SA-P2H | Prototype: Tournaments, Safety, Disputes, Moderation & Refund Exceptions | Complete |
 
 ## 5. Remaining Phases
 

@@ -12,6 +12,12 @@ export type BookingId = string;
 export type CrewId = string;
 export type TournamentId = string;
 export type IncidentId = string;
+export type MatchId = string;
+export type DisputeId = string;
+export type ModerationCaseId = string;
+export type ModerationActionId = string;
+export type EvidenceItemId = string;
+export type RefundExceptionId = string;
 
 export interface Franchise {
   id: FranchiseId;
@@ -609,35 +615,139 @@ export interface Shift {
   to: string;
 }
 
+/* ------------------------------------------------------------------
+ * SA-P2H: Tournament Operations
+ * ------------------------------------------------------------------ */
+
+export type TournamentStatus =
+  | 'draft'
+  | 'registration-open'
+  | 'registration-closed'
+  | 'teams-ready'
+  | 'bracket-ready'
+  | 'published'
+  | 'live'
+  | 'paused'
+  | 'awaiting-verification'
+  | 'completed'
+  | 'cancelled'
+  | 'archived';
+
 export interface Tournament {
   id: TournamentId;
   name: string;
-  linkedSessionId: SessionId;
+  code: string;
+  experienceTemplateId?: TemplateId;
   territoryId: TerritoryId;
+  cityId?: CityId;
   venueId: VenueId;
-  date: string;
-  format: string; // "single-elimination" | "round-robin"
-  teamCount: number;
+  playingAreaIds?: PlayingAreaId[];
+  sessionIds?: SessionId[];
+  format: string;
+  status: TournamentStatus;
+  teamIds: string[];
+  minimumTeams?: number;
+  maximumTeams?: number;
   matchDuration: number;
   breakDuration: number;
   seedingMethod: string;
-  status: "upcoming" | "live" | "completed";
-  teams: string[]; // Team list
-  brackets: Match[];
+  verificationRequirement?: string;
+  prizePlaceholder?: string;
+  registrationClosesAt?: string;
+  scheduledStart?: string;
+  actualStart?: string;
+  endedAt?: string;
+  winnerTeamId?: string;
+  createdBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  /** @deprecated Use tournamentMatches in PrototypeState. Kept for scenario compatibility. */
+  brackets?: TournamentMatch[];
+  /** @deprecated Use teamIds. Kept for backward compat reading. */
+  teams?: string[];
+  /** @deprecated Use teamIds.length. */
+  teamCount?: number;
+  /** @deprecated Use sessionIds[0]. */
+  linkedSessionId?: SessionId;
+  /** @deprecated Replaced by scheduledStart. */
+  date?: string;
 }
 
-export interface Match {
-  id: string;
-  tournamentId: TournamentId;
-  round: string; // "Quarter-finals" | "Semi-finals" | "Final"
-  teamA: string;
-  teamB: string;
+export type TournamentMatchStatus =
+  | 'scheduled'
+  | 'ready'
+  | 'live'
+  | 'paused'
+  | 'completed'
+  | 'awaiting-verification'
+  | 'verified'
+  | 'walkover'
+  | 'disqualified'
+  | 'abandoned'
+  | 'cancelled';
+
+export type TournamentMatchResultType =
+  | 'score'
+  | 'walkover'
+  | 'disqualification'
+  | 'abandonment'
+  | 'bye';
+
+export interface TournamentMatchResultRevision {
+  revisionNumber: number;
   scoreA?: number;
   scoreB?: number;
-  winner?: string;
-  status: "scheduled" | "live" | "completed" | "walkover" | "abandoned";
-  refereeId: string;
+  winnerTeamId?: string;
+  resultType: TournamentMatchResultType;
+  reason?: string;
+  recordedBy: string;
+  recordedAt: string;
+  verifiedBy?: string;
+  verifiedAt?: string;
 }
+
+export interface TournamentMatch {
+  id: MatchId;
+  tournamentId: TournamentId;
+  roundNumber: number;
+  matchNumber: number;
+  roundLabel?: string;
+  teamAId?: string;
+  teamBId?: string;
+  scheduledAt?: string;
+  playingAreaId?: PlayingAreaId;
+  refereeId?: string;
+  status: TournamentMatchStatus;
+  scoreA?: number;
+  scoreB?: number;
+  winnerTeamId?: string;
+  resultType?: TournamentMatchResultType;
+  resultRevisions?: TournamentMatchResultRevision[];
+  startedAt?: string;
+  endedAt?: string;
+  verifiedAt?: string;
+  verifiedBy?: string;
+  isBye?: boolean;
+  walkoverReason?: string;
+  disqualificationReason?: string;
+  disqualifiedTeamId?: string;
+  abandonReason?: string;
+  notes?: string;
+  nextMatchId?: MatchId;
+  createdAt?: string;
+  updatedAt?: string;
+  /** @deprecated Use teamAId */
+  teamA?: string;
+  /** @deprecated Use teamBId */
+  teamB?: string;
+  /** @deprecated Use winnerTeamId */
+  winner?: string;
+  /** @deprecated Use roundLabel or roundNumber */
+  round?: string;
+}
+
+/** @deprecated Use TournamentMatch */
+export type Match = TournamentMatch;
 
 export interface Transaction {
   id: string;
@@ -651,20 +761,322 @@ export interface Transaction {
   at: string;
 }
 
+/* ------------------------------------------------------------------
+ * SA-P2H: Safety Incidents
+ * ------------------------------------------------------------------ */
+
+export type IncidentCategory =
+  | 'injury'
+  | 'medical'
+  | 'misconduct'
+  | 'harassment'
+  | 'equipment'
+  | 'venue'
+  | 'weather'
+  | 'crowd'
+  | 'staff'
+  | 'participant'
+  | 'safeguarding'
+  | 'other';
+
+export type IncidentSeverity = 'low' | 'medium' | 'high' | 'critical';
+
+export type IncidentStatus =
+  | 'reported'
+  | 'acknowledged'
+  | 'triaged'
+  | 'active'
+  | 'investigating'
+  | 'escalated'
+  | 'monitoring'
+  | 'resolved'
+  | 'closed';
+
 export interface Incident {
   id: IncidentId;
-  sessionId: SessionId;
-  reporterId: string;
-  type: string;
-  severity: "low" | "medium" | "high";
-  time: string;
-  peopleInvolved: string[];
-  immediateAction: string;
-  medicalAssistance: boolean;
-  escalatedToVenue: boolean;
-  status: "reported" | "triaged" | "active" | "escalated" | "monitoring" | "resolved" | "closed" | "open";
-  notes: string;
-  ownerId: string;
+  incidentCode?: string;
+  sessionId?: SessionId;
+  tournamentId?: TournamentId;
+  matchId?: MatchId;
+  territoryId?: TerritoryId;
+  cityId?: CityId;
+  venueId?: VenueId;
+  category?: IncidentCategory;
+  severity?: IncidentSeverity;
+  status?: IncidentStatus;
+  reportedBy?: string;
+  reportedAt?: string;
+  occurredAt?: string;
+  participantTemporaryIds?: string[];
+  staffIds?: string[];
+  immediateAction?: string;
+  medicalAssistance?: boolean;
+  emergencyServicesPlaceholder?: string;
+  venueEscalated?: boolean;
+  investigatorId?: string;
+  investigationSummary?: string;
+  resolution?: string;
+  followUpOwnerId?: string;
+  followUpDueAt?: string;
+  closedAt?: string;
+  closedBy?: string;
+  privateDataAccessLogIds?: string[];
+  evidenceItemIds?: EvidenceItemId[];
+  notes?: string;
+  triageSeverityReview?: string;
+  triageImmediateRisk?: string;
+  triageVenueImpact?: string;
+  triageSessionImpact?: string;
+  triageProtectionActions?: string;
+  triageFollowUp?: string;
+  triageRecommendation?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  /** @deprecated Use reportedBy */
+  reporterId?: string;
+  /** @deprecated Use category */
+  type?: string;
+  /** @deprecated Use occurredAt */
+  time?: string;
+  /** @deprecated Use participantTemporaryIds */
+  peopleInvolved?: string[];
+  /** @deprecated Use venueEscalated */
+  escalatedToVenue?: boolean;
+  /** @deprecated Use followUpOwnerId */
+  ownerId?: string;
+}
+
+/* ------------------------------------------------------------------
+ * SA-P2H: Evidence Placeholders
+ * ------------------------------------------------------------------ */
+
+export type EvidenceType =
+  | 'image-placeholder'
+  | 'video-placeholder'
+  | 'document-placeholder'
+  | 'witness-statement'
+  | 'staff-note'
+  | 'venue-report'
+  | 'medical-placeholder';
+
+export type EvidenceSensitivity = 'low' | 'medium' | 'high' | 'restricted';
+export type EvidenceStatus = 'pending' | 'collected' | 'reviewed' | 'archived';
+
+export interface EvidenceItem {
+  id: EvidenceItemId;
+  incidentId: IncidentId;
+  type: EvidenceType;
+  label: string;
+  description?: string;
+  placeholderFileName?: string;
+  capturedBy?: string;
+  capturedAt?: string;
+  sensitivity: EvidenceSensitivity;
+  status: EvidenceStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/* ------------------------------------------------------------------
+ * SA-P2H: Disputes
+ * ------------------------------------------------------------------ */
+
+export type DisputeType =
+  | 'match-result'
+  | 'participant-conduct'
+  | 'eligibility'
+  | 'booking-refund'
+  | 'team-allocation'
+  | 'staff-decision'
+  | 'venue-issue'
+  | 'other';
+
+export type DisputeStatus =
+  | 'submitted'
+  | 'under-review'
+  | 'evidence-requested'
+  | 'decision-pending'
+  | 'upheld'
+  | 'rejected'
+  | 'partially-upheld'
+  | 'closed';
+
+export interface Dispute {
+  id: DisputeId;
+  type: DisputeType;
+  status: DisputeStatus;
+  reason: string;
+  relatedEntityType: string;
+  relatedEntityId: string;
+  tournamentId?: TournamentId;
+  matchId?: MatchId;
+  sessionId?: SessionId;
+  bookingId?: BookingId;
+  submittedBy: string;
+  submittedAt: string;
+  reviewerId?: string;
+  assignedAt?: string;
+  evidenceRequested?: boolean;
+  evidenceRequestedAt?: string;
+  decision?: string;
+  decisionReason?: string;
+  decidedBy?: string;
+  decidedAt?: string;
+  correctionCreated?: boolean;
+  correctionId?: string;
+  closedAt?: string;
+  closedBy?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/* ------------------------------------------------------------------
+ * SA-P2H: Moderation Cases & Actions
+ * ------------------------------------------------------------------ */
+
+export type ModerationCaseCategory =
+  | 'misconduct'
+  | 'harassment'
+  | 'repeated-misconduct'
+  | 'safety-violation'
+  | 'fraud'
+  | 'eligibility-violation'
+  | 'other';
+
+export type ModerationCaseSeverity = 'low' | 'medium' | 'high' | 'critical';
+
+export type ModerationCaseStatus =
+  | 'open'
+  | 'reviewing'
+  | 'action-proposed'
+  | 'approved'
+  | 'rejected'
+  | 'monitoring'
+  | 'closed';
+
+export interface ModerationCase {
+  id: ModerationCaseId;
+  subjectTemporaryId?: string;
+  subjectPersonId?: string;
+  relatedIncidentIds?: IncidentId[];
+  relatedSessionIds?: SessionId[];
+  relatedTournamentIds?: TournamentId[];
+  relatedDisputeIds?: DisputeId[];
+  category: ModerationCaseCategory;
+  severity: ModerationCaseSeverity;
+  status: ModerationCaseStatus;
+  assignedReviewerId?: string;
+  evidencePlaceholderIds?: EvidenceItemId[];
+  previousActionIds?: ModerationActionId[];
+  recommendedAction?: string;
+  decision?: string;
+  decisionReason?: string;
+  decidedBy?: string;
+  decidedAt?: string;
+  originType: string;
+  originId: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ModerationActionType =
+  | 'informal-note'
+  | 'formal-warning'
+  | 'activity-restriction'
+  | 'venue-restriction'
+  | 'temporary-suspension'
+  | 'permanent-ban';
+
+export type ModerationActionStatus =
+  | 'proposed'
+  | 'approved'
+  | 'active'
+  | 'rejected'
+  | 'expired'
+  | 'revoked';
+
+export type ModerationScope =
+  | 'platform'
+  | 'franchise'
+  | 'territory'
+  | 'city'
+  | 'venue'
+  | 'activity-category'
+  | 'tournament';
+
+export interface ModerationAction {
+  id: ModerationActionId;
+  caseId: ModerationCaseId;
+  type: ModerationActionType;
+  subjectTemporaryId?: string;
+  subjectPersonId?: string;
+  reason: string;
+  evidenceIds?: string[];
+  scope: ModerationScope;
+  scopeEntityId?: string;
+  effectiveDate: string;
+  expiryDate?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectedBy?: string;
+  rejectedAt?: string;
+  rejectionReason?: string;
+  revokedBy?: string;
+  revokedAt?: string;
+  revocationReason?: string;
+  status: ModerationActionStatus;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/* ------------------------------------------------------------------
+ * SA-P2H: Refund Exceptions
+ * ------------------------------------------------------------------ */
+
+export type RefundExceptionStatus =
+  | 'recommended'
+  | 'under-review'
+  | 'approved'
+  | 'rejected'
+  | 'completed';
+
+export type RefundExceptionReason =
+  | 'safety-incident'
+  | 'tournament-cancellation'
+  | 'match-abandonment'
+  | 'venue-failure'
+  | 'medical-incident'
+  | 'misconduct-decision'
+  | 'dispute-outcome';
+
+export interface RefundException {
+  id: RefundExceptionId;
+  incidentId?: IncidentId;
+  disputeId?: DisputeId;
+  tournamentId?: TournamentId;
+  matchId?: MatchId;
+  sessionId?: SessionId;
+  bookingId?: BookingId;
+  reason: RefundExceptionReason;
+  amount: number;
+  currency?: string;
+  status: RefundExceptionStatus;
+  recommendedBy: string;
+  recommendedAt: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectedBy?: string;
+  rejectedAt?: string;
+  rejectionReason?: string;
+  linkedRefundId?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Signal {

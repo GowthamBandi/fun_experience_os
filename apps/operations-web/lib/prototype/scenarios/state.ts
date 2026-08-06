@@ -31,7 +31,13 @@ import type {
   SegmentResult,
   LiveOperationalNote,
   EquipmentCheckItem,
-  SessionCompletionSnapshot
+  SessionCompletionSnapshot,
+  EvidenceItem,
+  Dispute,
+  ModerationCase,
+  ModerationAction,
+  RefundException,
+  TournamentMatch
 } from "../entities";
 
 export interface PrototypeState {
@@ -62,8 +68,14 @@ export interface PrototypeState {
   crew: CrewMember[];
   shifts: Shift[];
   tournaments: Tournament[];
+  tournamentMatches: TournamentMatch[];
   transactions: Transaction[];
   incidents: Incident[];
+  evidenceItems: EvidenceItem[];
+  disputes: Dispute[];
+  moderationCases: ModerationCase[];
+  moderationActions: ModerationAction[];
+  refundExceptions: RefundException[];
   signals: Signal[];
   audits: AuditEvent[];
   analytics: DayPoint[];

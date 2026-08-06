@@ -25,3 +25,23 @@
 
 5. **AI-Ready Intelligence Panels** (`AIIntelligencePlaceholder.tsx`):
    - Non-functional UI scaffolds with explicit notice: *"Future intelligence preview — no prediction model connected."*
+
+---
+
+## Phase Phase SA-P2H — Tournaments, Safety, Disputes, Moderation & Refund Exceptions
+
+- **Status**: Complete ✅
+- **Baseline Commit**: `81b6df3`
+- **Data Mode**: `NEXT_PUBLIC_DATA_MODE=prototype` (Firebase inactive)
+
+### Architecture Highlights
+1. **Normalized Match Storage**:
+   - Split tournament matches out of the tournament entities to `state.tournamentMatches`.
+2. **Operations Intelligence & Warnings Matrix**:
+   - Live check for safety clearance roles, platform ban approvals gated, warning banner triggers.
+3. **Refund Exceptions**:
+   - Gated exception approvals under the financial Refunds console.
+4. **Workspaces & Command Centers**:
+   - **Tournament Operations**: `/tournaments`, `/tournaments/new`, `/tournaments/[id]`
+   - **Safety, Disputes & Moderation**: `/safety`
+
