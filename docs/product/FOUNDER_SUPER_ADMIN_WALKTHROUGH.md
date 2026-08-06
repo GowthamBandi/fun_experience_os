@@ -148,3 +148,19 @@ On game day, go to the session check-in desk at `/missions/[id]/check-in` and pe
 9. **Log results**: Record score results or outcome confirmations under the Results tab.
 10. **End session**: Click **"End Live Session"** once all brackets/matches finish.
 11. **Close checklist**: Complete the venue exit audit and click **"Verify & Close"** to archive the session.
+
+---
+
+## Part 7 — Booking & Money Usability Workspace
+
+Manage all reservations, waiting lists, payments, refunds, and financial checks through operator-friendly workspaces:
+
+1. **Bookings Command Center (`/bookings`)**: Real-time view of who joined, who paid, who is waiting, and what needs attention.
+2. **Add Booking (`/bookings/new`)**: 5-step wizard to add someone to an event or place them on the waiting list with automatic capacity checks.
+3. **Booking Details (`/bookings/[id]`)**: Comprehensive view with visual timeline (`Created` → `Waiting for Payment` → `Payment Received` → `Confirmed` → `Checked In`), payment countdowns, space impact, and cancellation controls.
+4. **Event Bookings (`/missions/[id]/bookings`)**: Session-scoped booking view grouped into *Confirmed*, *Waiting for Payment*, *Payment Problems*, *Free Passes*, and *Waiting List*.
+5. **Waiting List (`/missions/[id]/waitlist`)**: Sequential queue for full events with one-click *Offer Space*, 10-minute hold countdowns, and *Accept Offer* actions.
+6. **Money & Payments (`/money`, `/money/payments`)**: Financial dashboard tracking gross collected, pending revenue, refunds, net revenue, and payment settlement ledgers.
+7. **Refunds (`/money/refunds`)**: Task-card workspace for reviewing refund requests with role-gated finance authorization.
+8. **Payment Check (`/money/reconciliation`)**: Mismatch audit center flagging unconfirmed paid bookings or unpaid confirmed bookings with plain-English explanations and one-click resolutions.
+

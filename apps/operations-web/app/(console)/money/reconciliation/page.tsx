@@ -3,19 +3,18 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
-import { selectFinancialOperationsMetrics } from "@/lib/prototype/selectors/money";
 import { inr } from "@/lib/format";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/primitives";
+import { BookingBackNavigation } from "@/components/bookings/shared";
+import { Stagger, Item } from "@/components/motion/Motion";
 
 export default function ReconciliationPage() {
   const { state, reconcilePayment } = useStore();
 
-  const metrics = useMemo(() => selectFinancialOperationsMetrics(state), [state]);
   const payments = useMemo(() => state.payments ?? [], [state]);
   const bookings = useMemo(() => state.bookings, [state]);
 
-  // Find discrepancies
   const bookingIds = new Set(bookings.map((b) => b.id));
   const unmatchedPayments = payments.filter((p) => !bookingIds.has(p.bookingId));
   const unpaidConfirmedBookings = bookings.filter(
@@ -26,77 +25,70 @@ export default function ReconciliationPage() {
   );
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6 font-mono text-xs">
+    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6">
+      <BookingBackNavigation label="Back to Money" href="/money" />
+      
       <PageHeader
         overline="Financial Operations"
-        title="Revenue & Booking Reconciliation Command Center"
-        sub="Audit mismatch detection between payment gateway settlement records and reservation state."
-        right={
-          <Link href="/money">
-            <Button variant="ghost" className="h-8 px-3 text-xs">
-              ← Return to Financial Operations
-            </Button>
-          </Link>
-        }
+        title="Payment Check"
+        sub="Find bookings and payments that do not match."
       />
 
-      {/* Summary KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="bg-slate-900 border border-slate-800 rounded-lg p-3">
-          <div className="text-[10px] text-slate-500 uppercase">Confirmed Transactions</div>
-          <div className="text-xl font-bold text-emerald-400">{metrics.confirmedPaymentsCount}</div>
-        </div>
-        <div className="bg-slate-900 border border-slate-800 rounded-lg p-3">
-          <div className="text-[10px] text-slate-500 uppercase">Discrepancies Flagged</div>
-          <div className="text-xl font-bold text-amber-400">{metrics.reconciliationDiscrepanciesCount}</div>
-        </div>
-        <div className="bg-slate-900 border border-slate-800 rounded-lg p-3">
-          <div className="text-[10px] text-slate-500 uppercase">Net Settled Revenue</div>
-          <div className="text-xl font-bold text-slate-200">{inr(metrics.netRevenue)}</div>
-        </div>
-      </div>
-
-      {/* Discrepancies Grid */}
-      <div className="space-y-4">
-        <h3 className="font-bold text-slate-200 uppercase tracking-wider text-xs">
-          Reconciliation Audit Discrepancies
-        </h3>
-
+      <div className="pt-4">
         {unmatchedPayments.length === 0 && unpaidConfirmedBookings.length === 0 ? (
-          <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-6 text-center text-slate-400">
-            ✓ All payments and bookings are 100% reconciled. No financial discrepancies detected.
+          <div className="glass p-8 rounded-xl text-center text-ink-sec flex flex-col items-center justify-center gap-3">
+            <div className="text-4xl text-emerald-500">✓</div>
+            <p>All payments and bookings match. No problems found.</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <Stagger className="space-y-4">
             {unmatchedPayments.map((p) => (
-              <div key={p.id} className="bg-slate-900 border border-amber-800/80 rounded-lg p-3 flex items-center justify-between">
-                <div>
-                  <div className="font-bold text-amber-300">Unmatched Payment Record: {p.id}</div>
-                  <div className="text-slate-400 text-[11px]">Amount: {inr(p.amount)} · Booking Ref: {p.bookingId} (Missing in state)</div>
+              <Item key={p.id}>
+                <div className="glass p-5 rounded-xl border border-warn/30">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <h4 className="text-ink-lum font-medium text-lg">Payment received but booking not confirmed</h4>
+                      <p className="text-ink-mut text-sm mt-1">
+                        Amount: <span className="font-mono text-ink-lum">{inr(p.amount)}</span> · Payment ID: {p.id}
+                      </p>
+                      <p className="text-ink-sec text-sm mt-3 bg-ink-sec/10 p-3 rounded-lg">
+                        <span className="font-medium text-ink-lum">Why it matters:</span> We took money but didn&apos;t confirm their spot. This will cause confusion at the door.
+                      </p>
+                    </div>
+                    <Button
+                      variant="primary"
+                      onClick={() => reconcilePayment(p.id)}
+                    >
+                      Resolve
+                    </Button>
+                  </div>
                 </div>
-                <button
-                  onClick={() => reconcilePayment(p.id)}
-                  className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold rounded"
-                >
-                  Force Reconcile
-                </button>
-              </div>
+              </Item>
             ))}
 
             {unpaidConfirmedBookings.map((b) => (
-              <div key={b.id} className="bg-slate-900 border border-red-800/80 rounded-lg p-3 flex items-center justify-between">
-                <div>
-                  <div className="font-bold text-red-300">Confirmed Booking Lacks Settlement Record: {b.bookingCode || b.id}</div>
-                  <div className="text-slate-400 text-[11px]">Participant: {b.alias} · Amount: {inr(b.amount)}</div>
+              <Item key={b.id}>
+                <div className="glass p-5 rounded-xl border border-red-500/30">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <h4 className="text-ink-lum font-medium text-lg">Booking confirmed but payment missing</h4>
+                      <p className="text-ink-mut text-sm mt-1">
+                        Amount expected: <span className="font-mono text-ink-lum">{inr(b.amount)}</span> · Participant: {b.alias}
+                      </p>
+                      <p className="text-ink-sec text-sm mt-3 bg-ink-sec/10 p-3 rounded-lg">
+                        <span className="font-medium text-ink-lum">Why it matters:</span> The guest thinks they have a reservation, but they haven&apos;t paid. We are losing revenue.
+                      </p>
+                    </div>
+                    <Link href={`/bookings/${b.id}`}>
+                      <Button variant="secondary">
+                        Review Booking
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
-                <Link href={`/bookings/${b.id}`}>
-                  <button className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded">
-                    View Reservation
-                  </button>
-                </Link>
-              </div>
+              </Item>
             ))}
-          </div>
+          </Stagger>
         )}
       </div>
     </div>

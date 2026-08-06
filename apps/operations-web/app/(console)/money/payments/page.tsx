@@ -8,10 +8,11 @@ import { sessionTitle } from "@/lib/prototype/selectors/lookups";
 import { inr } from "@/lib/format";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { DataTable, type Column } from "@/components/ui/table";
-import { StatusChip, Button } from "@/components/ui/primitives";
+import { Button } from "@/components/ui/primitives";
 import type { Payment } from "@/lib/prototype/entities";
+import { BookingBackNavigation, PaymentStatusBadge, PrototypeModeBanner } from "@/components/bookings/shared";
 
-export default function RevenueOperationsPage() {
+export default function PaymentsPage() {
   const { state, confirmBookingPayment, failBookingPayment, reconcilePayment } = useStore();
 
   const payments = useMemo(() => selectPaymentList(state), [state]);
@@ -19,14 +20,14 @@ export default function RevenueOperationsPage() {
   const columns: Column<Payment>[] = [
     {
       key: "id",
-      header: "Payment ID",
-      render: (p) => <span className="font-mono text-slate-300 font-bold">{p.id}</span>,
+      header: "Payment",
+      render: (p) => <span className="font-mono text-ink-mut">{p.id}</span>,
     },
     {
       key: "booking",
-      header: "Booking Ref",
+      header: "Booking",
       render: (p) => (
-        <Link href={`/bookings/${p.bookingId}`} className="font-mono text-emerald-400 hover:underline">
+        <Link href={`/bookings/${p.bookingId}`} className="font-medium text-brand hover:underline">
           {p.bookingId}
         </Link>
       ),
@@ -34,54 +35,57 @@ export default function RevenueOperationsPage() {
     {
       key: "session",
       header: "Session",
-      render: (p) => <span className="font-mono text-xs text-slate-300">{sessionTitle(state, p.sessionId)}</span>,
+      render: (p) => <span className="text-sm text-ink-sec">{sessionTitle(state, p.sessionId)}</span>,
     },
     {
       key: "amount",
       header: "Amount",
       align: "right",
-      render: (p) => <span className="font-mono text-slate-200">{inr(p.amount)}</span>,
+      render: (p) => <span className="font-mono text-ink-lum">{inr(p.amount)}</span>,
     },
     {
       key: "status",
-      header: "Settlement State",
-      render: (p) => <StatusChip value={p.status} />,
+      header: "Status",
+      render: (p) => <PaymentStatusBadge status={p.status as string} />,
     },
     {
       key: "initiated",
-      header: "Initiated",
-      render: (p) => <span className="font-mono text-slate-400 text-[11px]">{p.initiatedAt}</span>,
+      header: "Time",
+      render: (p) => <span className="text-ink-mut text-[11px]">{p.initiatedAt}</span>,
     },
     {
       key: "action",
-      header: "Actions",
+      header: "",
       align: "right",
       render: (p) => (
-        <div className="flex items-center justify-end gap-1.5 font-mono">
+        <div className="flex items-center justify-end gap-2">
           {p.status === "pending" && (
             <>
-              <button
+              <Button
+                variant="primary"
                 onClick={() => confirmBookingPayment(p.bookingId)}
-                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold rounded text-[10px]"
+                className="h-8 px-3 text-xs"
               >
-                Confirm Settlement
-              </button>
-              <button
+                Mark as Paid
+              </Button>
+              <Button
+                variant="ghost"
                 onClick={() => failBookingPayment(p.bookingId)}
-                className="px-2 py-1 bg-red-950 hover:bg-red-900 text-red-300 border border-red-800 rounded text-[10px]"
+                className="h-8 px-3 text-xs text-red-400 hover:text-red-300 hover:bg-red-950/30"
               >
-                Fail Payment
-              </button>
+                Mark Failed
+              </Button>
             </>
           )}
 
           {p.status === "confirmed" && (
-            <button
+            <Button
+              variant="secondary"
               onClick={() => reconcilePayment(p.id)}
-              className="px-2 py-1 bg-blue-950 hover:bg-blue-900 text-blue-300 border border-blue-800 rounded text-[10px]"
+              className="h-8 px-3 text-xs"
             >
-              Mark Reconciled
-            </button>
+              Verified
+            </Button>
           )}
         </div>
       ),
@@ -89,25 +93,19 @@ export default function RevenueOperationsPage() {
   ];
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6 font-mono text-xs">
+    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6">
+      <BookingBackNavigation label="Back to Money" href="/money" />
+      
       <PageHeader
         overline="Revenue Operations"
-        title="Payment Settlement & Revenue Operations"
-        sub="Authoritative payment transaction ledger, settlement confirmation, and failure management."
-        right={
-          <Link href="/money">
-            <Button variant="ghost" className="h-8 px-3 text-xs">
-              ← Return to Financial Operations
-            </Button>
-          </Link>
-        }
+        title="Payments"
+        sub="See which payments succeeded, failed, or still need attention."
       />
 
-      <div className="space-y-3">
-        <h3 className="font-bold text-slate-200 uppercase tracking-wider text-xs">
-          Payment Transactions ({payments.length})
-        </h3>
-        <DataTable columns={columns} rows={payments} emptyTitle="No payments recorded." emptyLine="Create a reservation to generate payment records." />
+      <PrototypeModeBanner message="Payment simulation — no payment provider is connected." />
+
+      <div className="space-y-3 pt-4">
+        <DataTable columns={columns} rows={payments} emptyTitle="No payments found." emptyLine="New bookings will create payment records here." />
       </div>
     </div>
   );

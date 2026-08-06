@@ -88,6 +88,10 @@ export default function MissionsPage() {
 
       const totalJoined = ledger.confirmedPaidBookings + ledger.confirmedComplimentaryBookings;
 
+      // Booking health: payment problems
+      const sessionBookings = state.bookings.filter((b) => b.sessionId === sessionId);
+      const paymentProblems = sessionBookings.filter((b) => (b.status as string) === "payment-failed" || b.paymentStatus === "failed").length;
+
       return {
         ...s,
         lssStatus: lss.status,
@@ -102,6 +106,7 @@ export default function MissionsPage() {
         netRevenue,
         checkedIn: checkIn.checkedInCount + checkIn.lateCount,
         venueName: venueName(state, s.venueId),
+        paymentProblems,
       };
     });
   }, [rawSessions, state]);
@@ -169,6 +174,9 @@ export default function MissionsPage() {
                             <span>{r.joinedCount} / {r.sellableCapacity} Joined</span>
                             <span>{r.remainingSlots} left {r.waitlistCount > 0 && `· ${r.waitlistCount} waiting`}</span>
                           </p>
+                          {r.paymentProblems > 0 && (
+                            <p className="text-[10px] text-[#ff8f86]">{r.paymentProblems} payment problem{r.paymentProblems > 1 ? 's' : ''}</p>
+                          )}
                         </div>
                       </td>
                       <td className="p-4 text-right">
@@ -262,16 +270,26 @@ export default function MissionsPage() {
                     <FillMeter value={fill} />
                   </div>
 
-                  <div className="flex items-center justify-between border-t border-white/5 pt-3" onClick={(e) => e.stopPropagation()}>
-                    <span className="text-[10px] text-ink-mut">
-                      {r.remainingSlots} slots remaining · {r.waitlistCount} waiting
-                    </span>
-                    <Link href={r.actionRoute}>
-                      <Button variant="lamp" className="h-8 px-3 text-xs font-bold">
-                        {r.nextAction}
-                        <ArrowRight className="ml-1 h-3.5 w-3.5" />
-                      </Button>
-                    </Link>
+                  <div className="flex flex-col gap-2 border-t border-white/5 pt-3">
+                    <div className="flex items-center justify-between text-[10px] text-ink-mut">
+                      <span>{r.remainingSlots} spaces left · {r.waitlistCount} waiting</span>
+                      {r.paymentProblems > 0 && (
+                        <span className="text-[#ff8f86]">{r.paymentProblems} payment problem{r.paymentProblems > 1 ? 's' : ''}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between gap-2" onClick={(e) => e.stopPropagation()}>
+                      <Link href={`/missions/${r.id}/bookings`}>
+                        <button className="text-[10px] text-ink-mut hover:text-ink-sec underline underline-offset-2">
+                          Review Bookings
+                        </button>
+                      </Link>
+                      <Link href={r.actionRoute}>
+                        <Button variant="lamp" className="h-8 px-3 text-xs font-bold">
+                          {r.nextAction}
+                          <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                        </Button>
+                      </Link>
+                    </div>
                   </div>
                 </div>
               );
@@ -326,22 +344,22 @@ function SessionDetail({ session }: { session: any }) {
 
       <div className="grid grid-cols-3 gap-3">
         <div className="solid rounded-xl p-3">
-          <p className="overline">Seating Fill</p>
+          <p className="overline">Joined</p>
           <p className="mt-1 text-lg font-semibold tabular text-ink-lum">{fill}%</p>
         </div>
         <div className="solid rounded-xl p-3">
-          <p className="overline">Waitlist</p>
+          <p className="overline">Waiting</p>
           <p className="mt-1 text-lg font-semibold tabular text-ink-lum">{session.waitlistCount}</p>
         </div>
         <div className="solid rounded-xl p-3">
-          <p className="overline">Net Take</p>
+          <p className="overline">Collected</p>
           <p className="mt-1 text-lg font-semibold tabular text-ink-lum">{inr(session.netRevenue)}</p>
         </div>
       </div>
 
       <div>
         <div className="flex justify-between items-center mb-2">
-          <p className="overline">The Door · Participant Check-In</p>
+           <p className="overline">Bookings</p>
           <span className="text-[10px] text-ink-mut">({session.checkedIn} Checked In)</span>
         </div>
         <div className="space-y-1.5">

@@ -57,7 +57,20 @@ During our comprehensive walkthrough of the Super Admin Command Center, we ident
 ### Gap 6: "The Formation" Team Allocation Lack of Progress Easing
 - **Route**: `/missions/[id]/teams`
 - **Problem**: Clicking "The Formation" immediately structures teams. The random nature isn't visually communicated with progress indicators.
-- **Why it is confusing**: Feels like an instant data snap rather than an active calculation.
+---
+
+## RESOLVED IN BOOKING WORKSPACE USABILITY REBUILD
+
+### Resolved: Booking Technical Terminology & Capacity Mental Model
+- **Route**: `/bookings`, `/bookings/new`, `/bookings/[id]`, `/money`, `/money/payments`, `/money/refunds`, `/money/reconciliation`
+- **Resolution**:
+  - Replaced all technical jargon (*reservation hold*, *capacity ledger*, *reconciliation state*, *waitlist offer hold*, *booking source enum*) with human-readable labels (*Waiting for Payment*, *Spaces*, *Spaces Left*, *Space Offered*, *Payment Problem*).
+  - Added reusable `BookingStatusBadge`, `PaymentStatusBadge`, `RefundStatusBadge`, `CapacitySummary`, and `OperatorHintPanel`.
+  - Added 5-step wizard flow for Add Booking with automatic waiting-list prompts when events are full.
+  - Added visual booking lifecycle timeline on Booking Details page.
+  - Added task-card layout for Refunds and plain-English issue cards for Payment Check reconciliation.
+- **Status**: RESOLVED (Commit `805a0c8` + Booking Usability Rebuild)
+
 - **Recommended Improvement**: Add a 1.5-second shuffle micro-animation showing participant cards flying into team columns to build operational excitement.
 - **Severity**: Low
 - **Belongs in SA-P2I**: Yes (Visual polish)

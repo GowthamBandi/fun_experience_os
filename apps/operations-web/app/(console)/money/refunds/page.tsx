@@ -4,13 +4,16 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
 import { selectRefundList } from "@/lib/prototype/selectors/money";
+import { sessionTitle } from "@/lib/prototype/selectors/lookups";
 import { inr } from "@/lib/format";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { DataTable, type Column } from "@/components/ui/table";
-import { StatusChip, Button } from "@/components/ui/primitives";
+import { Button } from "@/components/ui/primitives";
 import type { Refund } from "@/lib/prototype/entities";
+import { BookingBackNavigation, RefundStatusBadge, RoleGate } from "@/components/bookings/shared";
+import { Stagger, Item } from "@/components/motion/Motion";
 
-export default function RefundAuthorizationPage() {
+export default function RefundsPage() {
   const {
     state,
     approveRefund,
@@ -23,140 +26,134 @@ export default function RefundAuthorizationPage() {
   const refunds = useMemo(() => selectRefundList(state), [state]);
   const exceptions = useMemo(() => (state.refundExceptions ?? []).filter((re) => re.status === "recommended"), [state]);
 
-  const isFinanceRole = role.id === "finance" || role.id === "super-admin" || role.id === "ops-manager";
-
-  const columns: Column<Refund>[] = [
-    {
-      key: "id",
-      header: "Refund ID",
-      render: (r) => <span className="font-mono font-bold text-amber-400">{r.id}</span>,
-    },
-    {
-      key: "booking",
-      header: "Booking Ref",
-      render: (r) => (
-        <Link href={`/bookings/${r.bookingId}`} className="font-mono text-emerald-400 hover:underline">
-          {r.bookingId}
-        </Link>
-      ),
-    },
-    { key: "type", header: "Reason Type", render: (r) => <span className="font-mono text-slate-300">{r.type}</span> },
-    { key: "amount", header: "Amount", align: "right", render: (r) => <span className="font-mono text-red-400 font-bold">{inr(r.amount)}</span> },
-    { key: "status", header: "Status", render: (r) => <StatusChip value={r.status} /> },
-    { key: "requestedAt", header: "Requested", render: (r) => <span className="font-mono text-slate-400 text-[11px]">{r.requestedAt}</span> },
-    {
-      key: "action",
-      header: "Finance Authorization",
-      align: "right",
-      render: (r) => (
-        <div className="flex items-center justify-end gap-1.5 font-mono">
-          {(r.status === "requested" || r.status === "under-review") && (
-            <>
-              <button
-                onClick={() => approveRefund(r.id, role.id)}
-                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold rounded text-[10px]"
-              >
-                Approve & Settle
-              </button>
-              <button
-                onClick={() => rejectRefund(r.id, "Policy non-compliance", role.id)}
-                className="px-2 py-1 bg-red-950 hover:bg-red-900 text-red-300 border border-red-800 rounded text-[10px]"
-              >
-                Reject Request
-              </button>
-            </>
-          )}
-        </div>
-      ),
-    },
-  ];
-
   const exceptionColumns: Column<any>[] = [
     {
       key: "id",
-      header: "Exception ID",
-      render: (re) => <span className="font-mono font-bold text-brand">{re.id}</span>,
+      header: "Exception",
+      render: (re) => <span className="font-mono text-ink-mut">{re.id}</span>,
     },
     {
       key: "booking",
-      header: "Booking Ref",
+      header: "Booking",
       render: (re) => (
-        <span className="font-mono text-slate-300">{re.bookingId || "Manual / Session"}</span>
+        <span className="text-ink-sec">{re.bookingId || "Manual"}</span>
       ),
     },
-    { key: "reason", header: "Incident Reason", render: (re) => <span className="font-mono text-slate-300">{re.reason}</span> },
+    { key: "reason", header: "Reason", render: (re) => <span className="text-ink-sec">{re.reason}</span> },
     { key: "amount", header: "Amount", align: "right", render: (re) => <span className="font-mono text-red-400 font-bold">{inr(re.amount)}</span> },
-    { key: "status", header: "Status", render: (re) => <StatusChip value={re.status} /> },
-    { key: "notes", header: "Justification", render: (re) => <span className="text-slate-400 max-w-xs truncate">{re.notes || "—"}</span> },
+    { key: "status", header: "Status", render: (re) => <RefundStatusBadge status={re.status as string} /> },
+    { key: "notes", header: "Notes", render: (re) => <span className="text-ink-mut max-w-xs truncate">{re.notes || "—"}</span> },
     {
       key: "action",
-      header: "Finance Authorization",
+      header: "",
       align: "right",
       render: (re) => (
-        <div className="flex items-center justify-end gap-1.5 font-mono">
-          <button
-            onClick={() => {
-              if (role.id !== "finance" && role.id !== "platform-owner") {
-                alert("Finance clearance role required to approve exceptions.");
-                return;
-              }
-              approveRefundException(re.id);
-            }}
-            className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold rounded text-[10px]"
-          >
-            Approve Exception
-          </button>
-          <button
-            onClick={() => rejectRefundException(re.id, "Rejected during financial audit")}
-            className="px-2 py-1 bg-red-950 hover:bg-red-900 text-red-300 border border-red-800 rounded text-[10px]"
-          >
-            Reject Exception
-          </button>
-        </div>
+        <RoleGate allowedRoles={["finance", "super-admin", "ops-manager"]} currentRole={role.id} tooltip="Requires Finance role">
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              variant="primary"
+              onClick={() => approveRefundException(re.id)}
+              className="h-8 px-3 text-xs"
+            >
+              Approve
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => rejectRefundException(re.id, "Rejected")}
+              className="h-8 px-3 text-xs text-red-400"
+            >
+              Reject
+            </Button>
+          </div>
+        </RoleGate>
       ),
     },
   ];
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6 font-mono text-xs">
+    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6">
+      <BookingBackNavigation label="Back to Money" href="/money" />
+      
       <PageHeader
         overline="Financial Operations"
-        title="Refund Authorization Workspace"
-        sub="Role-restricted refund request review, approval workflows, and simulated customer reimbursements."
-        right={
-          <Link href="/money">
-            <Button variant="ghost" className="h-8 px-3 text-xs">
-              ← Return to Financial Operations
-            </Button>
-          </Link>
-        }
+        title="Refunds"
+        sub="Review and complete money that must be returned."
       />
 
-      {/* Role Disclaimer Banner */}
-      <div className="bg-purple-950/40 border border-purple-800/60 rounded-lg p-3 text-purple-300 flex items-center justify-between">
-        <span className="font-bold flex items-center gap-2">
-          <span>🛡️ Active Role Simulator: {role.name} ({role.id})</span>
-        </span>
-        <span className="italic text-purple-400 text-[11px]">
-          “Prototype role simulation — not production authorization.”
-        </span>
-      </div>
+      <Stagger className="space-y-4 pt-4">
+        {refunds.length === 0 ? (
+          <div className="glass p-8 text-center text-ink-mut rounded-xl">
+            No refund requests at this time.
+          </div>
+        ) : (
+          refunds.map((r) => {
+            const booking = state.bookings.find(b => b.id === r.bookingId);
+            const sessionId = booking?.sessionId || "";
+            const eventName = sessionId ? sessionTitle(state, sessionId) : "Unknown Event";
+            
+            return (
+              <Item key={r.id}>
+                <div className="glass p-5 rounded-xl flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl font-bold text-ink-lum">{inr(r.amount)}</span>
+                      <RefundStatusBadge status={r.status as string} />
+                    </div>
+                    <div className="text-sm text-ink-sec font-medium">
+                      {eventName}
+                    </div>
+                    <div className="text-xs text-ink-mut flex items-center gap-2">
+                      <span>Reason: {r.type}</span>
+                      <span>•</span>
+                      <span>Requested: {r.requestedAt}</span>
+                      <span>•</span>
+                      <Link href={`/bookings/${r.bookingId}`} className="text-brand hover:underline">
+                        View Booking
+                      </Link>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+                    {(r.status === "requested" || r.status === "under-review") && (
+                      <RoleGate allowedRoles={["finance", "super-admin", "ops-manager"]} currentRole={role.id} tooltip="Requires Finance role">
+                        <div className="flex items-center gap-2">
+                           <Button
+                             variant="primary"
+                             onClick={() => approveRefund(r.id, role.id)}
+                           >
+                             Approve Refund
+                           </Button>
+                           <Button
+                             variant="ghost"
+                             className="text-red-400 hover:text-red-300 hover:bg-red-950/30"
+                             onClick={() => rejectRefund(r.id, "Rejected", role.id)}
+                           >
+                             Reject
+                           </Button>
+                        </div>
+                      </RoleGate>
+                    )}
+                    {r.status === "approved" && (
+                      <Button variant="secondary" disabled>
+                        Complete
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </Item>
+            );
+          })
+        )}
+      </Stagger>
 
-      <div className="space-y-6">
-        <div className="space-y-3">
-          <h3 className="font-bold text-slate-200 uppercase tracking-wider text-xs">
-            Standard Refund Requests ({refunds.length})
+      {exceptions.length > 0 && (
+        <div className="mt-12 space-y-4">
+          <h3 className="font-medium text-ink-sec text-sm">
+            Exception Refunds
           </h3>
-          <DataTable columns={columns} rows={refunds} emptyTitle="No refund requests." emptyLine="Cancelled paid bookings automatically trigger refund requests." />
+          <DataTable columns={exceptionColumns} rows={exceptions} emptyTitle="No exceptions." emptyLine="" />
         </div>
-
-        <div className="space-y-3 border-t border-white/5 pt-6">
-          <h3 className="font-bold text-slate-200 uppercase tracking-wider text-xs text-brand">
-            ⚠️ Recommended Refund Exceptions Awaiting Finance Approval ({exceptions.length})
-          </h3>
-          <DataTable columns={exceptionColumns} rows={exceptions} emptyTitle="No recommended exceptions." emptyLine="Incident or dispute exceptions recommended by dispatchers appear here." />
-        </div>
-      </div>
+      )}
     </div>
   );
 }

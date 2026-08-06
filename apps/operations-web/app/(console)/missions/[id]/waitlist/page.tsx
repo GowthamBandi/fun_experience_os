@@ -2,18 +2,19 @@
 
 import { useMemo } from "react";
 import { useParams } from "next/navigation";
-import Link from "next/link";
 import { useStore } from "@/lib/store";
 import { sessionCapacityLedger } from "@/lib/prototype/selectors/capacity";
 import { selectSessionWaitlistQueue } from "@/lib/prototype/selectors/bookings";
 import { sessionTitle } from "@/lib/prototype/selectors/lookups";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { CapacityBar } from "@/components/geo/CapacityBar";
-import { DataTable, type Column } from "@/components/ui/table";
-import { StatusChip, Button } from "@/components/ui/primitives";
-import type { Booking } from "@/lib/prototype/entities";
+import { Button } from "@/components/ui/primitives";
+import {
+  BookingBackNavigation,
+  BookingStatusBadge,
+  BookingEmptyState,
+} from "@/components/bookings/shared";
 
-export default function QueueOperationsPage() {
+export default function WaitlistPage() {
   const params = useParams();
   const sessionId = params.id as string;
 
@@ -22,7 +23,6 @@ export default function QueueOperationsPage() {
     offerWaitlistSlot,
     acceptWaitlistOffer,
     expireWaitlistOffer,
-    joinWaitlist,
     role,
   } = useStore();
 
@@ -31,106 +31,102 @@ export default function QueueOperationsPage() {
   const queue = useMemo(() => selectSessionWaitlistQueue(state, sessionId), [state, sessionId]);
 
   if (!session) {
-    return <div className="p-8 text-xs font-mono text-slate-400">Session not found.</div>;
+    return <BookingEmptyState title="Session not found" message="This session does not exist." />;
   }
 
-  const handleSimulateJoin = () => {
-    const aliasList = ["SpeedyStriker", "NightOwl", "TurboSmash", "VolleyKing", "PadelPro"];
-    const randomAlias = aliasList[Math.floor(Math.random() * aliasList.length)] + Math.floor(Math.random() * 90 + 10);
-    joinWaitlist({ sessionId, alias: randomAlias, operatorId: role.id });
-  };
-
-  const columns: Column<Booking>[] = [
-    {
-      key: "order",
-      header: "Pos #",
-      render: (b) => <span className="font-mono font-bold text-amber-400">#{b.waitlistOrder || 1}</span>,
-    },
-    {
-      key: "code",
-      header: "Queue ID",
-      render: (b) => <span className="font-mono text-slate-300">{b.bookingCode || b.id}</span>,
-    },
-    { key: "alias", header: "Participant", render: (b) => <span className="font-medium text-slate-200">{b.alias}</span> },
-    { key: "status", header: "Queue State", render: (b) => <StatusChip value={b.status} /> },
-    {
-      key: "expiry",
-      header: "Offer Countdown",
-      render: (b) => (
-        <span className="font-mono text-purple-400">{b.waitlistOfferExpiresAt || "No active offer"}</span>
-      ),
-    },
-    {
-      key: "action",
-      header: "Queue Dispatch",
-      align: "right",
-      render: (b) => (
-        <div className="flex items-center justify-end gap-1.5 font-mono">
-          {b.status === "waitlisted" && (
-            <button
-              onClick={() => offerWaitlistSlot(sessionId, role.id)}
-              className="px-2 py-1 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded text-[10px]"
-            >
-              Extend Offer
-            </button>
-          )}
-
-          {b.status === "waitlist-offered" && (
-            <>
-              <button
-                onClick={() => acceptWaitlistOffer(b.id, role.id)}
-                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold rounded text-[10px]"
-              >
-                Accept Offer
-              </button>
-              <button
-                onClick={() => expireWaitlistOffer(b.id, role.id)}
-                className="px-2 py-1 bg-amber-950 hover:bg-amber-900 text-amber-300 border border-amber-800 rounded text-[10px]"
-              >
-                Expire Offer
-              </button>
-            </>
-          )}
-        </div>
-      ),
-    },
-  ];
+  const offersSent = queue.filter(b => b.status === "waitlist-offered").length;
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8 space-y-6 font-mono text-xs">
+    <div className="mx-auto w-full max-w-4xl px-4 py-8 md:px-8 space-y-8">
+      <BookingBackNavigation label="Back to Event" href={`/missions/${sessionId}/overview`} />
+      
       <PageHeader
-        overline={`Queue Operations · ${session.id}`}
-        title={`Queue Operations: ${sessionTitle(state, session.id)}`}
-        sub="Ordered operational waitlist queue, capacity recovery holds, offer expiry countdowns, and automated promotion dispatch."
-        right={
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleSimulateJoin}
-              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded font-bold"
-            >
-              + Simulate Waitlist Join
-            </button>
-            <button
-              onClick={() => offerWaitlistSlot(sessionId, role.id)}
-              disabled={ledger.remainingSellableCapacity <= 0 || queue.length === 0}
-              className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-bold rounded"
-            >
-              Offer Top Slot ({ledger.remainingSellableCapacity} Available)
-            </button>
-          </div>
-        }
+        overline="Waiting List"
+        title="Waiting List"
+        sub="Manage people waiting for a space in this event."
       />
 
-      <CapacityBar ledger={ledger} />
+      <div className="glass p-5 rounded-2xl flex flex-col md:flex-row gap-6 md:items-center justify-between">
+        <div>
+          <div className="text-lg font-bold text-ink-lum mb-1">Who gets the next available space?</div>
+          <p className="text-sm text-ink-sec">
+            If they do not accept in time, the space will be offered to the next person.
+          </p>
+        </div>
+        <div className="flex gap-6 shrink-0">
+          <div className="text-center">
+            <div className="text-2xl font-bold text-ink-lum">{queue.length}</div>
+            <div className="text-xs text-ink-mut">People Waiting</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-ink-lum">{ledger.remainingSellableCapacity}</div>
+            <div className="text-xs text-ink-mut">Spaces Available</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-brand">{offersSent}</div>
+            <div className="text-xs text-ink-mut">Offers Sent</div>
+          </div>
+        </div>
+      </div>
 
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="font-bold text-slate-200 uppercase tracking-wider text-xs">
-            Waitlist Operational Queue ({queue.length})
-          </h3>
-          <span className="text-slate-400">Remaining Sellable: <strong className="text-emerald-400">{ledger.remainingSellableCapacity}</strong></span>
-        </div>
-        <DataTable columns={columns} rows={queue} emptyTitle="Queue is empty." emptyLine="No participants currently waiting for this session." />
+        {queue.length === 0 ? (
+          <BookingEmptyState 
+            title="Empty Waiting List" 
+            message="No one is waiting for a space in this event." 
+          />
+        ) : (
+          queue.map((b, index) => (
+            <div key={b.id} className="glass p-4 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-8 h-8 rounded-full bg-ink-sec/10 flex items-center justify-center font-bold text-ink-sec">
+                  {index + 1}
+                </div>
+                <div>
+                  <div className="font-bold text-ink-lum flex items-center gap-2">
+                    {b.alias}
+                    <BookingStatusBadge status={b.status as string} />
+                  </div>
+                  {b.waitlistOfferExpiresAt && b.status === "waitlist-offered" && (
+                    <div className="text-xs text-ink-sec mt-1">
+                      Offer expires: {b.waitlistOfferExpiresAt}
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                {b.status === "waitlisted" && (
+                  <Button
+                    variant="primary"
+                    onClick={() => offerWaitlistSlot(sessionId, role.id)}
+                    title="Hold one available space for this person for 10 minutes?"
+                    disabled={ledger.remainingSellableCapacity <= 0}
+                  >
+                    Offer Space
+                  </Button>
+                )}
+                {b.status === "waitlist-offered" && (
+                  <>
+                    <Button
+                      variant="primary"
+                      onClick={() => acceptWaitlistOffer(b.id, role.id)}
+                    >
+                      Accept Offer
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="text-red-400 hover:text-red-300 hover:bg-red-950/30"
+                      onClick={() => expireWaitlistOffer(b.id, role.id)}
+                    >
+                      Expire Offer
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
