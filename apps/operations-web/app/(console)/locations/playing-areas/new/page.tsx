@@ -84,7 +84,7 @@ function AddPlayingAreaForm() {
           <Button
             variant="primary"
             className="w-full sm:w-auto font-bold px-6"
-            onClick={() => router.push("/catalog/templates/new")}
+            onClick={() => router.push("/catalog/experiences/new")}
           >
             <Plus className="w-4 h-4 mr-1" />
             Create Experience Template

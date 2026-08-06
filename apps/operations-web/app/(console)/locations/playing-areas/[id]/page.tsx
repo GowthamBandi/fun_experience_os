@@ -52,7 +52,7 @@ export default function PlayingAreaDetailsPage({ params }: { params: Promise<{ i
         right={
           <div className="flex items-center gap-3">
             <SetupStatusBadge status="complete" />
-            <Link href="/catalog/templates/new">
+            <Link href="/catalog/experiences/new">
               <Button variant="primary" className="font-bold text-xs">
                 Create Experience Template
               </Button>

@@ -90,3 +90,18 @@ During our comprehensive walkthrough of the Super Admin Command Center, we ident
   - Standardized Setup components (`SetupBackNavigation`, `SetupStatusBadge`, `SetupNextStep`, `SetupHelpPanel`, `SetupRelationshipTree`, `SetupEmptyState`, `SetupPrimaryAction`).
   - Added Setup Health summary to Command Center dashboard (`/`).
 - **Status**: RESOLVED (Commit `feat(ux): simplify franchise territory venue and playing area setup`)
+
+---
+
+## RESOLVED IN CATALOG WORKSPACE USABILITY REBUILD
+
+### Resolved: Category vs. Experience Mental Model & Readiness Engine
+- **Route**: `/catalog`, `/catalog/categories`, `/catalog/experiences`, `/catalog/experiences/new`, `/catalog/experiences/[id]`, `/missions/new`
+- **Resolution**:
+  - Rebuilt `/catalog` landing page titled **"Experiences"** with 4-step workflow (*Category → Experience → Readiness → Schedule Event*) and Catalog Help Panel.
+  - Standardized core terminology (*Category*, *Experience*, *Ready to Schedule*, *Where It Can Run*, *What Staff Need*, *What Participants See*, *Default Price*, *Default Group Size*).
+  - Implemented 10-step guided wizard for creating experiences with Save Draft, capacity validation (Min ≤ Ideal ≤ Max), timeline preview, and price summary.
+  - Implemented readiness engine (`selectExperienceReadiness`) displaying granular blockers with direct fix buttons.
+  - Added scheduling connection preselecting experiences in `/missions/new?experienceId={id}` and blocking unschedulable templates.
+  - Added Experiences Health panel to Command Center dashboard (`/`).
+- **Status**: RESOLVED (Commit `feat(ux): simplify categories experiences and scheduling readiness`)

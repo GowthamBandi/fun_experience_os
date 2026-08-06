@@ -181,3 +181,16 @@ Manage your company's operating structure through a simple 5-step setup hierarch
 4. **Operating Structure Tree**: Visual tree displaying top-down relationships (`Franchise └── Territory └── City └── Venue └── Playing Area`).
 5. **Cities Portal (`/cities`)**: Top-level cities page so cities are no longer hidden inside territory detail pages.
 
+---
+
+## Part 9 — Catalog & Experience Usability Workspace
+
+Manage activity categories and reusable experience plans through an intuitive 4-step mental model:
+
+1. **Experiences Landing (`/catalog`)**: Central hub displaying Categories and Reusable Experiences with the 4-step workflow (*Category → Experience → Readiness → Schedule Event*) and Catalog Help Panel.
+2. **Categories (`/catalog/categories`, `/catalog/categories/new`, `/catalog/categories/[id]`)**: Create and view broad activity classifications (*Badminton, Box Cricket, Trekking, Social Games*).
+3. **Experiences (`/catalog/experiences`, `/catalog/experiences/new`, `/catalog/experiences/[id]`)**: Reusable event plans configured via a guided 10-step wizard (*Basics, Format, Group Size, Time, Price, Staff, Where It Can Run, Reveal, Checklist, Review*).
+4. **Readiness Checklist**: Granular validation checklist marking plans as *Ready to Schedule*, *Needs Attention*, or *Blocked* with direct fix action buttons.
+5. **Schedule Connection**: Ready experience plans preselect directly in `/missions/new?experienceId={id}` for event scheduling.
+6. **Command Center Experiences Panel**: Dashboard panel tracking Categories, Draft Experiences, Ready to Schedule, and Blocked plans.
+

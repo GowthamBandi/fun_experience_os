@@ -1,208 +1,235 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
-import {
-  categoryStatusCounts,
-  catalogWarnings,
-  templateStatusCounts,
-  templateReadiness,
-  templateById,
-  categoryViews,
-} from "@/lib/prototype/repositories";
-import { geoCan } from "@/lib/geo/access";
-import { cn, pct } from "@/lib/format";
-import { PageFrame, Breadcrumbs, PrototypeRoleNote } from "@/components/geo/layout";
+import { selectCatalogHealth, selectExperienceReadiness } from "@/lib/prototype/selectors/catalog";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Card, PanelHeader, PermissionDenied } from "@/components/ui/panels";
-import { Badge, Button, StatusChip } from "@/components/ui/primitives";
-import { Item, Stagger, Tide } from "@/components/motion/Motion";
-import { AlertTriangle, Layers, Plus, Shapes, Sparkles } from "lucide-react";
-import { StatCard } from "@/components/catalog/CatalogBits";
+import { PermissionDenied } from "@/components/ui/panels";
+import { Button, StatusChip } from "@/components/ui/primitives";
+import { Stagger, Item } from "@/components/motion/Motion";
+import {
+  CategoryStatusBadge,
+  ExperienceStatusBadge,
+  CatalogHelpPanel,
+  CatalogEmptyState,
+} from "@/components/catalog";
+import { Sparkles, Layers, Calendar, Plus, ArrowRight, CheckCircle2 } from "lucide-react";
 
-export default function CatalogCommandPage() {
+export default function CatalogLandingPage() {
   const router = useRouter();
-  const { state, role, canAccess, hydrated } = useStore();
+  const { state, territory, canAccess, role } = useStore();
 
-  if (!hydrated) return <PageFrame><Tide /></PageFrame>;
-  if (!canAccess("/catalog")) return <PageFrame><PermissionDenied module="Catalog" /></PageFrame>;
+  const categories = state.categories ?? [];
+  const templates = state.templates ?? [];
+  const health = selectCatalogHealth(state);
 
-  const catCounts = categoryStatusCounts(state);
-  const tplCounts = templateStatusCounts(state);
-  const warnings = catalogWarnings(state);
-  const catViews = categoryViews(state);
-  const canManage = geoCan(role.id, "manage-catalog");
+  if (!canAccess("/catalog")) {
+    return (
+      <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8">
+        <PermissionDenied module="Catalog" />
+      </div>
+    );
+  }
 
-  const templates = state.templates
-    .map((t) => ({ t, read: templateReadiness(state, t) }))
-    .sort((a, b) => Number(a.read.schedulable) - Number(b.read.schedulable));
+  // Single primary action rule
+  let primaryActionLabel = "Create Experience";
+  let primaryActionHref = "/catalog/experiences/new";
 
-  const schedulableShare = tplCounts.total ? Math.round((tplCounts.active / tplCounts.total) * 100) : 0;
-  const warningsByScope = (scope: "category" | "template") => warnings.filter((w) => w.scope === scope);
+  if (categories.length === 0) {
+    primaryActionLabel = "Create Category";
+    primaryActionHref = "/catalog/categories/new";
+  } else if (health.blockedCount > 0) {
+    primaryActionLabel = "Review Readiness";
+    primaryActionHref = "/catalog/experiences";
+  }
 
   return (
-    <PageFrame>
-      <Breadcrumbs items={[{ label: "Catalog" }]} />
+    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-8">
+      {/* Header */}
       <PageHeader
-        overline="Catalog Operations · SA-P2C"
-        title="Catalog command"
-        sub="The operating spine of the platform — activity categories, experience templates, and the readiness gates that decide what can be scheduled."
+        overline={`Catalog · ${territory.name}`}
+        title="Experiences"
+        sub="Create what customers can join, then schedule it at a venue. What experience do you want to offer?"
         right={
-          canManage ? (
-            <div className="flex flex-wrap gap-2">
-              <Button variant="secondary" onClick={() => router.push("/catalog/categories/new")}>
-                <Layers className="h-4 w-4" /> New category
+          <div className="flex items-center gap-3">
+            <ExperienceStatusBadge status={health.status} />
+            <Link href={primaryActionHref}>
+              <Button variant="primary" className="font-bold">
+                <Plus className="w-4 h-4 mr-1" />
+                {primaryActionLabel}
               </Button>
-              <Button onClick={() => router.push("/catalog/experiences/new")}>
-                <Plus className="h-4 w-4" /> New template
-              </Button>
-            </div>
-          ) : (
-            <PrototypeRoleNote />
-          )
+            </Link>
+          </div>
         }
       />
 
-      <Stagger className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <Item><StatCard label="Categories" value={catCounts.total} hint={`${catCounts.active} active`} tone="ok" /></Item>
-        <Item><StatCard label="Templates" value={tplCounts.total} hint={`${tplCounts.active} active`} /></Item>
-        <Item><StatCard label="Ready" value={tplCounts.ready} hint="Validated, awaiting activation" tone="ok" /></Item>
-        <Item><StatCard label="In draft" value={tplCounts.draft} hint="Not schedulable until activated" tone="warm" /></Item>
-        <Item>
-          <StatCard
-            label="Schedulable share"
-            value={pct(schedulableShare)}
-            hint={schedulableShare < 50 ? "Mostly draft or paused" : "Mostly on the shelf"}
-            tone={schedulableShare >= 60 ? "ok" : "warm"}
-          />
-        </Item>
-      </Stagger>
-
-      {warnings.length > 0 && (
-        <Card className="mt-4 border border-warning/15 bg-warning/5">
-          <PanelHeader
-            title="Catalog health"
-            sub="Conditions that need an operator's eyes"
-            right={<Badge className="border border-[#f7b955]/30 bg-[#f7b955]/10 text-[#ffd28a]">{warnings.length}</Badge>}
-          />
-          <div className="mt-3 grid gap-1.5 md:grid-cols-2">
-            {warnings.map((w, i) => (
-              <Link
-                key={i}
-                href={w.scope === "category" ? `/catalog/categories/${w.entityId}` : `/catalog/experiences/${w.entityId}`}
-                className="flex items-start gap-2 rounded-lg border border-white/5 bg-white/3 px-3 py-2 text-xs transition hover:bg-white/5"
-              >
-                <AlertTriangle className={cn("mt-0.5 h-3.5 w-3.5 shrink-0", w.level === "error" ? "text-[#ff8f86]" : "text-[#ffc46b]")} />
-                <span className="min-w-0">
-                  <span className="font-medium text-ink-lum">{w.name}</span>
-                  <span className="text-ink-mut"> — {w.message}</span>
-                </span>
-              </Link>
-            ))}
+      {/* 4-Step Operator Workflow Bar */}
+      <div className="glass p-4 rounded-2xl border border-white/5 space-y-3">
+        <div className="text-xs font-semibold text-ink-sec">Operator Mental Model Workflow:</div>
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-center text-xs">
+          <div className="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
+            <span className="font-bold text-brand block">1. Category</span>
+            <span className="text-[11px] text-ink-mut">Activity type</span>
           </div>
-        </Card>
-      )}
-
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card>
-          <PanelHeader
-            title="Categories"
-            sub="Activity families and their venue coverage"
-            right={
-              <Link href="/catalog/categories">
-                <Badge className="border border-white/8 bg-white/4 text-ink-sec hover:bg-white/8">{catViews.length}</Badge>
-              </Link>
-            }
-          />
-          <div className="mt-3 space-y-1.5">
-            {catViews.map((c) => (
-              <Link
-                key={c.id}
-                href={`/catalog/categories/${c.id}`}
-                className="solid flex items-center justify-between gap-3 rounded-xl px-3 py-2 transition-colors hover:bg-white/4"
-              >
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <Shapes className="h-4 w-4 shrink-0 text-ink-mut" />
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-ink-lum">{c.name}</p>
-                    <p className="text-[11px] text-ink-mut">
-                      {c.templates} templates · {c.compatibleVenues}/{c.totalVenues} venues · {c.territories} territories
-                    </p>
-                  </div>
-                </div>
-                <StatusChip value={c.status} />
-              </Link>
-            ))}
+          <div className="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
+            <span className="font-bold text-purple-400 block">2. Experience</span>
+            <span className="text-[11px] text-ink-mut">Reusable event plan</span>
           </div>
-        </Card>
+          <div className="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
+            <span className="font-bold text-emerald-400 block">3. Readiness</span>
+            <span className="text-[11px] text-ink-mut">Review checklist</span>
+          </div>
+          <div className="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
+            <span className="font-bold text-emerald-300 block">4. Schedule</span>
+            <span className="text-[11px] text-ink-mut">Select venue & time</span>
+          </div>
+        </div>
+      </div>
 
-        <Card>
-          <PanelHeader
-            title="Experience templates"
-            sub="Readiness runs live against every template"
-            right={
-              <Link href="/catalog/experiences">
-                <Badge className="border border-white/8 bg-white/4 text-ink-sec hover:bg-white/8">{tplCounts.total}</Badge>
-              </Link>
-            }
+      {/* Catalog Help Panel */}
+      <CatalogHelpPanel />
+
+      {/* SECTION 1 — Categories */}
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-3">
+          <div>
+            <h2 className="text-lg font-bold text-ink-lum flex items-center gap-2">
+              <Layers className="w-5 h-5 text-brand" />
+              <span>1. Activity Categories</span>
+            </h2>
+            <p className="text-xs text-ink-sec">
+              Basic activity types such as Badminton, Box Cricket, Trekking, Social Games.
+            </p>
+          </div>
+          <Link href="/catalog/categories">
+            <Button variant="secondary" className="h-8 text-xs font-bold px-3">
+              View All Categories ({categories.length})
+              <ArrowRight className="w-3.5 h-3.5 ml-1" />
+            </Button>
+          </Link>
+        </div>
+
+        {categories.length === 0 ? (
+          <CatalogEmptyState
+            title="No Activity Categories"
+            message="Basic activity types must be created before adding reusable experiences."
+            actionLabel="Create Category"
+            actionHref="/catalog/categories/new"
           />
-          <div className="mt-3 space-y-1.5">
-            {templates.slice(0, 8).map(({ t, read }) => {
-              const cat = templateById(state, t.categoryId);
+        ) : (
+          <Stagger className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {categories.slice(0, 3).map((c) => {
+              const catTemplates = templates.filter((t) => t.categoryId === c.id);
               return (
-                <Link
-                  key={t.id}
-                  href={`/catalog/experiences/${t.id}`}
-                  className="solid flex items-center justify-between gap-3 rounded-xl px-3 py-2 transition-colors hover:bg-white/4"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-ink-lum">{t.name}</p>
-                    <p className="text-[11px] text-ink-mut">{cat?.name ?? t.categoryId}</p>
+                <Item key={c.id}>
+                  <div className="glass p-5 rounded-2xl border border-white/5 hover:border-white/10 transition-all flex flex-col justify-between space-y-3">
+                    <div>
+                      <div className="flex justify-between items-start mb-2">
+                        <h3 className="font-bold text-base text-ink-lum">{c.name}</h3>
+                        <CategoryStatusBadge status={c.status ?? "active"} size="sm" />
+                      </div>
+                      <p className="text-xs text-ink-mut line-clamp-2">{c.description || "Activity category"}</p>
+                    </div>
+
+                    <div className="pt-2 border-t border-white/5 flex items-center justify-between text-xs">
+                      <span className="text-ink-sec font-medium">{catTemplates.length} Experiences</span>
+                      <Link href={`/catalog/categories/${c.id}`}>
+                        <Button variant="ghost" className="h-7 text-xs px-2 font-bold text-brand">
+                          Manage Category <ArrowRight className="w-3 h-3 ml-1" />
+                        </Button>
+                      </Link>
+                    </div>
                   </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <span
-                      className={cn(
-                        "h-2 w-2 rounded-full",
-                        read.schedulable ? "bg-[#5fd7a3]" : read.ready ? "bg-[#9db4ff]" : "bg-[#ff8f86]",
-                      )}
-                      title={read.schedulable ? "Schedulable" : read.ready ? "Ready" : "Needs work"}
-                    />
-                    <StatusChip value={t.status} />
-                  </div>
-                </Link>
+                </Item>
               );
             })}
-          </div>
-        </Card>
+          </Stagger>
+        )}
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-        <Link href="/catalog/categories">
-          <Card className="h-full transition hover:bg-white/4">
-            <p className="overline flex items-center gap-1.5"><Layers className="h-3.5 w-3.5" /> Category workspace</p>
-            <p className="mt-2 text-sm text-ink-sec">Manage activity families, defaults and venue compatibility.</p>
-            <p className="mt-2 text-[11px] text-ink-mut">
-              {warningsByScope("category").length} open warnings
+      {/* SECTION 2 — Experiences (Templates) */}
+      <div className="space-y-4 pt-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-3">
+          <div>
+            <h2 className="text-lg font-bold text-ink-lum flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-purple-400" />
+              <span>2. Reusable Experiences</span>
+            </h2>
+            <p className="text-xs text-ink-sec">
+              Reusable event plans such as Saturday Mystery Badminton or Friday Box Cricket Night.
             </p>
-          </Card>
-        </Link>
-        <Link href="/catalog/experiences">
-          <Card className="h-full transition hover:bg-white/4">
-            <p className="overline flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5" /> Experience workspace</p>
-            <p className="mt-2 text-sm text-ink-sec">Build formats, pricing, reveal keys and readiness.</p>
-            <p className="mt-2 text-[11px] text-ink-mut">
-              {warningsByScope("template").length} open warnings · {tplCounts.draft} drafts
-            </p>
-          </Card>
-        </Link>
-        <Card className="h-full">
-          <p className="overline">The shelf rule</p>
-          <p className="mt-2 text-sm text-ink-sec">
-            Templates are paused, never deleted. Drafts cannot be scheduled. Activation is gated on critical validation only.
-          </p>
-        </Card>
+          </div>
+          <Link href="/catalog/experiences">
+            <Button variant="secondary" className="h-8 text-xs font-bold px-3">
+              View All Experiences ({templates.length})
+              <ArrowRight className="w-3.5 h-3.5 ml-1" />
+            </Button>
+          </Link>
+        </div>
+
+        {templates.length === 0 ? (
+          <CatalogEmptyState
+            title="No Experiences Created"
+            message="Create your first reusable experience template to define group size, duration, and price defaults."
+            actionLabel="Create Experience"
+            actionHref="/catalog/experiences/new"
+          />
+        ) : (
+          <Stagger className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {templates.slice(0, 6).map((t) => {
+              const cat = categories.find((c) => c.id === t.categoryId);
+              const read = selectExperienceReadiness(t, state);
+              const sessionsCount = (state.sessions ?? []).filter((s) => s.templateId === t.id).length;
+
+              return (
+                <Item key={t.id}>
+                  <div className="glass p-5 rounded-2xl border border-white/5 hover:border-white/10 transition-all flex flex-col justify-between space-y-4">
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <h3 className="font-bold text-base text-ink-lum">{t.name}</h3>
+                          <span className="text-xs text-purple-400 font-medium">{cat?.name || "Category"}</span>
+                        </div>
+                        <ExperienceStatusBadge status={read.status} size="sm" />
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 text-center text-xs border-t border-white/5 pt-2">
+                        <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                          <span className="text-[10px] text-ink-mut block uppercase">Price</span>
+                          <span className="font-bold text-emerald-400">₹{t.basePrice}</span>
+                        </div>
+                        <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                          <span className="text-[10px] text-ink-mut block uppercase">Capacity</span>
+                          <span className="font-bold text-ink-lum">{t.targetParticipants} pax</span>
+                        </div>
+                        <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                          <span className="text-[10px] text-ink-mut block uppercase">Duration</span>
+                          <span className="font-bold text-ink-lum">{t.duration}m</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-white/5 flex items-center justify-between">
+                      <span className="text-[11px] text-ink-sec">{sessionsCount} scheduled</span>
+                      <Link href={read.nextActionHref}>
+                        <Button
+                          variant={read.schedulable ? "primary" : "secondary"}
+                          className="h-7 text-xs font-bold px-3"
+                        >
+                          {read.nextActionLabel}
+                          <ArrowRight className="w-3 h-3 ml-1" />
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                </Item>
+              );
+            })}
+          </Stagger>
+        )}
       </div>
-    </PageFrame>
+    </div>
   );
 }

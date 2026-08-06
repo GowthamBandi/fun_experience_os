@@ -1,128 +1,144 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
-import { categoryViews } from "@/lib/prototype/repositories";
-import { geoCan } from "@/lib/geo/access";
-import { PageFrame, Breadcrumbs, PrototypeRoleNote } from "@/components/geo/layout";
+import { selectCategoryHealth } from "@/lib/prototype/selectors/catalog";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PermissionDenied } from "@/components/ui/panels";
-import { Badge, Button, StatusChip } from "@/components/ui/primitives";
-import { DataTable, type Column } from "@/components/ui/table";
-import { FilterRail, SearchInput } from "@/components/ui/fields";
-import { Stagger, Item, Tide } from "@/components/motion/Motion";
-import { Layers, Plus } from "lucide-react";
-import type { CategoryView } from "@/lib/prototype/repositories";
-
-type StatusFilter = "active" | "draft" | "paused" | "archived";
+import { Button } from "@/components/ui/primitives";
+import { SearchInput } from "@/components/ui/fields";
+import { Stagger, Item } from "@/components/motion/Motion";
+import {
+  CatalogBackNavigation,
+  CategoryStatusBadge,
+  CatalogEmptyState,
+} from "@/components/catalog";
+import { Layers, Plus, ArrowRight } from "lucide-react";
 
 export default function CategoriesPage() {
   const router = useRouter();
-  const { state, role, canAccess, hydrated } = useStore();
-  const [query, setQuery] = useState("");
-  const [status, setStatus] = useState<StatusFilter | "all">("all");
+  const { state, territory, canAccess } = useStore();
+  const [searchQuery, setSearchQuery] = useState("");
 
-  if (!hydrated) return <PageFrame><Tide /></PageFrame>;
-  if (!canAccess("/catalog")) return <PageFrame><PermissionDenied module="Catalog" /></PageFrame>;
+  const categories = state.categories ?? [];
+  const templates = state.templates ?? [];
 
-  const canManage = geoCan(role.id, "manage-catalog");
-  const all = categoryViews(state).sort((a, b) => b.templates - a.templates);
-  const rows = all.filter(
-    (c) =>
-      (status === "all" || c.status === status) &&
-      (!query || c.name.toLowerCase().includes(query.toLowerCase()) || c.shortCode.toLowerCase().includes(query.toLowerCase())),
-  );
+  const filtered = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return categories;
+    return categories.filter(
+      (c) => c.name.toLowerCase().includes(q) || (c.description || "").toLowerCase().includes(q)
+    );
+  }, [categories, searchQuery]);
 
-  const columns: Column<CategoryView>[] = [
-    {
-      key: "category",
-      header: "Category",
-      render: (c) => (
-        <div className="flex items-center gap-2.5">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/5">
-            <Layers className="h-4 w-4 text-ink-mut" />
-          </span>
-          <div className="min-w-0">
-            <p className="truncate font-medium text-ink-lum">{c.name}</p>
-            <p className="text-[11px] text-ink-mut">{c.shortCode} · {c.riskLevel} risk</p>
-          </div>
-        </div>
-      ),
-    },
-    { key: "status", header: "Status", render: (c) => <StatusChip value={c.status} /> },
-    {
-      key: "templates",
-      header: "Templates",
-      align: "right",
-      render: (c) => <span className="text-ink-lum">{c.templates}</span>,
-    },
-    {
-      key: "venues",
-      header: "Venue coverage",
-      align: "right",
-      render: (c) => (
-        <span className={c.compatibleVenues === 0 ? "text-[#ff8f86]" : "text-ink-sec"}>
-          {c.compatibleVenues}/{c.totalVenues}
-        </span>
-      ),
-    },
-    {
-      key: "territories",
-      header: "Territories",
-      align: "right",
-      render: (c) => <span className="text-ink-mut">{c.territories}</span>,
-    },
-    {
-      key: "sessions",
-      header: "Scheduled",
-      align: "right",
-      render: (c) => <span className="text-ink-mut">{c.scheduledSessions}</span>,
-    },
-  ];
+  if (!canAccess("/catalog")) {
+    return (
+      <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8">
+        <PermissionDenied module="Categories" />
+      </div>
+    );
+  }
 
   return (
-    <PageFrame>
-      <Breadcrumbs items={[{ label: "Catalog", href: "/catalog" }, { label: "Categories" }]} />
+    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6">
+      <CatalogBackNavigation label="Back to Experiences" href="/catalog" />
+
       <PageHeader
-        overline="Catalog · Categories"
-        title="Activity categories"
-        sub="Families of play with shared defaults — staffing, risk, venue compatibility. Paused categories freeze template activation."
+        overline={`Catalog · ${territory.name}`}
+        title="Categories"
+        sub="Organize experiences by activity type. What kind of activity is this?"
         right={
-          canManage ? (
-            <Button onClick={() => router.push("/catalog/categories/new")}>
-              <Plus className="h-4 w-4" /> New category
+          <Link href="/catalog/categories/new">
+            <Button variant="primary" className="font-bold">
+              <Plus className="w-4 h-4 mr-1" />
+              Create Category
             </Button>
-          ) : (
-            <PrototypeRoleNote />
-          )
+          </Link>
         }
       />
 
-      <Stagger className="mt-6">
-        <Item>
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <FilterRail
-              options={["active", "draft", "paused", "archived"] as const}
-              value={status}
-              onChange={setStatus}
-            />
-            <div className="w-64"><SearchInput value={query} onChange={setQuery} placeholder="Find a category…" /></div>
+      <div className="glass p-5 rounded-2xl border border-white/5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-sm font-semibold text-ink-lum">Activity Classification</h3>
+            <p className="text-xs text-ink-mut">Broad activity types (Badminton, Box Cricket, Trekking, Social Games).</p>
           </div>
-          <DataTable
-            columns={columns}
-            rows={rows}
-            onRowClick={(c) => router.push(`/catalog/categories/${c.id}`)}
-            emptyTitle="No categories."
-            emptyLine="Nothing matches this filter yet."
+          <div className="w-full sm:w-72">
+            <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search categories..." />
+          </div>
+        </div>
+
+        {categories.length === 0 ? (
+          <CatalogEmptyState
+            title="No Activity Categories Created"
+            message="No activity categories have been created yet. Create a category to start organizing experiences."
+            actionLabel="Create Category"
+            actionHref="/catalog/categories/new"
           />
-          <div className="mt-3 flex items-center gap-2 text-[11px] text-ink-mut">
-            <Badge className="border border-white/8 bg-white/4 text-ink-sec">{rows.length} shown</Badge>
-            <Link href="/catalog/categories/new" className="text-brand hover:underline">or create a new category →</Link>
-          </div>
-        </Item>
-      </Stagger>
-    </PageFrame>
+        ) : filtered.length === 0 ? (
+          <div className="p-8 text-center text-xs text-ink-mut">No categories match your search.</div>
+        ) : (
+          <Stagger className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filtered.map((c) => {
+              const catTemplates = templates.filter((t) => t.categoryId === c.id);
+              const activeCount = catTemplates.filter((t) => t.status === "active").length;
+              const health = selectCategoryHealth(c, state);
+
+              const nextAction = catTemplates.length === 0
+                ? { label: "Create Experience", href: `/catalog/experiences/new?categoryId=${c.id}` }
+                : { label: "View Experiences", href: `/catalog/categories/${c.id}` };
+
+              return (
+                <Item key={c.id}>
+                  <div className="glass p-5 rounded-2xl border border-white/5 hover:border-white/10 transition-all flex flex-col justify-between space-y-4">
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="space-y-1">
+                          <h4 className="font-bold text-base text-ink-lum flex items-center gap-2">
+                            <Layers className="w-4 h-4 text-brand shrink-0" />
+                            <Link href={`/catalog/categories/${c.id}`} className="hover:text-brand transition-colors">
+                              {c.name}
+                            </Link>
+                          </h4>
+                          <span className="text-[11px] text-ink-sec font-mono uppercase">
+                            {c.visualTreatment || "Standard"} · Risk: {c.riskLevel || "Low"}
+                          </span>
+                        </div>
+                        <CategoryStatusBadge status={health.status} size="sm" />
+                      </div>
+
+                      <p className="text-xs text-ink-mut line-clamp-2">{c.description || "Activity category"}</p>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs border-t border-white/5 pt-2">
+                        <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                          <span className="text-[10px] text-ink-mut block uppercase">Experiences</span>
+                          <span className="font-bold text-ink-lum">{catTemplates.length}</span>
+                        </div>
+                        <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                          <span className="text-[10px] text-ink-mut block uppercase">Active Plans</span>
+                          <span className="font-bold text-emerald-400">{activeCount}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-white/5 flex items-center justify-between">
+                      <span className="text-[11px] text-ink-sec">{c.isIndoor ? "Indoor Space" : "Outdoor Space"}</span>
+                      <Link href={nextAction.href}>
+                        <Button variant={catTemplates.length === 0 ? "primary" : "secondary"} className="h-7 text-xs font-bold px-3">
+                          {nextAction.label}
+                          <ArrowRight className="w-3 h-3 ml-1" />
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                </Item>
+              );
+            })}
+          </Stagger>
+        )}
+      </div>
+    </div>
   );
 }

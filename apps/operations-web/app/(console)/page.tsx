@@ -12,7 +12,9 @@ import { StatusChip, FillMeter } from "@/components/ui/primitives";
 import { LineChart, Bars, Donut } from "@/components/ui/charts";
 
 import { selectSetupHealth } from "@/lib/prototype/selectors/setup";
+import { selectCatalogHealth } from "@/lib/prototype/selectors/catalog";
 import { SetupStatusBadge } from "@/components/setup/shared";
+import { ExperienceStatusBadge } from "@/components/catalog";
 import Link from "next/link";
 import { Button } from "@/components/ui/primitives";
 
@@ -22,6 +24,7 @@ export default function CommandPage() {
   const [struck, setStruck] = useState<string | null>(null);
 
   const setupHealth = selectSetupHealth(state);
+  const catalogHealth = selectCatalogHealth(state);
 
   const sessions = sessionViews(state, territory.id);
   const analytics = state.analytics;
@@ -44,22 +47,43 @@ export default function CommandPage() {
         </h1>
       </Fade>
 
-      {/* Setup Health Banner */}
-      <div className="mt-6 glass p-4 rounded-2xl border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <SetupStatusBadge status={setupHealth.status} />
-          <div>
-            <p className="text-xs font-semibold text-ink-lum">Setup Health: {setupHealth.label}</p>
-            <p className="text-[11px] text-ink-mut">
-              {setupHealth.franchiseCount} Franchises · {setupHealth.territoryCount} Territories · {setupHealth.cityCount} Cities · {setupHealth.venueCount} Venues · {setupHealth.playingAreaCount} Playing Areas
-            </p>
+      {/* Setup & Experiences Health Banners */}
+      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Setup Health Banner */}
+        <div className="glass p-4 rounded-2xl border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <SetupStatusBadge status={setupHealth.status} />
+            <div>
+              <p className="text-xs font-semibold text-ink-lum">Setup Health: {setupHealth.label}</p>
+              <p className="text-[11px] text-ink-mut">
+                {setupHealth.franchiseCount} Franchises · {setupHealth.territoryCount} Territories · {setupHealth.cityCount} Cities · {setupHealth.venueCount} Venues
+              </p>
+            </div>
           </div>
+          <Link href="/setup">
+            <Button variant="lamp" className="h-8 text-xs font-bold px-3 shrink-0">
+              Continue Setup <ArrowRight className="w-3.5 h-3.5 ml-1" />
+            </Button>
+          </Link>
         </div>
-        <Link href="/setup">
-          <Button variant="lamp" className="h-8 text-xs font-bold px-3">
-            Continue Setup <ArrowRight className="w-3.5 h-3.5 ml-1" />
-          </Button>
-        </Link>
+
+        {/* Experiences Health Panel */}
+        <div className="glass p-4 rounded-2xl border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <ExperienceStatusBadge status={catalogHealth.status} />
+            <div>
+              <p className="text-xs font-semibold text-ink-lum">Experiences Health</p>
+              <p className="text-[11px] text-ink-mut">
+                {catalogHealth.categoryCount} Categories · {catalogHealth.readyToScheduleCount} Ready to Schedule · {catalogHealth.draftCount} Drafts · {catalogHealth.blockedCount} Blocked
+              </p>
+            </div>
+          </div>
+          <Link href="/catalog">
+            <Button variant="secondary" className="h-8 text-xs font-bold px-3 shrink-0">
+              Manage Experiences <ArrowRight className="w-3.5 h-3.5 ml-1" />
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* KPI row */}

@@ -88,7 +88,7 @@ export default function PlayingAreasPage() {
               const venue = venues.find((v) => v.id === pa.venueId);
               const city = cities.find((c) => c.id === venue?.cityId);
               const nextAction = templates.length === 0
-                ? { label: "Create Template", href: "/catalog/templates/new" }
+                ? { label: "Create Experience", href: "/catalog/experiences/new" }
                 : { label: "Schedule Event", href: "/missions" };
 
               return (

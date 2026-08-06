@@ -1,169 +1,157 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
-import { templateViews, visibleTemplates, type TemplateView } from "@/lib/prototype/repositories";
-import { geoCan } from "@/lib/geo/access";
-import { cn, inr } from "@/lib/format";
-import { PageFrame, Breadcrumbs, PrototypeRoleNote } from "@/components/geo/layout";
+import { selectExperienceReadiness } from "@/lib/prototype/selectors/catalog";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PermissionDenied } from "@/components/ui/panels";
-import { Badge, Button, StatusChip } from "@/components/ui/primitives";
-import { DataTable, type Column } from "@/components/ui/table";
-import { FilterRail, SearchInput } from "@/components/ui/fields";
-import { Stagger, Item, Tide } from "@/components/motion/Motion";
-import { Plus, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/primitives";
+import { SearchInput, FilterRail } from "@/components/ui/fields";
+import { Stagger, Item } from "@/components/motion/Motion";
+import {
+  CatalogBackNavigation,
+  ExperienceStatusBadge,
+  CatalogEmptyState,
+} from "@/components/catalog";
+import { Sparkles, Plus, ArrowRight } from "lucide-react";
 
-type StatusFilter = "draft" | "ready" | "active" | "paused" | "archived";
-
-export default function ExperiencesPage() {
+export default function ExperiencesListPage() {
   const router = useRouter();
-  const { state, role, canAccess, hydrated, territory } = useStore();
-  const [query, setQuery] = useState("");
-  const [status, setStatus] = useState<StatusFilter | "all">("all");
-  const [schedulableOnly, setSchedulableOnly] = useState(false);
+  const { state, territory, canAccess } = useStore();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  if (!hydrated) return <PageFrame><Tide /></PageFrame>;
-  if (!canAccess("/catalog")) return <PageFrame><PermissionDenied module="Catalog" /></PageFrame>;
+  const templates = state.templates ?? [];
+  const categories = state.categories ?? [];
 
-  const canManage = geoCan(role.id, "manage-catalog");
-  const isScoped = role.id === "venue-manager" || role.id === "city-manager" || role.id === "regional-partner";
-  const scopedIds = new Set(visibleTemplates(state, role.id, territory.id).map((t) => t.id));
+  const filtered = useMemo(() => {
+    let result = templates;
+    if (statusFilter !== "all") {
+      result = result.filter((t) => t.status === statusFilter);
+    }
+    const q = searchQuery.toLowerCase().trim();
+    if (q) {
+      result = result.filter(
+        (t) =>
+          t.name.toLowerCase().includes(q) ||
+          (categories.find((c) => c.id === t.categoryId)?.name ?? "").toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [templates, categories, statusFilter, searchQuery]);
 
-  const all = templateViews(state).sort((a, b) => b.schedulable ? 1 : -1);
-  const rows = all.filter(
-    (t) =>
-      (status === "all" || t.status === status) &&
-      (!schedulableOnly || t.schedulable) &&
-      (!isScoped || scopedIds.has(t.id)) &&
-      (!query ||
-        t.name.toLowerCase().includes(query.toLowerCase()) ||
-        t.categoryName.toLowerCase().includes(query.toLowerCase())),
-  );
-
-  const columns: Column<TemplateView>[] = [
-    {
-      key: "template",
-      header: "Experience",
-      render: (t) => (
-        <div className="flex items-center gap-2.5">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/5">
-            <Sparkles className="h-4 w-4 text-ink-mut" />
-          </span>
-          <div className="min-w-0">
-            <p className="truncate font-medium text-ink-lum">{t.name}</p>
-            <p className="text-[11px] text-ink-mut">
-              {t.categoryName} · {t.format} · {t.entryType}
-            </p>
-          </div>
-        </div>
-      ),
-    },
-    { key: "status", header: "Status", render: (t) => <StatusChip value={t.status} /> },
-    {
-      key: "schedulable",
-      header: "Can schedule",
-      render: (t) => (
-        <span
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-            t.schedulable
-              ? "border-[#12b76a]/25 bg-[#12b76a]/12 text-[#5fd7a3]"
-              : "border-[#f7b955]/30 bg-[#f7b955]/10 text-[#ffd28a]",
-          )}
-        >
-          {t.schedulable ? "Yes" : "No"}
-        </span>
-      ),
-    },
-    { key: "price", header: "Price", align: "right", render: (t) => <span className="text-ink-lum">{inr(t.basePrice)}</span> },
-    {
-      key: "capacity",
-      header: "Capacity",
-      align: "right",
-      render: (t) => <span className="text-ink-mut">{t.targetParticipants} / {t.maxParticipants}</span>,
-    },
-    {
-      key: "margin",
-      header: "Margin",
-      align: "right",
-      render: (t) => (
-        <span className={cn("tabular", t.marginPct < 20 ? "text-[#ff8f86]" : t.marginPct < 40 ? "text-[#ffd28a]" : "text-[#5fd7a3]")}>
-          {t.marginPct}%
-        </span>
-      ),
-    },
-    {
-      key: "venues",
-      header: "Venues",
-      align: "right",
-      render: (t) => (
-        <span className={t.compatibleVenues === 0 ? "text-[#ff8f86]" : "text-ink-mut"}>{t.compatibleVenues}</span>
-      ),
-    },
-    {
-      key: "scheduled",
-      header: "Scheduled",
-      align: "right",
-      render: (t) => <span className="text-ink-mut">{t.scheduledCount}</span>,
-    },
-  ];
+  if (!canAccess("/catalog")) {
+    return (
+      <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8">
+        <PermissionDenied module="Experiences" />
+      </div>
+    );
+  }
 
   return (
-    <PageFrame>
-      <Breadcrumbs items={[{ label: "Catalog", href: "/catalog" }, { label: "Experiences" }]} />
+    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6">
+      <CatalogBackNavigation label="Back to Experiences Landing" href="/catalog" />
+
       <PageHeader
-        overline="Catalog · Experiences"
-        title="Experience templates"
-        sub="The buildable formats — capacity, timing, pricing, reveal keys. Draft templates cannot be scheduled; activation is gated on validation."
+        overline={`Catalog · ${territory.name}`}
+        title="Experiences"
+        sub="Create reusable event plans that can be scheduled many times. What can customers join?"
         right={
-          canManage ? (
-            <Button onClick={() => router.push("/catalog/experiences/new")}>
-              <Plus className="h-4 w-4" /> New template
+          <Link href="/catalog/experiences/new">
+            <Button variant="primary" className="font-bold">
+              <Plus className="w-4 h-4 mr-1" />
+              Create Experience
             </Button>
-          ) : (
-            <PrototypeRoleNote />
-          )
+          </Link>
         }
       />
 
-      {isScoped && (
-        <div className="mt-3 rounded-lg border border-[#4c6fff]/20 bg-[#4c6fff]/8 px-3 py-2 text-[11px] text-[#9db4ff]">
-          Scoped view: only templates compatible with a venue in {territory.name} are listed.
-        </div>
-      )}
-
-      <Stagger className="mt-6">
-        <Item>
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <FilterRail options={["draft", "ready", "active", "paused", "archived"] as const} value={status} onChange={setStatus} />
-              <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-white/8 bg-white/3 px-3 py-1.5 text-xs text-ink-sec">
-                <input
-                  type="checkbox"
-                  checked={schedulableOnly}
-                  onChange={(e) => setSchedulableOnly(e.target.checked)}
-                  className="accent-[#4c6fff]"
-                />
-                Schedulable only
-              </label>
-            </div>
-            <div className="w-64"><SearchInput value={query} onChange={setQuery} placeholder="Find an experience…" /></div>
+      <div className="glass p-5 rounded-2xl border border-white/5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="w-full sm:w-72">
+            <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search experience or category..." />
           </div>
-          <DataTable
-            columns={columns}
-            rows={rows}
-            onRowClick={(t) => router.push(`/catalog/experiences/${t.id}`)}
-            emptyTitle="No templates."
-            emptyLine="Nothing matches this filter yet."
+          <FilterRail
+            options={["all", "draft", "active", "paused"] as const}
+            value={statusFilter as any}
+            onChange={setStatusFilter as any}
           />
-          <div className="mt-3 flex items-center gap-2 text-[11px] text-ink-mut">
-            <Badge className="border border-white/8 bg-white/4 text-ink-sec">{rows.length} shown</Badge>
-            <Badge className="border border-white/8 bg-white/4 text-ink-sec">readiness runs live on every row</Badge>
-          </div>
-        </Item>
-      </Stagger>
-    </PageFrame>
+        </div>
+
+        {templates.length === 0 ? (
+          <CatalogEmptyState
+            title="No Reusable Experiences Created"
+            message="No customer experiences have been created yet. Create your first experience plan to start scheduling."
+            actionLabel="Create Experience"
+            actionHref="/catalog/experiences/new"
+          />
+        ) : filtered.length === 0 ? (
+          <div className="p-8 text-center text-xs text-ink-mut">No experiences match your filter criteria.</div>
+        ) : (
+          <Stagger className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filtered.map((t) => {
+              const cat = categories.find((c) => c.id === t.categoryId);
+              const read = selectExperienceReadiness(t, state);
+              const sessionsCount = (state.sessions ?? []).filter((s) => s.templateId === t.id).length;
+
+              return (
+                <Item key={t.id}>
+                  <div className="glass p-5 rounded-2xl border border-white/5 hover:border-white/10 transition-all flex flex-col justify-between space-y-4">
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <h3 className="font-bold text-base text-ink-lum flex items-center gap-2">
+                            <Sparkles className="w-4 h-4 text-purple-400 shrink-0" />
+                            <Link href={`/catalog/experiences/${t.id}`} className="hover:text-brand transition-colors">
+                              {t.name}
+                            </Link>
+                          </h3>
+                          <span className="text-xs text-purple-400 font-medium">{cat?.name || "Category"}</span>
+                        </div>
+                        <ExperienceStatusBadge status={read.status} size="sm" />
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 text-center text-xs border-t border-white/5 pt-2">
+                        <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                          <span className="text-[10px] text-ink-mut block uppercase">Default Price</span>
+                          <span className="font-bold text-emerald-400">₹{t.basePrice}</span>
+                        </div>
+                        <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                          <span className="text-[10px] text-ink-mut block uppercase">Group Size</span>
+                          <span className="font-bold text-ink-lum">{t.targetParticipants} pax</span>
+                        </div>
+                        <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                          <span className="text-[10px] text-ink-mut block uppercase">Duration</span>
+                          <span className="font-bold text-ink-lum">{t.duration}m</span>
+                        </div>
+                      </div>
+
+                      <div className="text-[11px] text-ink-sec truncate">
+                        Format: <span className="text-ink-lum capitalize">{t.format}</span> · Gender: <span className="text-ink-lum capitalize">{t.entryType || "individual"}</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-white/5 flex items-center justify-between">
+                      <span className="text-[11px] text-ink-sec">{sessionsCount} active events</span>
+                      <Link href={read.nextActionHref}>
+                        <Button
+                          variant={read.schedulable ? "primary" : "secondary"}
+                          className="h-7 text-xs font-bold px-3"
+                        >
+                          {read.nextActionLabel}
+                          <ArrowRight className="w-3 h-3 ml-1" />
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                </Item>
+              );
+            })}
+          </Stagger>
+        )}
+      </div>
+    </div>
   );
 }

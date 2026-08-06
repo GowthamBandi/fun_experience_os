@@ -512,3 +512,268 @@ export function operatorName(state: PrototypeState, operatorId: string): string 
 }
 
 export { categoryName, venueName, templateById, categoryById };
+
+/* ------------------------------ SA-P2I Catalog Usability Selectors ------------------------------ */
+
+export interface CatalogReadinessItem {
+  id: string;
+  label: string;
+  category: "basics" | "group" | "time" | "price" | "staff" | "location" | "reveal" | "results" | "safety";
+  status: "complete" | "needs-attention" | "blocked";
+  missingText?: string;
+  actionLabel?: string;
+  actionHref?: string;
+}
+
+export function selectExperienceReadiness(t: ExperienceTemplate, state: PrototypeState) {
+  const items: CatalogReadinessItem[] = [];
+  const cat = categoryById(state, t.categoryId);
+
+  // 1. Basics & Category
+  if (!cat) {
+    items.push({
+      id: "category",
+      label: "Active Category Selected",
+      category: "basics",
+      status: "blocked",
+      missingText: "No active activity category selected for this experience.",
+      actionLabel: "Choose Category",
+      actionHref: `/catalog/experiences/${t.id}/edit`
+    });
+  } else {
+    items.push({
+      id: "category",
+      label: `Category: ${cat.name}`,
+      category: "basics",
+      status: "complete"
+    });
+  }
+
+  if (!t.name?.trim()) {
+    items.push({
+      id: "name",
+      label: "Experience Name",
+      category: "basics",
+      status: "blocked",
+      missingText: "Experience name is missing.",
+      actionLabel: "Set Name",
+      actionHref: `/catalog/experiences/${t.id}/edit`
+    });
+  } else {
+    items.push({
+      id: "name",
+      label: "Experience Name Configured",
+      category: "basics",
+      status: "complete"
+    });
+  }
+
+  // 2. Group Size
+  if (t.minParticipants <= 0 || t.maxParticipants <= 0 || t.minParticipants > t.maxParticipants) {
+    items.push({
+      id: "group-size",
+      label: "Group Size Bounds",
+      category: "group",
+      status: "blocked",
+      missingText: "Capacity limits invalid (min must be positive and <= max).",
+      actionLabel: "Fix Capacity",
+      actionHref: `/catalog/experiences/${t.id}/edit`
+    });
+  } else if (t.targetParticipants < t.minParticipants || t.targetParticipants > t.maxParticipants) {
+    items.push({
+      id: "group-size",
+      label: "Target Group Size",
+      category: "group",
+      status: "needs-attention",
+      missingText: `Target participants (${t.targetParticipants}) outside min-max range [${t.minParticipants}, ${t.maxParticipants}].`,
+      actionLabel: "Adjust Target",
+      actionHref: `/catalog/experiences/${t.id}/edit`
+    });
+  } else {
+    items.push({
+      id: "group-size",
+      label: `Group Size: ${t.minParticipants}-${t.maxParticipants} participants`,
+      category: "group",
+      status: "complete"
+    });
+  }
+
+  // 3. Time & Duration
+  if (t.duration <= 0) {
+    items.push({
+      id: "duration",
+      label: "Default Duration",
+      category: "time",
+      status: "blocked",
+      missingText: "Session duration must be specified.",
+      actionLabel: "Set Duration",
+      actionHref: `/catalog/experiences/${t.id}/edit`
+    });
+  } else {
+    items.push({
+      id: "duration",
+      label: `Duration: ${t.duration} minutes`,
+      category: "time",
+      status: "complete"
+    });
+  }
+
+  // 4. Default Price
+  if (t.basePrice < 0) {
+    items.push({
+      id: "price",
+      label: "Default Price",
+      category: "price",
+      status: "blocked",
+      missingText: "Default price cannot be negative.",
+      actionLabel: "Set Price",
+      actionHref: `/catalog/experiences/${t.id}/edit`
+    });
+  } else {
+    items.push({
+      id: "price",
+      label: `Default Price: ₹${t.basePrice}`,
+      category: "price",
+      status: "complete"
+    });
+  }
+
+  // 5. Staff Requirements
+  if (!t.requiredRoles || t.requiredRoles.length === 0) {
+    items.push({
+      id: "staff",
+      label: "Staff Roles Defined",
+      category: "staff",
+      status: "needs-attention",
+      missingText: "No specific staff roles defined for event execution.",
+      actionLabel: "Assign Roles",
+      actionHref: `/catalog/experiences/${t.id}/edit`
+    });
+  } else {
+    items.push({
+      id: "staff",
+      label: `Staff Roles: ${t.requiredRoles.join(", ")}`,
+      category: "staff",
+      status: "complete"
+    });
+  }
+
+  // 6. Venue Compatibility
+  const compatVenues = compatibleVenues(state, t.id);
+  if (compatVenues.length === 0) {
+    items.push({
+      id: "location",
+      label: "Where It Can Run",
+      category: "location",
+      status: "needs-attention",
+      missingText: "No current playing area or venue matches this Experience requirements.",
+      actionLabel: "Review Playing Areas",
+      actionHref: "/locations/playing-areas"
+    });
+  } else {
+    items.push({
+      id: "location",
+      label: `Compatible Locations: ${compatVenues.length} venue(s)`,
+      category: "location",
+      status: "complete"
+    });
+  }
+
+  // 7. Results & Format
+  const isSport = cat ? (cat.visualTreatment === "sport" || cat.riskLevel === "high" || t.isTournament) : true;
+  items.push({
+    id: "results",
+    label: `Result Type: ${isSport ? "Score & Team Outcome" : "Participant Completion"}`,
+    category: "results",
+    status: "complete"
+  });
+
+  const hasBlocked = items.some((i) => i.status === "blocked");
+  const hasWarn = items.some((i) => i.status === "needs-attention");
+
+  let status: "complete" | "needs-attention" | "blocked" = "complete";
+  if (hasBlocked) status = "blocked";
+  else if (hasWarn || t.status === "draft") status = "needs-attention";
+
+  let nextActionLabel = "Schedule Event";
+  let nextActionHref = `/missions/new?experienceId=${t.id}`;
+
+  if (hasBlocked) {
+    nextActionLabel = "Fix Readiness Blocker";
+    nextActionHref = `/catalog/experiences/${t.id}`;
+  } else if (t.status === "draft") {
+    nextActionLabel = "Publish Experience";
+    nextActionHref = `/catalog/experiences/${t.id}`;
+  }
+
+  return {
+    status,
+    items,
+    blockedCount: items.filter((i) => i.status === "blocked").length,
+    needsAttentionCount: items.filter((i) => i.status === "needs-attention").length,
+    completeCount: items.filter((i) => i.status === "complete").length,
+    isSport,
+    nextActionLabel,
+    nextActionHref,
+    schedulable: !hasBlocked && t.status === "active"
+  };
+}
+
+export function selectCatalogHealth(state: PrototypeState) {
+  const categories = state.categories ?? [];
+  const templates = state.templates ?? [];
+  const sessions = state.sessions ?? [];
+
+  const draftExperiences = templates.filter((t) => t.status === "draft");
+  const activeExperiences = templates.filter((t) => t.status === "active");
+  
+  const readinessList = templates.map((t) => ({
+    template: t,
+    readiness: selectExperienceReadiness(t, state)
+  }));
+
+  const readyToSchedule = readinessList.filter((r) => r.readiness.schedulable || (r.template.status === "active" && r.readiness.status !== "blocked"));
+  const blockedExperiences = readinessList.filter((r) => r.readiness.status === "blocked");
+
+  const now = new Date();
+  const scheduledThisWeek = sessions.filter((s) => s.status !== "cancelled").length;
+
+  let overallHealth: "complete" | "needs-attention" | "incomplete" = "complete";
+  if (categories.length === 0 || templates.length === 0) {
+    overallHealth = "incomplete";
+  } else if (blockedExperiences.length > 0 || draftExperiences.length > 0) {
+    overallHealth = "needs-attention";
+  }
+
+  return {
+    status: overallHealth,
+    categoryCount: categories.length,
+    experienceCount: templates.length,
+    draftCount: draftExperiences.length,
+    activeCount: activeExperiences.length,
+    readyToScheduleCount: readyToSchedule.length,
+    blockedCount: blockedExperiences.length,
+    scheduledThisWeekCount: scheduledThisWeek,
+  };
+}
+
+export function selectCategoryHealth(cat: ActivityCategory, state: PrototypeState) {
+  const catTemplates = state.templates.filter((t) => t.categoryId === cat.id);
+  const activeCount = catTemplates.filter((t) => t.status === "active").length;
+  const draftCount = catTemplates.filter((t) => t.status === "draft").length;
+
+  let status: "complete" | "needs-attention" | "incomplete" = "complete";
+  if (catTemplates.length === 0) {
+    status = "incomplete";
+  } else if (activeCount === 0) {
+    status = "needs-attention";
+  }
+
+  return {
+    status,
+    totalExperiences: catTemplates.length,
+    activeExperiences: activeCount,
+    draftExperiences: draftCount,
+  };
+}
+

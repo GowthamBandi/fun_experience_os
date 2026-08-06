@@ -265,9 +265,9 @@ export function selectNextSetupAction(state: PrototypeState): SetupNextAction {
   if (templates.length === 0) {
     return {
       actionKey: "create-template",
-      label: "Create Experience Template",
+      label: "Create Experience",
       subtitle: "Your operating structure is ready! Now define an experience template.",
-      href: "/catalog/templates/new",
+      href: "/catalog/experiences/new",
       stepNumber: 6,
     };
   }
