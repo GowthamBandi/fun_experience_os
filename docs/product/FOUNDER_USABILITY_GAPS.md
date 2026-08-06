@@ -77,10 +77,16 @@ During our comprehensive walkthrough of the Super Admin Command Center, we ident
 
 ---
 
-### Gap 7: Access to Exception Refunds
-- **Route**: `/money/refunds`
-- **Problem**: Standard refunds and Recommended Refund Exceptions are in separate tables, but standard refunds are processed by operators and exception refunds require audit reasons.
-- **Why it is confusing**: A finance manager might approve a standard refund without realizing a related safety incident exception refund is pending.
-- **Recommended Improvement**: Add a unified "Reconciliation Queue" linking standard refunds directly to any open safety incident records or disputes.
-- **Severity**: Medium
-- **Belongs in SA-P2I**: Yes
+---
+
+## RESOLVED IN SETUP WORKSPACE USABILITY REBUILD
+
+### Resolved: Navigation List & Hidden Geography Hierarchy (Gaps 1 & 2)
+- **Route**: `/setup`, `/franchises`, `/territories`, `/cities`, `/locations/venues`, `/locations/playing-areas`
+- **Resolution**:
+  - Created central Setup landing workspace (`/setup`) with a 5-step setup journey: *Franchise → Territory → City → Venue → Playing Area*.
+  - Added Next Action Engine card recommending the exact next step derived from prototype state.
+  - Created top-level Cities portal (`/cities`) so cities are no longer hidden inside territory detail pages.
+  - Standardized Setup components (`SetupBackNavigation`, `SetupStatusBadge`, `SetupNextStep`, `SetupHelpPanel`, `SetupRelationshipTree`, `SetupEmptyState`, `SetupPrimaryAction`).
+  - Added Setup Health summary to Command Center dashboard (`/`).
+- **Status**: RESOLVED (Commit `feat(ux): simplify franchise territory venue and playing area setup`)

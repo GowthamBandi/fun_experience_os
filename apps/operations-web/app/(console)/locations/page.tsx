@@ -1,81 +1,87 @@
 "use client";
 
-import { useStore } from "@/lib/store";
-import { territoryViews, venueViews } from "@/lib/prototype/repositories";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { PermissionDenied } from "@/components/ui/panels";
-import { StatusChip, Badge, Button } from "@/components/ui/primitives";
-import { Stagger, Item } from "@/components/motion/Motion";
 import Link from "next/link";
-import { Plus, Building2 } from "lucide-react";
+import { useStore } from "@/lib/store";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SetupBackNavigation, SetupStatusBadge } from "@/components/setup/shared";
+import { selectSetupHealth } from "@/lib/prototype/selectors/setup";
+import { Building2, Layers, MapPin, ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/primitives";
 
-export default function LocationsPage() {
-  const { operator, canAccess, state } = useStore();
+export default function LocationsHubPage() {
+  const { state, territory } = useStore();
 
-  if (!canAccess("/locations")) return <PageFrame><PermissionDenied module="Locations" /></PageFrame>;
-
-  const territories = territoryViews(state);
+  const venues = state.venues ?? [];
+  const playingAreas = state.playingAreas ?? [];
+  const cities = state.cities ?? [];
+  const health = selectSetupHealth(state);
 
   return (
-    <PageFrame>
+    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6">
+      <SetupBackNavigation label="Back to Setup" href="/setup" />
+
       <PageHeader
-        overline="Locations"
-        title="The map"
-        sub="Territories and their venues. Scope narrows to your territory; the map stays whole."
-        right={
-          canAccess("/locations/venues") ? (
-            <Link href="/locations/venues">
-              <Button variant="secondary">
-                <Building2 className="h-4 w-4" />
-                Manage venues
-              </Button>
-            </Link>
-          ) : undefined
-        }
+        overline={`Locations · ${territory.name}`}
+        title="Locations Portal"
+        sub="Manage physical spaces, from broad city regions down to exact courts used for events."
+        right={<SetupStatusBadge status={health.status} />}
       />
 
-      <Stagger className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-2">
-        {territories.map((t) => {
-          const venues = venueViews(state, t.id);
-          const inScope = operator?.territoryId === t.id;
-          return (
-            <Item key={t.id}>
-              <div className="glass rounded-panel p-5">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <h2 className="font-semibold text-ink-lum">{t.name}</h2>
-                    {inScope ? <Badge className="border border-[#f7b955]/30 bg-[#f7b955]/10 text-[#ffd28a]">in scope</Badge> : <Badge className="border border-white/8 bg-white/4 text-ink-mut">other</Badge>}
-                  </div>
-                  <Badge className="border border-white/8 bg-white/4 text-ink-sec">{t.fill}% fill</Badge>
-                </div>
-                <p className="mt-1 text-xs text-ink-mut">{t.code} · {t.venuesCount} venues · {t.tonight} missions tonight</p>
-                <div className="mt-4 space-y-1.5">
-                  {venues.map((v) => (
-                    <Link
-                      key={v.id}
-                      href={`/locations/venues/${v.id}`}
-                      className="solid flex items-center justify-between rounded-xl px-3 py-2 transition-colors hover:bg-white/4"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm text-ink-sec">{v.name}</p>
-                        <p className="text-[11px] text-ink-mut">{v.areas.join(" · ")}</p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2">
-                        <span className="text-[11px] tabular text-ink-mut">{v.utilization}% used</span>
-                        <StatusChip value={v.status} />
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            </Item>
-          );
-        })}
-      </Stagger>
-    </PageFrame>
-  );
-}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="glass p-5 rounded-2xl border border-white/5 space-y-1">
+          <p className="text-[10px] text-ink-mut uppercase font-semibold">Active Cities</p>
+          <p className="text-3xl font-bold text-ink-lum">{cities.length}</p>
+          <p className="text-xs text-ink-sec">Urban centers</p>
+        </div>
+        <div className="glass p-5 rounded-2xl border border-white/5 space-y-1">
+          <p className="text-[10px] text-ink-mut uppercase font-semibold">Venues & Facilities</p>
+          <p className="text-3xl font-bold text-ink-lum">{venues.length}</p>
+          <p className="text-xs text-ink-sec">Physical locations</p>
+        </div>
+        <div className="glass p-5 rounded-2xl border border-white/5 space-y-1">
+          <p className="text-[10px] text-ink-mut uppercase font-semibold">Playing Areas</p>
+          <p className="text-3xl font-bold text-ink-lum">{playingAreas.length}</p>
+          <p className="text-xs text-ink-sec">Courts, fields, or rooms</p>
+        </div>
+      </div>
 
-function PageFrame({ children }: { children: React.ReactNode }) {
-  return <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8">{children}</div>;
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Link href="/locations/venues" className="group block">
+          <div className="glass p-6 rounded-2xl border border-white/5 hover:border-white/10 transition-all h-full flex flex-col justify-between space-y-4">
+            <div className="space-y-3">
+              <div className="w-10 h-10 rounded-xl bg-purple-950/40 border border-purple-800/40 flex items-center justify-center text-purple-400">
+                <Building2 className="w-5 h-5" />
+              </div>
+              <h3 className="text-lg font-bold text-ink-lum group-hover:text-brand transition-colors">Venues</h3>
+              <p className="text-xs text-ink-sec leading-relaxed">
+                Manage physical facilities (arenas, clubs, turfs) where customers arrive for events.
+              </p>
+            </div>
+            <div className="pt-3 border-t border-white/5 flex items-center justify-between text-xs text-brand font-bold">
+              <span>View & Create Venues ({venues.length})</span>
+              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+            </div>
+          </div>
+        </Link>
+
+        <Link href="/locations/playing-areas" className="group block">
+          <div className="glass p-6 rounded-2xl border border-white/5 hover:border-white/10 transition-all h-full flex flex-col justify-between space-y-4">
+            <div className="space-y-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-950/40 border border-emerald-800/40 flex items-center justify-center text-emerald-400">
+                <Layers className="w-5 h-5" />
+              </div>
+              <h3 className="text-lg font-bold text-ink-lum group-hover:text-brand transition-colors">Playing Areas</h3>
+              <p className="text-xs text-ink-sec leading-relaxed">
+                Manage the exact courts, fields, rooms, halls, or pools used during sessions.
+              </p>
+            </div>
+            <div className="pt-3 border-t border-white/5 flex items-center justify-between text-xs text-emerald-400 font-bold">
+              <span>View & Add Playing Areas ({playingAreas.length})</span>
+              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+            </div>
+          </div>
+        </Link>
+      </div>
+    </div>
+  );
 }

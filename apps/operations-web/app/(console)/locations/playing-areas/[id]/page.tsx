@@ -1,323 +1,149 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { use } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
-import { playingAreaDetail, venueById, territoryById, categoryName } from "@/lib/prototype/repositories";
-import { operatorName } from "@/lib/data/mock";
-import { geoCan } from "@/lib/geo/access";
-import { Breadcrumbs, CatChips, KVGrid, PageFrame, PrototypeNote, PrototypeRoleNote, Row } from "@/components/geo/layout";
-import { ConfirmAction } from "@/components/geo/ConfirmAction";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Card, PanelHeader, PermissionDenied, Stat } from "@/components/ui/panels";
-import { Badge, Button, StatusChip } from "@/components/ui/primitives";
-import { Field, Input } from "@/components/ui/fields";
-import { Item, Stagger, Tide } from "@/components/motion/Motion";
-import { AlertTriangle, ArrowLeft, DoorOpen, Pause, Play, StickyNote, Wrench } from "lucide-react";
+import { SetupBackNavigation, SetupStatusBadge } from "@/components/setup/shared";
+import { Button, StatusChip } from "@/components/ui/primitives";
+import { Layers, Building2, MapPin, ShieldCheck, ArrowRight } from "lucide-react";
 
-export default function PlayingAreaDetailPage() {
-  const router = useRouter();
-  const { id } = useParams<{ id: string }>();
-  const { state, role, canAccess, hydrated, changePlayingAreaStatus, addOperationalNote } = useStore();
+export default function PlayingAreaDetailsPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id: areaId } = use(params);
+  const { state } = useStore();
 
-  const detail = useMemo(() => playingAreaDetail(state, id), [state, id]);
-  const parentVenue = useMemo(() => (detail ? venueById(state, detail.venueId) : undefined), [state, detail]);
+  const playingAreas = state.playingAreas ?? [];
+  const venues = state.venues ?? [];
+  const cities = state.cities ?? [];
 
-  const [note, setNote] = useState("");
+  const area = playingAreas.find((pa) => pa.id === areaId);
 
-  const canManage = geoCan(role.id, "manage-playing-area");
-  const canAnnotate = geoCan(role.id, "annotate");
-
-  if (!hydrated) return <PageFrame><Tide /></PageFrame>;
-  if (!canAccess("/locations")) return <PageFrame><PermissionDenied module="Locations" /></PageFrame>;
-
-  if (!detail) {
+  if (!area) {
     return (
-      <PageFrame>
-        <div className="solid rounded-panel p-10 text-center">
-          <p className="text-sm font-medium text-ink-lum">Playing area not found</p>
-          <p className="mt-1 text-sm text-ink-mut">This playing area doesn&apos;t exist or was removed.</p>
-          <Button variant="secondary" className="mt-5" onClick={() => router.push("/locations/venues")}>
-            <ArrowLeft className="h-4 w-4" />
-            Back to venues
-          </Button>
-        </div>
-      </PageFrame>
+      <div className="mx-auto w-full max-w-7xl px-4 py-12 text-center space-y-4">
+        <h2 className="text-xl font-bold text-ink-lum">Playing Area Not Found</h2>
+        <p className="text-xs text-ink-sec">The requested playing area does not exist in prototype state.</p>
+        <Link href="/locations/playing-areas">
+          <Button variant="primary">Return to Playing Areas</Button>
+        </Link>
+      </div>
     );
   }
 
-  const franchiseId = territoryById(state, detail.venue.territoryId)?.franchiseId;
-  const upcoming = detail.sessions.filter(
-    (s) => (s.date === "Today" || s.date === "Tomorrow") && !["cancelled", "completed", "archived"].includes(s.status),
-  );
-  const sessionsToday = detail.sessions.filter((s) => s.date === "Today" && s.status !== "cancelled").length;
-  const audits = state.audits.filter((a) => a.description.includes(detail.name));
-
-  const statusActions = canManage ? (
-    detail.status === "active" ? (
-      <>
-        <ConfirmAction
-          label="Take to maintenance"
-          title="Take this area to maintenance?"
-          body={
-            <>
-              <span className="font-medium text-ink-lum">{detail.name}</span> will be withdrawn from scheduling while
-              maintenance.
-            </>
-          }
-          confirmLabel="Take to maintenance"
-          tone="danger"
-          variant="secondary"
-          icon={<Wrench className="h-4 w-4" />}
-          onConfirm={() => changePlayingAreaStatus(detail.id, "maintenance")}
-        />
-        <ConfirmAction
-          label="Mark unavailable"
-          title="Mark this area unavailable?"
-          body={
-            <>
-              <span className="font-medium text-ink-lum">{detail.name}</span> becomes unavailable for new scheduling.
-            </>
-          }
-          confirmLabel="Mark unavailable"
-          tone="danger"
-          variant="secondary"
-          icon={<Pause className="h-4 w-4" />}
-          onConfirm={() => changePlayingAreaStatus(detail.id, "unavailable")}
-        />
-        <ConfirmAction
-          label="Close area"
-          title="Close this area?"
-          body={
-            <>
-              Closing <span className="font-medium text-ink-lum">{detail.name}</span> fully withdraws it from scheduling.
-            </>
-          }
-          confirmLabel="Close area"
-          tone="danger"
-          variant="secondary"
-          icon={<DoorOpen className="h-4 w-4" />}
-          onConfirm={() => changePlayingAreaStatus(detail.id, "closed")}
-        />
-      </>
-    ) : (
-      <ConfirmAction
-        label="Reopen area"
-        title="Reopen this area?"
-        body={
-          <>
-            Reopening <span className="font-medium text-ink-lum">{detail.name}</span> makes it available for new
-            scheduling again.
-          </>
-        }
-        confirmLabel="Reopen area"
-        tone="primary"
-        variant="primary"
-        icon={<Play className="h-4 w-4" />}
-        onConfirm={() => changePlayingAreaStatus(detail.id, "active")}
-      />
-    )
-  ) : (
-    <PrototypeRoleNote />
-  );
+  const venue = venues.find((v) => v.id === area.venueId);
+  const city = cities.find((c) => c.id === venue?.cityId);
 
   return (
-    <PageFrame>
-      <Breadcrumbs
-        items={[
-          { label: "Locations", href: "/locations" },
-          { label: "Venues", href: "/locations/venues" },
-          { label: detail.venue.name, href: `/locations/venues/${detail.venue.id}` },
-          { label: detail.name },
+    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6">
+      <SetupBackNavigation
+        label="Back to Playing Areas"
+        href="/locations/playing-areas"
+        breadcrumbs={[
+          { label: "Setup", href: "/setup" },
+          { label: "Playing Areas", href: "/locations/playing-areas" },
+          { label: area.name, href: `/locations/playing-areas/${area.id}` },
         ]}
       />
 
       <PageHeader
-        overline="Locations · Playing areas"
-        title={detail.name}
-        sub={`A playing area at ${detail.venue.name}`}
-        right={statusActions}
+        overline={`Playing Area Details · ${venue?.name || "Venue"}`}
+        title={area.name}
+        sub={`Activity space inside ${venue?.name || "Venue"}, ${city?.name || "City"}.`}
+        right={
+          <div className="flex items-center gap-3">
+            <SetupStatusBadge status="complete" />
+            <Link href="/catalog/templates/new">
+              <Button variant="primary" className="font-bold text-xs">
+                Create Experience Template
+              </Button>
+            </Link>
+          </div>
+        }
       />
 
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <StatusChip value={detail.status} />
-        <Link href={`/locations/venues/${detail.venue.id}`}>
-          <Badge className="border border-white/8 bg-white/4 text-ink-sec transition-colors hover:bg-white/8">
-            {detail.venue.name}
-          </Badge>
-        </Link>
-        <Link href={`/cities/${detail.venue.cityId}`}>
-          <Badge className="border border-white/8 bg-white/4 text-ink-sec transition-colors hover:bg-white/8">
-            {detail.cityName}
-          </Badge>
-        </Link>
-        <Link href={`/territories/${detail.venue.territoryId}`}>
-          <Badge className="border border-white/8 bg-white/4 text-ink-sec transition-colors hover:bg-white/8">
-            {detail.territoryName}
-          </Badge>
-        </Link>
-        {franchiseId && (
-          <Link href={`/franchises/${franchiseId}`}>
-            <Badge className="border border-white/8 bg-white/4 text-ink-sec transition-colors hover:bg-white/8">
-              {detail.franchiseName}
-            </Badge>
-          </Link>
-        )}
-      </div>
-
-      {detail.venue.status !== "ready" && (
-        <div className="mt-4">
-          <PrototypeNote>
-            This playing area&apos;s parent venue is {detail.venue.status} — new scheduling is limited until it reopens.
-          </PrototypeNote>
+      {/* Parent Venue Card */}
+      <div className="p-4 rounded-xl glass border border-white/5 text-xs flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-2 text-ink-sec">
+          <Building2 className="w-4 h-4 text-purple-400" />
+          <span>Parent Venue:</span>
+          {venue ? (
+            <Link href={`/locations/venues/${venue.id}`} className="text-brand font-semibold hover:underline">
+              {venue.name}
+            </Link>
+          ) : (
+            <span className="text-ink-mut">Unknown</span>
+          )}
+          <span className="text-ink-mut">|</span>
+          <span>City:</span>
+          {city ? (
+            <Link href={`/cities/${city.id}`} className="text-brand font-semibold hover:underline">
+              {city.name}
+            </Link>
+          ) : (
+            <span className="text-ink-mut">Unknown</span>
+          )}
         </div>
-      )}
+        <StatusChip value={area.status} />
+      </div>
 
-      <Stagger className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-        <Item><Card><Stat label="Sessions" value={String(upcoming.length)} /></Card></Item>
-        <Item><Card><Stat label="Capacity" value={String(detail.maxCapacity)} /></Card></Item>
-        <Item><Card><Stat label="Spectator allowance" value={String(detail.spectatorCapacity)} /></Card></Item>
-        <Item><Card><Stat label="Staff" value={String(detail.staffCapacity)} /></Card></Item>
-        <Item><Card><Stat label="Sessions today" value={String(sessionsToday)} /></Card></Item>
-      </Stagger>
+      {/* Detail Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="glass p-5 rounded-2xl border border-white/5 space-y-2">
+          <span className="text-[10px] text-ink-mut uppercase font-semibold">Max Player Capacity</span>
+          <p className="text-3xl font-bold text-ink-lum">{area.maxCapacity} <span className="text-xs font-normal text-ink-sec">players</span></p>
+          <p className="text-xs text-ink-sec">Spectator capacity: {area.spectatorCapacity || 10} pax</p>
+        </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card>
-          <PanelHeader title="Overview" sub="Placement inside the venue" />
-          <div className="mt-4">
-            <KVGrid>
-              <Row label="Parent venue">
-                <Link
-                  href={`/locations/venues/${detail.venue.id}`}
-                  className="text-[#9db4ff] transition-colors hover:text-ink-lum"
-                >
-                  {detail.venue.name}
-                </Link>{" "}
-                <StatusChip value={detail.venue.status} />
-              </Row>
-              <Row label="City">{detail.cityName}</Row>
-              <Row label="Territory">{detail.territoryName}</Row>
-              <Row label="Franchise">{detail.franchiseName}</Row>
-              <Row label="Operating hours">{detail.operatingHours}</Row>
-              <Row label="Status"><StatusChip value={detail.status} /></Row>
-              <Row label="Restrictions">{detail.restrictions || "—"}</Row>
-            </KVGrid>
-          </div>
-        </Card>
+        <div className="glass p-5 rounded-2xl border border-white/5 space-y-2">
+          <span className="text-[10px] text-ink-mut uppercase font-semibold">Staff Required</span>
+          <p className="text-3xl font-bold text-ink-lum">{area.staffCapacity || 1} <span className="text-xs font-normal text-ink-sec">staff</span></p>
+          <p className="text-xs text-ink-sec">Operational crew size</p>
+        </div>
 
-        <Card>
-          <PanelHeader title="Compatibility" sub="Activities this area can host" />
-          <div className="mt-4">
-            <CatChips ids={detail.activityCompatibility} names={(cat) => categoryName(state, cat)} />
-          </div>
-        </Card>
+        <div className="glass p-5 rounded-2xl border border-white/5 space-y-2">
+          <span className="text-[10px] text-ink-mut uppercase font-semibold">Operating Hours</span>
+          <p className="text-base font-bold text-ink-lum mt-1">{area.operatingHours || "06:00 AM - 10:00 PM"}</p>
+          <p className="text-xs text-ink-sec">Standard slot hours</p>
+        </div>
+      </div>
 
-        <Card>
-          <PanelHeader title="Capacity" sub="Safety is a hard ceiling" />
-          <div className="mt-4">
-            <Row label="Max capacity">{detail.maxCapacity}</Row>
-            <p className="mt-1 text-xs text-ink-mut">
-              Must stay within the venue&apos;s safety capacity ({parentVenue?.safetyCapacity ?? "—"}).
-            </p>
-            <Row label="Staff capacity">{detail.staffCapacity}</Row>
-            <Row label="Spectator capacity">{detail.spectatorCapacity}</Row>
-          </div>
-        </Card>
+      {/* Activities & Equipment */}
+      <div className="glass p-6 rounded-2xl border border-white/5 space-y-4">
+        <h3 className="text-sm font-bold text-ink-lum flex items-center gap-2">
+          <ShieldCheck className="w-4 h-4 text-emerald-400" />
+          <span>Compatible Activities & Equipment</span>
+        </h3>
 
-        <Card>
-          <PanelHeader title="Equipment" sub="Kit on this floor" />
-          <div className="mt-4">
-            {detail.equipment.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5">
-                {detail.equipment.map((e) => (
-                  <span key={e} className="rounded-md border border-white/8 bg-white/4 px-2 py-0.5 text-[11px] text-ink-sec">
-                    {e}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-ink-mut">No equipment listed.</p>
-            )}
-          </div>
-        </Card>
-
-        <Card>
-          <PanelHeader
-            title="Sessions"
-            sub="Upcoming missions on this area"
-            right={<Badge className="border border-white/8 bg-white/4 text-ink-sec">{upcoming.length}</Badge>}
-          />
-          <div className="mt-3 space-y-1.5">
-            {upcoming.length === 0 && <p className="text-sm text-ink-mut">No upcoming sessions.</p>}
-            {upcoming.map((s) => (
-              <div key={s.id} className="solid flex items-center justify-between gap-3 rounded-xl px-3 py-2">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-ink-lum">{s.title}</p>
-                  <p className="text-[11px] text-ink-mut">{s.date} · {s.time}</p>
-                </div>
-                <StatusChip value={s.status} />
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        <Card>
-          <PanelHeader title="Maintenance timeline" sub="Latest activity first" />
-          <div className="mt-3 space-y-3">
-            {detail.warnings.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {detail.warnings.map((w) => (
-                  <Badge key={w} className="border border-[#f7b955]/30 bg-[#f7b955]/10 text-[#ffd28a]">
-                    <AlertTriangle className="h-3 w-3" />
-                    {w}
-                  </Badge>
-                ))}
-              </div>
-            )}
-            {audits.length === 0 ? (
-              <p className="text-sm text-ink-mut">No recorded activity.</p>
-            ) : (
-              <div className="space-y-1.5">
-                {audits.map((a) => (
-                  <div key={a.id} className="solid rounded-xl px-3 py-2">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-sm font-medium text-ink-lum">{a.action}</p>
-                      <p className="text-[11px] text-ink-mut">{a.timestamp}</p>
-                    </div>
-                    <p className="mt-0.5 text-xs text-ink-sec">{a.description}</p>
-                    <p className="mt-0.5 text-[11px] text-ink-mut">{operatorName(a.operatorId)}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </Card>
-
-        {canAnnotate && (
-          <Card className="lg:col-span-2">
-            <PanelHeader title="Annotations" sub="Operational notes append to the audit trail" />
-            <div className="mt-4 flex flex-wrap items-end gap-2">
-              <div className="min-w-[260px] flex-1">
-                <Field label="Add operational note">
-                  <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Context for the team…" />
-                </Field>
-              </div>
-              <Button
-                variant="secondary"
-                disabled={!note.trim()}
-                onClick={() => {
-                  addOperationalNote("playing area", detail.name, note.trim());
-                  setNote("");
-                }}
-              >
-                <StickyNote className="h-4 w-4" />
-                Add note
-              </Button>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-ink-sec">
+          <div className="p-4 rounded-xl bg-black/30 border border-white/5 space-y-1">
+            <span className="text-ink-mut block font-semibold">Compatible Activities:</span>
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {(area.activityCompatibility ?? ["General Purpose"]).map((act, i) => (
+                <span key={i} className="px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-300 border border-emerald-800/80 font-medium">
+                  {act}
+                </span>
+              ))}
             </div>
-          </Card>
+          </div>
+
+          <div className="p-4 rounded-xl bg-black/30 border border-white/5 space-y-1">
+            <span className="text-ink-mut block font-semibold">Available Equipment:</span>
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {(area.equipment ?? ["Standard Gear"]).map((eq, i) => (
+                <span key={i} className="px-2 py-0.5 rounded bg-white/5 text-ink-sec border border-white/10">
+                  {eq}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {area.restrictions && (
+          <div className="p-4 rounded-xl bg-amber-950/20 border border-amber-800/40 text-amber-200 text-xs">
+            <strong>Operating Restrictions:</strong> {area.restrictions}
+          </div>
         )}
       </div>
-    </PageFrame>
+    </div>
   );
 }

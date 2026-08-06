@@ -1,80 +1,59 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useStore } from "@/lib/store";
 import { nextId, type TerritoryInput } from "@/lib/prototype/repositories";
 import { OPERATORS, operatorName } from "@/lib/data/mock";
 import { geoCan } from "@/lib/geo/access";
-import type { RoleId } from "@/lib/types";
 import { PageFrame, PrototypeNote, PrototypeRoleNote } from "@/components/geo/layout";
 import { WizardShell, useWizard } from "@/components/geo/WizardShell";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, PanelHeader, PermissionDenied } from "@/components/ui/panels";
-import { Avatar, Badge, Button } from "@/components/ui/primitives";
+import { Button } from "@/components/ui/primitives";
 import { Field, Input, Select } from "@/components/ui/fields";
 import { Tide } from "@/components/motion/Motion";
-import { ArrowLeft, ArrowRight, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, X, CheckCircle2 } from "lucide-react";
+import { SetupBackNavigation, SetupStatusBadge } from "@/components/setup/shared";
 
 const STEPS = [
-  { label: "Franchise & Name", sub: "Scope and identity" },
-  { label: "Geography", sub: "State, region, timezone" },
-  { label: "Manager", sub: "Accountable operator" },
-  { label: "Contact & Notes", sub: "Reach and context" },
-  { label: "Review", sub: "Confirm & create" },
+  { label: "Choose Franchise", sub: "Parent organization" },
+  { label: "Territory Details", sub: "Name, state, timezone" },
+  { label: "Assign Manager", sub: "Operating lead" },
+  { label: "Review", sub: "Summary" },
 ];
-
-const MANAGER_ROLES: RoleId[] = ["platform-owner", "super-admin", "regional-partner", "city-manager", "ops-manager"];
-const managerCandidates = OPERATORS.filter((o) => MANAGER_ROLES.includes(o.role));
 
 export default function NewTerritoryPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const preSelectedFranchiseId = searchParams.get("franchiseId") || "";
+  
   const { state, role, canAccess, hydrated, createTerritory } = useStore();
-  const { step, next, back, jump } = useWizard(5);
+  const { step, next, back, jump } = useWizard(4);
 
-  const [franchiseId, setFranchiseId] = useState("");
+  const [franchiseId, setFranchiseId] = useState(preSelectedFranchiseId);
   const [name, setName] = useState("");
-  const [type, setType] = useState<TerritoryInput["type"]>("urban");
-  const [status, setStatus] = useState<TerritoryInput["status"]>("draft");
   const [geoState, setGeoState] = useState("");
   const [region, setRegion] = useState("");
   const [timezone, setTimezone] = useState("IST (UTC+5:30)");
   const [currency, setCurrency] = useState("INR (₹)");
   const [managerId, setManagerId] = useState("");
   const [contactInfo, setContactInfo] = useState("");
-  const [notes, setNotes] = useState("");
+  
+  const [createdId, setCreatedId] = useState<string | null>(null);
 
   const nameTrimmed = name.trim();
   const franchiseExists = state.franchises.some((f) => f.id === franchiseId);
-  const nameUnique = !state.territories.some(
-    (t) => t.franchiseId === franchiseId && t.name.trim().toLowerCase() === nameTrimmed.toLowerCase(),
-  );
 
   const stepValid: Record<number, boolean> = {
-    0: franchiseExists && nameTrimmed.length > 0 && nameUnique,
-    1: timezone.trim().length > 0 && currency.trim().length > 0,
+    0: franchiseExists,
+    1: nameTrimmed.length > 0 && timezone.trim().length > 0 && currency.trim().length > 0,
     2: managerId.length > 0,
     3: true,
-    4: true,
   };
 
   const franchiseName = state.franchises.find((f) => f.id === franchiseId)?.name ?? "—";
-
-  const assumptions = [
-    { label: "Franchise", value: franchiseName },
-    { label: "Name", value: nameTrimmed || "—" },
-    { label: "Type", value: type },
-    { label: "State / Region", value: `${geoState.trim() || "—"} / ${region.trim() || "—"}` },
-    { label: "Manager", value: managerId ? operatorName(managerId) : "—" },
-    { label: "Timezone", value: timezone.trim() || "—" },
-    { label: "Currency", value: currency },
-    { label: "Status", value: status },
-  ];
-
-  const warnings = [
-    status === "draft" ? "Draft territories are not schedulable until activated." : "",
-    currency !== "INR (₹)" ? "Non-INR territory currency is unusual for this prototype." : "",
-  ].filter(Boolean) as string[];
 
   const handleCreate = () => {
     const id = nextId("t", state.territories.map((t) => t.id));
@@ -82,18 +61,18 @@ export default function NewTerritoryPage() {
       id,
       franchiseId,
       name: nameTrimmed,
-      type,
+      type: "urban",
       state: geoState.trim(),
       region: region.trim(),
       managerId,
-      status,
+      status: "active",
       timezone: timezone.trim(),
       currency,
       contactInfo: contactInfo.trim(),
-      notes: notes.trim(),
+      notes: "",
     };
     createTerritory(input);
-    router.push(`/territories/${id}`);
+    setCreatedId(id);
   };
 
   if (!hydrated) return <PageFrame><Tide /></PageFrame>;
@@ -102,16 +81,10 @@ export default function NewTerritoryPage() {
   if (!geoCan(role.id, "create-territory")) {
     return (
       <PageFrame>
-        <PageHeader overline="Franchise Operations · Territories" title="New territory" />
+        <PageHeader overline="Setup · Territories" title="Add Territory" />
         <Card glass={false} className="mt-6">
-          <PanelHeader
-            title="Territory creation is scoped to platform owners, super admins and regional partners"
-            sub="City managers and below can operate within a territory but cannot open new ones."
-          />
-          <p className="mt-3 text-sm text-ink-mut">
-            Your current position can view territory operations but cannot create new scopes. Switch position with the
-            role simulator to try it.
-          </p>
+          <PanelHeader title="Territory creation is scoped to platform owners and regional partners" />
+          <p className="mt-3 text-sm text-ink-mut">Your current position cannot create new scopes.</p>
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <Button variant="secondary" onClick={() => router.push("/territories")}>
               <ArrowLeft className="h-4 w-4" />
@@ -124,13 +97,52 @@ export default function NewTerritoryPage() {
     );
   }
 
+  if (createdId) {
+    return (
+      <PageFrame>
+        <div className="max-w-md mx-auto mt-12 text-center space-y-6">
+          <div className="w-16 h-16 rounded-full bg-emerald-950/50 border border-emerald-800 flex items-center justify-center mx-auto text-emerald-400">
+            <CheckCircle2 className="w-8 h-8" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-ink-lum">Territory Added</h2>
+            <p className="text-ink-sec mt-2">The territory has been successfully created under the franchise.</p>
+          </div>
+          
+          <div className="glass p-5 rounded-2xl border border-white/10 space-y-3">
+            <h3 className="text-sm font-semibold text-ink-lum">Recommended Next Action</h3>
+            <p className="text-xs text-ink-mut mb-4">A territory needs cities to operate in.</p>
+            <Link href={`/cities/new?territoryId=${createdId}`} className="block">
+              <Button variant="primary" className="w-full justify-center font-bold">
+                Add First City
+              </Button>
+            </Link>
+          </div>
+
+          <div className="flex gap-3 justify-center">
+            <Link href={`/territories/${createdId}`}>
+              <Button variant="secondary">View Territory</Button>
+            </Link>
+            <Link href="/setup">
+              <Button variant="ghost">Back to Setup</Button>
+            </Link>
+          </div>
+        </div>
+      </PageFrame>
+    );
+  }
+
   return (
     <PageFrame>
-      <PageHeader
-        overline="Franchise Operations · Territories"
-        title="New territory"
-        sub="Five steps to a new scope under a franchise."
-      />
+      <div className="mb-6 space-y-4">
+        <SetupBackNavigation label="Back to Territories" href="/territories" />
+        <PageHeader
+          overline="Setup · Territories"
+          title="Add Territory"
+          sub="Territories divide a franchise region into smaller local operating scopes."
+        />
+      </div>
+
       <WizardShell
         steps={STEPS}
         step={step}
@@ -149,14 +161,14 @@ export default function NewTerritoryPage() {
                   Back
                 </Button>
               )}
-              {step < 4 ? (
+              {step < 3 ? (
                 <Button variant="primary" disabled={!stepValid[step]} onClick={next}>
                   Next
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               ) : (
                 <Button variant="primary" onClick={handleCreate}>
-                  Create territory
+                  Add Territory
                 </Button>
               )}
             </div>
@@ -165,44 +177,22 @@ export default function NewTerritoryPage() {
       >
         {step === 0 && (
           <div className="space-y-5">
-            <Field label="Franchise" hint="The franchise this territory reports into.">
+            <Field label="Choose Franchise" hint="The parent franchise this territory belongs to.">
               <Select value={franchiseId} onChange={(e) => setFranchiseId(e.target.value)}>
                 <option value="">Select a franchise</option>
                 {state.franchises.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.name}
-                  </option>
+                  <option key={f.id} value={f.id}>{f.name}</option>
                 ))}
               </Select>
             </Field>
-            <Field label="Territory name" hint="Unique within the selected franchise.">
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Hyderabad Central" />
-              {nameTrimmed.length > 0 && !nameUnique && (
-                <p className="mt-2 text-xs text-[#ff8f86]">
-                  A territory with this name already exists under this franchise.
-                </p>
-              )}
-            </Field>
-            <div className="grid gap-5 sm:grid-cols-2">
-              <Field label="Type">
-                <Select value={type} onChange={(e) => setType(e.target.value as TerritoryInput["type"])}>
-                  <option value="urban">Urban</option>
-                  <option value="suburban">Suburban</option>
-                  <option value="regional">Regional</option>
-                </Select>
-              </Field>
-              <Field label="Status">
-                <Select value={status} onChange={(e) => setStatus(e.target.value as TerritoryInput["status"])}>
-                  <option value="draft">Draft</option>
-                  <option value="active">Active</option>
-                </Select>
-              </Field>
-            </div>
           </div>
         )}
 
         {step === 1 && (
           <div className="space-y-5">
+            <Field label="Territory Name" hint="Example: Hyderabad Central">
+              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Hyderabad Central" />
+            </Field>
             <div className="grid gap-5 sm:grid-cols-2">
               <Field label="State">
                 <Input value={geoState} onChange={(e) => setGeoState(e.target.value)} placeholder="e.g. Telangana" />
@@ -228,72 +218,46 @@ export default function NewTerritoryPage() {
 
         {step === 2 && (
           <div className="space-y-5">
-            <Field label="Territory manager" hint="The operator accountable for this scope.">
+            <Field label="Manager" hint="The operator accountable for this territory.">
               <Select value={managerId} onChange={(e) => setManagerId(e.target.value)}>
-                <option value="">Select an operator</option>
-                {managerCandidates.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    <Avatar initials={o.initials} size="sm" /> {o.name}
-                  </option>
+                <option value="">Select manager</option>
+                {OPERATORS.filter(o => ["platform-owner", "super-admin", "regional-partner", "city-manager"].includes(o.role)).map((o) => (
+                  <option key={o.id} value={o.id}>{o.name}</option>
                 ))}
               </Select>
             </Field>
-            {managerId && (
-              <div className="flex items-center gap-3 rounded-xl solid px-3 py-2">
-                <Avatar initials={OPERATORS.find((o) => o.id === managerId)?.initials ?? "??"} />
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-ink-lum">{operatorName(managerId)}</p>
-                  <p className="text-[11px] text-ink-mut">{OPERATORS.find((o) => o.id === managerId)?.title ?? "—"}</p>
-                </div>
-              </div>
-            )}
+            <Field label="Contact Info (Optional)">
+              <Input value={contactInfo} onChange={(e) => setContactInfo(e.target.value)} placeholder="Phone or email" />
+            </Field>
           </div>
         )}
 
         {step === 3 && (
           <div className="space-y-5">
-            <Field label="Contact info" hint="Ops email or phone for the scope.">
-              <Input
-                value={contactInfo}
-                onChange={(e) => setContactInfo(e.target.value)}
-                placeholder="e.g. hyd-ops@experienceos.com"
-              />
-            </Field>
-            <Field label="Notes">
-              <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Context for the team…" />
-            </Field>
-          </div>
-        )}
-
-        {step === 4 && (
-          <div className="space-y-5">
             <div>
-              <p className="overline mb-2">Assumptions</p>
+              <p className="overline mb-2">Summary</p>
               <div className="space-y-1">
-                {assumptions.map((a) => (
-                  <div key={a.label} className="flex items-start justify-between gap-4 border-b border-white/4 py-1.5">
-                    <span className="overline shrink-0 pt-px">{a.label}</span>
-                    <span className="min-w-0 text-right text-sm text-ink-sec capitalize">{a.value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            {warnings.length > 0 && (
-              <div>
-                <p className="overline mb-2">Warnings</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {warnings.map((w) => (
-                    <Badge key={w} className="border border-[#f7b955]/30 bg-[#f7b955]/10 text-[#ffd28a]">
-                      {w}
-                    </Badge>
-                  ))}
+                <div className="flex justify-between py-1 border-b border-white/5 text-sm">
+                  <span className="text-ink-mut">Franchise</span>
+                  <span className="text-ink-lum font-medium">{franchiseName}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-white/5 text-sm">
+                  <span className="text-ink-mut">Name</span>
+                  <span className="text-ink-lum font-medium">{nameTrimmed}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-white/5 text-sm">
+                  <span className="text-ink-mut">Manager</span>
+                  <span className="text-ink-lum font-medium">{managerId ? operatorName(managerId) : "—"}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-white/5 text-sm">
+                  <span className="text-ink-mut">State/Region</span>
+                  <span className="text-ink-lum font-medium">{geoState} / {region}</span>
                 </div>
               </div>
-            )}
+            </div>
             <PrototypeNote>
-              Creating a territory also assigns it to the chosen franchise — no manual sync needed. Prototype data only.
+              Creating a territory adds it to the chosen franchise immediately.
             </PrototypeNote>
-            <PrototypeRoleNote />
           </div>
         )}
       </WizardShell>

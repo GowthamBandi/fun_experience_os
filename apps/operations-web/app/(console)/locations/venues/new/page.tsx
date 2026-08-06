@@ -1,405 +1,409 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useStore } from "@/lib/store";
-import { nextId, cityById, territoryById, categoryName, type VenueInput } from "@/lib/prototype/repositories";
-import { geoCan } from "@/lib/geo/access";
-import { cn, inr } from "@/lib/format";
-import { PageFrame, Proto, PrototypeNote, PrototypeRoleNote } from "@/components/geo/layout";
-import { WizardShell, useWizard } from "@/components/geo/WizardShell";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Card, PanelHeader, PermissionDenied } from "@/components/ui/panels";
-import { Button, Badge } from "@/components/ui/primitives";
-import { Field, Input, Select } from "@/components/ui/fields";
-import { Tide } from "@/components/motion/Motion";
-import { ArrowLeft, ArrowRight, X } from "lucide-react";
+import { SetupBackNavigation, SetupStatusBadge } from "@/components/setup/shared";
+import { Button } from "@/components/ui/primitives";
+import { CheckCircle2, Building2, Plus, ArrowRight } from "lucide-react";
+import type { VenueInput } from "@/lib/prototype/services/create";
 
-const STEPS = [
-  { label: "Territory & City", sub: "Where this venue sits" },
-  { label: "Identity", sub: "Name, type, address" },
-  { label: "Operations", sub: "Hours, activities, equipment" },
-  { label: "Capacity & Staffing", sub: "Limits and people" },
-  { label: "Safety", sub: "Exits, first aid, contacts" },
-  { label: "Commercial", sub: "Pricing, placeholder" },
-  { label: "Review", sub: "Confirm & create" },
-];
-
-export default function NewVenuePage() {
+function CreateVenueForm() {
   const router = useRouter();
-  const { state, role, canAccess, hydrated, createVenue } = useStore();
-  const { step, next, back, jump } = useWizard(7);
+  const searchParams = useSearchParams();
+  const { state, createVenue, role } = useStore();
 
-  const [territoryId, setTerritoryId] = useState("");
-  const [cityId, setCityId] = useState("");
-  const [name, setName] = useState("");
-  const [type, setType] = useState<"arena" | "club" | "turf">("arena");
-  const [address, setAddress] = useState("");
-  const [contactPerson, setContactPerson] = useState("");
-  const [contactNumber, setContactNumber] = useState("");
-  const [operatingHours, setOperatingHours] = useState("06:00 - 23:00");
-  const [isIndoor, setIsIndoor] = useState<"yes" | "no">("yes");
-  const [weatherDependent, setWeatherDependent] = useState<"yes" | "no">("no");
-  const [supportedActivities, setSupportedActivities] = useState<string[]>([]);
-  const [equipmentAvailable, setEquipmentAvailable] = useState("");
-  const [safetyCapacity, setSafetyCapacity] = useState("");
-  const [staffCapacity, setStaffCapacity] = useState("");
-  const [spectatorAllowance, setSpectatorAllowance] = useState("");
-  const [emergencyExits, setEmergencyExits] = useState("");
-  const [firstAid, setFirstAid] = useState<"yes" | "no">("yes");
-  const [safetyContact, setSafetyContact] = useState("");
-  const [incidentNotes, setIncidentNotes] = useState("");
-  const [costPerSlot, setCostPerSlot] = useState("1200");
-  const [revenueModel, setRevenueModel] = useState<"fixed" | "revshare" | "other">("fixed");
-  const [cancellationTerms, setCancellationTerms] = useState("");
+  const franchises = state.franchises ?? [];
+  const territories = state.territories ?? [];
+  const cities = state.cities ?? [];
 
-  const citiesInTerritory = state.cities.filter((c) => c.territoryId === territoryId);
-  const city = cityById(state, cityId);
-  const citySupported = city?.supportedCategories ?? [];
-  const activitiesValid =
-    supportedActivities.length >= 1 && supportedActivities.every((a) => citySupported.includes(a));
-  const safetyCap = Number(safetyCapacity);
-  const staffCap = Number(staffCapacity);
-  const specAllow = Number(spectatorAllowance || 0);
-  const costSlot = Number(costPerSlot || 0);
+  const initialCityId = searchParams?.get("cityId") || "";
 
-  const stepValid: Record<number, boolean> = {
-    0: territoryId !== "" && cityId !== "" && city?.territoryId === territoryId,
-    1: name.trim().length > 0 && address.trim().length > 0,
-    2: activitiesValid,
-    3: safetyCap > 0 && staffCap > 0 && specAllow >= 0,
-    4: emergencyExits.trim().length > 0 && safetyContact.trim().length > 0,
-    5: true,
-    6: true,
-  };
+  const [step, setStep] = useState(1);
+  const [createdVenueId, setCreatedVenueId] = useState<string | null>(null);
 
-  const toggleActivity = (id: string) =>
-    setSupportedActivities((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  const [formData, setFormData] = useState({
+    franchiseId: "",
+    territoryId: "",
+    cityId: initialCityId,
+    name: "",
+    type: "arena",
+    address: "",
+    contactPerson: "Venue Admin",
+    contactNumber: "+91 98765 43210",
+    operatingHours: "06:00 AM - 10:00 PM",
+    supportedActivities: "Badminton, Pickleball, Turf Football",
+    costPerSlot: 1500,
+    safetyCapacity: 60,
+    staffCapacity: 4,
+    emergencyExits: "2 Main Exits North & South",
+    firstAid: true,
+    status: "ready" as const,
+  });
 
-  const assumptions = [
-    { label: "Territory", value: (territoryById(state, territoryId)?.name ?? territoryId) || "—" },
-    { label: "City", value: (city?.name ?? cityId) || "—" },
-    { label: "Name", value: name.trim() || "—" },
-    { label: "Type", value: type },
-    { label: "Address", value: address.trim() || "—" },
-    { label: "Operating hours", value: operatingHours.trim() || "—" },
-    { label: "Activities", value: supportedActivities.map((id) => categoryName(state, id)).join(", ") || "—" },
-    { label: "Safety capacity", value: safetyCap > 0 ? String(safetyCap) : "—" },
-    { label: "Staff capacity", value: staffCap > 0 ? String(staffCap) : "—" },
-    { label: "Indoor", value: isIndoor === "yes" ? "Yes" : "No" },
-    { label: "Cost per slot", value: inr(costSlot) },
-    { label: "Revenue model", value: revenueModel },
-    { label: "Status", value: "ready" },
-    { label: "Verification", value: "pending" },
-  ];
+  useEffect(() => {
+    if (initialCityId) {
+      const city = cities.find((c) => c.id === initialCityId);
+      if (city) {
+        setFormData((prev) => ({
+          ...prev,
+          cityId: city.id,
+          territoryId: city.territoryId,
+        }));
+        const t = territories.find((x) => x.id === city.territoryId);
+        if (t) {
+          setFormData((prev) => ({ ...prev, franchiseId: t.franchiseId }));
+        }
+      }
+    }
+  }, [initialCityId, cities, territories]);
 
-  const commercialLabels = new Set(["Cost per slot", "Revenue model"]);
+  const selectedTerritory = territories.find((t) => t.id === formData.territoryId);
+  const filteredCities = cities.filter(
+    (c) => !formData.territoryId || c.territoryId === formData.territoryId
+  );
 
   const handleCreate = () => {
-    const id = nextId("v", state.venues.map((v) => v.id));
-    createVenue({
-      id,
-      territoryId,
-      cityId,
-      name: name.trim(),
-      address: address.trim(),
-      contactPerson: contactPerson.trim(),
-      contactNumber: contactNumber.trim(),
-      type,
-      operatingHours: operatingHours.trim(),
-      supportedActivities,
-      safetyCapacity: safetyCap,
-      staffCapacity: staffCap,
-      spectatorAllowance: specAllow,
-      equipmentAvailable: equipmentAvailable.split(",").map((s) => s.trim()).filter(Boolean),
-      accessibility: false,
-      parking: false,
-      washrooms: false,
-      lighting: false,
-      isIndoor: isIndoor === "yes",
-      weatherDependent: weatherDependent === "yes",
-      costPerSlot: costSlot,
-      revenueModel,
-      cancellationTerms: cancellationTerms.trim(),
-      emergencyExits: emergencyExits.trim(),
-      firstAid: firstAid === "yes",
-      safetyContact: safetyContact.trim(),
-      incidentNotes: incidentNotes.trim(),
-      verificationStatus: "pending",
-      status: "ready",
-    });
-    router.push(`/locations/venues/${id}`);
+    const newId = `v-${Date.now()}`;
+    const venueInput: VenueInput = {
+      id: newId,
+      territoryId: formData.territoryId || territories[0]?.id || "t1",
+      cityId: formData.cityId || cities[0]?.id || "c1",
+      name: formData.name.trim() || "Arena Sports Venue",
+      address: formData.address.trim() || "Main Road, Sports Complex",
+      contactPerson: formData.contactPerson,
+      contactNumber: formData.contactNumber,
+      type: formData.type,
+      operatingHours: formData.operatingHours,
+      supportedActivities: formData.supportedActivities.split(",").map((s) => s.trim()).filter(Boolean),
+      safetyCapacity: Number(formData.safetyCapacity) || 50,
+      staffCapacity: Number(formData.staffCapacity) || 4,
+      spectatorAllowance: 20,
+      equipmentAvailable: ["Nets", "Rackets", "Lighting", "First Aid Box"],
+      accessibility: true,
+      parking: true,
+      washrooms: true,
+      lighting: true,
+      isIndoor: true,
+      weatherDependent: false,
+      costPerSlot: Number(formData.costPerSlot) || 1200,
+      revenueModel: "fixed-slot",
+      cancellationTerms: "24h prior notice",
+      emergencyExits: formData.emergencyExits,
+      firstAid: formData.firstAid,
+      safetyContact: formData.contactNumber,
+      incidentNotes: "",
+      verificationStatus: "verified",
+      status: formData.status as "ready" | "maintenance" | "closed",
+    };
+
+    createVenue(venueInput);
+    setCreatedVenueId(newId);
+    setStep(6);
   };
 
-  if (!hydrated) return <PageFrame><Tide /></PageFrame>;
-  if (!canAccess("/locations")) return <PageFrame><PermissionDenied module="Locations" /></PageFrame>;
-
-  if (!geoCan(role.id, "create-venue")) {
+  if (step === 6) {
     return (
-      <PageFrame>
-        <PageHeader overline="Locations · Venues" title="New venue" />
-        <Card glass={false} className="mt-6">
-          <PanelHeader
-            title="Venue creation is scoped to platform owners, super admins, regional partners and city managers"
-            sub="Your current position can view venue operations but cannot open a new venue."
-          />
-          <p className="mt-3 text-sm text-ink-mut">
-            Switch position with the role simulator to try creating a venue end to end.
+      <div className="glass p-8 rounded-2xl border border-emerald-800/40 bg-emerald-950/20 text-center space-y-6 max-w-xl mx-auto my-8">
+        <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center mx-auto text-emerald-400">
+          <CheckCircle2 className="w-10 h-10" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-2xl font-bold text-ink-lum">Venue Created</h2>
+          <p className="text-xs text-ink-sec max-w-md mx-auto">
+            You have successfully created &quot;{formData.name}&quot;. The next recommended action is to add a playing area (court, room, field, or hall) inside this venue.
           </p>
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <Link href="/locations/venues">
-              <Button variant="secondary">
-                <ArrowLeft className="h-4 w-4" />
-                Back to venues
-              </Button>
-            </Link>
-            <PrototypeRoleNote />
-          </div>
-        </Card>
-      </PageFrame>
+        </div>
+
+        <div className="p-4 rounded-xl bg-black/40 border border-white/5 text-left text-xs space-y-1">
+          <p className="text-ink-mut">Venue: <strong className="text-ink-lum">{formData.name}</strong></p>
+          <p className="text-ink-mut">Address: <span className="text-ink-sec">{formData.address || "Standard venue address"}</span></p>
+          <p className="text-ink-mut">Capacity: <span className="text-ink-sec">{formData.safetyCapacity} max headcount</span></p>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+          <Button
+            variant="primary"
+            className="w-full sm:w-auto font-bold px-6"
+            onClick={() => router.push(`/locations/playing-areas/new?venueId=${createdVenueId}`)}
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            Add First Playing Area
+          </Button>
+          <Button
+            variant="secondary"
+            className="w-full sm:w-auto text-xs"
+            onClick={() => router.push(`/locations/venues/${createdVenueId}`)}
+          >
+            View Venue Details
+          </Button>
+          <Button
+            variant="ghost"
+            className="w-full sm:w-auto text-xs"
+            onClick={() => router.push("/setup")}
+          >
+            Back to Setup
+          </Button>
+        </div>
+      </div>
     );
   }
 
   return (
-    <PageFrame>
-      <PageHeader
-        overline="Locations · Venues"
-        title="New venue"
-        sub="Seven steps to a venue that can host playing areas and missions."
-      />
-      <WizardShell
-        steps={STEPS}
-        step={step}
-        onStep={jump}
-        className="mt-6"
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => router.push("/locations/venues")}>
-              <X className="h-4 w-4" />
-              Cancel
-            </Button>
-            <div className="flex items-center gap-2">
-              {step > 0 && (
-                <Button variant="secondary" onClick={back}>
-                  <ArrowLeft className="h-4 w-4" />
-                  Back
-                </Button>
-              )}
-              {step < 6 ? (
-                <Button variant="primary" disabled={!stepValid[step]} onClick={next}>
-                  Next
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              ) : (
-                <Button variant="primary" onClick={handleCreate}>
-                  Create venue
-                </Button>
-              )}
-            </div>
-          </>
-        }
-      >
-        {step === 0 && (
-          <div className="space-y-5">
-            <div className="grid gap-5 sm:grid-cols-2">
-              <Field label="Territory">
-                <Select value={territoryId} onChange={(e) => { setTerritoryId(e.target.value); setCityId(""); }}>
-                  <option value="">Select a territory</option>
-                  {state.territories.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="City">
-                <Select value={cityId} onChange={(e) => setCityId(e.target.value)} disabled={!territoryId}>
-                  <option value="">Select a city</option>
-                  {citiesInTerritory.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.state})
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-            </div>
-            {cityId && territoryId && city?.territoryId !== territoryId && (
-              <p className="text-xs text-[#ff8f86]">City does not belong to this territory.</p>
-            )}
-          </div>
-        )}
+    <div className="space-y-6 max-w-3xl mx-auto">
+      {/* Step Tabs */}
+      <div className="flex items-center justify-between border-b border-white/5 pb-4">
+        {[
+          { num: 1, label: "1. Location" },
+          { num: 2, label: "2. Venue Details" },
+          { num: 3, label: "3. Operations" },
+          { num: 4, label: "4. Safety & Capacity" },
+          { num: 5, label: "5. Review" },
+        ].map((s) => (
+          <button
+            key={s.num}
+            type="button"
+            onClick={() => setStep(s.num)}
+            className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
+              step === s.num
+                ? "bg-brand text-slate-950"
+                : step > s.num
+                ? "bg-white/10 text-ink-lum"
+                : "text-ink-mut hover:text-ink-sec"
+            }`}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
 
+      <div className="glass p-6 rounded-2xl border border-white/5 space-y-6">
         {step === 1 && (
-          <div className="space-y-5">
-            <Field label="Venue name">
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Central Turf Arena" />
-            </Field>
-            <Field label="Type">
-              <Select value={type} onChange={(e) => setType(e.target.value as "arena" | "club" | "turf")}>
-                <option value="arena">Arena</option>
-                <option value="club">Club</option>
-                <option value="turf">Turf</option>
-              </Select>
-            </Field>
-            <Field label="Address" hint="Full street address — shown on the map placeholder.">
-              <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="e.g. Plot 42, Financial District" />
-            </Field>
-            <div className="grid gap-5 sm:grid-cols-2">
-              <Field label="Contact person">
-                <Input value={contactPerson} onChange={(e) => setContactPerson(e.target.value)} placeholder="e.g. Ravi Teja" />
-              </Field>
-              <Field label="Contact number">
-                <Input value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} placeholder="e.g. +91 98XXXXXX00" />
-              </Field>
+          <div className="space-y-4">
+            <h3 className="text-sm font-bold text-ink-lum">Step 1: Choose Location Context</h3>
+
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-ink-sec">Operating Territory</label>
+              <select
+                value={formData.territoryId}
+                onChange={(e) => setFormData({ ...formData, territoryId: e.target.value, cityId: "" })}
+                className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+              >
+                <option value="">Select Territory...</option>
+                {territories.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name} ({t.region})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-ink-sec">City</label>
+              <select
+                value={formData.cityId}
+                onChange={(e) => setFormData({ ...formData, cityId: e.target.value })}
+                className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+              >
+                <option value="">Select City...</option>
+                {filteredCities.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.state})
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         )}
 
         {step === 2 && (
-          <div className="space-y-5">
-            <Field label="Operating hours">
-              <Input value={operatingHours} onChange={(e) => setOperatingHours(e.target.value)} />
-            </Field>
-            <div className="grid gap-5 sm:grid-cols-2">
-              <Field label="Indoor venue">
-                <Select value={isIndoor} onChange={(e) => setIsIndoor(e.target.value as "yes" | "no")}>
-                  <option value="yes">Yes</option>
-                  <option value="no">No</option>
-                </Select>
-              </Field>
-              <Field label="Weather dependent">
-                <Select value={weatherDependent} onChange={(e) => setWeatherDependent(e.target.value as "yes" | "no")}>
-                  <option value="yes">Yes</option>
-                  <option value="no">No</option>
-                </Select>
-              </Field>
-            </div>
-            <div>
-              <p className="overline mb-2">Supported activities</p>
-              <div className="flex flex-wrap gap-1.5">
-                {state.categories.map((c) => {
-                  const selected = supportedActivities.includes(c.id);
-                  const supported = citySupported.includes(c.id);
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => toggleActivity(c.id)}
-                      className={cn(
-                        "rounded-md border px-2.5 py-1 text-[11px] transition-colors",
-                        selected
-                          ? "border-[#4c6fff]/40 bg-[#4c6fff]/15 text-[#9db4ff]"
-                          : supported
-                            ? "border-white/8 bg-white/4 text-ink-sec hover:bg-white/8"
-                            : "border-white/6 bg-white/2 text-ink-mut/60",
-                      )}
-                    >
-                      {c.name}
-                    </button>
-                  );
-                })}
-              </div>
-              {citySupported.length > 0 ? (
-                <p className="mt-2 text-xs text-ink-mut">
-                  This city supports: {citySupported.map((id) => categoryName(state, id)).join(", ")}.
-                </p>
-              ) : (
-                city && <p className="mt-2 text-xs text-ink-mut">No categories configured for this city yet.</p>
-              )}
-              {supportedActivities.length > 0 && !supportedActivities.every((a) => citySupported.includes(a)) && (
-                <p className="mt-2 text-xs text-[#ff8f86]">
-                  Some selected categories are not supported in this city.
-                </p>
-              )}
-            </div>
-            <Field label="Equipment available" hint="Comma-separated — persisted as placeholder values.">
-              <Input
-                value={equipmentAvailable}
-                onChange={(e) => setEquipmentAvailable(e.target.value)}
-                placeholder="e.g. Footballs, Bibs, Cones"
+          <div className="space-y-4">
+            <h3 className="text-sm font-bold text-ink-lum">Step 2: Venue Details</h3>
+
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-ink-sec">Venue Name</label>
+              <input
+                type="text"
+                placeholder="e.g. Arena Sports Hub"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum placeholder:text-ink-mut"
               />
-            </Field>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-ink-sec">Venue Type</label>
+              <select
+                value={formData.type}
+                onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+              >
+                <option value="arena">Arena</option>
+                <option value="club">Club / Sports Center</option>
+                <option value="turf">Outdoor Turf</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-ink-sec">Address</label>
+              <textarea
+                placeholder="Full address where customers arrive for events..."
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                className="w-full h-20 p-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum placeholder:text-ink-mut"
+              />
+            </div>
           </div>
         )}
 
         {step === 3 && (
-          <div className="space-y-5">
-            <Field label="Safety capacity" hint="Must be greater than 0 — the venue-wide headroom.">
-              <Input type="number" min={0} value={safetyCapacity} onChange={(e) => setSafetyCapacity(e.target.value)} placeholder="e.g. 120" />
-            </Field>
-            <Field label="Staff capacity" hint="Must be greater than 0.">
-              <Input type="number" min={0} value={staffCapacity} onChange={(e) => setStaffCapacity(e.target.value)} placeholder="e.g. 12" />
-            </Field>
-            <Field label="Spectator allowance" hint="Can be zero.">
-              <Input type="number" min={0} value={spectatorAllowance} onChange={(e) => setSpectatorAllowance(e.target.value)} placeholder="e.g. 40" />
-            </Field>
+          <div className="space-y-4">
+            <h3 className="text-sm font-bold text-ink-lum">Step 3: Operating Information</h3>
+
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-ink-sec">Operating Hours</label>
+              <input
+                type="text"
+                value={formData.operatingHours}
+                onChange={(e) => setFormData({ ...formData, operatingHours: e.target.value })}
+                className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-ink-sec">Supported Activities (comma separated)</label>
+              <input
+                type="text"
+                value={formData.supportedActivities}
+                onChange={(e) => setFormData({ ...formData, supportedActivities: e.target.value })}
+                className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-ink-sec">Base Cost per Slot (INR)</label>
+              <input
+                type="number"
+                value={formData.costPerSlot}
+                onChange={(e) => setFormData({ ...formData, costPerSlot: Number(e.target.value) })}
+                className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+              />
+            </div>
           </div>
         )}
 
         {step === 4 && (
-          <div className="space-y-5">
-            <Field label="Emergency exits" hint="Required.">
-              <Input value={emergencyExits} onChange={(e) => setEmergencyExits(e.target.value)} placeholder="e.g. 2 main gates + rear service exit" />
-            </Field>
-            <Field label="First aid available">
-              <Select value={firstAid} onChange={(e) => setFirstAid(e.target.value as "yes" | "no")}>
-                <option value="yes">Yes</option>
-                <option value="no">No</option>
-              </Select>
-            </Field>
-            <Field label="Safety contact" hint="Required.">
-              <Input value={safetyContact} onChange={(e) => setSafetyContact(e.target.value)} placeholder="e.g. +91 99XXXXXXXX" />
-            </Field>
-            <Field label="Incident notes" hint="Optional.">
-              <Input value={incidentNotes} onChange={(e) => setIncidentNotes(e.target.value)} placeholder="Context for the safety team…" />
-            </Field>
+          <div className="space-y-4">
+            <h3 className="text-sm font-bold text-ink-lum">Step 4: Safety & Capacity</h3>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-ink-sec">Safety Capacity</label>
+                <input
+                  type="number"
+                  value={formData.safetyCapacity}
+                  onChange={(e) => setFormData({ ...formData, safetyCapacity: Number(e.target.value) })}
+                  className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-ink-sec">Staff Capacity</label>
+                <input
+                  type="number"
+                  value={formData.staffCapacity}
+                  onChange={(e) => setFormData({ ...formData, staffCapacity: Number(e.target.value) })}
+                  className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-ink-sec">Emergency Exits</label>
+              <input
+                type="text"
+                value={formData.emergencyExits}
+                onChange={(e) => setFormData({ ...formData, emergencyExits: e.target.value })}
+                className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <input
+                type="checkbox"
+                id="firstAid"
+                checked={formData.firstAid}
+                onChange={(e) => setFormData({ ...formData, firstAid: e.target.checked })}
+                className="rounded border-white/20 bg-black/40 text-brand focus:ring-0"
+              />
+              <label htmlFor="firstAid" className="text-xs text-ink-lum">First Aid Box & Safety Kit Available</label>
+            </div>
           </div>
         )}
 
         {step === 5 && (
-          <div className="space-y-5">
-            <PrototypeNote>Prototype configuration — no legal contract, settlement or payout system is connected.</PrototypeNote>
-            <Field label="Cost per slot">
-              <Input type="number" min={0} value={costPerSlot} onChange={(e) => setCostPerSlot(e.target.value)} />
-              <span className="mt-2 flex items-center gap-1.5"><Proto /></span>
-            </Field>
-            <Field label="Revenue model">
-              <Select value={revenueModel} onChange={(e) => setRevenueModel(e.target.value as "fixed" | "revshare" | "other")}>
-                <option value="fixed">Fixed</option>
-                <option value="revshare">Revenue share</option>
-                <option value="other">Other</option>
-              </Select>
-              <span className="mt-2 flex items-center gap-1.5"><Proto /></span>
-            </Field>
-            <Field label="Cancellation terms">
-              <Input value={cancellationTerms} onChange={(e) => setCancellationTerms(e.target.value)} placeholder="e.g. Free cancellation up to 6 hours before" />
-              <span className="mt-2 flex items-center gap-1.5"><Proto /></span>
-            </Field>
+          <div className="space-y-4">
+            <h3 className="text-sm font-bold text-ink-lum">Step 5: Review Summary</h3>
+
+            <div className="p-4 rounded-xl bg-black/40 border border-white/5 space-y-2 text-xs">
+              <div className="flex justify-between border-b border-white/5 pb-2">
+                <span className="text-ink-mut">Venue Name:</span>
+                <span className="font-bold text-ink-lum">{formData.name || "Arena Sports Hub"}</span>
+              </div>
+              <div className="flex justify-between border-b border-white/5 pb-2">
+                <span className="text-ink-mut">City & Territory:</span>
+                <span className="text-ink-sec">
+                  {cities.find((c) => c.id === formData.cityId)?.name || "City"} · {territories.find((t) => t.id === formData.territoryId)?.name || "Territory"}
+                </span>
+              </div>
+              <div className="flex justify-between border-b border-white/5 pb-2">
+                <span className="text-ink-mut">Type:</span>
+                <span className="capitalize text-ink-sec">{formData.type}</span>
+              </div>
+              <div className="flex justify-between border-b border-white/5 pb-2">
+                <span className="text-ink-mut">Safety Capacity:</span>
+                <span className="font-mono text-ink-lum">{formData.safetyCapacity} max headcount</span>
+              </div>
+            </div>
           </div>
         )}
 
-        {step === 6 && (
-          <div className="space-y-5">
-            <div>
-              <p className="overline mb-2">Assumptions</p>
-              <div className="space-y-1">
-                {assumptions.map((a) => (
-                  <div key={a.label} className="flex items-start justify-between gap-4 border-b border-white/4 py-1.5">
-                    <span className="overline shrink-0 pt-px">{a.label}</span>
-                    <span className="flex min-w-0 items-center justify-end gap-1.5 text-right text-sm text-ink-sec">
-                      {a.value}
-                      {commercialLabels.has(a.label) && <Proto />}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <PrototypeNote>Prototype configuration — no legal contract, settlement or payout system is connected.</PrototypeNote>
-            <PrototypeRoleNote />
-          </div>
-        )}
-      </WizardShell>
-    </PageFrame>
+        <div className="flex items-center justify-between pt-4 border-t border-white/5">
+          <Button
+            variant="ghost"
+            onClick={() => (step > 1 ? setStep(step - 1) : router.push("/locations/venues"))}
+            className="text-xs"
+          >
+            {step > 1 ? "Previous" : "Cancel"}
+          </Button>
+
+          {step < 5 ? (
+            <Button variant="primary" onClick={() => setStep(step + 1)} className="font-bold text-xs">
+              Next Step <ArrowRight className="w-3.5 h-3.5 ml-1" />
+            </Button>
+          ) : (
+            <Button variant="primary" onClick={handleCreate} className="font-bold text-xs bg-emerald-500 text-slate-950">
+              Create Venue
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function CreateVenuePage() {
+  return (
+    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6">
+      <SetupBackNavigation label="Back to Venues" href="/locations/venues" />
+      <PageHeader
+        overline="Setup · Locations"
+        title="Create Venue"
+        sub="A venue is a physical building or outdoor location where customers arrive for events."
+      />
+      <Suspense fallback={<div className="text-xs text-ink-mut p-8">Loading form...</div>}>
+        <CreateVenueForm />
+      </Suspense>
+    </div>
   );
 }

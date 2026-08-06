@@ -4,312 +4,154 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
-import { venueRows, cityById, type VenueListRow } from "@/lib/prototype/repositories";
-import { geoCan } from "@/lib/geo/access";
-import { cn, inr } from "@/lib/format";
-import { PageFrame, Proto } from "@/components/geo/layout";
+import { selectVenueSetupHealth } from "@/lib/prototype/selectors/setup";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { EmptyState, PermissionDenied } from "@/components/ui/panels";
-import { Button, StatusChip, Badge } from "@/components/ui/primitives";
-import { SearchInput, FilterRail } from "@/components/ui/fields";
-import { DataTable, type Column } from "@/components/ui/table";
-import { Item, Stagger, Tide } from "@/components/motion/Motion";
-import { AlertTriangle, ArrowRight, Plus } from "lucide-react";
+import { PermissionDenied } from "@/components/ui/panels";
+import { Button, StatusChip } from "@/components/ui/primitives";
+import { SearchInput } from "@/components/ui/fields";
+import { Stagger, Item } from "@/components/motion/Motion";
+import {
+  SetupBackNavigation,
+  SetupPrimaryAction,
+  SetupStatusBadge,
+  SetupEmptyState,
+} from "@/components/setup/shared";
+import { Building2, MapPin, Layers, ArrowRight, Plus } from "lucide-react";
+import type { Venue } from "@/lib/prototype/entities";
 
-type StatusFilter = VenueListRow["status"] | "all";
-type TypeFilter = "arena" | "club" | "turf" | "all";
-type VerifFilter = VenueListRow["verificationStatus"] | "all";
-type IndoorFilter = "indoor" | "outdoor" | "all";
-type WeatherFilter = "weather-dependent" | "indoor-safe" | "all";
-type ViewMode = "table" | "operational" | "city";
-
-const viewLabels: Record<ViewMode, string> = {
-  table: "Table",
-  operational: "Operational",
-  city: "By City",
-};
-
-export default function VenuesPage() {
+export default function VenuesListPage() {
   const router = useRouter();
-  const { state, role, canAccess, hydrated } = useStore();
+  const { state, territory, canAccess } = useStore();
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
-  const [verifFilter, setVerifFilter] = useState<VerifFilter>("all");
-  const [indoorFilter, setIndoorFilter] = useState<IndoorFilter>("all");
-  const [weatherFilter, setWeatherFilter] = useState<WeatherFilter>("all");
-  const [view, setView] = useState<ViewMode>("table");
+  const venues = state.venues ?? [];
+  const cities = state.cities ?? [];
+  const territories = state.territories ?? [];
+  const playingAreas = state.playingAreas ?? [];
+  const sessions = state.sessions ?? [];
 
-  const rows = useMemo(() => venueRows(state), [state]);
+  const filteredVenues = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return venues;
+    return venues.filter(
+      (v) =>
+        v.name.toLowerCase().includes(q) ||
+        v.address.toLowerCase().includes(q) ||
+        (cities.find((c) => c.id === v.cityId)?.name ?? "").toLowerCase().includes(q)
+    );
+  }, [venues, cities, searchQuery]);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return rows.filter((r) => {
-      const venue = state.venues.find((v) => v.id === r.id);
-      const matchesQuery =
-        !q ||
-        r.name.toLowerCase().includes(q) ||
-        (venue?.address ?? "").toLowerCase().includes(q) ||
-        r.territoryName.toLowerCase().includes(q) ||
-        r.cityName.toLowerCase().includes(q);
-      const matchesStatus = statusFilter === "all" || r.status === statusFilter;
-      const matchesType = typeFilter === "all" || r.type === typeFilter;
-      const matchesVerif = verifFilter === "all" || r.verificationStatus === verifFilter;
-      const matchesIndoor =
-        indoorFilter === "all" || (indoorFilter === "indoor" ? r.isIndoor : !r.isIndoor);
-      const matchesWeather =
-        weatherFilter === "all" || (weatherFilter === "weather-dependent" ? r.weatherDependent : !r.weatherDependent);
-      return matchesQuery && matchesStatus && matchesType && matchesVerif && matchesIndoor && matchesWeather;
-    });
-  }, [rows, state.venues, query, statusFilter, typeFilter, verifFilter, indoorFilter, weatherFilter]);
-
-  const cityGroups = useMemo(() => {
-    const map = new Map<string, VenueListRow[]>();
-    for (const r of filtered) {
-      const list = map.get(r.cityId) ?? [];
-      list.push(r);
-      map.set(r.cityId, list);
-    }
-    return map;
-  }, [filtered]);
-
-  if (!hydrated) return <PageFrame><Tide /></PageFrame>;
-  if (!canAccess("/locations")) return <PageFrame><PermissionDenied module="Locations" /></PageFrame>;
-
-  const columns: Column<VenueListRow>[] = [
-    {
-      key: "venue",
-      header: "Venue",
-      render: (r) => (
-        <div className="min-w-0">
-          <p className="truncate font-medium text-ink-lum">{r.name}</p>
-          <p className="truncate text-[11px] text-ink-mut">{r.cityName} · {r.territoryName}</p>
-        </div>
-      ),
-    },
-    { key: "franchise", header: "Franchise", render: (r) => <span className="text-ink-sec">{r.franchiseName}</span> },
-    {
-      key: "type",
-      header: "Type",
-      render: (r) => (
-        <Badge
-          className={cn(
-            "border",
-            r.type === "arena"
-              ? "border-[#4c6fff]/25 bg-[#4c6fff]/12 text-[#9db4ff]"
-              : r.type === "club"
-                ? "border-[#f7b955]/30 bg-[#f7b955]/10 text-[#ffd28a]"
-                : "border-[#12b76a]/25 bg-[#12b76a]/12 text-[#5fd7a3]",
-          )}
-        >
-          {r.type}
-        </Badge>
-      ),
-    },
-    { key: "status", header: "Status", render: (r) => <StatusChip value={r.status} /> },
-    { key: "verification", header: "Verification", render: (r) => <StatusChip value={r.verificationStatus} /> },
-    {
-      key: "indoor",
-      header: "Indoor",
-      render: (r) => (
-        <Badge
-          className={cn(
-            "border",
-            r.isIndoor
-              ? "border-white/8 bg-white/4 text-ink-sec"
-              : "border-[#4c6fff]/25 bg-[#4c6fff]/12 text-[#9db4ff]",
-          )}
-        >
-          {r.isIndoor ? "Indoor" : "Outdoor"}
-        </Badge>
-      ),
-    },
-    { key: "capacity", header: "Capacity", align: "right", render: (r) => <span className="tabular text-ink-sec">{r.safetyCapacity}</span> },
-    { key: "staff", header: "Staff", align: "right", render: (r) => <span className="tabular text-ink-sec">{r.staffCapacity}</span> },
-    { key: "pas", header: "PAs", align: "right", render: (r) => <span className="tabular text-ink-sec">{r.playingAreas}</span> },
-    { key: "upcoming", header: "Upcoming", align: "right", render: (r) => <span className="tabular text-ink-sec">{r.upcomingSessions}</span> },
-    {
-      key: "cost",
-      header: "Cost/slot",
-      align: "right",
-      render: (r) => (
-        <span className="flex items-center justify-end gap-1.5">
-          <span className="tabular font-medium text-ink-lum">{inr(r.costPerSlot)}</span>
-          <Proto />
-        </span>
-      ),
-    },
-    {
-      key: "incidents",
-      header: "Incidents",
-      align: "right",
-      render: (r) => (
-        <span className={cn("tabular", r.openIncidents > 0 ? "text-[#ff8f86]" : "text-ink-sec")}>{r.openIncidents}</span>
-      ),
-    },
-    {
-      key: "warnings",
-      header: "Warnings",
-      align: "right",
-      render: (r) =>
-        r.warnings.length > 0 ? (
-          <Badge className="border border-[#f7b955]/30 bg-[#f7b955]/10 text-[#ffd28a]">{r.warnings.length}</Badge>
-        ) : (
-          <span className="text-[11px] text-ink-mut">—</span>
-        ),
-    },
-  ];
+  if (!canAccess("/locations")) {
+    return (
+      <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8">
+        <PermissionDenied module="Venues" />
+      </div>
+    );
+  }
 
   return (
-    <PageFrame>
+    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6">
+      <SetupBackNavigation label="Back to Setup" href="/setup" />
+
       <PageHeader
-        overline="Locations · Venues"
+        overline={`Setup · ${territory.name}`}
         title="Venues"
-        sub="Arenas, clubs and turfs where missions run. Playing areas live inside venues."
+        sub="Manage the places where customers arrive for events."
         right={
-          geoCan(role.id, "create-venue") ? (
-            <Link href="/locations/venues/new">
-              <Button>
-                <Plus className="h-4 w-4" />
-                New venue
-              </Button>
-            </Link>
-          ) : undefined
+          <SetupPrimaryAction
+            label="Create Venue"
+            href="/locations/venues/new"
+            allowedRoles={["platform-owner", "super-admin", "regional-partner", "city-manager", "venue-manager"]}
+          />
         }
       />
 
-      <div className="mt-6 space-y-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <SearchInput value={query} onChange={setQuery} placeholder="Search venues, addresses, cities…" />
-          <FilterRail options={["ready", "maintenance", "closed"] as const} value={statusFilter} onChange={setStatusFilter} />
-          <FilterRail options={["arena", "club", "turf"] as const} value={typeFilter} onChange={setTypeFilter} />
-          <FilterRail options={["verified", "pending", "failed"] as const} value={verifFilter} onChange={setVerifFilter} />
-          <FilterRail options={["indoor", "outdoor"] as const} value={indoorFilter} onChange={setIndoorFilter} />
-          <FilterRail options={["weather-dependent", "indoor-safe"] as const} value={weatherFilter} onChange={setWeatherFilter} />
-        </div>
-
-        <div className="flex justify-end">
-          <div className="inline-flex gap-1 rounded-xl bg-white/4 p-1">
-            {(["table", "operational", "city"] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => setView(v)}
-                className={cn(
-                  "rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200 ease-light",
-                  view === v ? "bg-white/10 text-ink-lum shadow-lift" : "text-ink-mut hover:text-ink-sec",
-                )}
-              >
-                {viewLabels[v]}
-              </button>
-            ))}
+      <div className="glass p-5 rounded-2xl border border-white/5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-sm font-semibold text-ink-lum">Where will this event happen?</h3>
+            <p className="text-xs text-ink-mut">Filter and manage physical venue locations.</p>
+          </div>
+          <div className="w-full sm:w-72">
+            <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search venue, city, address..." />
           </div>
         </div>
 
-        {rows.length === 0 ? (
-          <EmptyState
-            title="No venues yet"
-            line="Create your first venue to start scheduling playing areas and missions."
+        {venues.length === 0 ? (
+          <SetupEmptyState
+            title="No event locations added"
+            message="No venues have been created in your operating area yet."
+            actionLabel="Create Venue"
+            actionHref="/locations/venues/new"
           />
-        ) : filtered.length === 0 ? (
-          <div className="solid rounded-panel p-10 text-center">
-            <p className="text-sm font-medium text-ink-lum">No venues match</p>
-            <p className="mt-1 text-sm text-ink-mut">Loosen the search or clear a filter.</p>
-          </div>
-        ) : view === "table" ? (
-          <DataTable
-            columns={columns}
-            rows={filtered}
-            emptyTitle="No venues"
-            emptyLine="Try a different filter."
-            onRowClick={(r) => router.push(`/locations/venues/${r.id}`)}
-          />
-        ) : view === "operational" ? (
-          <Stagger className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {filtered.map((r) => (
-              <Item key={r.id}>
-                <div className="glass rounded-panel p-5">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-ink-lum">{r.name}</p>
-                      <p className="truncate text-[11px] text-ink-mut">{r.cityName} · {r.type}</p>
-                    </div>
-                    <StatusChip value={r.status} />
-                  </div>
-                  <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-                    <div className="solid rounded-xl p-2">
-                      <p className="overline">PAs</p>
-                      <p className="mt-1 text-lg font-semibold tabular text-ink-lum">{r.playingAreas}</p>
-                    </div>
-                    <div className="solid rounded-xl p-2">
-                      <p className="overline">Upcoming</p>
-                      <p className="mt-1 text-lg font-semibold tabular text-ink-lum">{r.upcomingSessions}</p>
-                    </div>
-                    <div className="solid rounded-xl p-2">
-                      <p className="overline">Incidents</p>
-                      <p className={cn("mt-1 text-lg font-semibold tabular", r.openIncidents > 0 ? "text-[#ff8f86]" : "text-ink-lum")}>
-                        {r.openIncidents}
-                      </p>
-                    </div>
-                  </div>
-                  {r.warnings.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {r.warnings.map((w) => (
-                        <Badge key={w} className="border border-[#f7b955]/30 bg-[#f7b955]/10 text-[#ffd28a]">
-                          <AlertTriangle className="h-3 w-3" />
-                          {w}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                  <Button
-                    variant="secondary"
-                    className="mt-4 w-full"
-                    onClick={() => router.push(`/locations/venues/${r.id}`)}
-                  >
-                    Manage
-                    <ArrowRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              </Item>
-            ))}
-          </Stagger>
+        ) : filteredVenues.length === 0 ? (
+          <div className="p-8 text-center text-xs text-ink-mut">No venues match your search query.</div>
         ) : (
-          <div className="space-y-4">
-            {Array.from(cityGroups.entries()).map(([cityId, list]) => {
-              const cityName = cityById(state, cityId)?.name ?? cityId;
+          <Stagger className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredVenues.map((v) => {
+              const city = cities.find((c) => c.id === v.cityId);
+              const t = territories.find((tr) => tr.id === v.territoryId || tr.id === city?.territoryId);
+              const vAreas = playingAreas.filter((pa) => pa.venueId === v.id);
+              const vEventsToday = sessions.filter((s) => s.venueId === v.id && s.date === "Today").length;
+              const health = selectVenueSetupHealth(state, v.id);
+              const combinedCapacity = vAreas.length > 0
+                ? vAreas.reduce((sum, pa) => sum + (pa.maxCapacity || 0), 0)
+                : v.safetyCapacity || 0;
+
               return (
-                <div key={cityId} className="solid rounded-panel p-5">
-                  <div className="flex items-center justify-between gap-2">
-                    <Link href={`/cities/${cityId}`} className="font-medium text-ink-lum transition-colors hover:text-ink-sec">
-                      {cityName}
-                    </Link>
-                    <span className="text-[11px] tabular text-ink-mut">{list.length} venues</span>
-                  </div>
-                  <div className="mt-3 space-y-1.5">
-                    {list.map((v) => (
-                      <Link
-                        key={v.id}
-                        href={`/locations/venues/${v.id}`}
-                        className="flex items-center justify-between gap-3 rounded-xl bg-white/2 px-3 py-2 transition-colors hover:bg-white/4"
-                      >
-                        <div className="min-w-0">
-                          <p className="truncate text-sm text-ink-sec">{v.name}</p>
-                          <p className="text-[11px] text-ink-mut">
-                            {v.type} · {v.playingAreas} PAs · {v.upcomingSessions} upcoming
+                <Item key={v.id}>
+                  <div className="glass p-5 rounded-2xl border border-white/5 hover:border-white/10 transition-all flex flex-col justify-between space-y-4">
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="space-y-1">
+                          <h4 className="font-bold text-base text-ink-lum flex items-center gap-2">
+                            <Building2 className="w-4 h-4 text-purple-400 shrink-0" />
+                            <Link href={`/locations/venues/${v.id}`} className="hover:text-brand transition-colors">
+                              {v.name}
+                            </Link>
+                          </h4>
+                          <p className="text-xs text-ink-mut flex items-center gap-1">
+                            <MapPin className="w-3 h-3 text-emerald-400 shrink-0" />
+                            <span>{city?.name || "City"} · {t?.name || "Territory"}</span>
                           </p>
                         </div>
-                        <StatusChip value={v.status} />
+                        <SetupStatusBadge status={health.status} size="sm" />
+                      </div>
+
+                      <p className="text-xs text-ink-sec truncate">{v.address || "Address not specified"}</p>
+
+                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/5 text-center text-xs">
+                        <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                          <span className="text-[10px] text-ink-mut block uppercase">Areas</span>
+                          <span className="font-bold text-ink-lum">{vAreas.length}</span>
+                        </div>
+                        <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                          <span className="text-[10px] text-ink-mut block uppercase">Capacity</span>
+                          <span className="font-bold text-ink-lum">{combinedCapacity}</span>
+                        </div>
+                        <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                          <span className="text-[10px] text-ink-mut block uppercase">Today</span>
+                          <span className="font-bold text-ink-lum">{vEventsToday}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-white/5 flex items-center justify-between">
+                      <StatusChip value={v.status} />
+                      <Link href={vAreas.length === 0 ? `/locations/playing-areas/new?venueId=${v.id}` : `/locations/venues/${v.id}`}>
+                        <Button variant={vAreas.length === 0 ? "primary" : "secondary"} className="h-7 text-xs font-bold px-3">
+                          {vAreas.length === 0 ? "Add Playing Area" : "Review Venue"}
+                          <ArrowRight className="w-3 h-3 ml-1" />
+                        </Button>
                       </Link>
-                    ))}
+                    </div>
                   </div>
-                </div>
+                </Item>
               );
             })}
-          </div>
+          </Stagger>
         )}
       </div>
-    </PageFrame>
+    </div>
   );
 }

@@ -11,10 +11,17 @@ import { Card, PanelHeader, Stat } from "@/components/ui/panels";
 import { StatusChip, FillMeter } from "@/components/ui/primitives";
 import { LineChart, Bars, Donut } from "@/components/ui/charts";
 
+import { selectSetupHealth } from "@/lib/prototype/selectors/setup";
+import { SetupStatusBadge } from "@/components/setup/shared";
+import Link from "next/link";
+import { Button } from "@/components/ui/primitives";
+
 export default function CommandPage() {
   const { operator, territory, state } = useStore();
   const router = useRouter();
   const [struck, setStruck] = useState<string | null>(null);
+
+  const setupHealth = selectSetupHealth(state);
 
   const sessions = sessionViews(state, territory.id);
   const analytics = state.analytics;
@@ -36,6 +43,24 @@ export default function CommandPage() {
           Good evening, {operator?.name.split(" ")[0]}. The night is on.
         </h1>
       </Fade>
+
+      {/* Setup Health Banner */}
+      <div className="mt-6 glass p-4 rounded-2xl border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <SetupStatusBadge status={setupHealth.status} />
+          <div>
+            <p className="text-xs font-semibold text-ink-lum">Setup Health: {setupHealth.label}</p>
+            <p className="text-[11px] text-ink-mut">
+              {setupHealth.franchiseCount} Franchises · {setupHealth.territoryCount} Territories · {setupHealth.cityCount} Cities · {setupHealth.venueCount} Venues · {setupHealth.playingAreaCount} Playing Areas
+            </p>
+          </div>
+        </div>
+        <Link href="/setup">
+          <Button variant="lamp" className="h-8 text-xs font-bold px-3">
+            Continue Setup <ArrowRight className="w-3.5 h-3.5 ml-1" />
+          </Button>
+        </Link>
+      </div>
 
       {/* KPI row */}
       <Stagger className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">

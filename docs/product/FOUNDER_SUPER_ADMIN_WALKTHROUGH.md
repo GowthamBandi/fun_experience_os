@@ -164,3 +164,20 @@ Manage all reservations, waiting lists, payments, refunds, and financial checks 
 7. **Refunds (`/money/refunds`)**: Task-card workspace for reviewing refund requests with role-gated finance authorization.
 8. **Payment Check (`/money/reconciliation`)**: Mismatch audit center flagging unconfirmed paid bookings or unpaid confirmed bookings with plain-English explanations and one-click resolutions.
 
+---
+
+## Part 8 — Setup & Operating Area Usability Workspace
+
+Manage your company's operating structure through a simple 5-step setup hierarchy:
+
+1. **Set Up Your Operating Area (`/setup`)**: Landing workspace answering *"What must I create before scheduling an event?"* using a 5-step journey:
+   - **Step 1: Franchise** → Organization or regional operating head responsible for this area.
+   - **Step 2: Territory** → Smaller operating area managed by a local operating team.
+   - **Step 3: City** → City where events will happen.
+   - **Step 4: Venue** → Building or outdoor location where customers arrive.
+   - **Step 5: Playing Area** → Exact court, field, room, or hall space.
+2. **Next Action Engine**: Recommends one clear next step dynamically derived from state.
+3. **Setup Health Badges**: Displays *Complete*, *Needs Attention*, or *Incomplete* across all detail pages.
+4. **Operating Structure Tree**: Visual tree displaying top-down relationships (`Franchise └── Territory └── City └── Venue └── Playing Area`).
+5. **Cities Portal (`/cities`)**: Top-level cities page so cities are no longer hidden inside territory detail pages.
+

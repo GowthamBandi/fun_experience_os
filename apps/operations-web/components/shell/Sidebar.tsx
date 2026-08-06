@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   BarChart3,
   BookOpen,
+  Building2,
   CalendarRange,
   ChevronLeft,
   Compass,
@@ -13,6 +14,7 @@ import {
   Globe,
   Group,
   Landmark,
+  Layers,
   MapPin,
   Megaphone,
   ShieldCheck,
@@ -30,6 +32,7 @@ import { Avatar } from "@/components/ui/primitives";
 
 const ICONS: Record<string, typeof Compass> = {
   "/": Compass,
+  "/setup": Layers,
   "/missions": CalendarRange,
   "/bookings": BookOpen,
   "/people": Users,
@@ -37,6 +40,7 @@ const ICONS: Record<string, typeof Compass> = {
   "/tournaments": Trophy,
   "/franchises": Landmark,
   "/territories": Globe,
+  "/cities": Building2,
   "/locations": MapPin,
   "/catalog": Store,
   "/staffing": Group,

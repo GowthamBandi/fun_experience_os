@@ -13,6 +13,7 @@ export interface NavItem {
  */
 export const NAV: NavItem[] = [
   { href: "/", label: "Command", keyword: "command floor home overview", roles: ["platform-owner", "super-admin", "regional-partner", "city-manager", "ops-manager", "venue-manager", "coordinator", "staff", "support", "safety", "finance", "marketing", "analyst"] },
+  { href: "/setup", label: "Setup", keyword: "setup operating area franchises territories cities venues playing areas", roles: ["platform-owner", "super-admin", "regional-partner", "city-manager", "ops-manager", "venue-manager"] },
   { href: "/missions", label: "Missions", keyword: "missions sessions events scheduling", roles: ["platform-owner", "super-admin", "regional-partner", "city-manager", "ops-manager", "venue-manager", "coordinator", "staff", "safety", "analyst"] },
   { href: "/bookings", label: "Bookings", keyword: "bookings reservations check-in", roles: ["platform-owner", "super-admin", "regional-partner", "city-manager", "ops-manager", "venue-manager", "coordinator", "support", "finance"] },
   { href: "/safety", label: "Safety & Disputes", keyword: "safety incidents disputes moderation bans refunds exceptions triage", roles: ["platform-owner", "super-admin", "regional-partner", "city-manager", "ops-manager", "venue-manager", "safety", "support", "finance"] },
@@ -21,6 +22,7 @@ export const NAV: NavItem[] = [
   { href: "/tournaments", label: "Tournaments", keyword: "tournaments brackets knockout", roles: ["platform-owner", "super-admin", "regional-partner", "city-manager", "ops-manager", "coordinator"] },
   { href: "/franchises", label: "Franchises", keyword: "franchises partners chains legal", roles: ["platform-owner", "super-admin", "regional-partner", "finance", "analyst"] },
   { href: "/territories", label: "Territories", keyword: "territories regions scopes", roles: ["platform-owner", "super-admin", "regional-partner", "city-manager", "ops-manager", "analyst"] },
+  { href: "/cities", label: "Cities", keyword: "cities territories geography setup", roles: ["platform-owner", "super-admin", "regional-partner", "city-manager", "ops-manager"] },
   { href: "/locations", label: "Locations", keyword: "locations venues arenas cities", roles: ["platform-owner", "super-admin", "regional-partner", "city-manager", "venue-manager"] },
   { href: "/catalog", label: "Catalog", keyword: "catalog activities formats pricing templates categories", roles: ["platform-owner", "super-admin", "regional-partner", "city-manager", "ops-manager", "venue-manager", "safety", "finance", "marketing", "analyst"] },
   { href: "/staffing", label: "Staffing", keyword: "staffing crew assignments", roles: ["platform-owner", "super-admin", "regional-partner", "city-manager", "ops-manager", "venue-manager"] },
