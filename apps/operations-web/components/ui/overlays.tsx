@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
 import { cn } from "@/lib/format";
@@ -15,6 +16,16 @@ export function useDisclosure() {
 
 const LIGHT = [0.19, 1, 0.22, 1] as const;
 
+/**
+ * Render overlays at the end of <body> so page layout (e.g. `space-y-*` margins,
+ * transforms or overflow on ancestors) can never offset or clip them.
+ */
+function Portal({ children }: { children: ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  return mounted ? createPortal(children, document.body) : null;
+}
+
 /** The room dims; the panel settles in. Never a black scrim. */
 export function Dialog({ open, onClose, title, children, wide = false }: { open: boolean; onClose: () => void; title: string; children: ReactNode; wide?: boolean }) {
   useEffect(() => {
@@ -25,6 +36,7 @@ export function Dialog({ open, onClose, title, children, wide = false }: { open:
   }, [open, onClose]);
 
   return (
+    <Portal>
     <AnimatePresence>
       {open && (
         <motion.div
@@ -56,6 +68,7 @@ export function Dialog({ open, onClose, title, children, wide = false }: { open:
         </motion.div>
       )}
     </AnimatePresence>
+    </Portal>
   );
 }
 
@@ -69,6 +82,7 @@ export function Drawer({ open, onClose, title, sub, children, width = "max-w-md"
   }, [open, onClose]);
 
   return (
+    <Portal>
     <AnimatePresence>
       {open && (
         <motion.div className="fixed inset-0 z-50" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
@@ -95,5 +109,6 @@ export function Drawer({ open, onClose, title, sub, children, width = "max-w-md"
         </motion.div>
       )}
     </AnimatePresence>
+    </Portal>
   );
 }

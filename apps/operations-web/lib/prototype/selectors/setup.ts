@@ -70,25 +70,25 @@ export function selectSetupHealth(state: PrototypeState): SetupHealth {
   const missingItems: string[] = [];
 
   if (franchiseCount === 0) {
-    missingItems.push("No operating franchise created.");
+    missingItems.push("No franchise yet.");
   }
   if (territoryCount === 0) {
-    missingItems.push("No territory created under any franchise.");
+    missingItems.push("No territory yet.");
   }
   if (cityCount === 0) {
-    missingItems.push("No city added to any territory.");
+    missingItems.push("No city yet.");
   } else if (territoriesWithoutCities.length > 0) {
-    missingItems.push(`${territoriesWithoutCities.length} territory has no city.`);
+    missingItems.push(`${territoriesWithoutCities.length} ${territoriesWithoutCities.length === 1 ? "territory has" : "territories have"} no city.`);
   }
   if (venueCount === 0) {
-    missingItems.push("No venue location created in any city.");
+    missingItems.push("No venue yet.");
   } else if (citiesWithoutVenues.length > 0) {
-    missingItems.push(`${citiesWithoutVenues.length} city has no venue.`);
+    missingItems.push(`${citiesWithoutVenues.length} ${citiesWithoutVenues.length === 1 ? "city has" : "cities have"} no venue.`);
   }
   if (playingAreaCount === 0) {
-    missingItems.push("No playing area (court/field/room) created in any venue.");
+    missingItems.push("No playing area yet.");
   } else if (venuesWithoutPlayingAreas.length > 0) {
-    missingItems.push(`${venuesWithoutPlayingAreas.length} venue has no playing area.`);
+    missingItems.push(`${venuesWithoutPlayingAreas.length} ${venuesWithoutPlayingAreas.length === 1 ? "venue has" : "venues have"} no playing area.`);
   }
 
   let status: SetupHealthStatus = "complete";

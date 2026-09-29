@@ -263,58 +263,6 @@ export function crewViews(state: PrototypeState, territoryId?: TerritoryId): Cre
   }));
 }
 
-/* -------------------------- tournament views -------------------------- */
-
-export interface TournamentView {
-  id: string;
-  title: string;
-  code?: string;
-  territoryId: TerritoryId;
-  venueName: string;
-  format: string;
-  teams: number;
-  round: string;
-  phase: string;
-  status: string;
-  date: string;
-  brackets: Array<{ id: string; roundLabel?: string; round?: string; teamAId?: string; teamBId?: string; teamA?: string; teamB?: string; scoreA?: number; scoreB?: number; winnerTeamId?: string; winner?: string; status: string }>;
-}
-
-export function tournamentViews(state: PrototypeState, territoryId?: TerritoryId): TournamentView[] {
-  const byTerritory = territoryId ? state.tournaments.filter((t) => t.territoryId === territoryId) : state.tournaments;
-  return byTerritory.map((t) => {
-    const matches = state.tournamentMatches.filter((m) => m.tournamentId === t.id);
-    const rounds = [...new Set(matches.map((m) => m.roundLabel || m.round || `Round ${m.roundNumber}`))];
-    return {
-      id: t.id,
-      title: t.name,
-      code: t.code,
-      territoryId: t.territoryId,
-      venueName: venueName(state, t.venueId),
-      format: t.format.replace("-", " "),
-      teams: t.teamIds?.length ?? (t as any).teamCount ?? 0,
-      round: rounds[0] ?? "—",
-      phase: t.scheduledStart || (t as any).date || "—",
-      status: t.status,
-      date: t.scheduledStart || (t as any).date || "—",
-      brackets: matches.map((m) => ({
-        id: m.id,
-        roundLabel: m.roundLabel,
-        round: m.round || m.roundLabel,
-        teamAId: m.teamAId,
-        teamBId: m.teamBId,
-        teamA: m.teamA || m.teamAId,
-        teamB: m.teamB || m.teamBId,
-        scoreA: m.scoreA,
-        scoreB: m.scoreB,
-        winnerTeamId: m.winnerTeamId,
-        winner: m.winner || m.winnerTeamId,
-        status: m.status
-      }))
-    };
-  });
-}
-
 /* ---------------------------- promo views ---------------------------- */
 
 export function activePromos(state: PrototypeState): PromoCode[] {

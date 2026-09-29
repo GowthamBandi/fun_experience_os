@@ -9,6 +9,7 @@ import {
   type PaymentRecordInput,
 } from "../services/bookings";
 import { cancelSession } from "../services/operations";
+import { normaliseIncident } from "../services/safety";
 
 export interface ScenarioDef {
   name: string;
@@ -232,7 +233,7 @@ export const applyScenario = (name: string, state: PrototypeState): PrototypeSta
       next.venues = next.venues.map((v) => (v.id === "v-1" ? { ...v, status: "maintenance" as const } : v));
       const cancelled = cancelSession(next, "s-2", "Hitex Hall A closed for maintenance", "op-4");
       if (!cancelled.error) next = cancelled.state;
-      next.incidents.push({
+      next.incidents.push(normaliseIncident({
         id: "i-vc-1",
         sessionId: "s-2",
         reporterId: "op-4",
@@ -246,7 +247,7 @@ export const applyScenario = (name: string, state: PrototypeState): PrototypeSta
         status: "escalated",
         notes: "Hitex Hall A flagged for maintenance; Night Badminton League cancelled.",
         ownerId: "op-4"
-      });
+      }));
       next.signals.unshift(signal("alert", "Venue conflict: Hitex Hall A in maintenance. Night Badminton League cancelled and refunds requested.", "s-2"));
       next.audits.unshift(nowAudit(name));
       break;
@@ -273,7 +274,7 @@ export const applyScenario = (name: string, state: PrototypeState): PrototypeSta
     case "Weather Cancellation": {
       const cancelled = cancelSession(next, "s-1", "Heavy rain — outdoor cricket cancelled under the weather policy", "op-4");
       if (!cancelled.error) next = cancelled.state;
-      next.incidents.push({
+      next.incidents.push(normaliseIncident({
         id: "i-wx-1",
         sessionId: "s-1",
         reporterId: "op-4",
@@ -287,7 +288,7 @@ export const applyScenario = (name: string, state: PrototypeState): PrototypeSta
         status: "escalated",
         notes: "Heavy rain on Jubilee Grounds. Session s-1 cancelled under weather policy.",
         ownerId: "op-4"
-      });
+      }));
       next.signals.unshift(signal("system", "Weather: Evening Box Cricket cancelled (rain). Refund requests created for every paid booking.", "s-1"));
       next.analytics = next.analytics.map((d) =>
         d.label === "Sat" ? { ...d, revenue: Math.max(0, d.revenue - 3400), bookings: Math.max(0, d.bookings - 8), fill: Math.max(0, d.fill - 6) } : d

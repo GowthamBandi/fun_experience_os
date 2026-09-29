@@ -111,7 +111,7 @@ export function Panel({
   icon?: ReactNode;
 }) {
   return (
-    <section className={cn("rounded-panel border border-edge bg-white shadow-panel", className)}>
+    <section className={cn("min-w-0 rounded-panel border border-edge bg-white shadow-panel", className)}>
       {(title || right) && (
         <header className="flex flex-wrap items-start justify-between gap-3 border-b border-edge px-5 py-4">
           <div className="flex min-w-0 items-start gap-3">

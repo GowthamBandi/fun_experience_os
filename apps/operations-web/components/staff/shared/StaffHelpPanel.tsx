@@ -6,7 +6,7 @@ import { Ticket, UserCog } from "lucide-react";
 export function StaffHelpPanel() {
   const cols = [
     { icon: UserCog, title: "Staff", tone: "bg-brand-subtle text-brand", lines: ["Run sessions: lead, safety, referee, equipment", "Assigned to sessions in Staffing", "Checked in when they arrive for a shift"] },
-    { icon: Ticket, title: "Participants", tone: "bg-emerald-50 text-emerald-600", lines: ["Customers who booked a session", "Shown by temporary identity until reveal", "Checked in at the door by staff"] },
+    { icon: Ticket, title: "Participants", tone: "bg-emerald-50 text-emerald-600", lines: ["Customers who booked a session", "Shown by temporary identity until reveal", "Checked in by staff on arrival"] },
   ];
   return (
     <section className="grid gap-4 rounded-panel border border-edge bg-white p-5 shadow-panel md:grid-cols-2">

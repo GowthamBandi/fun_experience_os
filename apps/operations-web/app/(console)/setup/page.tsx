@@ -63,20 +63,20 @@ export default function SetupPage() {
       </section>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <MetricTile label="Franchises" value={health.franchiseCount} icon={<Landmark className="h-4 w-4" />} tone="violet" detail="businesses operating" />
-        <MetricTile label="Territories" value={health.territoryCount} icon={<Globe2 className="h-4 w-4" />} tone="sky" detail={health.territoriesWithoutCitiesCount ? `${health.territoriesWithoutCitiesCount} without a city` : "all have cities"} />
-        <MetricTile label="Cities" value={health.cityCount} icon={<MapPin className="h-4 w-4" />} tone="emerald" detail={health.citiesWithoutVenuesCount ? `${health.citiesWithoutVenuesCount} without a venue` : "all have venues"} />
-        <MetricTile label="Venues" value={health.venueCount} icon={<Building2 className="h-4 w-4" />} tone="amber" detail={health.venuesWithoutPlayingAreasCount ? `${health.venuesWithoutPlayingAreasCount} without a playing area` : "all have playing areas"} />
+        <MetricTile label="Franchises" value={health.franchiseCount} icon={<Landmark className="h-4 w-4" />} tone="violet" detail={health.franchiseCount ? "businesses operating" : "none yet"} />
+        <MetricTile label="Territories" value={health.territoryCount} icon={<Globe2 className="h-4 w-4" />} tone="sky" detail={!health.territoryCount ? "none yet" : health.territoriesWithoutCitiesCount ? `${health.territoriesWithoutCitiesCount} without a city` : "all have a city"} />
+        <MetricTile label="Cities" value={health.cityCount} icon={<MapPin className="h-4 w-4" />} tone="emerald" detail={!health.cityCount ? "none yet" : health.citiesWithoutVenuesCount ? `${health.citiesWithoutVenuesCount} without a venue` : "all have a venue"} />
+        <MetricTile label="Venues" value={health.venueCount} icon={<Building2 className="h-4 w-4" />} tone="amber" detail={!health.venueCount ? "none yet" : health.venuesWithoutPlayingAreasCount ? `${health.venuesWithoutPlayingAreasCount} without a playing area` : "all have a playing area"} />
         <MetricTile label="Playing areas" value={health.playingAreaCount} icon={<LayoutGrid className="h-4 w-4" />} tone="pink" detail="courts, pitches, tables, rooms" />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.25fr_1fr]">
-        <Panel title="First-run checklist" sub="Eight steps from an empty workspace to a bookable session." icon={<ListChecks className="h-4 w-4" />} right={<StatusChip value={health.status === "complete" ? "ready" : health.status === "needs-attention" ? "needs attention" : "incomplete"} tone={health.status === "complete" ? "ok" : health.status === "needs-attention" ? "warn" : "neutral"} />}>
+        <Panel title="First-run checklist" sub="Eight steps from an empty workspace to a bookable session." icon={<ListChecks className="h-4 w-4" />} right={<StatusChip value={done === journey.length ? "complete" : `${done} of ${journey.length} done`} tone={done === journey.length ? "ok" : health.status === "needs-attention" ? "warn" : "info"} />}>
           <SetupJourney steps={journey} />
         </Panel>
 
         <div className="space-y-6">
-          {health.missingItems.length > 0 && (
+          {health.missingItems.length > 0 && !firstRun && (
             <Notice tone="warn" title="Gaps to close before scheduling">
               <ul className="mt-1 list-disc space-y-0.5 pl-4">
                 {health.missingItems.map((m) => (

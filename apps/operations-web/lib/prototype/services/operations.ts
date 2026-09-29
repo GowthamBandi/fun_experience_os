@@ -220,27 +220,3 @@ export function updateSessionStatus(state: PrototypeState, sessionId: string, st
   );
 }
 
-export function updateMatchScore(
-  state: PrototypeState,
-  tournamentId: string,
-  matchId: string,
-  scoreA: number,
-  scoreB: number,
-  winner: string,
-  status: "scheduled" | "live" | "completed" | "walkover" | "abandoned",
-  operatorId?: string
-): PrototypeState {
-  const next: PrototypeState = {
-    ...state,
-    tournamentMatches: state.tournamentMatches.map((m) =>
-      m.id === matchId && m.tournamentId === tournamentId
-        ? { ...m, scoreA, scoreB, winnerTeamId: winner, winner, status }
-        : m
-    )
-  };
-  return pushAudit(next, {
-    action: "Match Score Submitted",
-    description: `Match ${matchId} in ${tournamentId}: ${scoreA}–${scoreB}, winner ${winner || "—"}.`,
-    operatorId
-  });
-}

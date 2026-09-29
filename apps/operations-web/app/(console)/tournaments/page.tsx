@@ -165,7 +165,7 @@ export default function TournamentsPage() {
 
       {filtered.length === 0 ? (
         <EmptyState
-          title={rows.length ? "No tournaments match this filter" : `No tournaments in ${scope === "territory" ? territory.name : "any territory"}`}
+          title={rows.length ? "No tournaments match this filter" : "No tournaments yet"}
           line={rows.length ? "Choose another filter to see more." : "Create a knockout tournament to enter teams and draw a bracket."}
           action={
             createGate.allowed && !rows.length ? (

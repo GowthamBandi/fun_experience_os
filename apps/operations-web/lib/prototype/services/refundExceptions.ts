@@ -1,3 +1,4 @@
+import { authorizeSafetyAction } from "@/lib/safety/access";
 import type { PrototypeState } from "../scenarios/state";
 import type { Refund, RefundException, RefundExceptionReason } from "../entities";
 import { validateRefundEligibility } from "../validators/bookingValidation";
@@ -44,6 +45,8 @@ export function recommendRefundException(
   operatorId: string = "system",
   nowIso: string = new Date().toISOString()
 ): CommandResult<{ exception?: RefundException }> {
+  const who = authorizeSafetyAction(state, operatorId, "refund-exception.recommend");
+  if (!who.ok) return reject(state, who.error);
   if (!REASONS.includes(params.reason)) return reject(state, "Choose why this refund is an exception.");
   if (!Number.isFinite(params.amount) || params.amount <= 0 || !Number.isInteger(params.amount)) {
     return reject(state, "Enter a refund amount in whole rupees greater than zero.");
