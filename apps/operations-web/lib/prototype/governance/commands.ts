@@ -153,16 +153,18 @@ export function decideGovernanceCase(
   if (!OPEN_CASE_STATUSES.includes(status)) return { state, error: `This case is already ${status.replace(/-/g, " ")} and cannot be decided again.` };
 
   if (cmd.outcome === "approved" && kase.data.kind === "settlement-release") {
-    const target = typeof kase.data.targetId === "string" ? findDoc(state, "settlementControls", kase.data.targetId) : undefined;
-    const organizer = target?.data.organizerName;
-    const openFraud = organizer
-      ? state.governance.some((d) => d.collection === "riskAlerts" && d.data.organizerName === organizer && String(d.data.status) !== "resolved")
-      : false;
-    if (openFraud) return { state, error: `${String(organizer)} has an open risk alert. Resolve it in Risk before releasing this settlement.` };
+    const settlement = typeof kase.data.targetId === "string" ? findDoc(state, "settlementControls", kase.data.targetId) : undefined;
+    const organizer = settlement?.data.organizerName ?? kase.data.organizerName;
+    if (typeof organizer !== "string" || !organizer.trim()) {
+      return { state, error: "This settlement isn't linked to an organizer, so it can't be released. Reject it or request information." };
+    }
+    const openFraud = state.governance.some((d) => d.collection === "riskAlerts" && d.data.organizerName === organizer && String(d.data.status) !== "resolved");
+    if (openFraud) return { state, error: `${organizer} has an open fraud alert, so this settlement can't be released.` };
   }
 
+  // Server parity: a case must point at an existing record (firebase/functions/src/governance/service.ts).
   const target0 = CASE_TARGET[String(kase.data.kind)];
-  if (target0 && typeof kase.data.targetId === "string" && !findDoc(state, target0.collection, kase.data.targetId)) {
+  if (target0 && (typeof kase.data.targetId !== "string" || !findDoc(state, target0.collection, kase.data.targetId))) {
     return { state, error: "The record this case refers to no longer exists. Reject the case with a reason instead." };
   }
 

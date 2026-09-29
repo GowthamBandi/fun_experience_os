@@ -18,16 +18,9 @@
  */
 
 import { Transaction, Timestamp } from "firebase-admin/firestore";
-import {
-  db,
-  sessionRef,
-  newBookingRef,
-  bookingRef,
-  auditRef,
-  receiptRef,
-  serverNow,
-} from "../platform/firestore";
-import { DomainError, soldOut, venueFull, invalidInput } from "../platform/errors";
+import { db, sessionRef, newBookingRef, bookingRef, serverNow } from "../platform/firestore";
+import { DomainError, soldOut, venueFull, invalidInput, notPermitted } from "../platform/errors";
+import { readReceipt, writeAudit, writeReceipt } from "../platform/commands";
 import {
   deriveCapacityLedger,
   admitSeat,
@@ -57,7 +50,12 @@ export interface ReserveSeatCommand {
   alias: string;
   kind: SeatRequestKind;
   /** Resolved server-side from the verified auth token. Never client-supplied. */
-  actor: { uid: string; roleId: string };
+  actor: { uid: string; roleId: string; displayName?: string };
+  /**
+   * Territories the actor may book in, from the verified token's
+   * `territoryIds` claim. `null` means unrestricted (platform scope).
+   */
+  allowedTerritoryIds?: string[] | null;
   /** Where the booking originated. */
   source: "admin-console" | "customer-app" | "organizer-app";
   /** Test/tuning override for the transaction retry budget. Not client-supplied. */
@@ -66,6 +64,7 @@ export interface ReserveSeatCommand {
 
 export interface ReserveSeatResult {
   bookingId: string;
+  sessionId: string;
   status: "reserved" | "confirmed";
   holdExpiresAt: string;
   remainingSellableCapacity: number;
@@ -103,32 +102,29 @@ interface SessionDoc {
  */
 export const MAX_TRANSACTION_ATTEMPTS = 20;
 
+/** Command name recorded on the idempotency receipt. */
+export const RESERVE_SEAT_COMMAND = "reserveSeat";
+
+const REQUEST_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{7,127}$/;
+const DOC_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
+
 export async function reserveSeat(cmd: ReserveSeatCommand): Promise<ReserveSeatResult> {
   validate(cmd);
 
   const bookingDocRef = newBookingRef();
-  const receipt = receiptRef(cmd.requestId);
 
   return db().runTransaction(
     async (tx: Transaction): Promise<ReserveSeatResult> => {
       /* ---- all reads first: Firestore forbids a read after a write ---- */
-      const [receiptSnap, sessionSnap] = await Promise.all([
-        tx.get(receipt),
+      const [prior, sessionSnap] = await Promise.all([
+        // Idempotency: a receipt replays only for the same actor, command and
+        // session; any other reuse of the request ID is a CONFLICT.
+        readReceipt<ReserveSeatResult>(tx, cmd.requestId, RESERVE_SEAT_COMMAND, cmd.actor.uid, (r) => r.sessionId === cmd.sessionId),
         tx.get(sessionRef(cmd.sessionId)),
       ]);
 
       /* ---- idempotency: replay the original outcome, change nothing ---- */
-      if (receiptSnap.exists) {
-        const prior = receiptSnap.data() as { result?: ReserveSeatResult; error?: string };
-        if (prior.error) {
-          throw new DomainError(
-            "CONFLICT",
-            "This request was already processed and did not succeed.",
-            { nextStep: "Start a new booking.", detail: { requestId: cmd.requestId } }
-          );
-        }
-        return { ...(prior.result as ReserveSeatResult), replayed: true };
-      }
+      if (prior) return { ...prior, replayed: true };
 
       if (!sessionSnap.exists) {
         throw new DomainError("SESSION_NOT_FOUND", "That session no longer exists.", {
@@ -138,6 +134,10 @@ export async function reserveSeat(cmd: ReserveSeatCommand): Promise<ReserveSeatR
       }
 
       const session = sessionSnap.data() as SessionDoc;
+
+      if (cmd.allowedTerritoryIds && !cmd.allowedTerritoryIds.includes(session.territoryId)) {
+        throw notPermitted("book sessions outside your territories");
+      }
 
       if (!BOOKABLE_STATUSES.has(session.status)) {
         throw new DomainError(
@@ -169,6 +169,7 @@ export async function reserveSeat(cmd: ReserveSeatCommand): Promise<ReserveSeatR
       const isComp = cmd.kind === "complimentary";
       const result: ReserveSeatResult = {
         bookingId: bookingDocRef.id,
+        sessionId: cmd.sessionId,
         status: isComp ? "confirmed" : "reserved",
         holdExpiresAt: holdExpiresAt.toDate().toISOString(),
         remainingSellableCapacity: nextLedger.remainingSellableCapacity,
@@ -180,7 +181,7 @@ export async function reserveSeat(cmd: ReserveSeatCommand): Promise<ReserveSeatR
         id: bookingDocRef.id,
         sessionId: cmd.sessionId,
         territoryId: session.territoryId,
-        alias: cmd.alias,
+        alias: cmd.alias.trim(),
         bookingType: isComp ? "complimentary" : "individual",
         reservationStatus: isComp ? "not-required" : "active",
         paymentStatus: isComp ? "confirmed" : "pending",
@@ -203,26 +204,21 @@ export async function reserveSeat(cmd: ReserveSeatCommand): Promise<ReserveSeatR
         updatedAt: now,
       });
 
-      tx.set(auditRef(), {
+      writeAudit(tx, { uid: cmd.actor.uid, roleId: cmd.actor.roleId, displayName: cmd.actor.displayName ?? cmd.actor.uid }, {
         action: "booking.seat-reserved",
-        actorUid: cmd.actor.uid,
-        actorRoleId: cmd.actor.roleId,
-        resourceType: "booking",
-        resourceId: bookingDocRef.id,
-        sessionId: cmd.sessionId,
-        territoryId: session.territoryId,
+        subject: `${isComp ? "Complimentary place confirmed" : "Seat reserved"} — ${cmd.alias.trim()}`,
+        summary: isComp
+          ? `Complimentary place confirmed for session ${cmd.sessionId}.`
+          : `Seat held for session ${cmd.sessionId} until ${result.holdExpiresAt}.`,
+        entityType: "booking",
+        entityId: bookingDocRef.id,
+        before: null,
         after: { status: result.status, kind: cmd.kind },
         requestId: cmd.requestId,
-        at: now,
-      });
+        context: { sessionId: cmd.sessionId, territoryId: session.territoryId, source: cmd.source },
+      }, now);
 
-      tx.set(receipt, {
-        requestId: cmd.requestId,
-        command: "reserveSeat",
-        actorUid: cmd.actor.uid,
-        result,
-        at: now,
-      });
+      writeReceipt(tx, cmd.requestId, RESERVE_SEAT_COMMAND, cmd.actor.uid, result, now);
 
       return result;
     },
@@ -233,13 +229,13 @@ export async function reserveSeat(cmd: ReserveSeatCommand): Promise<ReserveSeatR
 /* ------------------------------------------------------------------ */
 
 function validate(cmd: ReserveSeatCommand): void {
-  if (!cmd.requestId || cmd.requestId.length < 8) {
+  if (typeof cmd.requestId !== "string" || !REQUEST_ID.test(cmd.requestId)) {
     throw invalidInput("This booking request is missing its reference. Please try again.");
   }
-  if (!cmd.sessionId) {
+  if (typeof cmd.sessionId !== "string" || !DOC_ID.test(cmd.sessionId)) {
     throw invalidInput("No session was selected.");
   }
-  const alias = (cmd.alias ?? "").trim();
+  const alias = typeof cmd.alias === "string" ? cmd.alias.trim() : "";
   if (alias.length < 2 || alias.length > 40) {
     throw invalidInput("Enter a display name between 2 and 40 characters.");
   }

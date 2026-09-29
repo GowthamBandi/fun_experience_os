@@ -40,7 +40,7 @@ describe("decideGovernanceCase", () => {
       governance: s0.governance.map((d) => (d.id === "case-settlement-vibelive" ? { ...d, data: { ...d.data, targetId: "settlement-neon" } } : d)),
     };
     const out = decideGovernanceCase(s1, { caseId: "case-settlement-vibelive", expectedVersion: 0, outcome: "approved", note: "" }, actor);
-    expect(out.error).toMatch(/open risk alert/);
+    expect(out.error).toMatch(/open fraud alert/);
     const clean = decideGovernanceCase(s0, { caseId: "case-settlement-vibelive", expectedVersion: 0, outcome: "approved", note: "" }, actor);
     expect(clean.error).toBeUndefined();
     expect(doc(clean.state, "settlementControls", "settlement-vibelive-w39").data.status).toBe("approved-for-release");

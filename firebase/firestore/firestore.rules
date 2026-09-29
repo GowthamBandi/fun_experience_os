@@ -1,42 +1,83 @@
 rules_version = '2';
+
+// Experience OS — Firestore security rules.
+//
+// POSTURE
+//  * Clients never write. Every authoritative change goes through a Cloud
+//    Function (Admin SDK) that verifies the caller, validates the command,
+//    enforces idempotency and writes an audit event in the same transaction.
+//  * Reads require a verified email, an enabled account (`disabled` claim not
+//    true) and a role claim (`roleId`, set only by setOperatorAccess).
+//  * Admins (platform-owner, super-admin) read every operational collection.
+//  * Auditors are platform-wide, read-only compliance viewers: governance,
+//    operations and the audit trail — but not payments, refunds, customer
+//    cohorts, operator profiles, receipts or the console workspace.
+//  * Payments and refunds are admin-read only until finance roles carry
+//    territory-scoped claims (scope / franchiseId / territoryIds).
+//  * Anything not listed here is denied.
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
     function verified() { return signedIn() && request.auth.token.email_verified == true; }
-    function enabled() { return verified() && request.auth.token.disabled != true; }
-    function role() { return request.auth.token.roleId; }
+    function enabled() { return verified() && request.auth.token.get('disabled', false) != true; }
+    function role() { return request.auth.token.get('roleId', ''); }
     function isAdmin() { return enabled() && role() in ['platform-owner', 'super-admin']; }
     function isAuditor() { return enabled() && role() == 'auditor'; }
 
-    // Clients have no authoritative write path. Cloud Functions use the Admin
-    // SDK after enforcing claims, validation, idempotency and audit logging.
+    function governanceCollections() {
+      return ['governanceCases', 'organizers', 'arenas', 'events', 'commercialAgreements',
+              'riskAlerts', 'refundCases', 'settlementControls', 'policyVersions'];
+    }
+    function operationsCollections() {
+      return ['franchises', 'territories', 'cities', 'venues', 'playingAreas',
+              'activityCategories', 'experienceTemplates', 'scheduledSessions', 'bookings'];
+    }
+    // Admin-only: money records and customer cohorts.
+    function adminOnlyCollections() { return ['payments', 'refunds', 'customers']; }
+
     match /users/{uid} {
       allow get: if enabled() && (request.auth.uid == uid || isAdmin());
       allow list: if isAdmin();
-      allow create, update, delete: if false;
-    }
-
-    match /governanceCases/{id} {
-      allow read: if isAdmin();
       allow write: if false;
     }
 
     match /{collection}/{id} {
-      allow read: if isAdmin() && collection in [
-        'organizers', 'arenas', 'events', 'commercialAgreements',
-        'riskAlerts', 'refundCases', 'settlementControls', 'policyVersions',
-        'franchises', 'territories', 'cities', 'venues', 'playingAreas',
-        'activityCategories', 'experienceTemplates', 'scheduledSessions', 'bookings', 'customers'
-      ];
+      allow read: if (isAdmin() && (collection in governanceCollections()
+                                    || collection in operationsCollections()
+                                    || collection in adminOnlyCollections()))
+                  || (isAuditor() && (collection in governanceCollections()
+                                      || collection in operationsCollections()));
       allow write: if false;
     }
 
+    // Append-only audit trail: written only by Cloud Functions.
     match /auditEvents/{id} {
       allow read: if isAdmin() || isAuditor();
       allow write: if false;
     }
 
-    match /commandReceipts/{id} { allow read, write: if false; }
-    match /{document=**} { allow read, write: if false; }
+    // Idempotency ledger: server-only in both directions.
+    match /commandReceipts/{id} {
+      allow read, write: if false;
+    }
+
+    // Shared console workspace (written only by the syncWorkspace callable).
+    match /workspaces/{workspaceId} {
+      allow read: if isAdmin();
+      allow write: if false;
+
+      match /slices/{slice} {
+        allow read: if isAdmin();
+        allow write: if false;
+      }
+      match /chunks/{chunk} {
+        allow read: if isAdmin();
+        allow write: if false;
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
   }
 }

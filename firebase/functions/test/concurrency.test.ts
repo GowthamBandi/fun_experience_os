@@ -294,7 +294,7 @@ describe("MISSION 14 — every admitted seat is audited to a server-resolved act
     await wipe();
     await seedSession({ maxPhysicalCapacity: 3 });
 
-    await reserveSeat(cmd(1, { actor: { uid: "uid-real", roleId: "city-manager" } }));
+    await reserveSeat(cmd(1, { actor: { uid: "uid-real", roleId: "city-manager", displayName: "Noor Fatima" } }));
 
     const audits = await db.collection("auditEvents").get();
     expect(audits.size).toBe(1);
@@ -303,9 +303,13 @@ describe("MISSION 14 — every admitted seat is audited to a server-resolved act
     expect(a.action).toBe("booking.seat-reserved");
     expect(a.actorUid).toBe("uid-real");
     expect(a.actorRoleId).toBe("city-manager");
-    expect(a.resourceType).toBe("booking");
+    expect(a.actorName).toBe("Noor Fatima");
+    expect(a.entityType).toBe("booking");
+    expect(a.subject).toMatch(/^Seat reserved — Client1$/);
+    expect(a.schemaVersion).toBe(1);
     expect(a.at).toBeDefined();
     expect(a.territoryId).toBe("hvd-central");
+    expect(a.sessionId).toBe(SESSION_ID);
   });
 });
 
@@ -328,5 +332,41 @@ describe("reservation holds", () => {
     expect(state.bookingDocs[0].status).toBe("payment-pending");
     expect(state.occupancy.confirmedPaidBookings).toBe(0);
     expect(state.occupancy.activeReservationHolds).toBe(1);
+  });
+});
+
+describe("receipts", () => {
+  test("PROOF 10: a request ID replays only for the same actor and session", async () => {
+    await wipe();
+    await seedSession({ maxPhysicalCapacity: 5 });
+    await db.collection("scheduledSessions").doc("s-other-session").set({
+      ...(await db.collection("scheduledSessions").doc(SESSION_ID).get()).data(),
+      id: "s-other-session",
+    });
+
+    const original = cmd(1);
+    const first = await reserveSeat(original);
+
+    const receipt = (await db.collection("commandReceipts").doc(original.requestId).get()).data()!;
+    expect(Object.keys(receipt).sort()).toEqual(["actorUid", "command", "createdAt", "expiresAt", "requestId", "result"]);
+    expect(receipt.command).toBe("reserveSeat");
+    expect(receipt.result.sessionId).toBe(SESSION_ID);
+    expect(receipt.expiresAt.toMillis()).toBeGreaterThan(receipt.createdAt.toMillis());
+
+    for (const variant of [
+      { ...original, actor: { uid: "someone-else", roleId: "super-admin" } },
+      { ...original, sessionId: "s-other-session" },
+    ]) {
+      let caught: DomainError | undefined;
+      try {
+        await reserveSeat(variant);
+      } catch (e) {
+        caught = e as DomainError;
+      }
+      expect(caught?.code).toBe("CONFLICT");
+    }
+    const again = await reserveSeat(original);
+    expect(again).toMatchObject({ bookingId: first.bookingId, replayed: true });
+    expect((await readState()).bookingDocs).toHaveLength(1);
   });
 });

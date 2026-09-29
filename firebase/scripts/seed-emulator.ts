@@ -1,8 +1,9 @@
 /**
- * seed-emulator.ts — PR-0C scaffold
+ * seed-emulator.ts — safety-guarded entry point for operations seed data.
  *
- * Populates the Firestore emulator with seed data.
- * This script is a scaffold only — implementation deferred to PR-0C.
+ * Governance data is seeded by firebase/functions/scripts/seed-governance-emulator.mjs
+ * (root: `npm run firebase:seed`). Operations data (sessions, bookings) is
+ * still pending the PR-0C migration; this script only validates the guards.
  *
  * SAFETY GUARDS:
  * - Refuses to run unless FIRESTORE_EMULATOR_HOST is set.
@@ -11,9 +12,12 @@
  */
 
 const FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST;
-const GCLOUD_PROJECT = process.env.GCLOUD_PROJECT ?? process.env.FIREBASE_CONFIG
-  ? JSON.parse(process.env.FIREBASE_CONFIG ?? "{}").projectId
-  : undefined;
+// `??` binds tighter than `?:`, so the FIREBASE_CONFIG fallback must be
+// parenthesised — otherwise a set GCLOUD_PROJECT was ignored and the project
+// id was always read from FIREBASE_CONFIG.
+const GCLOUD_PROJECT: string | undefined =
+  process.env.GCLOUD_PROJECT ??
+  (process.env.FIREBASE_CONFIG ? JSON.parse(process.env.FIREBASE_CONFIG).projectId : undefined);
 
 if (!FIRESTORE_EMULATOR_HOST) {
   console.error(
@@ -31,5 +35,5 @@ if (GCLOUD_PROJECT !== "demo-experience-os") {
   process.exit(1);
 }
 
-console.log("[seed-emulator] Safety guards passed. Scaffold only — implement in PR-0C.");
+console.log("[seed-emulator] Safety guards passed. For governance data run `npm run firebase:seed` from the repository root.");
 process.exit(0);

@@ -18,7 +18,7 @@
 import * as functions from "firebase-functions/v1";
 import { FieldValue } from "firebase-admin/firestore";
 import { db } from "../platform/firestore";
-import { requireAdmin, type VerifiedActor } from "../platform/auth";
+import { ADMIN_ROLES, requireCurrentActor, type VerifiedActor } from "../platform/auth";
 import { DomainError, invalidInput } from "../platform/errors";
 
 export const APPEND_ONLY_SLICES = new Set(["activityLog", "audits"]);
@@ -157,9 +157,9 @@ export const syncWorkspace = functions
   .runWith({ enforceAppCheck, memory: "512MB", timeoutSeconds: 60 })
   .https.onCall(async (data, context) => {
     try {
-      const actor = requireAdmin(context, "save workspace changes");
-      const name = typeof context.auth?.token.name === "string" ? context.auth.token.name : undefined;
-      return await syncWorkspaceSlices(parseSyncCommand(data), { ...actor, name });
+      // Token freshness is checked against Auth so a suspended operator cannot keep saving.
+      const actor = await requireCurrentActor(context, ADMIN_ROLES, "save workspace changes");
+      return await syncWorkspaceSlices(parseSyncCommand(data), { ...actor, name: actor.displayName });
     } catch (error) {
       callableError(error);
     }

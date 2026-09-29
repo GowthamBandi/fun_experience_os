@@ -71,12 +71,107 @@ test("a user can read only their own enabled profile", async () => {
   await assertFails(getDocs(collection(own, "users")));
 });
 
-test("auditors can read audit events but not governance cases", async () => {
+test("auditors can get and list audit events, governance and operations data", async () => {
   await seed("auditEvents/audit-001", { action: "governance.case-decided" });
   await seed("governanceCases/case-001");
+  await seed("organizers/organizer-001");
+  await seed("bookings/booking-001", { status: "payment-pending" });
+  await seed("scheduledSessions/session-001", { status: "booking-open" });
   const firestore = testEnv.authenticatedContext("auditor", claims("auditor")).firestore();
   await assertSucceeds(getDoc(doc(firestore, "auditEvents/audit-001")));
-  await assertFails(getDoc(doc(firestore, "governanceCases/case-001")));
+  await assertSucceeds(getDocs(collection(firestore, "auditEvents")));
+  for (const name of ["governanceCases", "organizers", "bookings", "scheduledSessions"]) {
+    await assertSucceeds(getDocs(collection(firestore, name)));
+  }
+  await assertSucceeds(getDoc(doc(firestore, "governanceCases/case-001")));
+});
+
+test("auditors cannot read money, customers, operator profiles or the workspace", async () => {
+  await seed("payments/payment-001", { amountMinor: 1000 });
+  await seed("refunds/refund-001", { amountMinor: 1000 });
+  await seed("customers/cohort-001");
+  await seed("users/user-001", { displayName: "Admin" });
+  await seed("workspaces/main/slices/bookings", { version: 1 });
+  const firestore = testEnv.authenticatedContext("auditor", claims("auditor")).firestore();
+  await assertFails(getDoc(doc(firestore, "payments/payment-001")));
+  await assertFails(getDocs(collection(firestore, "refunds")));
+  await assertFails(getDocs(collection(firestore, "customers")));
+  await assertFails(getDocs(collection(firestore, "users")));
+  await assertFails(getDoc(doc(firestore, "workspaces/main/slices/bookings")));
+});
+
+test("auditors cannot write anything", async () => {
+  const firestore = testEnv.authenticatedContext("auditor", claims("auditor")).firestore();
+  await assertFails(setDoc(doc(firestore, "auditEvents/audit-002"), { actorUid: "auditor" }));
+  await assertFails(setDoc(doc(firestore, "bookings/booking-002"), { status: "confirmed" }));
+});
+
+test.each(["platform-owner", "super-admin"])("%s can get and list bookings, customers and sessions", async (roleId) => {
+  await seed("bookings/booking-001", { status: "payment-pending" });
+  await seed("customers/cohort-001");
+  await seed("scheduledSessions/session-001", { status: "booking-open" });
+  const firestore = testEnv.authenticatedContext(`uid-${roleId}`, claims(roleId)).firestore();
+  await assertSucceeds(getDoc(doc(firestore, "bookings/booking-001")));
+  await assertSucceeds(getDoc(doc(firestore, "customers/cohort-001")));
+  await assertSucceeds(getDoc(doc(firestore, "scheduledSessions/session-001")));
+  for (const name of ["bookings", "customers", "scheduledSessions", "auditEvents", "users"]) {
+    await assertSucceeds(getDocs(collection(firestore, name)));
+  }
+});
+
+test("payments and refunds are readable by admins only", async () => {
+  await seed("payments/payment-001", { amountMinor: 1000 });
+  await seed("refunds/refund-001", { amountMinor: 1000 });
+  const admin = testEnv.authenticatedContext("admin", claims("super-admin")).firestore();
+  await assertSucceeds(getDoc(doc(admin, "payments/payment-001")));
+  await assertSucceeds(getDocs(collection(admin, "refunds")));
+  for (const roleId of ["finance", "ops-manager", "support", "organizer"]) {
+    const other = testEnv.authenticatedContext(`uid-${roleId}`, claims(roleId)).firestore();
+    await assertFails(getDoc(doc(other, "payments/payment-001")));
+    await assertFails(getDocs(collection(other, "refunds")));
+  }
+  await assertFails(setDoc(doc(admin, "payments/payment-002"), { status: "confirmed" }));
+});
+
+test("operations roles without territory-scoped rules cannot read bookings directly", async () => {
+  await seed("bookings/booking-001", { status: "payment-pending", territoryId: "hvd-central" });
+  const firestore = testEnv.authenticatedContext("ops", claims("ops-manager", { scope: "territory", territoryIds: ["hvd-central"] })).firestore();
+  await assertFails(getDoc(doc(firestore, "bookings/booking-001")));
+});
+
+test("admins whose token has no disabled claim can still read", async () => {
+  await seed("governanceCases/case-001");
+  const firestore = testEnv.authenticatedContext("admin", { roleId: "super-admin", email_verified: true }).firestore();
+  await assertSucceeds(getDoc(doc(firestore, "governanceCases/case-001")));
+});
+
+test("admins can get and list the shared console workspace; nobody can write it", async () => {
+  await seed("workspaces/main", { updatedBy: "server" });
+  await seed("workspaces/main/slices/bookings", { version: 3, chunkCount: 1 });
+  await seed("workspaces/main/chunks/bookings__0", { json: "[]" });
+  for (const roleId of ["platform-owner", "super-admin"]) {
+    const firestore = testEnv.authenticatedContext(`uid-${roleId}`, claims(roleId)).firestore();
+    await assertSucceeds(getDoc(doc(firestore, "workspaces/main")));
+    await assertSucceeds(getDocs(collection(firestore, "workspaces")));
+    await assertSucceeds(getDoc(doc(firestore, "workspaces/main/slices/bookings")));
+    await assertSucceeds(getDocs(collection(firestore, "workspaces/main/slices")));
+    await assertSucceeds(getDoc(doc(firestore, "workspaces/main/chunks/bookings__0")));
+    await assertSucceeds(getDocs(collection(firestore, "workspaces/main/chunks")));
+    await assertFails(setDoc(doc(firestore, "workspaces/main/slices/bookings"), { version: 99 }));
+    await assertFails(setDoc(doc(firestore, "workspaces/main/chunks/bookings__0"), { json: "[1]" }));
+    await assertFails(setDoc(doc(firestore, "workspaces/main"), { updatedBy: "client" }));
+  }
+  const denied = [
+    testEnv.unauthenticatedContext(),
+    testEnv.authenticatedContext("ops", claims("ops-manager")),
+    testEnv.authenticatedContext("disabled", claims("super-admin", { disabled: true })),
+    testEnv.authenticatedContext("unverified", { roleId: "super-admin", email_verified: false }),
+  ];
+  for (const ctx of denied) {
+    const firestore = ctx.firestore();
+    await assertFails(getDoc(doc(firestore, "workspaces/main/slices/bookings")));
+    await assertFails(getDocs(collection(firestore, "workspaces/main/chunks")));
+  }
 });
 
 test("command receipts and unknown collections remain private", async () => {

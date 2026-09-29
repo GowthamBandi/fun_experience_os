@@ -188,7 +188,8 @@ Top-level, because the Super Admin lists and filters bookings across sessions.
   own bookings, matched on `participantId`.
 - **Indexes:** `sessionId + status`, `territoryId + createdAt`,
   `participantId + createdAt`, `reservationStatus + reservationExpiresAt` (the
-  sweeper's query).
+  sweeper's query — the only one deployed today; the others are added with the
+  first query that needs them).
 - **Privacy:** contains no legal identity and no contact details by design. See §5.
 
 ### 3.6 `payments` and `refunds`
@@ -209,16 +210,21 @@ Key fields: `bookingId`, `sessionId`, `territoryId`, `amountMinor`, `currency`,
 
 ### 3.7 `auditEvents/{eventId}` — append-only
 
+Shape `schemaVersion: 1`, shared by every Cloud Function and by the console's
+local workspace (`apps/operations-web/lib/prototype/governance/commands.ts`);
+written through `firebase/functions/src/platform/commands.ts`.
+
 | Field | Type |
 |---|---|
-| `action` | string, e.g. `booking.seat-reserved` |
-| `actorUid`, `actorRoleId` | **resolved server-side from the verified token** |
-| `resourceType`, `resourceId` | string |
-| `franchiseId`, `territoryId`, `sessionId` | string \| null |
+| `action` | string, e.g. `booking.seat-reserved`, `booking.hold-expired`, `governance.case-decided` |
+| `subject`, `summary` | string — operator-readable headline and detail |
+| `entityType`, `entityId` | string — the record acted on |
 | `before`, `after` | map \| null — for state changes |
-| `reason` | string \| null — required for privileged actions |
-| `requestId` | string — correlates with the command receipt |
+| `actorUid`, `actorName`, `actorRoleId` | **resolved server-side from the verified token** (`system` for scheduled jobs) |
+| `requestId` | string \| null — correlates with the command receipt |
 | `at` | Timestamp, server clock |
+| `schemaVersion` | `1` |
+| context | optional extra fields: `sessionId`, `territoryId`, `targetId`, `policyVersion`, `reason`, … |
 
 - **Rules: `allow read` for permitted roles; `create`, `update`, `delete` are
   denied to every client, including platform owners.** Only server code writes
@@ -228,15 +234,20 @@ Key fields: `bookingId`, `sessionId`, `territoryId`, `amountMinor`, `currency`,
 
 ### 3.8 `commandReceipts/{requestId}` — idempotency ledger
 
-`requestId` (client-generated), `command`, `actorUid`, `result`, `at`.
+`{ requestId, command, actorUid, result, createdAt, expiresAt }` — one shape for
+every command (`reserveSeat`, `decideCase`, `setMarketplaceEntityStatus`,
+`submitGovernanceIntake`, `setOperatorAccess`).
 
 Written inside the same transaction as the command it guards, so a retry, a
 double-tap or a replayed network request returns the original outcome and creates
-nothing. Proven by PROOF 5 and PROOF 6.
+nothing. Proven by PROOF 5 and PROOF 6. A receipt replays only for the same
+`command`, the same `actorUid` and the same subject (session, case, record or
+user); any other reuse of the request ID is a `CONFLICT`.
 
 - **Rules:** server-only, read and write.
-- **Lifecycle:** TTL cleanup after a retention window; the receipt only needs to
-  outlive the retry horizon.
+- **Lifecycle:** `expiresAt = createdAt + 7 days` is a Firestore TTL field
+  (`fieldOverrides` in `firebase/firestore/firestore.indexes.json`); the receipt
+  only needs to outlive the retry horizon.
 
 ---
 

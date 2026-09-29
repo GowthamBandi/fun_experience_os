@@ -12,6 +12,13 @@ export type DomainErrorCode =
   | "SESSION_NOT_FOUND"
   | "SESSION_NOT_BOOKABLE"
   | "BOOKING_NOT_FOUND"
+  | "CASE_NOT_FOUND"
+  | "RECORD_NOT_FOUND"
+  | "USER_NOT_FOUND"
+  | "TARGET_NOT_FOUND"
+  | "INVALID_TRANSITION"
+  | "SETTLEMENT_BLOCKED"
+  | "LAST_OWNER"
   | "INVALID_INPUT"
   | "NOT_AUTHENTICATED"
   | "NOT_PERMITTED"
@@ -26,6 +33,13 @@ const HTTPS_CODE: Record<DomainErrorCode, string> = {
   SESSION_NOT_FOUND: "not-found",
   SESSION_NOT_BOOKABLE: "failed-precondition",
   BOOKING_NOT_FOUND: "not-found",
+  CASE_NOT_FOUND: "not-found",
+  RECORD_NOT_FOUND: "not-found",
+  USER_NOT_FOUND: "not-found",
+  TARGET_NOT_FOUND: "failed-precondition",
+  INVALID_TRANSITION: "failed-precondition",
+  SETTLEMENT_BLOCKED: "failed-precondition",
+  LAST_OWNER: "failed-precondition",
   INVALID_INPUT: "invalid-argument",
   NOT_AUTHENTICATED: "unauthenticated",
   NOT_PERMITTED: "permission-denied",
@@ -87,9 +101,16 @@ export const notPermitted = (action: string) =>
     detail: { action },
   });
 
-export const notAuthenticated = () =>
-  new DomainError("NOT_AUTHENTICATED", "You've been signed out.", {
+export const notAuthenticated = (message = "You've been signed out.", detail?: Record<string, unknown>) =>
+  new DomainError("NOT_AUTHENTICATED", message, {
     nextStep: "Sign in again to continue.",
+    detail,
+  });
+
+export const conflict = (message: string, detail?: Record<string, unknown>) =>
+  new DomainError("CONFLICT", message, {
+    nextStep: "Refresh the record and review the latest state before trying again.",
+    detail,
   });
 
 export const invalidInput = (message: string, detail?: Record<string, unknown>) =>

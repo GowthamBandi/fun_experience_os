@@ -6,11 +6,12 @@
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc --watch",
-    "serve": "npm run build && firebase emulators:start --only functions --project demo-experience-os",
-    "test": "jest --testPathPattern=test/",
-    "test:emulator": "firebase emulators:exec --project demo-experience-os --only firestore \"npm test\"",
-    "typecheck": "tsc -p tsconfig.test.json --noEmit"
-    ,"seed:emulator": "node scripts/seed-governance-emulator.mjs"
+    "serve": "npm run build && firebase emulators:start --only functions,firestore,auth --project demo-experience-os",
+    "test": "jest",
+    "test:tune": "jest --testPathIgnorePatterns=/node_modules/ -- test/tune-retry.test.ts",
+    "test:emulator": "npm run build && firebase emulators:exec --project demo-experience-os --only firestore,functions,auth \"npm test\"",
+    "typecheck": "tsc -p tsconfig.test.json --noEmit",
+    "seed:emulator": "node --no-warnings scripts/seed-governance-emulator.mjs"
   },
   "dependencies": {
     "firebase-admin": "^13.4.0",
@@ -37,9 +38,13 @@
           "tsconfig": "tsconfig.test.json"
         }
       ]
-    }
+    },
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/test/tune-retry\\.test\\.ts$"
+    ]
   },
   "engines": {
-    "node": "24"
+    "node": "22"
   }
 }

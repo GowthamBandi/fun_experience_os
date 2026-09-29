@@ -1,28 +1,35 @@
 import * as functions from "firebase-functions/v1";
-import { requireAdmin } from "../platform/auth";
-import { DomainError, invalidInput } from "../platform/errors";
-import { parseDecisionCommand, parseEntityStatusCommand } from "./model";
-import { changeMarketplaceEntityStatus, decideGovernanceCase } from "./service";
+import { ADMIN_ROLES, requireCurrentActor } from "../platform/auth";
+import { enforceAppCheck, toHttpsError } from "../platform/callable";
+import { parseDecisionCommand, parseEntityStatusCommand, parseIntakeCommand } from "./model";
+import { changeMarketplaceEntityStatus, decideGovernanceCase, submitGovernanceIntake as recordIntake } from "./service";
 
-function callableError(error: unknown): never {
-  const domain = error instanceof DomainError ? error : error instanceof Error ? invalidInput(error.message) : invalidInput("The request is invalid.");
-  throw new functions.https.HttpsError(domain.httpsCode as functions.https.FunctionsErrorCode, domain.operatorMessage, domain.toOperatorPayload());
-}
-
-const enforceAppCheck = process.env.FUNCTIONS_EMULATOR !== "true";
-
+/** Platform Owner / Super Admin: decide a queued governance case. */
 export const decideCase = functions.runWith({ enforceAppCheck }).https.onCall(async (data, context) => {
   try {
-    return await decideGovernanceCase(parseDecisionCommand(data), requireAdmin(context, "decide governance cases"));
+    const actor = await requireCurrentActor(context, ADMIN_ROLES, "decide governance cases");
+    return await decideGovernanceCase(parseDecisionCommand(data), actor);
   } catch (error) {
-    callableError(error);
+    throw toHttpsError(error, "The decision could not be saved.");
   }
 });
 
+/** Platform Owner / Super Admin: pause, block, reactivate or resolve a marketplace record. */
 export const setMarketplaceEntityStatus = functions.runWith({ enforceAppCheck }).https.onCall(async (data, context) => {
   try {
-    return await changeMarketplaceEntityStatus(parseEntityStatusCommand(data), requireAdmin(context, "change marketplace access"));
+    const actor = await requireCurrentActor(context, ADMIN_ROLES, "change marketplace access");
+    return await changeMarketplaceEntityStatus(parseEntityStatusCommand(data), actor);
   } catch (error) {
-    callableError(error);
+    throw toHttpsError(error, "The status could not be changed.");
+  }
+});
+
+/** Platform Owner / Super Admin: record an application and open its review case. */
+export const submitGovernanceIntake = functions.runWith({ enforceAppCheck }).https.onCall(async (data, context) => {
+  try {
+    const actor = await requireCurrentActor(context, ADMIN_ROLES, "record marketplace applications");
+    return await recordIntake(parseIntakeCommand(data), actor);
+  } catch (error) {
+    throw toHttpsError(error, "The application could not be recorded.");
   }
 });
