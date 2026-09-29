@@ -33,6 +33,7 @@ import {
   X,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
+import { useGovernanceCollection } from "@/lib/use-governance";
 import { NAV_GROUPS, moduleFor, navFor } from "@/lib/nav";
 import { cn } from "@/lib/format";
 import { useIsMobile } from "@/lib/hooks";
@@ -74,7 +75,8 @@ function NavBody({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: (
   const pathname = usePathname();
   const items = navFor(role.id);
   const activeModule = moduleFor(pathname);
-  const openCases = state.governance.filter((d) => d.collection === "governanceCases" && ["pending", "under-review", "information-requested"].includes(String(d.data.status))).length;
+  const cases = useGovernanceCollection("governanceCases");
+  const openCases = cases.records.filter((r) => ["pending", "under-review", "information-requested"].includes(r.statusValue)).length;
   const unread = state.signals.filter((s) => !s.read).length;
   const badge: Record<string, number> = { "/approvals": openCases, "/notifications": unread };
 

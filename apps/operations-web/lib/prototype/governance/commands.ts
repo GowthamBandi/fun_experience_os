@@ -152,6 +152,20 @@ export function decideGovernanceCase(
   const status = String(kase.data.status ?? "pending");
   if (!OPEN_CASE_STATUSES.includes(status)) return { state, error: `This case is already ${status.replace(/-/g, " ")} and cannot be decided again.` };
 
+  if (cmd.outcome === "approved" && kase.data.kind === "settlement-release") {
+    const target = typeof kase.data.targetId === "string" ? findDoc(state, "settlementControls", kase.data.targetId) : undefined;
+    const organizer = target?.data.organizerName;
+    const openFraud = organizer
+      ? state.governance.some((d) => d.collection === "riskAlerts" && d.data.organizerName === organizer && String(d.data.status) !== "resolved")
+      : false;
+    if (openFraud) return { state, error: `${String(organizer)} has an open risk alert. Resolve it in Risk before releasing this settlement.` };
+  }
+
+  const target0 = CASE_TARGET[String(kase.data.kind)];
+  if (target0 && typeof kase.data.targetId === "string" && !findDoc(state, target0.collection, kase.data.targetId)) {
+    return { state, error: "The record this case refers to no longer exists. Reject the case with a reason instead." };
+  }
+
   const at = nowIso();
   const decided: GovernanceDoc = {
     ...kase,

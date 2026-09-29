@@ -5,17 +5,19 @@ import { useEffect, type ReactNode } from "react";
 import { ShieldAlert } from "lucide-react";
 import { useAdminSession } from "@/lib/firebase/auth";
 import { AppShell } from "@/components/shell/AppShell";
+import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/primitives";
 
 export default function ConsoleLayout({ children }: { children: ReactNode }) {
   const session = useAdminSession();
+  const { hydrated } = useStore();
   const router = useRouter();
 
   useEffect(() => {
     if (session.state === "signed-out") router.replace("/login");
   }, [session.state, router]);
 
-  if (session.state === "loading" || session.state === "signed-out") {
+  if (session.state === "loading" || session.state === "signed-out" || (session.state === "ready" && !hydrated)) {
     return (
       <div className="dusk-field flex h-screen w-screen items-center justify-center" aria-busy>
         <div className="flex flex-col items-center gap-4">

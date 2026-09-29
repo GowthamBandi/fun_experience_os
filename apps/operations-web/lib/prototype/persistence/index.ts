@@ -12,6 +12,11 @@
 import { getEmptyState, getInitialState } from "../scenarios";
 import type { PrototypeState } from "../scenarios";
 import { migrateState } from "../migrations";
+import { resolveDataMode } from "@/lib/firebase/mode";
+
+/** Firebase modes share one workspace in Firestore; local mode keeps it in this browser. */
+const REMOTE = resolveDataMode() !== "prototype";
+const remote = () => import("./firestore");
 
 export const SCHEMA_VERSION = 3;
 export const PROTOTYPE_STATE_KEY = "xos.prototype.state";
@@ -29,7 +34,7 @@ export interface WorkspaceEnvelope {
   state: PrototypeState;
 }
 
-export type LoadSource = "indexeddb" | "localstorage" | "legacy" | "seed";
+export type LoadSource = "indexeddb" | "localstorage" | "legacy" | "seed" | "firestore";
 
 /* ------------------------------ IndexedDB ------------------------------ */
 
@@ -136,6 +141,10 @@ export function parseWorkspaceBackup(text: string): PrototypeState {
 /* ------------------------------ load / save ------------------------------ */
 
 export async function loadWorkspace(): Promise<{ state: PrototypeState; source: LoadSource; savedAt?: string }> {
+  if (REMOTE) {
+    const state = await (await remote()).loadRemoteWorkspace();
+    return { state: migrateState(state), source: "firestore" };
+  }
   const stored = await idbGet<WorkspaceEnvelope>(RECORD_KEY);
   if (stored?.state) return { state: hydrateState(stored.state), source: "indexeddb", savedAt: stored.savedAt };
 
@@ -167,6 +176,19 @@ function getChannel(): BroadcastChannel | null {
 
 /** Persist the whole workspace. Resolves to false if nothing could be written. */
 export async function saveWorkspace(state: PrototypeState): Promise<boolean> {
+  if (REMOTE) {
+    const mod = await remote();
+    try {
+      return await mod.saveRemoteWorkspace(state);
+    } catch (cause) {
+      if (cause instanceof mod.WorkspaceConflictError) {
+        // Someone else saved first: reload the shared workspace everywhere in this tab.
+        conflictHandlers.forEach((h) => h(cause.message));
+        return true;
+      }
+      return false;
+    }
+  }
   const env = toEnvelope(state);
   let ok = await idbPut(RECORD_KEY, env);
   if (!ok) {
@@ -181,8 +203,27 @@ export async function saveWorkspace(state: PrototypeState): Promise<boolean> {
   return ok;
 }
 
-/** Notify when another tab saved the workspace. Returns an unsubscribe function. */
+const conflictHandlers = new Set<(message: string) => void>();
+
+/** Notify when a save was refused because another operator changed the same records. */
+export function onWorkspaceConflict(handler: (message: string) => void): () => void {
+  conflictHandlers.add(handler);
+  return () => conflictHandlers.delete(handler);
+}
+
+/** Notify when another tab (local) or another operator (Firebase) saved the workspace. */
 export function onWorkspaceSavedElsewhere(handler: () => void): () => void {
+  if (REMOTE) {
+    let off = () => {};
+    let cancelled = false;
+    void remote().then((m) => {
+      if (!cancelled) off = m.subscribeRemoteWorkspace(handler);
+    });
+    return () => {
+      cancelled = true;
+      off();
+    };
+  }
   const ch = getChannel();
   if (!ch) return () => {};
   const listener = (e: MessageEvent) => {
