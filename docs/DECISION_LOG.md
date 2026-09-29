@@ -15,6 +15,17 @@ with lasting consequence are expanded as ADRs under `docs/adr/`.
 | DEC-PT-008 | 2026-08-22 | Operator-facing errors carry business language and a next step | Engineering | below |
 | DEC-PT-009 | 2026-08-22 | The capacity engine is ported, not rewritten | Engineering | below |
 | DEC-PT-010 | 2026-08-22 | Build against the emulator; deployment is a human gate | Engineering | below |
+| DEC-PT-011 | 2026-09-29 | Light "Daylight" design system replaces the dark visual layer | Human (request) | `design-system/03-daylight-design-system.md` |
+| DEC-PT-012 | 2026-09-29 | Local workspace mode (IndexedDB, operator-profile sign-in) is the default data mode | Engineering | below |
+| DEC-PT-013 | 2026-09-29 | Every console command is journalled to an append-only activity record | Engineering | below |
+| DEC-PT-014 | 2026-09-29 | Firebase modes share the operations workspace through the `syncWorkspace` callable (per-slice versions; append-only merge for records) | Engineering | below |
+| DEC-PT-015 | 2026-09-29 | One route→role policy (`lib/nav.ts`) for sidebar, search, guards and the Access matrix | Engineering | — |
+| DEC-PT-016 | 2026-09-29 | One canonical booking status vocabulary; payments/refunds are the money source of truth, the ledger is derived | Engineering | `CHANGELOG.md` |
+| DEC-PT-017 | 2026-09-29 | Crew member ids are the canonical reference for session staffing | Engineering | migration `2026-09-29-session-staff-crew-ids` |
+| DEC-PT-018 | 2026-09-29 | Suspensions and bans need a second approver; permanent bans need Platform Owner/Super Admin | Engineering (proposed, confirm with founder — OQ-SA-008) | `lib/safety/access.ts` |
+| DEC-PT-019 | 2026-09-29 | Incident response targets: critical 15 min / 24 h, high 1 h / 72 h, medium 4 h / 7 d, low 24 h / 14 d (acknowledge / resolve) | Engineering (proposed, confirm with founder) | `lib/prototype/selectors/safety.ts` |
+| DEC-PT-020 | 2026-09-29 | Settlement release is refused while the organizer has an open fraud alert | Engineering | `governance/service.ts`, `governance/commands.ts` |
+| DEC-PT-021 | 2026-09-29 | Payments and refund payouts are recorded manually with method and reference until a provider is chosen | Human (scope) | BLOCKER-007 |
 
 ---
 
@@ -102,3 +113,23 @@ may rest on emulator evidence alone; the gap is recorded in
 | `DEC-SA-022 / 028` — no oversell; server-enforced capacity; client cannot finalize | **Now honoured** | Was aspirational in the prototype, which enforced capacity in the browser. Proven by `concurrency.test.ts` |
 | `DEC-SA-029` — payment provider | **Still blocked** | BLOCKER-007 |
 | `DEC-SA-037` — audited emergency access | **Partially honoured** | Audit pattern proven (PROOF 8); the identity-reveal path itself is BLOCKER-005 |
+
+---
+
+## DEC-PT-012 — Local workspace mode is the default
+
+**Decision:** with no Firebase project available (BLOCKER-001), the console runs fully in the browser: operator-profile sign-in, IndexedDB persistence of every slice, versioned backups, migrations on load, cross-tab sync. `NEXT_PUBLIC_DATA_MODE=firebase-emulator|firebase-live` switches to Firebase.
+
+**Why:** the founder needs to use the console now. Firebase deployment is a human gate; the local mode keeps every business rule identical (same services) so nothing has to be re-learned when Firebase is connected.
+
+## DEC-PT-013 — Activity record
+
+**Decision:** the store wraps every command; each call appends `{at, actor, role, module, command, target, reason, outcome}` to `activityLog`. Records are never edited or deleted, survive resets and restores, and export as CSV from Audit & records.
+
+**Why:** "maintain a record for everything". Recording at the store boundary means no command can be added without being recorded.
+
+## DEC-PT-014 — Shared workspace in Firebase modes
+
+**Decision:** operations slices are stored under `workspaces/{ws}/slices|chunks` and written only by the `syncWorkspace` callable (admin, revocation-checked). Each slice carries a version; a stale write is refused and the client reloads. `activityLog` and `audits` merge by id so concurrent operators never lose records. Marketplace governance stays in its own collections behind its own audited callables.
+
+**Why:** makes the whole console multi-user the moment a project exists, without rewriting ~130 commands as individual Cloud Functions. Moving individual commands server-side remains the path to full server authority (`reserveSeat` and governance already are).

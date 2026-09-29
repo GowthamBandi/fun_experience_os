@@ -89,7 +89,7 @@ export function adaptGovernanceDoc(id: string, data: Record<string, unknown>, ve
   return {
     id,
     primary: str(data, "subject", "name", "title", "action"),
-    secondary: owner === "—" ? str(data, "kind", "type", "description", "action") : owner,
+    secondary: owner === "—" ? str(data, "kind", "contactEmail", "type", "description", "action") : owner,
     status: displayStatus(statusValue),
     statusValue,
     value: amount ?? rate ?? str(data, "displayValue", "value", "effectiveFrom"),

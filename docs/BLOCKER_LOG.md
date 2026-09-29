@@ -7,11 +7,11 @@ the repository or the live tooling on the date shown.
 | ID | Severity | Owner | Status | Summary |
 |---|---|---|---|---|
 | BLOCKER-001 | P0 | **Human** | OPEN | No Firebase project exists for this platform |
-| BLOCKER-002 | P0 | Engineering | OPEN | 20 of 39 prototype state slices are discarded on reload |
-| BLOCKER-003 | P0 | Engineering | OPEN | Safety authorization keyed to roles that do not exist |
-| BLOCKER-004 | P1 | Engineering | OPEN | No sweeper releases expired reservation holds |
-| BLOCKER-005 | P0 | Engineering | OPEN | Participant page forges the privileged-access audit trail |
-| BLOCKER-006 | P1 | Engineering | OPEN | Emergency mode on live sessions is denied for every role |
+| BLOCKER-002 | P0 | Engineering | RESOLVED 2026-09-29 | 20 of 39 prototype state slices are discarded on reload |
+| BLOCKER-003 | P0 | Engineering | RESOLVED 2026-09-29 | Safety authorization keyed to roles that do not exist |
+| BLOCKER-004 | P1 | Engineering | RESOLVED 2026-09-29 | No sweeper releases expired reservation holds |
+| BLOCKER-005 | P0 | Engineering | RESOLVED 2026-09-29 | Participant page forges the privileged-access audit trail |
+| BLOCKER-006 | P1 | Engineering | RESOLVED 2026-09-29 | Emergency mode on live sessions is denied for every role |
 | BLOCKER-007 | P1 | **Human** | OPEN | Payment provider unselected (`DEC-SA-029`) |
 
 ---
@@ -50,6 +50,8 @@ development path regardless. Work continues.
 
 ## BLOCKER-002 — 20 of 39 prototype state slices are discarded on reload
 
+**Resolved 2026-09-29.** `lib/prototype/persistence/index.ts` now restores every slice of `PrototypeState` (42 incl. operators, governance, activityLog) from a versioned IndexedDB envelope and runs `lib/prototype/migrations.ts` on load. Test: `persistence.test.ts`.
+
 **Severity:** P0 · **Owner:** Engineering · **Opened:** 2026-08-22
 
 **Evidence:** `apps/operations-web/lib/prototype/persistence/index.ts` writes the
@@ -76,6 +78,8 @@ every demo. Interim fix is one line and should be taken.
 
 ## BLOCKER-003 — Safety authorization keyed to roles that do not exist
 
+**Resolved 2026-09-29.** `lib/safety/access.ts` is a typed matrix over the real `RoleId` union, enforced again inside every safety/dispute/moderation service with territory scope; buttons explain refusals. Tests: `lib/safety/access.test.ts`, `services/safety.test.ts`.
+
 **Severity:** P0 · **Owner:** Engineering · **Opened:** 2026-08-22
 
 **Evidence:** `apps/operations-web/lib/safety/access.ts` gates thirteen actions
@@ -98,6 +102,8 @@ three client tables with one server-enforced policy.
 
 ## BLOCKER-004 — No sweeper releases expired reservation holds
 
+**Resolved 2026-09-29.** Console: `releaseExpiredHolds` (`services/bookings.ts`) runs every 30 s and auto-offers freed seats to the waitlist. Backend: scheduled `releaseExpiredHolds` Cloud Function every 5 min with its composite index. Tests: `bookings.test.ts`, `releaseExpiredHolds.test.ts`.
+
 **Severity:** P1 · **Owner:** Engineering · **Opened:** 2026-08-22
 
 **Evidence:** `reserveSeat` now writes a real `reservationExpiresAt` Timestamp
@@ -113,6 +119,8 @@ mutating booking and counters in one transaction (per ADR-0002 §Consequences).
 ---
 
 ## BLOCKER-005 — Participant page forges the privileged-access audit trail
+
+**Resolved 2026-09-29.** The store always supplies the signed-in operator and role (callers cannot); the participant page uses `EmergencyIdentityPanel` with a mandatory reason (15+ characters), a 5-minute grant, holder-only visibility and close. Test: `sessionOperations.test.ts`.
 
 **Severity:** P0 · **Owner:** Engineering · **Opened:** 2026-08-22
 
@@ -135,6 +143,8 @@ auth token; never client-supplied. The pattern is already established in
 ---
 
 ## BLOCKER-006 — Emergency mode on live sessions is denied for every role
+
+**Resolved 2026-09-29.** Role ids come from the store; emergency mode is allowed for platform-owner, super-admin, safety, ops-manager and the session lead coordinator (crew or operator id). Test: `liveSession.test.ts`.
 
 **Severity:** P1 · **Owner:** Engineering · **Opened:** 2026-08-22
 

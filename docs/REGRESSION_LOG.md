@@ -8,6 +8,13 @@ it coming back. A fix without a test is not recorded as fixed.
 | REG-001 | High | `test/tune-retry.test.ts` | ✅ | `concurrency.test.ts` PROOF 1 |
 | REG-002 | High | `test/concurrency.test.ts` PROOF 1 | ✅ | `concurrency.test.ts` PROOF 1 |
 | REG-003 | Medium | `test/tune-retry.test.ts` | ✅ | `tune-retry.test.ts` |
+| REG-004 | High | Overview seat count | ✅ | `services/bookings.test.ts` (seeded confirmed bookings count as seats) |
+| REG-005 | High | Code review | ✅ | `sessionOperations.test.ts` (allocation persists auto-created teams) |
+| REG-006 | High | BLOCKER-006 origin (`805a0c8`) | ✅ | `liveSession.test.ts` (role ids, display names refused) |
+| REG-007 | Medium | Visual review | ✅ | class renamed; crawl screenshots |
+| REG-008 | Medium | Mobile crawl (`scripts/crawl.mjs`) | ✅ | `crawl.mjs` overflow check at 390 px |
+| REG-009 | Medium | Seed review | ✅ | `services/create.test.ts` + migration `2026-09-29-area-capacity-covers-sessions` |
+| REG-010 | High | Emulator | ✅ | `npm run test:functions` (functions load under Node 22) |
 
 ---
 
@@ -102,3 +109,33 @@ this campaign. They are tracked in `BLOCKER_LOG.md`, and each will gain a
 regression test as its module is migrated: BLOCKER-002 (persistence slice
 mismatch), BLOCKER-003 (phantom safety roles), BLOCKER-005 (forged audit actor),
 BLOCKER-006 (emergency-mode role comparison).
+
+---
+
+## REG-004 — Confirmed bookings counted as zero seats
+
+**Root cause:** the seed normalised bookings to `confirmed`, while `SEAT_STATUSES` only counted `payment-confirmed`/`checked-in`. **Fix:** one canonical vocabulary with a legacy map and `seatClass()`; idempotent migration for stored workspaces.
+
+## REG-005 — Random team allocation lost its auto-created teams
+
+**Root cause:** teams were created on a throwaway state. **Fix:** created and assigned in one transform; migration `2026-09-29-orphan-team-assignments` repairs stored data.
+
+## REG-006 — Emergency mode denied (display name vs role id)
+
+**Root cause:** `805a0c8` passed `role.name`. **Fix:** the store supplies role ids; callers cannot pass them.
+
+## REG-007 — Stray line above every eyebrow label
+
+**Root cause:** the custom `.overline` class shared its name with Tailwind's `overline` (text-decoration) utility. **Fix:** renamed to `.eyebrow`.
+
+## REG-008 — Pages overflowed horizontally on phones
+
+**Root cause:** CSS grid items default to `min-width: auto`, so wide tables stretched single-column grids. **Fix:** grids default to `grid-cols-1` and `fr` tracks use `minmax(0, …)`; filter rails scroll.
+
+## REG-009 — Sessions larger than their playing area
+
+**Root cause:** seed areas (4 seats) hosted 12–16-seat sessions. **Fix:** seed corrected, repair migration added, and `createSession` now refuses capacity above the area.
+
+## REG-010 — Functions emulator loaded no functions
+
+**Root cause:** `engines.node` was 24, which firebase-tools 13 rejects. **Fix:** Node 22.

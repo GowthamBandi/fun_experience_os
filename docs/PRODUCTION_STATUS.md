@@ -5,11 +5,76 @@
 > it says so. Where something is broken it says so.
 
 - **Campaign:** Prototype → Production-grade Next.js Super Admin on Firebase
-- **Last updated:** 2026-08-22
-- **Repository HEAD at start:** `79076da`
+- **Last updated:** 2026-09-29 (production pass — see `CHANGELOG.md`)
+- **Branch:** `claude/zen-brahmagupta-se2svs`
 - **Backend:** Firebase / Firestore ([ADR-0001](adr/ADR-0001-BACKEND-ARCHITECTURE.md))
 
 ---
+
+## 0. Current position (2026-09-29)
+
+**Classification:**
+- Usable single-organisation console (local workspace).
+- Shared multi-user operation is ready and verified on the Firebase emulator, pending a real Firebase project (BLOCKER-001).
+- Login and payment-provider integration were out of scope for this pass by instruction.
+
+### What an operator can do today
+
+Run `npm install && npm run dev` in `apps/operations-web`, open `/login`, pick an operator profile and use every module. No backend is needed. See `docs/product/CONSOLE_USER_GUIDE.md`.
+
+- **Records:**
+  - Every record persists in IndexedDB across reloads.
+  - Backups export and restore; open tabs stay in sync.
+  - Every action is journalled to the activity record and shown in **Audit & records**, with CSV export.
+- **Marketplace governance:** Approvals, and organizer/arena/event access, follow the same rules as the Cloud Functions:
+  - versions;
+  - transition table;
+  - mandatory reasons;
+  - a missing case target is refused;
+  - settlement release is blocked while the organizer has an open fraud alert.
+- **Operations:** setup → catalog → scheduling → bookings/waitlist → codes → teams → reveal → door check-in → live run → results → completion report, with rules enforced in the service layer.
+- **Money:**
+  - Payments and refund payouts are recorded manually with references.
+  - Cumulative over-refund guard.
+  - Finance-only approvals.
+  - Reconciliation of mismatched records.
+- **Trust & safety:** incidents, disputes and moderation under a typed permission matrix; tournaments with validated brackets and dual verification.
+- **Control:** access management, analytics computed from records, notifications, workspace backup/scenarios/reset.
+
+### Verified capabilities (evidence)
+
+| Area | Evidence |
+|---|---|
+| Web business rules | `npm test` in `apps/operations-web`: 14 files, 162 tests passing |
+| Cloud Functions: no-oversell, governance, operator access, hold sweeper, workspace sync, callable auth | `npm run test:functions`: 7 suites, 68 tests passing (Firestore + Auth + Functions emulators) |
+| Firestore security rules | `npm run test:rules`: 16 tests passing |
+| Every console route renders without runtime errors, error boundaries or horizontal overflow | `apps/operations-web/scripts/crawl.mjs` on the production build: Platform Owner at 1440 px and 390 px; Safety, Finance, Coordinator, Support and Analyst at 1280 px |
+| Type safety, lint, production build | `tsc --noEmit` 0 errors · `next lint` 0 warnings · `next build` succeeds (89 routes) |
+| End-to-end persistence | Approve a case → reload → decision, organizer status, activity record and governance audit all present |
+
+### Blockers
+
+| ID | Status |
+|---|---|
+| BLOCKER-001 No Firebase project | **Open, human action.** Create the project(s), deploy functions/rules/indexes, set `NEXT_PUBLIC_DATA_MODE=firebase-live`. |
+| BLOCKER-002 Slices discarded on reload | **Resolved** |
+| BLOCKER-003 Safety roles that don't exist | **Resolved** |
+| BLOCKER-004 No hold sweeper | **Resolved** |
+| BLOCKER-005 Forged privileged-access audit | **Resolved** |
+| BLOCKER-006 Emergency mode denied for all | **Resolved** |
+| BLOCKER-007 Payment provider unselected | **Open, human decision** (out of scope for this pass) |
+
+### What is still not production
+
+- **No live Firebase project.** Shared data, server-authoritative governance, App Check and managed backups activate only after a project is configured and deployed. Deployment is a human gate.
+- **Payments.** There is no provider integration and no webhooks; money records are manual entries with references.
+- **Local workspace sign-in.** Choosing an operator profile is appropriate for one trusted device. Teams should use Firebase mode (email/password with verified role claims).
+- **Territory and franchise scoping in Firestore rules.** `setOperatorAccess` already sets the claims, but the rules allow admin-only reads.
+- **Operations commands in Firebase mode.** Apart from `reserveSeat` and governance, which are server-authoritative, these run in the browser and are persisted through the versioned, audited `syncWorkspace` callable. They are not individually server-authoritative.
+
+---
+
+# History (campaign log before 2026-09-29)
 
 ## 1. Current position
 
