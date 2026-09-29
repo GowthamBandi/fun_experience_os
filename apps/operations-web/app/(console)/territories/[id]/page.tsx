@@ -103,17 +103,17 @@ export default function TerritoryDetailPage() {
           <Card>
             <PanelHeader title="Overview" />
             <div className="mt-4 space-y-3 text-sm">
-              <div className="flex justify-between border-b border-white/5 pb-2">
+              <div className="flex justify-between border-b border-slate-200 pb-2">
                 <span className="text-ink-mut">Parent Franchise</span>
                 <Link href={`/franchises/${detail.franchise.id}`} className="text-brand hover:underline font-medium">
                   {detail.franchise.name}
                 </Link>
               </div>
-              <div className="flex justify-between border-b border-white/5 pb-2">
+              <div className="flex justify-between border-b border-slate-200 pb-2">
                 <span className="text-ink-mut">Operating Manager</span>
                 <span className="text-ink-lum">{detail.managerName}</span>
               </div>
-              <div className="flex justify-between border-b border-white/5 pb-2">
+              <div className="flex justify-between border-b border-slate-200 pb-2">
                 <span className="text-ink-mut">Cities Count</span>
                 <span className="text-ink-lum">{detail.cities.length}</span>
               </div>
@@ -132,8 +132,8 @@ export default function TerritoryDetailPage() {
                 <SetupStatusBadge status={health.status} />
               </div>
               {health.missingItems.length > 0 && (
-                <div className="bg-amber-950/20 border border-amber-800/40 rounded-lg p-3">
-                  <p className="text-xs font-semibold text-amber-400 mb-2">Missing Setup Items:</p>
+                <div className="bg-amber-100 border border-amber-300 rounded-lg p-3">
+                  <p className="text-xs font-semibold text-amber-600 mb-2">Missing Setup Items:</p>
                   <ul className="text-xs text-amber-200/80 list-disc pl-4 space-y-1">
                     {health.missingItems.map((item, i) => (
                       <li key={i}>{item}</li>

@@ -57,21 +57,21 @@ export function LiveClockWidget({
   const isEnded = liveState.status === "Ended" || liveState.status === "Completed";
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-lg p-5 font-mono text-xs space-y-4 shadow-xl">
-      <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+    <div className="bg-slate-50 border border-slate-200 rounded-lg p-5 font-mono text-xs space-y-4 shadow-xl">
+      <div className="flex items-center justify-between border-b border-slate-200 pb-3">
         <div className="flex items-center gap-2">
-          <span className="font-bold text-slate-200 uppercase tracking-wider text-xs">
+          <span className="font-bold text-slate-800 uppercase tracking-wider text-xs">
             ⏱️ Runtime Session Clock
           </span>
           <span
             className={`px-2 py-0.5 rounded text-[10px] font-bold ${
               isLive
-                ? "bg-emerald-950 text-emerald-400 border border-emerald-800 animate-pulse"
+                ? "bg-emerald-50 text-emerald-600 border border-emerald-200 animate-pulse"
                 : isPaused
-                ? "bg-amber-950 text-amber-300 border border-amber-800"
+                ? "bg-amber-50 text-amber-700 border border-amber-200"
                 : isEmergency
-                ? "bg-red-950 text-red-400 border border-red-800 animate-ping"
-                : "bg-slate-800 text-slate-400"
+                ? "bg-red-50 text-red-600 border border-red-200 animate-ping"
+                : "bg-slate-100 text-slate-500"
             }`}
           >
             {liveState.status.toUpperCase()}
@@ -83,18 +83,18 @@ export function LiveClockWidget({
       </div>
 
       {/* Main Digital Clock Display */}
-      <div className="bg-slate-950 border border-slate-800 rounded-lg p-6 text-center space-y-2 relative overflow-hidden">
-        <div className="text-4xl md:text-5xl font-extrabold font-mono tracking-widest text-emerald-400 drop-shadow-[0_0_10px_rgba(52,211,153,0.3)]">
+      <div className="bg-slate-50 border border-slate-200 rounded-lg p-6 text-center space-y-2 relative overflow-hidden">
+        <div className="text-4xl md:text-5xl font-extrabold font-mono tracking-widest text-emerald-600 drop-shadow-[0_0_10px_rgba(52,211,153,0.3)]">
           {formatTime(ticker)}
         </div>
 
-        <div className="flex items-center justify-center gap-4 text-[11px] text-slate-400 pt-1">
-          <span>Accumulated: <strong className="text-slate-200">{liveState.accumulatedActiveSeconds}s</strong></span>
+        <div className="flex items-center justify-center gap-4 text-[11px] text-slate-500 pt-1">
+          <span>Accumulated: <strong className="text-slate-800">{liveState.accumulatedActiveSeconds}s</strong></span>
           {liveState.activeStartedAt && (
-            <span>Active Started: <strong className="text-emerald-300">{new Date(liveState.activeStartedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</strong></span>
+            <span>Active Started: <strong className="text-emerald-700">{new Date(liveState.activeStartedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</strong></span>
           )}
           {liveState.pausedAt && (
-            <span>Paused At: <strong className="text-amber-300">{new Date(liveState.pausedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</strong></span>
+            <span>Paused At: <strong className="text-amber-700">{new Date(liveState.pausedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</strong></span>
           )}
         </div>
       </div>
@@ -132,7 +132,7 @@ export function LiveClockWidget({
           {(isLive || isPaused) && !isEnded && (
             <button
               onClick={onEnd}
-              className="px-4 py-1.5 bg-red-950 hover:bg-red-900 text-red-300 border border-red-800 font-bold rounded"
+              className="px-4 py-1.5 bg-red-50 hover:bg-red-50 text-red-700 border border-red-200 font-bold rounded"
             >
               ⏹ End Session
             </button>
@@ -145,13 +145,13 @@ export function LiveClockWidget({
             <span className="text-[10px] text-slate-500">Advance:</span>
             <button
               onClick={() => onManualAdvance(60)}
-              className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px]"
+              className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px]"
             >
               +1 Min
             </button>
             <button
               onClick={() => onManualAdvance(300)}
-              className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px]"
+              className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px]"
             >
               +5 Mins
             </button>
@@ -161,10 +161,10 @@ export function LiveClockWidget({
 
       {/* Pause Modal */}
       {pauseModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <form onSubmit={handlePauseSubmit} className="bg-slate-900 border border-amber-800 rounded-lg p-6 max-w-md w-full space-y-4">
-            <h4 className="font-bold text-amber-400 text-sm">Pause Live Session</h4>
-            <p className="text-slate-300">
+        <div className="fixed inset-0 z-50 bg-slate-50 flex items-center justify-center p-4">
+          <form onSubmit={handlePauseSubmit} className="bg-slate-50 border border-amber-200 rounded-lg p-6 max-w-md w-full space-y-4">
+            <h4 className="font-bold text-amber-600 text-sm">Pause Live Session</h4>
+            <p className="text-slate-700">
               Provide a mandatory operational pause reason. Elapsed active time accumulation will halt immediately.
             </p>
             <textarea
@@ -172,14 +172,14 @@ export function LiveClockWidget({
               placeholder="e.g. Weather delay; court maintenance; rule clarification."
               value={pauseReason}
               onChange={(e) => setPauseReason(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-slate-200"
+              className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-slate-800"
               required
             />
             <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setPauseModalOpen(false)}
-                className="px-3 py-1 bg-slate-800 text-slate-300 rounded font-bold"
+                className="px-3 py-1 bg-slate-100 text-slate-700 rounded font-bold"
               >
                 Cancel
               </button>

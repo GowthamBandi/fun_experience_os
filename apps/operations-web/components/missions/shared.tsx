@@ -52,7 +52,7 @@ export function MissionWorkspaceHeader() {
   const netCollected = finance.grossCollected - totalRefunded - pendingRefundAmt;
 
   return (
-    <div className="glass rounded-panel p-5 border border-white/5 space-y-4">
+    <div className="glass rounded-panel p-5 border border-slate-200 space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
         {/* Left: Session Info */}
         <div className="space-y-1">
@@ -64,14 +64,14 @@ export function MissionWorkspaceHeader() {
             <span className="text-[10px] text-ink-mut uppercase tracking-wider font-semibold">Status:</span>
             <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border ${
               lss.status === "Live"
-                ? "bg-emerald-950/60 border-emerald-800 text-emerald-300"
+                ? "bg-emerald-200 border-emerald-200 text-emerald-700"
                 : lss.status === "Paused"
-                ? "bg-amber-950/60 border-amber-800 text-amber-300 animate-pulse"
+                ? "bg-amber-200 border-amber-200 text-amber-700 animate-pulse"
                 : lss.status === "Emergency"
-                ? "bg-red-950/60 border-red-800 text-red-300 animate-bounce"
+                ? "bg-red-200 border-red-200 text-red-700 animate-bounce"
                 : lss.status === "Completed"
-                ? "bg-slate-900 border-slate-800 text-slate-400"
-                : "bg-white/5 border-white/10 text-ink-sec"
+                ? "bg-slate-50 border-slate-200 text-slate-500"
+                : "bg-slate-50 border-slate-200 text-ink-sec"
             }`}>
               {statusLabel}
             </span>
@@ -79,31 +79,31 @@ export function MissionWorkspaceHeader() {
         </div>
 
         {/* Middle: Slots Metrics */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 bg-white/2 border border-white/5 rounded-xl p-3 text-center min-w-[280px]">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 bg-slate-50 border border-slate-200 rounded-xl p-3 text-center min-w-[280px]">
           <div className="px-2">
             <span className="block text-[9px] text-ink-mut uppercase font-semibold">Total Slots</span>
             <span className="text-sm font-bold text-ink-lum">{ledger.sellableCapacity}</span>
           </div>
-          <div className="px-2 border-l border-white/5">
+          <div className="px-2 border-l border-slate-200">
             <span className="block text-[9px] text-ink-mut uppercase font-semibold" title="Confirmed participants with active bookings">Joined</span>
             <span className="text-sm font-bold text-brand">{ledger.confirmedPaidBookings + ledger.confirmedComplimentaryBookings}</span>
           </div>
-          <div className="px-2 border-l border-white/5">
+          <div className="px-2 border-l border-slate-200">
             <span className="block text-[9px] text-ink-mut uppercase font-semibold" title="Participants physically checked in">Checked In</span>
-            <span className="text-sm font-bold text-[#5fd7a3]">{checkIn.checkedInCount + checkIn.lateCount}</span>
+            <span className="text-sm font-bold text-emerald-700">{checkIn.checkedInCount + checkIn.lateCount}</span>
           </div>
-          <div className="px-2 border-l border-white/5">
+          <div className="px-2 border-l border-slate-200">
             <span className="block text-[9px] text-ink-mut uppercase font-semibold" title="Remaining open sellable slots">Left</span>
             <span className="text-sm font-bold text-ink-sec">{ledger.remainingSellableCapacity}</span>
           </div>
-          <div className="px-2 border-l border-white/5">
+          <div className="px-2 border-l border-slate-200">
             <span className="block text-[9px] text-ink-mut uppercase font-semibold" title="Active waiting list count">Waiting</span>
-            <span className="text-sm font-bold text-[#ffd28a]">{ledger.waitlistCount}</span>
+            <span className="text-sm font-bold text-amber-700">{ledger.waitlistCount}</span>
           </div>
         </div>
 
         {/* Right: Revenue Snapshot */}
-        <div className="bg-white/4 border border-white/5 rounded-xl p-3 space-y-1 text-right min-w-[180px]">
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1 text-right min-w-[180px]">
           <div className="flex justify-between gap-4 text-[10px]">
             <span className="text-ink-mut">Collected:</span>
             <span className="font-mono text-ink-lum">{inr(finance.grossCollected)}</span>
@@ -114,9 +114,9 @@ export function MissionWorkspaceHeader() {
               <span className="font-mono text-danger">-{inr(totalRefunded + pendingRefundAmt)}</span>
             </div>
           )}
-          <div className="flex justify-between gap-4 text-[11px] border-t border-white/5 pt-1 font-bold">
+          <div className="flex justify-between gap-4 text-[11px] border-t border-slate-200 pt-1 font-bold">
             <span className="text-ink-mut">Net Total:</span>
-            <span className="font-mono text-[#5fd7a3]">{inr(netCollected)}</span>
+            <span className="font-mono text-emerald-700">{inr(netCollected)}</span>
           </div>
         </div>
       </div>
@@ -207,18 +207,18 @@ export function MissionStageNavigation() {
   ];
 
   return (
-    <div className="flex flex-wrap gap-2 border-b border-white/5 pb-4">
+    <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-4">
       {stages.map((st) => {
         const locked = st.status === "Locked";
         const current = st.status === "Current";
         const completed = st.status === "Completed";
         const warning = st.status === "Needs Attention";
 
-        let badgeStyle = "bg-white/5 border-white/10 text-ink-sec";
+        let badgeStyle = "bg-slate-50 border-slate-200 text-ink-sec";
         if (current) badgeStyle = "bg-brand border-brand text-white font-bold shadow-[0_0_12px_rgba(90,103,245,0.4)]";
-        if (completed) badgeStyle = "bg-emerald-950/40 border-emerald-800 text-emerald-400";
-        if (warning) badgeStyle = "bg-red-950/60 border-red-800 text-red-300 animate-pulse";
-        if (locked) badgeStyle = "bg-white/2 border-white/5 text-ink-mut/60 cursor-not-allowed opacity-50";
+        if (completed) badgeStyle = "bg-emerald-200 border-emerald-200 text-emerald-600";
+        if (warning) badgeStyle = "bg-red-200 border-red-200 text-red-700 animate-pulse";
+        if (locked) badgeStyle = "bg-slate-50 border-slate-200 text-ink-mut/60 cursor-not-allowed opacity-50";
 
         const content = (
           <div className={`flex flex-col items-start border p-3 rounded-xl transition-all select-none text-left w-full sm:w-[220px] ${badgeStyle}`}>
@@ -227,7 +227,7 @@ export function MissionStageNavigation() {
               {st.status.replace("-", " ")}
             </span>
             {locked && (
-              <span className="text-[10px] text-ink-mut leading-tight mt-1 bg-black/30 p-1.5 rounded border border-white/5">
+              <span className="text-[10px] text-ink-mut leading-tight mt-1 bg-slate-50 p-1.5 rounded border border-slate-200">
                 {st.lockReason}
               </span>
             )}
@@ -287,7 +287,7 @@ export function MissionBackNavigation({ currentStageName }: { currentStageName?:
       {/* Back button */}
       <div>
         <Link href={`/missions/${sessionId}/overview`}>
-          <button className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink-mut hover:text-ink-lum transition-colors bg-white/4 border border-white/5 px-3 py-1.5 rounded-lg">
+          <button className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink-mut hover:text-ink-lum transition-colors bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg">
             <ArrowLeft className="h-4 w-4" />
             Back to Event Overview
           </button>
@@ -318,7 +318,7 @@ export function MissionMetricsSummary() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {/* Attendance Metrics */}
-      <div className="glass rounded-xl p-4 border border-white/5 space-y-3">
+      <div className="glass rounded-xl p-4 border border-slate-200 space-y-3">
         <span className="block text-xs font-bold text-ink-mut uppercase">Attendance & Seating</span>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1">
@@ -332,9 +332,9 @@ export function MissionMetricsSummary() {
             </span>
           </div>
 
-          <div className="space-y-1 border-l border-white/5 pl-4">
+          <div className="space-y-1 border-l border-slate-200 pl-4">
             <span className="text-[10px] text-ink-mut block">Check-in Present Rate</span>
-            <span className="text-lg font-bold text-[#5fd7a3]">
+            <span className="text-lg font-bold text-emerald-700">
               {totalJoined > 0 ? Math.round((totalPresent / totalJoined) * 100) : 0}%
             </span>
             <div className="w-full mt-1.5">
@@ -348,24 +348,24 @@ export function MissionMetricsSummary() {
       </div>
 
       {/* Money Metrics */}
-      <div className="glass rounded-xl p-4 border border-white/5 space-y-3">
+      <div className="glass rounded-xl p-4 border border-slate-200 space-y-3">
         <span className="block text-xs font-bold text-ink-mut uppercase">Financial Break-Even Matrix</span>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <span className="text-[10px] text-ink-mut block">Net Collected Revenue</span>
-            <span className="text-lg font-bold text-[#5fd7a3]">{inr(finance.netRevenue)}</span>
+            <span className="text-lg font-bold text-emerald-700">{inr(finance.netRevenue)}</span>
             <span className="text-[9px] text-ink-mut block mt-1">
               Gross Collected: {inr(finance.grossCollected)}
             </span>
           </div>
 
-          <div className="border-l border-white/5 pl-4">
+          <div className="border-l border-slate-200 pl-4">
             <span className="text-[10px] text-ink-mut block">Break-even Attendance</span>
             <span className="text-lg font-bold text-brand">{ledger.breakEvenAttendance} Present</span>
             <span className="text-[9px] text-ink-mut block mt-1">
               Required Revenue: {inr(finance.breakEvenRevenue)}
             </span>
-            <span className={`text-[9px] font-bold ${finance.isProfitable ? "text-emerald-400" : "text-amber-400"} mt-1 block`}>
+            <span className={`text-[9px] font-bold ${finance.isProfitable ? "text-emerald-600" : "text-amber-600"} mt-1 block`}>
               {finance.isProfitable ? "✓ Break-Even Achieved" : "⚠ Under Break-Even Limit"}
             </span>
           </div>

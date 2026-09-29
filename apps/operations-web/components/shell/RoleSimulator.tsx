@@ -38,7 +38,7 @@ export function RoleSimulator() {
         onClick={() => pick(id)}
         className={cn(
           "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors",
-          active ? "bg-white/8" : "hover:bg-white/5",
+          active ? "bg-slate-100" : "hover:bg-slate-50",
         )}
       >
         <span className="min-w-0 flex-1">
@@ -47,7 +47,7 @@ export function RoleSimulator() {
             {r.scope} · {allowed} modules
           </span>
         </span>
-        {active && <Check className="h-3.5 w-3.5 text-[#ffd28a]" />}
+        {active && <Check className="h-3.5 w-3.5 text-amber-700" />}
       </button>
     );
   };
@@ -56,11 +56,11 @@ export function RoleSimulator() {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex h-10 items-center gap-2.5 rounded-xl border border-white/6 bg-white/3 px-2.5 transition-colors hover:bg-white/6"
+        className="flex h-10 items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-2.5 transition-colors hover:bg-slate-50"
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        <Fingerprint className="h-4 w-4 text-[#9db4ff]" />
+        <Fingerprint className="h-4 w-4 text-indigo-700" />
         <span className="hidden text-xs font-medium text-ink-sec md:block">{role.name}</span>
         <ChevronDown className={cn("h-3.5 w-3.5 text-ink-mut transition-transform duration-200", open && "rotate-180")} />
       </button>
@@ -76,14 +76,14 @@ export function RoleSimulator() {
             role="menu"
           >
             <div className="flex items-center gap-2 px-2.5 py-2">
-              <ShieldCheck className="h-4 w-4 text-[#ffd28a]" />
+              <ShieldCheck className="h-4 w-4 text-amber-700" />
               <div>
                 <p className="text-xs font-medium text-ink-lum">Position simulator</p>
                 <p className="text-[11px] text-ink-mut">Permission follows the position</p>
               </div>
             </div>
             {operator && (
-              <div className="mb-1 flex items-center gap-2.5 rounded-lg bg-white/3 px-2.5 py-2">
+              <div className="mb-1 flex items-center gap-2.5 rounded-lg bg-slate-50 px-2.5 py-2">
                 <Avatar initials={operator.initials} size="sm" />
                 <div className="min-w-0">
                   <p className="truncate text-xs font-medium text-ink-lum">{operator.name}</p>

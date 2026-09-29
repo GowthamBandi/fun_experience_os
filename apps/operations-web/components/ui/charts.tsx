@@ -2,7 +2,7 @@
 
 import { useId } from "react";
 
-/** Pure-SVG charts — the OS draws with light, not a chart library. */
+/** Pure-SVG charts. */
 
 function points(data: number[], w: number, h: number, pad = 4): string {
   const max = Math.max(...data, 1);
@@ -18,7 +18,7 @@ function points(data: number[], w: number, h: number, pad = 4): string {
     .join(" ");
 }
 
-export function Spark({ data, color = "#f7b955", width = 120, height = 36 }: { data: number[]; color?: string; width?: number; height?: number }) {
+export function Spark({ data, color = "#5b4cf5", width = 120, height = 36 }: { data: number[]; color?: string; width?: number; height?: number }) {
   return (
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="overflow-visible" aria-hidden>
       <polyline
@@ -34,13 +34,13 @@ export function Spark({ data, color = "#f7b955", width = 120, height = 36 }: { d
   );
 }
 
-export function LineChart({ labels, series, color = "#f7b955" }: { labels: string[]; series: number[]; color?: string }) {
+export function LineChart({ labels, series, color = "#5b4cf5" }: { labels: string[]; series: number[]; color?: string }) {
   const id = useId();
   const w = 640;
   const h = 220;
   const pad = 28;
-  const max = Math.max(...series) * 1.12;
   const pts = points(series, w, h, pad);
+  const coords = pts.split(" ").filter(Boolean).map((p) => p.split(",").map(Number));
   const stepX = (w - pad * 2) / Math.max(labels.length - 1, 1);
 
   return (
@@ -52,16 +52,16 @@ export function LineChart({ labels, series, color = "#f7b955" }: { labels: strin
         </linearGradient>
       </defs>
       {[0.25, 0.5, 0.75, 1].map((f) => (
-        <line key={f} x1={pad} x2={w - pad} y1={h - pad - (h - pad * 2) * f} y2={h - pad - (h - pad * 2) * f} stroke="rgba(255,255,255,0.05)" strokeWidth={1} />
+        <line key={f} x1={pad} x2={w - pad} y1={h - pad - (h - pad * 2) * f} y2={h - pad - (h - pad * 2) * f} stroke="#eceef5" strokeWidth={1} />
       ))}
       <polygon points={`${pad},${h - pad} ${pts} ${w - pad},${h - pad}`} fill={`url(#${id}-fill)`} />
       <polyline points={pts} fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
-      {series.map((v, i) => (
-        <circle key={i} cx={pad + i * stepX} cy={pad + (1 - v / max) * (h - pad * 2)} r={3} fill={color} />
+      {coords.map(([x, y], i) => (
+        <circle key={i} cx={x} cy={y} r={3.5} fill="#fff" stroke={color} strokeWidth={2} />
       ))}
-      <g fill="#82889a" fontSize="11" textAnchor="middle">
+      <g fill="#737a92" fontSize="11" textAnchor="middle">
         {labels.map((l, i) => (
-          <text key={l} x={pad + i * stepX} y={h - 8}>
+          <text key={`${l}-${i}`} x={pad + i * stepX} y={h - 8}>
             {l}
           </text>
         ))}
@@ -70,7 +70,7 @@ export function LineChart({ labels, series, color = "#f7b955" }: { labels: strin
   );
 }
 
-export function Bars({ labels, values, color = "#5a67f5" }: { labels: string[]; values: number[]; color?: string }) {
+export function Bars({ labels, values, color = "#8b5cf6" }: { labels: string[]; values: number[]; color?: string }) {
   const w = 640;
   const h = 200;
   const pad = 8;
@@ -85,7 +85,7 @@ export function Bars({ labels, values, color = "#5a67f5" }: { labels: string[]; 
         return (
           <g key={i}>
             <rect x={x} y={y} width={bw * 0.64} height={bh} rx={5} fill={color} opacity={0.85} />
-            <text x={x + bw * 0.32} y={h - 8} fontSize="11" fill="#82889a" textAnchor="middle">
+            <text x={x + bw * 0.32} y={h - 8} fontSize="11" fill="#737a92" textAnchor="middle">
               {labels[i]}
             </text>
           </g>
@@ -103,7 +103,7 @@ export function Donut({ value, label, sub, size = 132 }: { value: number; label:
   return (
     <div className="flex items-center gap-4">
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={`${label} ${value}%`}>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={10} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#eef0f6" strokeWidth={10} />
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -117,8 +117,8 @@ export function Donut({ value, label, sub, size = 132 }: { value: number; label:
         />
         <defs>
           <linearGradient id={`${id}-grad`} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#5a67f5" />
-            <stop offset="100%" stopColor="#f7b955" />
+            <stop offset="0%" stopColor="#5b4cf5" />
+            <stop offset="100%" stopColor="#ec4899" />
           </linearGradient>
         </defs>
       </svg>

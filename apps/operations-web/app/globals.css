@@ -3,43 +3,46 @@
 @tailwind utilities;
 
 /* ============================================================
-   EXPERIENCE OS — DESIGN TOKENS
-   Frozen authority: docs/design-system/EXPERIENCE_OS_DESIGN_DNA.md
-   Dark is native. Light is the material. One dusk source.
+   EXPERIENCE OS — LIGHT DESIGN SYSTEM ("Daylight")
+   Canonical reference: docs/design-system/03-daylight-design-system.md
+   White surfaces, one violet brand, semantic colour for state only.
    ============================================================ */
 
 :root {
-  /* the room */
-  --bg-deep: #0c0e12;
-  --bg-base: #12141a;
-  --bg-raised: #1a1d24;
-  --edge: #2a2e38;
+  /* canvas & surfaces */
+  --bg-deep: #f4f5fa; /* app canvas */
+  --bg-base: #ffffff; /* cards, panels */
+  --bg-raised: #ffffff; /* raised / popover */
+  --bg-sunken: #f8f9fc; /* inputs, nested wells */
+  --edge: #e4e7ef;
+  --edge-strong: #d3d8e4;
 
-  /* glass */
-  --glass-fill: rgba(255, 255, 255, 0.06);
-  --glass-catch: rgba(255, 255, 255, 0.14);
+  /* brand */
+  --brand: #5b4cf5;
+  --brand-hover: #4a3ae0;
+  --brand-ink: #3b2cc0;
+  --brand-subtle: #efedff;
 
-  /* light states (temperature, not decoration) */
-  --brand: #5a67f5;
-  --brand-hover: #4a56e0;
-  --brand-subtle: rgba(90, 103, 245, 0.14);
-  --warm: #f7b955;
-  --cool: #4c6fff;
-  --ok: #12b76a;
-  --danger: #f04438;
+  /* semantic */
+  --warm: #f59e0b;
+  --cool: #0ea5e9;
+  --ok: #10b981;
+  --danger: #ef4444;
+  --accent: #ec4899;
 
-  /* ink, set in light */
-  --ink-lum: #e8eaf0;
-  --ink-sec: #a9afc0;
-  --ink-mut: #82889a;
+  /* ink */
+  --ink-lum: #101327;
+  --ink-sec: #464c63;
+  --ink-mut: #737a92;
 
   /* type */
-  --font-ui: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
-  --font-display: "Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont,
-    "Segoe UI", Roboto, sans-serif;
+  --font-ui: "Inter Variable", "Inter", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Plus Jakarta Sans Variable", "Plus Jakarta Sans", "Inter Variable", ui-sans-serif, sans-serif;
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
   --ease-light: cubic-bezier(0.19, 1, 0.22, 1);
+
+  color-scheme: light;
 }
 
 html,
@@ -48,63 +51,71 @@ body {
 }
 
 body {
-  background-color: #08111d;
+  background-color: var(--bg-deep);
   color: var(--ink-lum);
   font-family: var(--font-ui);
-  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
 }
 
-/* the dusk field — one radial light source */
+h1,
+h2,
+h3,
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+code,
+kbd,
+pre,
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* app canvas — a soft daylight wash with two faint colour sources */
 .dusk-field {
-  background: #08111d;
+  background:
+    radial-gradient(1200px 520px at 100% -10%, rgba(91, 76, 245, 0.07), transparent 60%),
+    radial-gradient(900px 480px at -10% 110%, rgba(14, 165, 233, 0.06), transparent 60%),
+    var(--bg-deep);
 }
 
-/* film grain — the difference between a gradient and an atmosphere */
+/* grain retired in the light system — kept as a no-op for compatibility */
 .grain::after {
-  content: "";
-  position: fixed;
-  inset: -100%;
-  width: 300%;
-  height: 300%;
-  pointer-events: none;
-  z-index: 60;
-  opacity: 0;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  animation: grain 0.24s steps(2) infinite;
+  content: none;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .grain::after {
-    animation: none;
-  }
-}
-
-/* glass plane — frost + top-edge catch-light */
+/* surfaces */
 .glass {
-  background: #111925;
-  box-shadow: none;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-base);
+  border: 1px solid var(--edge);
+  box-shadow: 0 1px 2px rgba(16, 19, 39, 0.04), 0 8px 24px -12px rgba(16, 19, 39, 0.08);
 }
 
 .glass-surface {
-  background: #0d1622;
-  box-shadow: none;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: var(--bg-base);
+  border: 1px solid var(--edge);
 }
 
-/* solid surface — under dense content, readability is a surface */
 .solid {
-  background: var(--bg-raised);
+  background: var(--bg-base);
   border: 1px solid var(--edge);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  box-shadow: 0 1px 2px rgba(16, 19, 39, 0.04);
 }
 
-/* controls — lit, never outlined */
-.field {
-  background: rgba(255, 255, 255, 0.03);
+.surface-sunken {
+  background: var(--bg-sunken);
   border: 1px solid var(--edge);
+}
+
+/* controls */
+.field {
+  background: #ffffff;
+  border: 1px solid var(--edge-strong);
+  color: var(--ink-lum);
   transition:
     border-color 0.2s var(--ease-light),
     box-shadow 0.2s var(--ease-light),
@@ -112,38 +123,48 @@ body {
 }
 
 .field:hover {
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: #b9c0d3;
 }
 
 .field:focus-within,
 .field:focus {
-  border-color: rgba(90, 103, 245, 0.6);
-  box-shadow:
-    0 0 0 1px rgba(90, 103, 245, 0.35),
-    0 0 24px -6px rgba(90, 103, 245, 0.45);
+  border-color: var(--brand);
+  box-shadow: 0 0 0 4px rgba(91, 76, 245, 0.14);
   outline: none;
 }
 
-/* the tide-line — progress is patience, never a spinner */
+input,
+select,
+textarea {
+  color: var(--ink-lum);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #9aa1b5;
+}
+
+/* progress line */
 .tide {
-  height: 2px;
+  height: 4px;
   overflow: hidden;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
+  background: #eceef5;
 }
 
 .tide > span {
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--brand), var(--warm));
+  background: linear-gradient(90deg, var(--brand), #8b5cf6 55%, var(--accent));
   transition: width 0.32s var(--ease-light);
 }
 
-/* traveling shimmer — the only loading the OS draws */
+/* loading shimmer */
 .shimmer {
   position: relative;
   overflow: hidden;
+  background: #eef0f6;
 }
 
 .shimmer::after {
@@ -151,29 +172,31 @@ body {
   position: absolute;
   inset: 0;
   transform: translateX(-100%);
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.08) 50%,
-    transparent 100%
-  );
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.8) 50%, transparent 100%);
   animation: shimmer 1.2s ease-in-out infinite;
 }
 
-/* thin luminous scrollbars */
+/* scrollbars */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+  scrollbar-color: #cfd4e1 transparent;
 }
 
 *::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 
 *::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.14);
+  background: #d5d9e5;
   border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #b9c0d3;
+  background-clip: padding-box;
 }
 
 *::-webkit-scrollbar-track {
@@ -181,8 +204,13 @@ body {
 }
 
 ::selection {
-  background: rgba(90, 103, 245, 0.4);
+  background: rgba(91, 76, 245, 0.18);
   color: var(--ink-lum);
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
 }
 
 /* tabular figures for data */
@@ -195,19 +223,40 @@ body {
 .overline {
   font-size: 11px;
   line-height: 16px;
-  letter-spacing: 0.14em;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ink-mut);
 }
 
-/* the aperture mark */
+/* the brand mark */
 .mark {
-  border-radius: 999px;
-  background:
-    radial-gradient(
-      60% 60% at 50% 38%,
-      rgba(247, 185, 85, 0.35),
-      rgba(90, 103, 245, 0.12) 55%,
-      transparent 80%
-    );
+  border-radius: 12px;
+  background: conic-gradient(from 210deg at 50% 50%, #5b4cf5, #8b5cf6, #ec4899, #f59e0b, #5b4cf5);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35), 0 6px 16px -6px rgba(91, 76, 245, 0.55);
+}
+
+/* brand gradient text */
+.text-gradient {
+  background: linear-gradient(90deg, #5b4cf5, #8b5cf6 45%, #ec4899);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  body {
+    overflow: visible;
+    background: #fff;
+  }
 }

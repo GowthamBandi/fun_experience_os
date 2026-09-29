@@ -129,7 +129,7 @@ export default function NewCityPage() {
         right={
           <Link
             href={`/territories/${territoryId}`}
-            className="inline-flex items-center gap-1.5 rounded-full border border-[#4c6fff]/25 bg-[#4c6fff]/12 px-2.5 py-0.5 text-xs font-medium text-[#9db4ff] transition-colors hover:bg-[#4c6fff]/20"
+            className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700 transition-colors hover:bg-indigo-50"
           >
             <MapPin className="h-3 w-3" />
             {t.name}
@@ -174,7 +174,7 @@ export default function NewCityPage() {
             <Field label="City name" hint="Unique within this territory.">
               <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Hyderabad" />
               {nameTrimmed.length > 0 && !nameUnique && (
-                <p className="mt-2 text-xs text-[#ff8f86]">
+                <p className="mt-2 text-xs text-red-700">
                   A city with this name already exists under this territory.
                 </p>
               )}
@@ -237,8 +237,8 @@ export default function NewCityPage() {
                       className={cn(
                         "rounded-full border px-3 py-1.5 text-xs font-medium transition-all duration-200 ease-light",
                         on
-                          ? "border-[#4c6fff]/40 bg-[#4c6fff]/15 text-ink-lum"
-                          : "border-white/10 bg-white/4 text-ink-mut hover:text-ink-sec",
+                          ? "border-indigo-200 bg-indigo-50 text-ink-lum"
+                          : "border-slate-200 bg-slate-50 text-ink-mut hover:text-ink-sec",
                       )}
                     >
                       {categoryById(state, cat.id)?.name ?? cat.id}
@@ -259,7 +259,7 @@ export default function NewCityPage() {
               <p className="overline mb-2">Assumptions</p>
               <div className="space-y-1">
                 {assumptions.map((a) => (
-                  <div key={a.label} className="flex items-start justify-between gap-4 border-b border-white/4 py-1.5">
+                  <div key={a.label} className="flex items-start justify-between gap-4 border-b border-slate-200 py-1.5">
                     <span className="overline shrink-0 pt-px">{a.label}</span>
                     <span className="min-w-0 text-right text-sm text-ink-sec capitalize">{a.value}</span>
                   </div>
@@ -268,7 +268,7 @@ export default function NewCityPage() {
             </div>
             <Card glass={false} className="p-4">
               <PanelHeader title="Fixed territory" sub="Cities are created under exactly one territory." />
-              <Badge className="mt-3 border border-[#4c6fff]/25 bg-[#4c6fff]/12 text-[#9db4ff]">
+              <Badge className="mt-3 border border-indigo-200 bg-indigo-50 text-indigo-700">
                 <MapPin className="h-3 w-3" />
                 {t.name}
               </Badge>

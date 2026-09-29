@@ -18,15 +18,15 @@ export default function IdentityPatternsCatalogPage() {
       key: "name",
       header: "Pattern Name",
       render: (p) => (
-        <Link href={`/identity-patterns/${p.id}`} className="font-mono font-bold text-emerald-400 hover:underline">
+        <Link href={`/identity-patterns/${p.id}`} className="font-mono font-bold text-emerald-600 hover:underline">
           {p.name}
         </Link>
       ),
     },
-    { key: "prefix", header: "Prefix", render: (p) => <span className="font-mono font-bold text-amber-400">{p.prefix}</span> },
-    { key: "separator", header: "Separator", render: (p) => <span className="font-mono text-slate-300">&apos;{p.separator}&apos;</span> },
-    { key: "length", header: "Number Length", align: "right", render: (p) => <span className="font-mono text-slate-200">{p.numberLength} digits</span> },
-    { key: "example", header: "Generated Example", render: (p) => <span className="font-mono font-bold text-slate-200 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded">{p.example}</span> },
+    { key: "prefix", header: "Prefix", render: (p) => <span className="font-mono font-bold text-amber-600">{p.prefix}</span> },
+    { key: "separator", header: "Separator", render: (p) => <span className="font-mono text-slate-700">&apos;{p.separator}&apos;</span> },
+    { key: "length", header: "Number Length", align: "right", render: (p) => <span className="font-mono text-slate-800">{p.numberLength} digits</span> },
+    { key: "example", header: "Generated Example", render: (p) => <span className="font-mono font-bold text-slate-800 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded">{p.example}</span> },
     { key: "status", header: "Status", render: (p) => <StatusChip value={p.status} /> },
   ];
 
@@ -46,7 +46,7 @@ export default function IdentityPatternsCatalogPage() {
       />
 
       <div className="space-y-3">
-        <h3 className="font-bold text-slate-200 uppercase tracking-wider text-xs">
+        <h3 className="font-bold text-slate-800 uppercase tracking-wider text-xs">
           Identity Code Formats ({patterns.length})
         </h3>
         <DataTable columns={columns} rows={patterns} emptyTitle="No identity patterns found." emptyLine="Create a new identity pattern format." />

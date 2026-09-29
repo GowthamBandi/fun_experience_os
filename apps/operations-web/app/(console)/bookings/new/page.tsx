@@ -179,7 +179,7 @@ export default function AddBookingPage() {
                         </div>
                       </div>
 
-                      <div className="flex flex-col items-end gap-3 w-full md:w-auto shrink-0 border-t border-white/5 pt-4 md:border-0 md:pt-0">
+                      <div className="flex flex-col items-end gap-3 w-full md:w-auto shrink-0 border-t border-slate-200 pt-4 md:border-0 md:pt-0">
                         <div className="text-lg font-medium text-ink-lum">
                           {inr(session.basePrice)}
                         </div>
@@ -209,7 +209,7 @@ export default function AddBookingPage() {
             </Item>
 
             <Item>
-              <div className="bg-black/20 rounded-xl p-5 border border-white/5 space-y-4">
+              <div className="bg-slate-50 rounded-xl p-5 border border-slate-200 space-y-4">
                 <CapacitySummary ledger={ledger} />
               </div>
             </Item>
@@ -247,7 +247,7 @@ export default function AddBookingPage() {
                   required
                   value={alias}
                   onChange={(e) => setAlias(e.target.value)}
-                  className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-ink-lum focus:outline-none focus:border-brand-solid focus:ring-1 focus:ring-brand-solid"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 text-ink-lum focus:outline-none focus:border-brand-solid focus:ring-1 focus:ring-brand-solid"
                   placeholder="e.g. John Doe"
                 />
               </div>
@@ -257,7 +257,7 @@ export default function AddBookingPage() {
                 <select
                   value={uiBookingType}
                   onChange={(e) => setUiBookingType(e.target.value as UiBookingType)}
-                  className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-ink-lum focus:outline-none focus:border-brand-solid focus:ring-1 focus:ring-brand-solid appearance-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 text-ink-lum focus:outline-none focus:border-brand-solid focus:ring-1 focus:ring-brand-solid appearance-none"
                 >
                   <option value="Customer Booking">Customer Booking</option>
                   <option value="Staff Added Booking">Staff Added Booking</option>
@@ -270,7 +270,7 @@ export default function AddBookingPage() {
                 <textarea
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
-                  className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-ink-lum focus:outline-none focus:border-brand-solid focus:ring-1 focus:ring-brand-solid resize-none h-24"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 text-ink-lum focus:outline-none focus:border-brand-solid focus:ring-1 focus:ring-brand-solid resize-none h-24"
                   placeholder="Add any special requirements or notes..."
                 />
               </div>
@@ -291,7 +291,7 @@ export default function AddBookingPage() {
 
             <Item>
               <div className="space-y-3">
-                <label className="flex items-center gap-3 p-4 border border-white/10 rounded-xl cursor-pointer hover:bg-white/5 transition-colors bg-black/20">
+                <label className="flex items-center gap-3 p-4 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors bg-slate-50">
                   <input
                     type="radio"
                     name="payment"
@@ -306,7 +306,7 @@ export default function AddBookingPage() {
                   </div>
                 </label>
 
-                <label className="flex items-center gap-3 p-4 border border-white/10 rounded-xl cursor-pointer hover:bg-white/5 transition-colors bg-black/20">
+                <label className="flex items-center gap-3 p-4 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors bg-slate-50">
                   <input
                     type="radio"
                     name="payment"
@@ -321,7 +321,7 @@ export default function AddBookingPage() {
                   </div>
                 </label>
 
-                <label className="flex items-center gap-3 p-4 border border-white/10 rounded-xl cursor-pointer hover:bg-white/5 transition-colors bg-black/20">
+                <label className="flex items-center gap-3 p-4 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors bg-slate-50">
                   <input
                     type="radio"
                     name="payment"
@@ -339,7 +339,7 @@ export default function AddBookingPage() {
             </Item>
 
             <Item>
-              <div className="bg-black/30 p-4 rounded-xl flex justify-between items-center border border-white/5 mt-4">
+              <div className="bg-slate-50 p-4 rounded-xl flex justify-between items-center border border-slate-200 mt-4">
                 <span className="text-ink-sec">Amount Due</span>
                 <span className="text-xl font-medium text-ink-lum">
                   {paymentOption === "Free Pass" ? inr(0) : inr(selectedSession.basePrice)}
@@ -367,7 +367,7 @@ export default function AddBookingPage() {
             </Item>
 
             <Item>
-              <div className="space-y-4 bg-black/20 p-5 rounded-xl border border-white/5">
+              <div className="space-y-4 bg-slate-50 p-5 rounded-xl border border-slate-200">
                 <div className="grid grid-cols-2 gap-y-4 text-sm">
                   <div className="text-ink-mut">Event</div>
                   <div className="text-ink-lum font-medium text-right">{sessionTitle(state, selectedSession.id)}</div>
@@ -405,7 +405,7 @@ export default function AddBookingPage() {
           <Stagger className="max-w-xl glass rounded-2xl p-8 text-center space-y-6 mx-auto">
             <Item>
               <div className="flex justify-center mb-6">
-                <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center">
+                <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center">
                   <CheckCircle className="w-8 h-8 text-green-500" />
                 </div>
               </div>

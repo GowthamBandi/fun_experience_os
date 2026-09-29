@@ -1,2 +1,6 @@
+import { Scale } from "lucide-react";
 import { GovernanceRoutePage } from "@/components/governance/GovernanceRoutePage";
-export default function Page(){return <GovernanceRoutePage config={{collection:"policyVersions",readOnly:true,eyebrow:"Control",title:"Policies",description:"Inspect the versioned rules used by automated checks and human approval decisions across the marketplace.",metricLabel:"Policy versions",primaryAction:"Open policy"}}/>}
+
+export default function Page() {
+  return <GovernanceRoutePage config={{href:"/policies",collection:"policyVersions",eyebrow:"Control",title:"Policies",description:"Versioned marketplace rules. Every automated and human decision records the policy version it used.",metricLabel:"Policies",primaryAction:"View",readOnly:true,intake:"policy",intakeLabel:"Publish version",icon:<Scale className="h-6 w-6" />}} />;
+}

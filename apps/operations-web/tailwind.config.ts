@@ -13,13 +13,19 @@ const config: Config = {
           deep: "var(--bg-deep)",
           base: "var(--bg-base)",
           raised: "var(--bg-raised)",
+          sunken: "var(--bg-sunken)",
         },
-        edge: "var(--edge)",
+        edge: {
+          DEFAULT: "var(--edge)",
+          strong: "var(--edge-strong)",
+        },
         brand: {
           DEFAULT: "var(--brand)",
           hover: "var(--brand-hover)",
           subtle: "var(--brand-subtle)",
+          ink: "var(--brand-ink)",
         },
+        accent: "var(--accent)",
         warm: "var(--warm)",
         cool: "var(--cool)",
         ok: "var(--ok)",
@@ -34,11 +40,13 @@ const config: Config = {
         ui: ["var(--font-ui)"],
         display: ["var(--font-display)"],
         tabular: ["var(--font-ui)"],
+        mono: ["var(--font-mono)"],
       },
       boxShadow: {
-        glass: "0 24px 64px -16px rgba(0,0,0,0.32)",
-        panel: "0 12px 32px -8px rgba(0,0,0,0.20)",
-        lift: "0 4px 12px -2px rgba(0,0,0,0.12)",
+        glass: "0 1px 2px rgba(16,19,39,0.04), 0 24px 48px -20px rgba(16,19,39,0.18)",
+        panel: "0 1px 2px rgba(16,19,39,0.04), 0 12px 32px -16px rgba(16,19,39,0.14)",
+        lift: "0 1px 2px rgba(16,19,39,0.06), 0 4px 12px -4px rgba(16,19,39,0.10)",
+        brand: "0 8px 20px -8px rgba(91,76,245,0.55)",
       },
       backdropBlur: {
         frost: "24px",
@@ -46,8 +54,8 @@ const config: Config = {
         control: "8px",
       },
       borderRadius: {
-        panel: "26px",
-        sheet: "20px",
+        panel: "20px",
+        sheet: "16px",
       },
       transitionTimingFunction: {
         light: "cubic-bezier(.19, 1, .22, 1)",

@@ -41,7 +41,7 @@ export default function MoneyOverviewPage() {
       header: "Amount",
       align: "right",
       render: (t) => (
-        <span className={`tabular font-mono font-medium ${t.amount > 0 ? "text-emerald-400" : "text-red-400"}`}>
+        <span className={`tabular font-mono font-medium ${t.amount > 0 ? "text-emerald-600" : "text-red-600"}`}>
           {t.amount > 0 ? "+" : "−"}{inr(Math.abs(t.amount))}
         </span>
       ),
@@ -123,7 +123,7 @@ export default function MoneyOverviewPage() {
               <div key={p.code} className="glass flex items-center gap-2.5 rounded-xl px-3 py-2">
                 <span className="font-mono text-xs font-semibold text-ink-lum">{p.code}</span>
                 <span className="text-[11px] text-ink-mut">{p.label}</span>
-                <Badge className={p.status === "active" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400" : "border-ink-sec/30 bg-ink-sec/10 text-ink-sec"}>
+                <Badge className={p.status === "active" ? "border-emerald-200 bg-emerald-50 text-emerald-600" : "border-ink-sec/30 bg-ink-sec/10 text-ink-sec"}>
                   {p.status}
                 </Badge>
               </div>

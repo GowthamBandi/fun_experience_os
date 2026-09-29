@@ -68,7 +68,7 @@ export default function ExperiencesListPage() {
         }
       />
 
-      <div className="glass p-5 rounded-2xl border border-white/5 space-y-4">
+      <div className="glass p-5 rounded-2xl border border-slate-200 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="w-full sm:w-72">
             <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search experience or category..." />
@@ -98,31 +98,31 @@ export default function ExperiencesListPage() {
 
               return (
                 <Item key={t.id}>
-                  <div className="glass p-5 rounded-2xl border border-white/5 hover:border-white/10 transition-all flex flex-col justify-between space-y-4">
+                  <div className="glass p-5 rounded-2xl border border-slate-200 hover:border-slate-200 transition-all flex flex-col justify-between space-y-4">
                     <div className="space-y-3">
                       <div className="flex items-start justify-between gap-2">
                         <div>
                           <h3 className="font-bold text-base text-ink-lum flex items-center gap-2">
-                            <Sparkles className="w-4 h-4 text-purple-400 shrink-0" />
+                            <Sparkles className="w-4 h-4 text-purple-600 shrink-0" />
                             <Link href={`/catalog/experiences/${t.id}`} className="hover:text-brand transition-colors">
                               {t.name}
                             </Link>
                           </h3>
-                          <span className="text-xs text-purple-400 font-medium">{cat?.name || "Category"}</span>
+                          <span className="text-xs text-purple-600 font-medium">{cat?.name || "Category"}</span>
                         </div>
                         <ExperienceStatusBadge status={read.status} size="sm" />
                       </div>
 
-                      <div className="grid grid-cols-3 gap-2 text-center text-xs border-t border-white/5 pt-2">
-                        <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                      <div className="grid grid-cols-3 gap-2 text-center text-xs border-t border-slate-200 pt-2">
+                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
                           <span className="text-[10px] text-ink-mut block uppercase">Default Price</span>
-                          <span className="font-bold text-emerald-400">₹{t.basePrice}</span>
+                          <span className="font-bold text-emerald-600">₹{t.basePrice}</span>
                         </div>
-                        <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
                           <span className="text-[10px] text-ink-mut block uppercase">Group Size</span>
                           <span className="font-bold text-ink-lum">{t.targetParticipants} pax</span>
                         </div>
-                        <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
                           <span className="text-[10px] text-ink-mut block uppercase">Duration</span>
                           <span className="font-bold text-ink-lum">{t.duration}m</span>
                         </div>
@@ -133,7 +133,7 @@ export default function ExperiencesListPage() {
                       </div>
                     </div>
 
-                    <div className="pt-2 border-t border-white/5 flex items-center justify-between">
+                    <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
                       <span className="text-[11px] text-ink-sec">{sessionsCount} active events</span>
                       <Link href={read.nextActionHref}>
                         <Button

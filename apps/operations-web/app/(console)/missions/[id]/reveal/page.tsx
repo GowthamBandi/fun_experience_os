@@ -32,7 +32,7 @@ export default function RevealControlPage() {
   const postPreview = useMemo(() => selectPostRevealPreview(state, sessionId, firstBookingId), [state, sessionId, firstBookingId]);
 
   if (!session) {
-    return <div className="p-8 text-xs font-mono text-slate-400">Session not found.</div>;
+    return <div className="p-8 text-xs font-mono text-slate-500">Session not found.</div>;
   }
 
   const handleTrigger = (override?: string) => {
@@ -79,21 +79,21 @@ export default function RevealControlPage() {
       />
 
       {/* 10-Point Readiness Checklist Card */}
-      <div className="bg-slate-900 border border-slate-800 rounded-lg p-4 space-y-3">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-          <span className="font-bold text-slate-200 uppercase tracking-wider text-xs flex items-center gap-2">
+      <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
+        <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+          <span className="font-bold text-slate-800 uppercase tracking-wider text-xs flex items-center gap-2">
             <span>🛡️ 10-Point Authoritative Reveal Readiness Checklist</span>
           </span>
           <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-            readiness.isReadyToReveal ? "bg-emerald-950 text-emerald-400 border border-emerald-800" : "bg-red-950 text-red-400 border border-red-800"
+            readiness.isReadyToReveal ? "bg-emerald-50 text-emerald-600 border border-emerald-200" : "bg-red-50 text-red-600 border border-red-200"
           }`}>
             {readiness.isReadyToReveal ? "ALL CHECKS PASSED ✓" : "REVEAL BLOCKED ❌"}
           </span>
         </div>
 
         {readiness.criticalBlockers.length > 0 && (
-          <div className="bg-red-950/60 border border-red-800 p-3 rounded space-y-1">
-            <span className="font-bold text-red-300">Critical Blockers:</span>
+          <div className="bg-red-200 border border-red-200 p-3 rounded space-y-1">
+            <span className="font-bold text-red-700">Critical Blockers:</span>
             <ul className="list-disc list-inside text-red-300/90 text-[11px] space-y-0.5">
               {readiness.criticalBlockers.map((b, idx) => (
                 <li key={idx}>{b}</li>
@@ -103,8 +103,8 @@ export default function RevealControlPage() {
         )}
 
         {readiness.warnings.length > 0 && (
-          <div className="bg-amber-950/60 border border-amber-800 p-3 rounded space-y-1">
-            <span className="font-bold text-amber-300">Operational Warnings:</span>
+          <div className="bg-amber-200 border border-amber-200 p-3 rounded space-y-1">
+            <span className="font-bold text-amber-700">Operational Warnings:</span>
             <ul className="list-disc list-inside text-amber-300/90 text-[11px] space-y-0.5">
               {readiness.warnings.map((w, idx) => (
                 <li key={idx}>{w}</li>
@@ -115,28 +115,28 @@ export default function RevealControlPage() {
       </div>
 
       {/* Participant-Aware Readiness Status Table per Correction 6 */}
-      <div className="bg-slate-900 border border-slate-800 rounded-lg p-4 space-y-3">
-        <h3 className="font-bold text-slate-200 uppercase tracking-wider text-xs">
+      <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
+        <h3 className="font-bold text-slate-800 uppercase tracking-wider text-xs">
           Per-Participant Reveal Readiness Status ({readiness.participantStatuses.length})
         </h3>
         <div className="space-y-1.5 max-h-60 overflow-y-auto">
           {readiness.participantStatuses.map((p) => (
-            <div key={p.bookingId} className="bg-slate-950 border border-slate-800 p-2 rounded flex items-center justify-between text-[11px]">
+            <div key={p.bookingId} className="bg-slate-50 border border-slate-200 p-2 rounded flex items-center justify-between text-[11px]">
               <div>
-                <span className="font-bold text-slate-200">{p.alias}</span>
-                <span className="ml-2 font-mono text-slate-400">({p.bookingId})</span>
+                <span className="font-bold text-slate-800">{p.alias}</span>
+                <span className="ml-2 font-mono text-slate-500">({p.bookingId})</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className={`px-1.5 py-0.5 rounded text-[9px] font-mono ${p.hasTempIdentity && p.isIdentityLocked ? "bg-emerald-950 text-emerald-400" : "bg-red-950 text-red-400"}`}>
+                <span className={`px-1.5 py-0.5 rounded text-[9px] font-mono ${p.hasTempIdentity && p.isIdentityLocked ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"}`}>
                   ID: {p.isIdentityLocked ? "Locked" : "Unlocked/Missing"}
                 </span>
-                <span className={`px-1.5 py-0.5 rounded text-[9px] font-mono ${p.hasTeamAssigned && p.isTeamLocked ? "bg-emerald-950 text-emerald-400" : "bg-red-950 text-red-400"}`}>
+                <span className={`px-1.5 py-0.5 rounded text-[9px] font-mono ${p.hasTeamAssigned && p.isTeamLocked ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"}`}>
                   Team: {p.isTeamLocked ? "Locked" : "Unlocked/Unassigned"}
                 </span>
                 {p.isRevealEligible ? (
-                  <span className="text-emerald-400 font-bold text-[10px]">READY</span>
+                  <span className="text-emerald-600 font-bold text-[10px]">READY</span>
                 ) : (
-                  <span className="text-red-400 font-bold text-[10px]">{p.blockedReason}</span>
+                  <span className="text-red-600 font-bold text-[10px]">{p.blockedReason}</span>
                 )}
               </div>
             </div>
@@ -147,14 +147,14 @@ export default function RevealControlPage() {
       {/* Participant View Preview Widget */}
       <RevealCountdownWidget preReveal={prePreview} postReveal={postPreview} />
 
-      {errorMsg && <div className="bg-red-950 border border-red-800 text-red-300 p-3 rounded">{errorMsg}</div>}
+      {errorMsg && <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded">{errorMsg}</div>}
 
       {/* Audited Override Modal */}
       {showOverride && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-purple-800 rounded-lg p-6 max-w-md w-full space-y-4">
-            <h4 className="font-bold text-purple-400 text-sm">Audited Reveal Override</h4>
-            <p className="text-slate-300">
+        <div className="fixed inset-0 z-50 bg-slate-50 flex items-center justify-center p-4">
+          <div className="bg-slate-50 border border-purple-200 rounded-lg p-6 max-w-md w-full space-y-4">
+            <h4 className="font-bold text-purple-600 text-sm">Audited Reveal Override</h4>
+            <p className="text-slate-700">
               Provide an audited operational reason to bypass critical blockers and trigger reveal immediately.
             </p>
             <textarea
@@ -162,14 +162,14 @@ export default function RevealControlPage() {
               placeholder="e.g. Lead Coordinator verified venue & staff readiness on site."
               value={overrideReason}
               onChange={(e) => setOverrideReason(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-slate-200"
+              className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-slate-800"
               required
             />
             <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setShowOverride(false)}
-                className="px-3 py-1 bg-slate-800 text-slate-300 rounded font-bold"
+                className="px-3 py-1 bg-slate-100 text-slate-700 rounded font-bold"
               >
                 Cancel
               </button>

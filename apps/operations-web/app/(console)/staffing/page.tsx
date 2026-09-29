@@ -77,50 +77,50 @@ export default function StaffSchedulePage() {
 
       {/* Operational KPI Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-center text-xs">
-        <div className="glass p-4 rounded-xl border border-white/5 space-y-1">
+        <div className="glass p-4 rounded-xl border border-slate-200 space-y-1">
           <span className="text-[10px] text-ink-mut uppercase block">Working Today</span>
-          <span className="font-bold text-blue-400 text-lg">{health.workingToday}</span>
+          <span className="font-bold text-blue-600 text-lg">{health.workingToday}</span>
         </div>
 
-        <div className="glass p-4 rounded-xl border border-white/5 space-y-1">
+        <div className="glass p-4 rounded-xl border border-slate-200 space-y-1">
           <span className="text-[10px] text-ink-mut uppercase block">Assigned</span>
           <span className="font-bold text-ink-lum text-lg">{health.assignedCount}</span>
         </div>
 
-        <div className="glass p-4 rounded-xl border border-white/5 space-y-1">
+        <div className="glass p-4 rounded-xl border border-slate-200 space-y-1">
           <span className="text-[10px] text-ink-mut uppercase block">Need Assignment</span>
-          <span className="font-bold text-amber-400 text-lg">{health.unassignedCount}</span>
+          <span className="font-bold text-amber-600 text-lg">{health.unassignedCount}</span>
         </div>
 
-        <div className="glass p-4 rounded-xl border border-white/5 space-y-1">
+        <div className="glass p-4 rounded-xl border border-slate-200 space-y-1">
           <span className="text-[10px] text-ink-mut uppercase block">Checked In</span>
-          <span className="font-bold text-emerald-400 text-lg">{health.checkedInCount}</span>
+          <span className="font-bold text-emerald-600 text-lg">{health.checkedInCount}</span>
         </div>
 
-        <div className="glass p-4 rounded-xl border border-white/5 space-y-1">
+        <div className="glass p-4 rounded-xl border border-slate-200 space-y-1">
           <span className="text-[10px] text-ink-mut uppercase block">Late Staff</span>
-          <span className="font-bold text-rose-400 text-lg">{health.lateCount}</span>
+          <span className="font-bold text-rose-600 text-lg">{health.lateCount}</span>
         </div>
 
-        <div className="glass p-4 rounded-xl border border-white/5 space-y-1">
+        <div className="glass p-4 rounded-xl border border-slate-200 space-y-1">
           <span className="text-[10px] text-ink-mut uppercase block">Missing Coordinator</span>
-          <span className="font-bold text-rose-400 text-lg">{health.eventsMissingCoordinatorCount}</span>
+          <span className="font-bold text-rose-600 text-lg">{health.eventsMissingCoordinatorCount}</span>
         </div>
 
-        <div className="glass p-4 rounded-xl border border-white/5 space-y-1">
+        <div className="glass p-4 rounded-xl border border-slate-200 space-y-1">
           <span className="text-[10px] text-ink-mut uppercase block">Missing Safety</span>
-          <span className="font-bold text-amber-400 text-lg">{health.eventsMissingSafetyCount}</span>
+          <span className="font-bold text-amber-600 text-lg">{health.eventsMissingSafetyCount}</span>
         </div>
       </div>
 
       {/* Main Operational Sections */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Section 1: Events Needing Staff */}
-        <div className="glass p-5 rounded-2xl border border-white/5 space-y-4">
-          <div className="flex items-center justify-between border-b border-white/5 pb-3">
+        <div className="glass p-5 rounded-2xl border border-slate-200 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-3">
             <div>
               <h3 className="font-bold text-ink-lum text-base flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-400" />
+                <AlertTriangle className="w-4 h-4 text-amber-600" />
                 <span>1. Events Needing Staff</span>
               </h3>
               <p className="text-xs text-ink-sec">Events with missing coordinators or safety staff.</p>
@@ -133,15 +133,15 @@ export default function StaffSchedulePage() {
           </div>
 
           {missingCoordinators.length === 0 && missingSafety.length === 0 ? (
-            <div className="p-6 text-center text-xs text-emerald-300 bg-emerald-950/20 rounded-xl border border-emerald-800/40">
+            <div className="p-6 text-center text-xs text-emerald-700 bg-emerald-100 rounded-xl border border-emerald-300">
               ✓ All scheduled events have required lead coordinators and safety leads.
             </div>
           ) : (
             <div className="space-y-3">
               {missingCoordinators.map((s) => (
-                <div key={s.id} className="p-3 rounded-xl bg-rose-950/20 border border-rose-800/40 flex items-center justify-between text-xs">
+                <div key={s.id} className="p-3 rounded-xl bg-rose-100 border border-rose-300 flex items-center justify-between text-xs">
                   <div>
-                    <span className="font-bold text-rose-300 block">{s.date} @ {s.startTime}</span>
+                    <span className="font-bold text-rose-700 block">{s.date} @ {s.startTime}</span>
                     <span className="text-ink-sec text-[11px]">Event #{s.id} · Missing Lead Coordinator</span>
                   </div>
                   <Link href={`/staffing/assign?sessionId=${s.id}`}>
@@ -153,9 +153,9 @@ export default function StaffSchedulePage() {
               ))}
 
               {missingSafety.map((s) => (
-                <div key={s.id} className="p-3 rounded-xl bg-amber-950/20 border border-amber-800/40 flex items-center justify-between text-xs">
+                <div key={s.id} className="p-3 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-between text-xs">
                   <div>
-                    <span className="font-bold text-amber-300 block">{s.date} @ {s.startTime}</span>
+                    <span className="font-bold text-amber-700 block">{s.date} @ {s.startTime}</span>
                     <span className="text-ink-sec text-[11px]">Event #{s.id} · Missing Safety Lead</span>
                   </div>
                   <Link href={`/staffing/assign?sessionId=${s.id}`}>
@@ -170,11 +170,11 @@ export default function StaffSchedulePage() {
         </div>
 
         {/* Section 2: Available Staff */}
-        <div className="glass p-5 rounded-2xl border border-white/5 space-y-4">
-          <div className="flex items-center justify-between border-b border-white/5 pb-3">
+        <div className="glass p-5 rounded-2xl border border-slate-200 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-3">
             <div>
               <h3 className="font-bold text-ink-lum text-base flex items-center gap-2">
-                <UserCheck className="w-4 h-4 text-emerald-400" />
+                <UserCheck className="w-4 h-4 text-emerald-600" />
                 <span>2. Available Staff ({availableStaff.length})</span>
               </h3>
               <p className="text-xs text-ink-sec">Staff members ready for immediate assignment.</p>
@@ -191,10 +191,10 @@ export default function StaffSchedulePage() {
           ) : (
             <div className="space-y-2">
               {availableStaff.slice(0, 4).map((staff) => (
-                <div key={staff.id} className="p-3 rounded-xl bg-black/40 border border-white/5 flex items-center justify-between text-xs">
+                <div key={staff.id} className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
                   <div>
                     <span className="font-bold text-ink-lum block">{staff.name}</span>
-                    <span className="text-purple-300 text-[11px] font-semibold">{staff.roleLabel}</span>
+                    <span className="text-purple-700 text-[11px] font-semibold">{staff.roleLabel}</span>
                   </div>
                   <Link href={`/people/staff/${staff.id}`}>
                     <Button variant="ghost" className="h-6 text-[11px] px-2 font-bold text-brand">

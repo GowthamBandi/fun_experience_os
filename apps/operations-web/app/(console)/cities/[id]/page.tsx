@@ -71,9 +71,9 @@ export default function CityDetailsPage({ params }: { params: Promise<{ id: stri
       />
 
       {/* Parent Territory & Franchise Link */}
-      <div className="p-4 rounded-xl glass border border-white/5 text-xs flex flex-wrap items-center justify-between gap-4">
+      <div className="p-4 rounded-xl glass border border-slate-200 text-xs flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2 text-ink-sec">
-          <MapPin className="w-4 h-4 text-emerald-400" />
+          <MapPin className="w-4 h-4 text-emerald-600" />
           <span>Parent Territory:</span>
           {t ? (
             <Link href={`/territories/${t.id}`} className="text-brand font-semibold hover:underline">
@@ -97,19 +97,19 @@ export default function CityDetailsPage({ params }: { params: Promise<{ id: stri
 
       {/* Top Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="glass p-4 rounded-xl border border-white/5 space-y-1">
+        <div className="glass p-4 rounded-xl border border-slate-200 space-y-1">
           <p className="text-[10px] text-ink-mut uppercase font-semibold">Venues in City</p>
           <p className="text-2xl font-bold text-ink-lum">{cVenues.length}</p>
           <p className="text-[11px] text-ink-sec">Physical locations</p>
         </div>
 
-        <div className="glass p-4 rounded-xl border border-white/5 space-y-1">
+        <div className="glass p-4 rounded-xl border border-slate-200 space-y-1">
           <p className="text-[10px] text-ink-mut uppercase font-semibold">Playing Areas</p>
           <p className="text-2xl font-bold text-ink-lum">{cAreas.length}</p>
           <p className="text-[11px] text-ink-sec">Courts, fields, or rooms</p>
         </div>
 
-        <div className="glass p-4 rounded-xl border border-white/5 space-y-1">
+        <div className="glass p-4 rounded-xl border border-slate-200 space-y-1">
           <p className="text-[10px] text-ink-mut uppercase font-semibold">Setup Readiness</p>
           <div className="mt-1">
             <SetupStatusBadge status={status} />
@@ -121,8 +121,8 @@ export default function CityDetailsPage({ params }: { params: Promise<{ id: stri
       </div>
 
       {/* Venues in City */}
-      <div className="glass p-6 rounded-2xl border border-white/5 space-y-4">
-        <div className="flex items-center justify-between border-b border-white/5 pb-4">
+      <div className="glass p-6 rounded-2xl border border-slate-200 space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-200 pb-4">
           <div>
             <h3 className="text-base font-bold text-ink-lum">Venues in {city.name}</h3>
             <p className="text-xs text-ink-sec">Physical locations registered in this city.</p>
@@ -147,7 +147,7 @@ export default function CityDetailsPage({ params }: { params: Promise<{ id: stri
             {cVenues.map((v) => {
               const vAreas = playingAreas.filter((pa) => pa.venueId === v.id);
               return (
-                <div key={v.id} className="p-4 rounded-xl bg-black/40 border border-white/5 space-y-3">
+                <div key={v.id} className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
                   <div className="flex items-start justify-between">
                     <div>
                       <h4 className="font-bold text-sm text-ink-lum">{v.name}</h4>
@@ -156,7 +156,7 @@ export default function CityDetailsPage({ params }: { params: Promise<{ id: stri
                     <StatusChip value={v.status} />
                   </div>
 
-                  <div className="flex items-center justify-between text-xs border-t border-white/5 pt-2">
+                  <div className="flex items-center justify-between text-xs border-t border-slate-200 pt-2">
                     <span className="text-ink-sec font-medium">{vAreas.length} playing areas</span>
                     <Link href={`/locations/venues/${v.id}`}>
                       <Button variant="secondary" className="h-7 text-xs px-2.5">

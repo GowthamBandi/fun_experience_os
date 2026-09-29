@@ -63,8 +63,8 @@ function AddPlayingAreaForm() {
 
   if (step === 7) {
     return (
-      <div className="glass p-8 rounded-2xl border border-emerald-800/40 bg-emerald-950/20 text-center space-y-6 max-w-xl mx-auto my-8">
-        <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center mx-auto text-emerald-400">
+      <div className="glass p-8 rounded-2xl border border-emerald-300 bg-emerald-100 text-center space-y-6 max-w-xl mx-auto my-8">
+        <div className="w-16 h-16 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center mx-auto text-emerald-600">
           <CheckCircle2 className="w-10 h-10" />
         </div>
         <div className="space-y-2">
@@ -74,7 +74,7 @@ function AddPlayingAreaForm() {
           </p>
         </div>
 
-        <div className="p-4 rounded-xl bg-black/40 border border-white/5 text-left text-xs space-y-1">
+        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-left text-xs space-y-1">
           <p className="text-ink-mut">Space: <strong className="text-ink-lum">{formData.name}</strong></p>
           <p className="text-ink-mut">Venue: <span className="text-ink-sec">{venues.find((v) => v.id === formData.venueId)?.name || "Venue"}</span></p>
           <p className="text-ink-mut">Capacity: <span className="text-ink-sec">{formData.maxCapacity} headcount</span></p>
@@ -111,7 +111,7 @@ function AddPlayingAreaForm() {
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
       {/* Wizard Step Navigation */}
-      <div className="flex items-center justify-between border-b border-white/5 pb-4">
+      <div className="flex items-center justify-between border-b border-slate-200 pb-4">
         {[
           { num: 1, label: "1. Choose Venue" },
           { num: 2, label: "2. Details" },
@@ -128,7 +128,7 @@ function AddPlayingAreaForm() {
               step === s.num
                 ? "bg-brand text-slate-950"
                 : step > s.num
-                ? "bg-white/10 text-ink-lum"
+                ? "bg-slate-100 text-ink-lum"
                 : "text-ink-mut hover:text-ink-sec"
             }`}
           >
@@ -137,7 +137,7 @@ function AddPlayingAreaForm() {
         ))}
       </div>
 
-      <div className="glass p-6 rounded-2xl border border-white/5 space-y-6">
+      <div className="glass p-6 rounded-2xl border border-slate-200 space-y-6">
         {step === 1 && (
           <div className="space-y-4">
             <h3 className="text-sm font-bold text-ink-lum">Step 1: Choose Venue</h3>
@@ -146,7 +146,7 @@ function AddPlayingAreaForm() {
               <select
                 value={formData.venueId}
                 onChange={(e) => setFormData({ ...formData, venueId: e.target.value })}
-                className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
               >
                 <option value="">Select Venue...</option>
                 {venues.map((v) => (
@@ -170,7 +170,7 @@ function AddPlayingAreaForm() {
                 placeholder="e.g. Badminton Court 1"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum placeholder:text-ink-mut"
+                className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum placeholder:text-ink-mut"
               />
             </div>
 
@@ -179,7 +179,7 @@ function AddPlayingAreaForm() {
               <select
                 value={formData.type}
                 onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
               >
                 <option value="Court">Court</option>
                 <option value="Field">Field</option>
@@ -205,7 +205,7 @@ function AddPlayingAreaForm() {
                   type="number"
                   value={formData.maxCapacity}
                   onChange={(e) => setFormData({ ...formData, maxCapacity: Number(e.target.value) })}
-                  className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                  className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
                 />
               </div>
 
@@ -215,7 +215,7 @@ function AddPlayingAreaForm() {
                   type="number"
                   value={formData.spectatorCapacity}
                   onChange={(e) => setFormData({ ...formData, spectatorCapacity: Number(e.target.value) })}
-                  className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                  className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
                 />
               </div>
 
@@ -225,7 +225,7 @@ function AddPlayingAreaForm() {
                   type="number"
                   value={formData.staffCapacity}
                   onChange={(e) => setFormData({ ...formData, staffCapacity: Number(e.target.value) })}
-                  className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                  className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
                 />
               </div>
             </div>
@@ -242,7 +242,7 @@ function AddPlayingAreaForm() {
                 type="text"
                 value={formData.supportedActivities}
                 onChange={(e) => setFormData({ ...formData, supportedActivities: e.target.value })}
-                className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
               />
             </div>
           </div>
@@ -258,7 +258,7 @@ function AddPlayingAreaForm() {
                 type="text"
                 value={formData.equipmentNotes}
                 onChange={(e) => setFormData({ ...formData, equipmentNotes: e.target.value })}
-                className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
               />
             </div>
 
@@ -268,7 +268,7 @@ function AddPlayingAreaForm() {
                 type="text"
                 value={formData.restrictions}
                 onChange={(e) => setFormData({ ...formData, restrictions: e.target.value })}
-                className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
               />
             </div>
           </div>
@@ -278,20 +278,20 @@ function AddPlayingAreaForm() {
           <div className="space-y-4">
             <h3 className="text-sm font-bold text-ink-lum">Step 6: Review Summary</h3>
 
-            <div className="p-4 rounded-xl bg-black/40 border border-white/5 space-y-2 text-xs">
-              <div className="flex justify-between border-b border-white/5 pb-2">
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
+              <div className="flex justify-between border-b border-slate-200 pb-2">
                 <span className="text-ink-mut">Playing Area Name:</span>
                 <span className="font-bold text-ink-lum">{formData.name || "Badminton Court 1"}</span>
               </div>
-              <div className="flex justify-between border-b border-white/5 pb-2">
+              <div className="flex justify-between border-b border-slate-200 pb-2">
                 <span className="text-ink-mut">Venue:</span>
                 <span className="text-ink-sec">{venues.find((v) => v.id === formData.venueId)?.name || "Venue"}</span>
               </div>
-              <div className="flex justify-between border-b border-white/5 pb-2">
+              <div className="flex justify-between border-b border-slate-200 pb-2">
                 <span className="text-ink-mut">Type:</span>
                 <span className="text-ink-sec">{formData.type}</span>
               </div>
-              <div className="flex justify-between border-b border-white/5 pb-2">
+              <div className="flex justify-between border-b border-slate-200 pb-2">
                 <span className="text-ink-mut">Max Capacity:</span>
                 <span className="font-mono text-ink-lum">{formData.maxCapacity} players</span>
               </div>
@@ -299,7 +299,7 @@ function AddPlayingAreaForm() {
           </div>
         )}
 
-        <div className="flex items-center justify-between pt-4 border-t border-white/5">
+        <div className="flex items-center justify-between pt-4 border-t border-slate-200">
           <Button
             variant="ghost"
             onClick={() => (step > 1 ? setStep(step - 1) : router.push("/locations/playing-areas"))}

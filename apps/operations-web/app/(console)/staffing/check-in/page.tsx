@@ -49,7 +49,7 @@ export default function StaffCheckInPage() {
         sub="Mark staff as arrived, late, or absent. Who has arrived at venue floor?"
       />
 
-      <div className="glass p-6 rounded-2xl border border-white/5 space-y-5">
+      <div className="glass p-6 rounded-2xl border border-slate-200 space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="w-full sm:w-80">
             <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search staff name or role..." />
@@ -71,10 +71,10 @@ export default function StaffCheckInPage() {
                 key={s.id}
                 className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs ${
                   isCheckedIn
-                    ? "bg-emerald-950/20 border-emerald-800/40"
+                    ? "bg-emerald-100 border-emerald-300"
                     : s.status === "late"
-                    ? "bg-amber-950/20 border-amber-800/40"
-                    : "bg-black/40 border-white/5"
+                    ? "bg-amber-100 border-amber-300"
+                    : "bg-slate-50 border-slate-200"
                 }`}
               >
                 <div className="space-y-1">
@@ -82,7 +82,7 @@ export default function StaffCheckInPage() {
                     <span className="font-bold text-ink-lum text-sm">{s.name}</span>
                     <StaffStatusBadge status={s.status} size="sm" />
                   </div>
-                  <p className="text-purple-300 font-semibold">{s.roleLabel} · {s.venueName}</p>
+                  <p className="text-purple-700 font-semibold">{s.roleLabel} · {s.venueName}</p>
                   <p className="text-ink-mut text-[11px] font-mono">Expected: {s.shiftFrom} - {s.shiftTo} | Assignment: {s.assignment}</p>
                 </div>
 
@@ -99,21 +99,21 @@ export default function StaffCheckInPage() {
                       </Button>
                       <Button
                         variant="secondary"
-                        className="h-8 text-xs text-amber-300 border-amber-800/40 px-2.5"
+                        className="h-8 text-xs text-amber-700 border-amber-300 px-2.5"
                         onClick={() => handleMarkLate(s.id)}
                       >
                         Mark Late
                       </Button>
                       <Button
                         variant="ghost"
-                        className="h-8 text-xs text-rose-400 hover:text-rose-300 px-2"
+                        className="h-8 text-xs text-rose-600 hover:text-rose-700 px-2"
                         onClick={() => handleMarkAbsent(s.id)}
                       >
                         Mark Absent
                       </Button>
                     </>
                   ) : (
-                    <span className="text-emerald-400 font-bold flex items-center gap-1">
+                    <span className="text-emerald-600 font-bold flex items-center gap-1">
                       <CheckCircle2 className="w-4 h-4" />
                       Arrived & On Floor
                     </span>

@@ -91,7 +91,7 @@ export default function LiveOperationsPage() {
   }, [lss.status]);
 
   if (!session) {
-    return <div className="p-8 text-xs font-mono text-slate-400">Session not found.</div>;
+    return <div className="p-8 text-xs font-mono text-slate-500">Session not found.</div>;
   }
 
   // Ticker helper format
@@ -233,7 +233,7 @@ export default function LiveOperationsPage() {
       primaryActionBtn = (
         <button
           disabled
-          className="px-6 py-2.5 bg-white/5 border border-white/10 text-ink-mut font-bold rounded-xl text-sm cursor-not-allowed opacity-65 flex items-center gap-1.5"
+          className="px-6 py-2.5 bg-slate-50 border border-slate-200 text-ink-mut font-bold rounded-xl text-sm cursor-not-allowed opacity-65 flex items-center gap-1.5"
         >
           <Clock className="h-4 w-4" /> Waiting for Check-In...
         </button>
@@ -314,19 +314,19 @@ export default function LiveOperationsPage() {
       {/* Three step navigator */}
       <MissionStageNavigation />
 
-      {errorMsg && <div className="bg-red-950 border border-red-800 text-red-300 p-3 rounded-xl">{errorMsg}</div>}
+      {errorMsg && <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl">{errorMsg}</div>}
 
       {/* Section 1: Event Status Alerts */}
       <div className={`p-5 rounded-panel border ${
         isEmergency
-          ? "bg-red-950/60 border-red-800 text-red-200"
+          ? "bg-red-200 border-red-200 text-red-700"
           : isPaused
-          ? "bg-amber-950/60 border-amber-800 text-amber-200"
+          ? "bg-amber-200 border-amber-200 text-amber-700"
           : isEnded
-          ? "bg-slate-900 border-slate-800 text-slate-300"
+          ? "bg-slate-50 border-slate-200 text-slate-700"
           : isLive
-          ? "bg-emerald-950/50 border-emerald-800 text-emerald-200"
-          : "bg-white/3 border-white/5 text-ink-sec"
+          ? "bg-emerald-200 border-emerald-200 text-emerald-700"
+          : "bg-slate-50 border-slate-200 text-ink-sec"
       } flex flex-wrap items-center justify-between gap-4`}>
         <div className="space-y-1">
           <div className="flex items-center gap-2">
@@ -342,7 +342,7 @@ export default function LiveOperationsPage() {
           {(isLive || isPaused) && !isEnded && (
             <button
               onClick={() => setEndModalOpen(true)}
-              className="px-4 py-2.5 bg-red-950 hover:bg-red-900 text-red-300 border border-red-800/40 font-bold rounded-xl text-xs transition-colors"
+              className="px-4 py-2.5 bg-red-50 hover:bg-red-50 text-red-700 border border-red-300 font-bold rounded-xl text-xs transition-colors"
             >
               End Event
             </button>
@@ -354,15 +354,15 @@ export default function LiveOperationsPage() {
         {/* LEFT COLUMN */}
         <div className="space-y-6">
           {/* Checklist Card */}
-          <div className="glass border border-white/5 rounded-panel p-5 space-y-4">
-            <div className="flex items-center justify-between border-b border-white/5 pb-2">
+          <div className="glass border border-slate-200 rounded-panel p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
               <span className="font-bold text-ink-lum uppercase tracking-wider">Ready to Start?</span>
               <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                 handover.status === "Ready"
-                  ? "bg-emerald-950 text-emerald-400 border border-emerald-800"
+                  ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
                   : handover.status === "At Risk"
-                  ? "bg-amber-950 text-amber-300 border border-amber-800"
-                  : "bg-red-950 text-red-400 border border-red-800"
+                  ? "bg-amber-50 text-amber-700 border border-amber-200"
+                  : "bg-red-50 text-red-600 border border-red-200"
               }`}>
                 {handover.status.toUpperCase()}
               </span>
@@ -370,9 +370,9 @@ export default function LiveOperationsPage() {
 
             <div className="space-y-2">
               {checklistItems.map((item, idx) => (
-                <div key={idx} className="flex items-center justify-between py-1 border-b border-white/2">
+                <div key={idx} className="flex items-center justify-between py-1 border-b border-slate-200">
                   <span className="text-ink-sec">{item.label}</span>
-                  <span className={`font-bold ${item.passed ? "text-emerald-400" : item.warning ? "text-amber-400" : "text-danger"}`}>
+                  <span className={`font-bold ${item.passed ? "text-emerald-600" : item.warning ? "text-amber-600" : "text-danger"}`}>
                     {item.passed ? "✓ Passed" : item.warning ? "⚠ Warning" : "❌ Blocked"}
                   </span>
                 </div>
@@ -380,7 +380,7 @@ export default function LiveOperationsPage() {
             </div>
 
             {handover.status !== "Ready" && (
-              <div className="bg-red-950/40 border border-red-800/40 p-3 rounded-lg text-[10px] text-red-300 space-y-1">
+              <div className="bg-red-200 border border-red-300 p-3 rounded-lg text-[10px] text-red-700 space-y-1">
                 <p className="font-bold">Reason: {handover.status === "Blocked" ? "Critical requirements missing." : "At Risk warnings."}</p>
                 <p>Action: Verify staff attendance check-ins and returned equipment slots.</p>
               </div>
@@ -388,15 +388,15 @@ export default function LiveOperationsPage() {
           </div>
 
           {/* Event Clock Card */}
-          <div className="glass border border-white/5 rounded-panel p-5 space-y-4">
-            <div className="flex items-center justify-between border-b border-white/5 pb-2">
+          <div className="glass border border-slate-200 rounded-panel p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
               <span className="font-bold text-ink-lum uppercase tracking-wider">Event Clock</span>
-              {isLive && <span className="text-[10px] text-emerald-400 animate-pulse">● LIVE RUNNING</span>}
+              {isLive && <span className="text-[10px] text-emerald-600 animate-pulse">● LIVE RUNNING</span>}
             </div>
 
-            <div className="bg-black/20 border border-white/5 rounded-xl p-5 text-center space-y-2">
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 text-center space-y-2">
               <div className="text-sm uppercase text-ink-mut">Event Running Time</div>
-              <div className="text-4xl md:text-5xl font-extrabold text-emerald-400 tracking-widest font-mono">
+              <div className="text-4xl md:text-5xl font-extrabold text-emerald-600 tracking-widest font-mono">
                 {formatClockTime(ticker)}
               </div>
             </div>
@@ -408,24 +408,24 @@ export default function LiveOperationsPage() {
           </div>
 
           {/* Live Numbers Card */}
-          <div className="glass border border-white/5 rounded-panel p-5 space-y-4">
-            <span className="font-bold text-ink-lum uppercase tracking-wider block border-b border-white/5 pb-2">Live Numbers Snapshot</span>
+          <div className="glass border border-slate-200 rounded-panel p-5 space-y-4">
+            <span className="font-bold text-ink-lum uppercase tracking-wider block border-b border-slate-200 pb-2">Live Numbers Snapshot</span>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-              <div className="bg-white/2 border border-white/5 p-2 rounded-lg">
+              <div className="bg-slate-50 border border-slate-200 p-2 rounded-lg">
                 <span className="block text-[10px] text-ink-mut">Present</span>
                 <span className="text-lg font-bold text-brand">{checkIn.checkedInCount + checkIn.lateCount}</span>
               </div>
-              <div className="bg-white/2 border border-white/5 p-2 rounded-lg">
+              <div className="bg-slate-50 border border-slate-200 p-2 rounded-lg">
                 <span className="block text-[10px] text-ink-mut">Late</span>
-                <span className="text-lg font-bold text-amber-400">{checkIn.lateCount}</span>
+                <span className="text-lg font-bold text-amber-600">{checkIn.lateCount}</span>
               </div>
-              <div className="bg-white/2 border border-white/5 p-2 rounded-lg">
+              <div className="bg-slate-50 border border-slate-200 p-2 rounded-lg">
                 <span className="block text-[10px] text-ink-mut">Not Arrived</span>
                 <span className="text-lg font-bold text-danger">{checkIn.missingCount}</span>
               </div>
-              <div className="bg-white/2 border border-white/5 p-2 rounded-lg">
+              <div className="bg-slate-50 border border-slate-200 p-2 rounded-lg">
                 <span className="block text-[10px] text-ink-mut">Staff</span>
-                <span className="text-lg font-bold text-emerald-400">
+                <span className="text-lg font-bold text-emerald-600">
                   {staff.leadCoordinator?.status === "checked-in" ? 1 : 0} / 1
                 </span>
               </div>
@@ -436,8 +436,8 @@ export default function LiveOperationsPage() {
         {/* RIGHT COLUMN */}
         <div className="space-y-6">
           {/* Event Plan Card */}
-          <div className="glass border border-white/5 rounded-panel p-5 space-y-4">
-            <div className="flex items-center justify-between border-b border-white/5 pb-2">
+          <div className="glass border border-slate-200 rounded-panel p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
               <span className="font-bold text-ink-lum uppercase tracking-wider">Event Plan</span>
               <span className="text-[10px] text-ink-mut">One Step Active Rule</span>
             </div>
@@ -449,15 +449,15 @@ export default function LiveOperationsPage() {
                 const isCompleted = seg.status === "Completed";
                 const isSkipped = seg.status === "Skipped";
 
-                let borderStyle = "border-white/5 bg-slate-950/20";
+                let borderStyle = "border-slate-200 bg-slate-50";
                 if (isActive) borderStyle = "border-brand bg-brand/10 text-white font-bold";
-                if (isCompleted) borderStyle = "border-emerald-800 bg-emerald-950/10 text-slate-400";
-                if (isSkipped) borderStyle = "border-white/5 bg-white/2 text-ink-mut/60 italic";
+                if (isCompleted) borderStyle = "border-emerald-200 bg-emerald-50 text-slate-500";
+                if (isSkipped) borderStyle = "border-slate-200 bg-slate-50 text-ink-mut/60 italic";
 
                 return (
                   <div key={seg.id} className={`p-3 rounded-lg border flex items-center justify-between gap-3 ${borderStyle}`}>
                     <div className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-[10px] text-ink-mut">
+                      <span className="w-5 h-5 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center text-[10px] text-ink-mut">
                         {seg.sequence}
                       </span>
                       <div>
@@ -469,10 +469,10 @@ export default function LiveOperationsPage() {
                     <div className="flex items-center gap-1.5">
                       <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${
                         isActive
-                          ? "bg-emerald-950 border-emerald-800 text-emerald-400 animate-pulse"
+                          ? "bg-emerald-50 border-emerald-200 text-emerald-600 animate-pulse"
                           : isCompleted
-                          ? "bg-slate-900 border-slate-800 text-slate-400"
-                          : "bg-white/5 border-white/10 text-ink-mut"
+                          ? "bg-slate-50 border-slate-200 text-slate-500"
+                          : "bg-slate-50 border-slate-200 text-ink-mut"
                       }`}>
                         {seg.status}
                       </span>
@@ -497,7 +497,7 @@ export default function LiveOperationsPage() {
                           )}
                           <button
                             onClick={() => setSkipStepId(seg.id)}
-                            className="px-2 py-1 bg-white/5 hover:bg-white/10 border border-white/5 text-ink-sec rounded text-[10px]"
+                            className="px-2 py-1 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-ink-sec rounded text-[10px]"
                           >
                             Skip
                           </button>
@@ -516,12 +516,12 @@ export default function LiveOperationsPage() {
                   placeholder="New Event Step Name..."
                   value={newStepName}
                   onChange={(e) => setNewStepName(e.target.value)}
-                  className="flex-1 bg-slate-950 border border-slate-700 rounded px-2.5 py-1 text-slate-200"
+                  className="flex-1 bg-slate-50 border border-slate-200 rounded px-2.5 py-1 text-slate-800"
                 />
                 <button
                   type="submit"
                   disabled={!newStepName.trim()}
-                  className="px-3 py-1 bg-white/5 border border-white/10 hover:bg-white/10 rounded font-bold"
+                  className="px-3 py-1 bg-slate-50 border border-slate-200 hover:bg-slate-100 rounded font-bold"
                 >
                   + Add Step
                 </button>
@@ -530,16 +530,16 @@ export default function LiveOperationsPage() {
           </div>
 
           {/* Needs Attention & Event Notes */}
-          <div className="glass border border-white/5 rounded-panel p-5 space-y-4">
-            <span className="font-bold text-ink-lum uppercase tracking-wider block border-b border-white/5 pb-2">Needs Attention & Event Notes</span>
+          <div className="glass border border-slate-200 rounded-panel p-5 space-y-4">
+            <span className="font-bold text-ink-lum uppercase tracking-wider block border-b border-slate-200 pb-2">Needs Attention & Event Notes</span>
 
             {/* List Notes */}
             <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
               {notes.map((n) => (
-                <div key={n.id} className="p-2.5 rounded-lg bg-white/2 border border-white/5 space-y-1">
+                <div key={n.id} className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 space-y-1">
                   <div className="flex justify-between items-center text-[10px]">
                     <span className="font-bold text-ink-sec uppercase">{n.type}</span>
-                    <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${n.severity === "critical" ? "bg-red-950 text-red-400" : "bg-white/5 text-ink-mut"}`}>
+                    <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${n.severity === "critical" ? "bg-red-50 text-red-600" : "bg-slate-50 text-ink-mut"}`}>
                       {n.severity.toUpperCase()}
                     </span>
                   </div>
@@ -550,20 +550,20 @@ export default function LiveOperationsPage() {
             </div>
 
             {!isEnded && (
-              <form onSubmit={handleAddNote} className="space-y-2 border-t border-white/5 pt-3">
+              <form onSubmit={handleAddNote} className="space-y-2 border-t border-slate-200 pt-3">
                 <textarea
                   rows={2}
                   placeholder="Log operational observation (e.g. Court net adjusted)..."
                   value={noteText}
                   onChange={(e) => setNoteText(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-slate-200"
+                  className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-slate-800"
                   required
                 />
                 <div className="flex justify-end gap-2">
                   <select
                     value={noteType}
                     onChange={(e) => setNoteType(e.target.value)}
-                    className="bg-slate-950 border border-slate-700 rounded px-2 py-1"
+                    className="bg-slate-50 border border-slate-200 rounded px-2 py-1"
                   >
                     <option value="general">General</option>
                     <option value="equipment">Equipment</option>
@@ -571,7 +571,7 @@ export default function LiveOperationsPage() {
                   </select>
                   <button
                     type="submit"
-                    className="px-3 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded font-bold"
+                    className="px-3 py-1 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded font-bold"
                   >
                     Add Event Note
                   </button>
@@ -584,10 +584,10 @@ export default function LiveOperationsPage() {
 
       {/* Safety Help Button */}
       {!isEnded && (
-        <div className="pt-4 border-t border-white/5 flex justify-end">
+        <div className="pt-4 border-t border-slate-200 flex justify-end">
           <button
             onClick={handleSafetyHelpClick}
-            className="px-4 py-2 bg-red-950 hover:bg-red-900 border border-red-800 text-red-300 font-bold rounded-xl flex items-center gap-1.5"
+            className="px-4 py-2 bg-red-50 hover:bg-red-50 border border-red-200 text-red-700 font-bold rounded-xl flex items-center gap-1.5"
           >
             <ShieldAlert className="h-4 w-4" /> Safety Help
           </button>
@@ -596,17 +596,17 @@ export default function LiveOperationsPage() {
 
       {/* Safety Help Modal */}
       {safetyModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-red-800 rounded-lg p-6 max-w-md w-full space-y-4 font-mono text-xs">
-            <h4 className="font-bold text-red-400 text-sm">Pause and Request Safety Help?</h4>
-            <p className="text-slate-300">
+        <div className="fixed inset-0 z-50 bg-slate-50 flex items-center justify-center p-4">
+          <div className="bg-slate-50 border border-red-200 rounded-lg p-6 max-w-md w-full space-y-4 font-mono text-xs">
+            <h4 className="font-bold text-red-600 text-sm">Pause and Request Safety Help?</h4>
+            <p className="text-slate-700">
               This will immediately pause the event timer, halt active segments, and log a critical safety note.
             </p>
             <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setSafetyModalOpen(false)}
-                className="px-3 py-1 bg-slate-800 text-slate-300 rounded font-bold"
+                className="px-3 py-1 bg-slate-100 text-slate-700 rounded font-bold"
               >
                 Cancel
               </button>
@@ -624,13 +624,13 @@ export default function LiveOperationsPage() {
 
       {/* End Event Modal */}
       {endModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-red-800 rounded-lg p-6 max-w-md w-full space-y-4 font-mono text-xs">
-            <h4 className="font-bold text-red-400 text-sm">End this event?</h4>
-            <p className="text-slate-300">
+        <div className="fixed inset-0 z-50 bg-slate-50 flex items-center justify-center p-4">
+          <div className="bg-slate-50 border border-red-200 rounded-lg p-6 max-w-md w-full space-y-4 font-mono text-xs">
+            <h4 className="font-bold text-red-600 text-sm">End this event?</h4>
+            <p className="text-slate-700">
               Confirm before continuing:
             </p>
-            <ul className="list-disc pl-5 space-y-1 text-slate-400">
+            <ul className="list-disc pl-5 space-y-1 text-slate-500">
               <li>The current active step has been completed.</li>
               <li>Participant check-ins are closed.</li>
               <li>Critical equipment statuses are noted.</li>
@@ -639,7 +639,7 @@ export default function LiveOperationsPage() {
               <button
                 type="button"
                 onClick={() => setEndModalOpen(false)}
-                className="px-3 py-1 bg-slate-800 text-slate-300 rounded font-bold"
+                className="px-3 py-1 bg-slate-100 text-slate-700 rounded font-bold"
               >
                 Go Back
               </button>
@@ -657,23 +657,23 @@ export default function LiveOperationsPage() {
 
       {/* Pause Modal */}
       {pauseModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <form onSubmit={handlePauseSubmit} className="bg-slate-900 border border-amber-800 rounded-lg p-6 max-w-md w-full space-y-4">
-            <h4 className="font-bold text-amber-400 text-sm">Pause Event</h4>
-            <p className="text-slate-300">Provide a reason for pausing the event.</p>
+        <div className="fixed inset-0 z-50 bg-slate-50 flex items-center justify-center p-4">
+          <form onSubmit={handlePauseSubmit} className="bg-slate-50 border border-amber-200 rounded-lg p-6 max-w-md w-full space-y-4">
+            <h4 className="font-bold text-amber-600 text-sm">Pause Event</h4>
+            <p className="text-slate-700">Provide a reason for pausing the event.</p>
             <textarea
               rows={3}
               placeholder="e.g. Equipment repair; court maintenance."
               value={pauseReason}
               onChange={(e) => setPauseReason(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-slate-200"
+              className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-slate-800"
               required
             />
             <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setPauseModalOpen(false)}
-                className="px-3 py-1 bg-slate-800 text-slate-300 rounded font-bold"
+                className="px-3 py-1 bg-slate-100 text-slate-700 rounded font-bold"
               >
                 Cancel
               </button>
@@ -690,23 +690,23 @@ export default function LiveOperationsPage() {
 
       {/* Skip Step Modal */}
       {skipStepId && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <form onSubmit={handleSkipStepSubmit} className="bg-slate-900 border border-white/5 rounded-lg p-6 max-w-md w-full space-y-4">
+        <div className="fixed inset-0 z-50 bg-slate-50 flex items-center justify-center p-4">
+          <form onSubmit={handleSkipStepSubmit} className="bg-slate-50 border border-slate-200 rounded-lg p-6 max-w-md w-full space-y-4">
             <h4 className="font-bold text-ink-lum text-sm">Skip Event Step</h4>
-            <p className="text-slate-300">Provide a reason for skipping this step.</p>
+            <p className="text-slate-700">Provide a reason for skipping this step.</p>
             <textarea
               rows={3}
               placeholder="e.g. Teams decided to skip warm-up."
               value={skipReason}
               onChange={(e) => setSkipReason(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-slate-200"
+              className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-slate-800"
               required
             />
             <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setSkipStepId(null)}
-                className="px-3 py-1 bg-slate-800 text-slate-300 rounded font-bold"
+                className="px-3 py-1 bg-slate-100 text-slate-700 rounded font-bold"
               >
                 Cancel
               </button>

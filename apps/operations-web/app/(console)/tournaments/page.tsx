@@ -73,8 +73,8 @@ function BracketCard({ t }: { t: TournamentView }) {
           <p className="mt-0.5 text-sm text-ink-mut">{t.format} · {t.teams} entrants · {t.round}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge className="border border-[#f7b955]/30 bg-[#f7b955]/10 text-[#ffd28a]">{t.venueName}</Badge>
-          <Badge className="border border-white/8 bg-white/4 text-ink-sec">{t.phase}</Badge>
+          <Badge className="border border-amber-200 bg-amber-50 text-amber-700">{t.venueName}</Badge>
+          <Badge className="border border-slate-200 bg-slate-50 text-ink-sec">{t.phase}</Badge>
           <Link href={`/tournaments/${t.id}`}>
             <Button variant="secondary" className="h-7 text-xs px-2.5 rounded-lg">Workspace</Button>
           </Link>
@@ -94,7 +94,7 @@ function BracketCard({ t }: { t: TournamentView }) {
                       <span className="flex min-w-0 items-center gap-2">
                         <span
                           className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold ${
-                            m.winner && m.winner === m.teamA ? "bg-[#f7b955]/20 text-[#ffd28a]" : "bg-white/8 text-ink-mut"
+                            m.winner && m.winner === m.teamA ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-ink-mut"
                           }`}
                         >
                           {initials(m.teamA)}
@@ -107,7 +107,7 @@ function BracketCard({ t }: { t: TournamentView }) {
                       <span className="flex min-w-0 items-center gap-2">
                         <span
                           className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold ${
-                            m.winner && m.winner === m.teamB ? "bg-[#f7b955]/20 text-[#ffd28a]" : "bg-white/8 text-ink-mut"
+                            m.winner && m.winner === m.teamB ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-ink-mut"
                           }`}
                         >
                           {initials(m.teamB)}
@@ -118,7 +118,7 @@ function BracketCard({ t }: { t: TournamentView }) {
                     </div>
                     <div className="mt-2 flex items-center justify-between">
                       <StatusChip value={m.status} />
-                      {m.winner && <span className="text-[10px] text-[#ffd28a]">Winner · {m.winner}</span>}
+                      {m.winner && <span className="text-[10px] text-amber-700">Winner · {m.winner}</span>}
                     </div>
                   </div>
                 ))}

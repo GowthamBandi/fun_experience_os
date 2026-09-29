@@ -138,8 +138,8 @@ function CreateExperienceForm() {
 
   if (step === 11) {
     return (
-      <div className="glass p-8 rounded-2xl border border-emerald-800/40 bg-emerald-950/20 text-center space-y-6 max-w-xl mx-auto my-8">
-        <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center mx-auto text-emerald-400">
+      <div className="glass p-8 rounded-2xl border border-emerald-300 bg-emerald-100 text-center space-y-6 max-w-xl mx-auto my-8">
+        <div className="w-16 h-16 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center mx-auto text-emerald-600">
           <CheckCircle2 className="w-10 h-10" />
         </div>
         <div className="space-y-2">
@@ -149,10 +149,10 @@ function CreateExperienceForm() {
           </p>
         </div>
 
-        <div className="p-4 rounded-xl bg-black/40 border border-white/5 text-left text-xs space-y-1">
+        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-left text-xs space-y-1">
           <p className="text-ink-mut">Experience: <strong className="text-ink-lum">{formData.name || "Saturday Experience"}</strong></p>
           <p className="text-ink-mut">Category: <span className="text-ink-sec">{activeCat?.name || "Category"}</span></p>
-          <p className="text-ink-mut">Default Price: <span className="text-emerald-400 font-bold">₹{formData.basePrice}</span></p>
+          <p className="text-ink-mut">Default Price: <span className="text-emerald-600 font-bold">₹{formData.basePrice}</span></p>
           <p className="text-ink-mut">Capacity: <span className="text-ink-sec">{formData.minParticipants}-{formData.maxParticipants} pax</span></p>
         </div>
 
@@ -188,7 +188,7 @@ function CreateExperienceForm() {
     <div className="space-y-6 max-w-3xl mx-auto">
       {/* 10-Step Wizard Bar */}
       <div className="overflow-x-auto pb-2">
-        <div className="flex items-center gap-1.5 min-w-max border-b border-white/5 pb-3">
+        <div className="flex items-center gap-1.5 min-w-max border-b border-slate-200 pb-3">
           {[
             { num: 1, label: "1. Basics" },
             { num: 2, label: "2. Format" },
@@ -209,7 +209,7 @@ function CreateExperienceForm() {
                 step === s.num
                   ? "bg-brand text-slate-950"
                   : step > s.num
-                  ? "bg-white/10 text-ink-lum"
+                  ? "bg-slate-100 text-ink-lum"
                   : "text-ink-mut hover:text-ink-sec"
               }`}
             >
@@ -219,7 +219,7 @@ function CreateExperienceForm() {
         </div>
       </div>
 
-      <div className="glass p-6 rounded-2xl border border-white/5 space-y-6">
+      <div className="glass p-6 rounded-2xl border border-slate-200 space-y-6">
         {step === 1 && (
           <div className="space-y-4">
             <h3 className="text-sm font-bold text-ink-lum">Step 1: Basic Details</h3>
@@ -229,7 +229,7 @@ function CreateExperienceForm() {
               <select
                 value={formData.categoryId}
                 onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
               >
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -246,7 +246,7 @@ function CreateExperienceForm() {
                 placeholder="e.g. Saturday Mystery Badminton"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum placeholder:text-ink-mut"
+                className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum placeholder:text-ink-mut"
               />
             </div>
 
@@ -257,12 +257,12 @@ function CreateExperienceForm() {
                 placeholder="What will customers see on the event card?"
                 value={formData.shortDesc}
                 onChange={(e) => setFormData({ ...formData, shortDesc: e.target.value })}
-                className="w-full p-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum placeholder:text-ink-mut"
+                className="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum placeholder:text-ink-mut"
               />
             </div>
 
-            <div className="p-3 rounded-xl bg-black/30 border border-white/5 text-xs text-ink-mut">
-              Format Authority: <strong className="text-purple-300 capitalize">{isSport ? "Sport (Scores & Winners)" : "Non-Sport (Outcome & Completion)"}</strong> derived from selected category.
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-mut">
+              Format Authority: <strong className="text-purple-700 capitalize">{isSport ? "Sport (Scores & Winners)" : "Non-Sport (Outcome & Completion)"}</strong> derived from selected category.
             </div>
           </div>
         )}
@@ -277,7 +277,7 @@ function CreateExperienceForm() {
                 <select
                   value={formData.format}
                   onChange={(e) => setFormData({ ...formData, format: e.target.value as any })}
-                  className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                  className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
                 >
                   <option value="mixed">Mixed (All genders)</option>
                   <option value="open">Open</option>
@@ -291,7 +291,7 @@ function CreateExperienceForm() {
                 <select
                   value={formData.entryType}
                   onChange={(e) => setFormData({ ...formData, entryType: e.target.value as any })}
-                  className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                  className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
                 >
                   <option value="individual">Individual Solo Booking</option>
                   <option value="duo">Duo Pair</option>
@@ -307,7 +307,7 @@ function CreateExperienceForm() {
                   type="number"
                   value={formData.ageMin}
                   onChange={(e) => setFormData({ ...formData, ageMin: Number(e.target.value) })}
-                  className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                  className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
                 />
               </div>
 
@@ -317,7 +317,7 @@ function CreateExperienceForm() {
                   type="number"
                   value={formData.ageMax}
                   onChange={(e) => setFormData({ ...formData, ageMax: Number(e.target.value) })}
-                  className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                  className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
                 />
               </div>
             </div>
@@ -335,7 +335,7 @@ function CreateExperienceForm() {
                   type="number"
                   value={formData.minParticipants}
                   onChange={(e) => setFormData({ ...formData, minParticipants: Number(e.target.value) })}
-                  className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                  className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
                 />
               </div>
 
@@ -345,7 +345,7 @@ function CreateExperienceForm() {
                   type="number"
                   value={formData.targetParticipants}
                   onChange={(e) => setFormData({ ...formData, targetParticipants: Number(e.target.value) })}
-                  className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                  className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
                 />
               </div>
 
@@ -355,13 +355,13 @@ function CreateExperienceForm() {
                   type="number"
                   value={formData.maxParticipants}
                   onChange={(e) => setFormData({ ...formData, maxParticipants: Number(e.target.value) })}
-                  className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                  className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
                 />
               </div>
             </div>
 
             {capacityError && (
-              <div className="p-3 rounded-xl bg-rose-950/20 border border-rose-800/40 text-rose-300 text-xs font-semibold">
+              <div className="p-3 rounded-xl bg-rose-100 border border-rose-300 text-rose-700 text-xs font-semibold">
                 ⚠️ {capacityError}
               </div>
             )}
@@ -385,7 +385,7 @@ function CreateExperienceForm() {
                   type="number"
                   value={formData.duration}
                   onChange={(e) => setFormData({ ...formData, duration: Number(e.target.value) })}
-                  className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                  className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
                 />
               </div>
 
@@ -395,7 +395,7 @@ function CreateExperienceForm() {
                   type="number"
                   value={formData.revealHoursBefore}
                   onChange={(e) => setFormData({ ...formData, revealHoursBefore: Number(e.target.value) })}
-                  className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                  className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
                 />
               </div>
             </div>
@@ -418,7 +418,7 @@ function CreateExperienceForm() {
                 type="number"
                 value={formData.basePrice}
                 onChange={(e) => setFormData({ ...formData, basePrice: Number(e.target.value) })}
-                className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum font-bold"
+                className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum font-bold"
               />
             </div>
 
@@ -440,12 +440,12 @@ function CreateExperienceForm() {
                 type="number"
                 value={formData.coordinatorsCount}
                 onChange={(e) => setFormData({ ...formData, coordinatorsCount: Number(e.target.value) })}
-                className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
               />
             </div>
 
             {isSport && (
-              <label className="flex items-center gap-2 cursor-pointer p-3 rounded-xl bg-black/40 border border-white/10 text-xs">
+              <label className="flex items-center gap-2 cursor-pointer p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
                 <input
                   type="checkbox"
                   checked={formData.refereeRequired}
@@ -468,7 +468,7 @@ function CreateExperienceForm() {
                 type="text"
                 value={formData.playingAreaTypes}
                 onChange={(e) => setFormData({ ...formData, playingAreaTypes: e.target.value })}
-                className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
               />
             </div>
 
@@ -489,7 +489,7 @@ function CreateExperienceForm() {
                 type="text"
                 value={formData.preRevealPreview}
                 onChange={(e) => setFormData({ ...formData, preRevealPreview: e.target.value })}
-                className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
               />
             </div>
 
@@ -499,7 +499,7 @@ function CreateExperienceForm() {
                 type="text"
                 value={formData.tempIdFormat}
                 onChange={(e) => setFormData({ ...formData, tempIdFormat: e.target.value })}
-                className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum font-mono"
+                className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum font-mono"
               />
             </div>
           </div>
@@ -509,7 +509,7 @@ function CreateExperienceForm() {
           <div className="space-y-4">
             <h3 className="text-sm font-bold text-ink-lum">Step 9: Operations & Event Checklist</h3>
 
-            <div className="p-4 rounded-xl bg-black/40 border border-white/5 space-y-2 text-xs">
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
               <div className="font-bold text-ink-lum">Result Output Type:</div>
               <p className="text-ink-sec">
                 {isSport ? "🏆 Score-based match outcomes with team rankings." : "🎯 Facilitated group outcome and completion badges."}
@@ -522,20 +522,20 @@ function CreateExperienceForm() {
           <div className="space-y-4">
             <h3 className="text-sm font-bold text-ink-lum">Step 10: Review & Readiness Check</h3>
 
-            <div className="p-4 rounded-xl bg-black/40 border border-white/5 space-y-2 text-xs">
-              <div className="flex justify-between border-b border-white/5 pb-2">
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
+              <div className="flex justify-between border-b border-slate-200 pb-2">
                 <span className="text-ink-mut">Experience Name:</span>
                 <span className="font-bold text-ink-lum">{formData.name || "Saturday Mystery Experience"}</span>
               </div>
-              <div className="flex justify-between border-b border-white/5 pb-2">
+              <div className="flex justify-between border-b border-slate-200 pb-2">
                 <span className="text-ink-mut">Category:</span>
-                <span className="text-purple-300 font-bold">{activeCat?.name || "Category"}</span>
+                <span className="text-purple-700 font-bold">{activeCat?.name || "Category"}</span>
               </div>
-              <div className="flex justify-between border-b border-white/5 pb-2">
+              <div className="flex justify-between border-b border-slate-200 pb-2">
                 <span className="text-ink-mut">Default Price:</span>
-                <span className="text-emerald-400 font-bold">₹{formData.basePrice}</span>
+                <span className="text-emerald-600 font-bold">₹{formData.basePrice}</span>
               </div>
-              <div className="flex justify-between border-b border-white/5 pb-2">
+              <div className="flex justify-between border-b border-slate-200 pb-2">
                 <span className="text-ink-mut">Group Size:</span>
                 <span className="text-ink-lum">{formData.minParticipants} - {formData.maxParticipants} pax</span>
               </div>
@@ -544,7 +544,7 @@ function CreateExperienceForm() {
         )}
 
         {/* Buttons */}
-        <div className="flex items-center justify-between pt-4 border-t border-white/5">
+        <div className="flex items-center justify-between pt-4 border-t border-slate-200">
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"

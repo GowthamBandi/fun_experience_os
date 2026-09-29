@@ -184,7 +184,7 @@ export default function BookingDetailPage() {
                     <span className="text-ink-sec text-right">{payment?.provider || "-"}</span>
                   </div>
                   {refund && (
-                    <div className="flex justify-between items-center bg-red-950/20 p-2 rounded-lg -mx-2 px-2 mt-2 border border-red-900/30">
+                    <div className="flex justify-between items-center bg-red-100 p-2 rounded-lg -mx-2 px-2 mt-2 border border-red-200">
                       <span className="text-ink-mut">Refund Record</span>
                       <span className="text-ink-sec">{refund.id} ({refund.status})</span>
                     </div>
@@ -215,26 +215,26 @@ export default function BookingDetailPage() {
                       <div className="mt-3 space-y-2 p-3 bg-ink-base rounded-xl border border-ink-mut/10">
                         {isPending && (
                           <>
-                            <Button variant="ghost" className="w-full justify-start text-xs text-red-400" onClick={() => failBookingPayment(booking.id)}>
+                            <Button variant="ghost" className="w-full justify-start text-xs text-red-600" onClick={() => failBookingPayment(booking.id)}>
                               Mark Payment Problem
                             </Button>
-                            <Button variant="ghost" className="w-full justify-start text-xs text-amber-400" onClick={() => expireReservation(booking.id)}>
+                            <Button variant="ghost" className="w-full justify-start text-xs text-amber-600" onClick={() => expireReservation(booking.id)}>
                               Expire Now
                             </Button>
                           </>
                         )}
                         {!isConfirmed && (
-                          <Button variant="ghost" className="w-full justify-start text-xs text-red-400" onClick={() => setIsCancelModalOpen(true)}>
+                          <Button variant="ghost" className="w-full justify-start text-xs text-red-600" onClick={() => setIsCancelModalOpen(true)}>
                             Cancel Booking
                           </Button>
                         )}
                         {isConfirmed && !refund && (
-                          <Button variant="ghost" className="w-full justify-start text-xs text-amber-400" onClick={() => initiateRefund({ bookingId: booking.id, amount: booking.amount, reason: "Manual request", operatorId: role.id })}>
+                          <Button variant="ghost" className="w-full justify-start text-xs text-amber-600" onClick={() => initiateRefund({ bookingId: booking.id, amount: booking.amount, reason: "Manual request", operatorId: role.id })}>
                             Request Refund
                           </Button>
                         )}
                         {refund && refund.status === "requested" && (
-                          <Button variant="ghost" className="w-full justify-start text-xs text-emerald-400" onClick={() => approveRefund(refund.id, role.id)}>
+                          <Button variant="ghost" className="w-full justify-start text-xs text-emerald-600" onClick={() => approveRefund(refund.id, role.id)}>
                             Approve Refund
                           </Button>
                         )}
@@ -251,7 +251,7 @@ export default function BookingDetailPage() {
 
       {/* Cancel Modal */}
       {isCancelModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-50 backdrop-blur-sm">
           <div className="bg-ink-base border border-ink-mut/20 p-6 rounded-2xl max-w-md w-full space-y-5 shadow-2xl">
             <h3 className="text-lg font-medium text-ink-lum">Cancel this booking?</h3>
             

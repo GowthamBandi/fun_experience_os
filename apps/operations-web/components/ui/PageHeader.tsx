@@ -6,12 +6,12 @@ import { Fade } from "@/components/motion/Motion";
 export function PageHeader({ overline, title, sub, right }: { overline: string; title: string; sub?: string; right?: ReactNode }) {
   return (
     <Fade className="flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <p className="overline">{overline}</p>
-        <h1 className="mt-2 text-[24px] font-semibold leading-tight tracking-tight text-ink-lum">{title}</h1>
-        {sub && <p className="mt-1 max-w-xl text-sm text-ink-mut">{sub}</p>}
+      <div className="min-w-0">
+        <p className="overline text-brand">{overline}</p>
+        <h1 className="mt-1.5 font-display text-[28px] font-bold leading-tight tracking-tight text-ink-lum">{title}</h1>
+        {sub && <p className="mt-1.5 max-w-2xl text-sm leading-6 text-ink-mut">{sub}</p>}
       </div>
-      {right}
+      {right && <div className="flex flex-wrap items-center gap-2">{right}</div>}
     </Fade>
   );
 }

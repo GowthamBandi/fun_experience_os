@@ -91,16 +91,16 @@ export default function TerritoriesPage() {
               onChange={setStatusFilter}
             />
           </div>
-          <div className="inline-flex gap-1 rounded-xl bg-white/4 p-1">
+          <div className="inline-flex gap-1 rounded-xl bg-slate-50 p-1">
             <button
               onClick={() => setView("table")}
-              className={cn("rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200", view === "table" ? "bg-white/10 text-ink-lum" : "text-ink-mut hover:text-ink-sec")}
+              className={cn("rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200", view === "table" ? "bg-slate-100 text-ink-lum" : "text-ink-mut hover:text-ink-sec")}
             >
               Table
             </button>
             <button
               onClick={() => setView("cards")}
-              className={cn("rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200", view === "cards" ? "bg-white/10 text-ink-lum" : "text-ink-mut hover:text-ink-sec")}
+              className={cn("rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200", view === "cards" ? "bg-slate-100 text-ink-lum" : "text-ink-mut hover:text-ink-sec")}
             >
               Cards
             </button>
@@ -162,7 +162,7 @@ export default function TerritoriesPage() {
                           <span className="text-ink-lum">{r.upcomingSessions}</span>
                         </div>
                       </div>
-                      <div className="pt-2 border-t border-white/10 flex justify-between items-center">
+                      <div className="pt-2 border-t border-slate-200 flex justify-between items-center">
                         <Link href={`/territories/${r.id}`}>
                           <Button variant="secondary" className="text-[11px] h-7 px-3">View Territory</Button>
                         </Link>
@@ -211,7 +211,7 @@ export default function TerritoriesPage() {
                       <span className="text-ink-lum">{r.upcomingSessions}</span>
                     </div>
                   </div>
-                  <div className="pt-2 border-t border-white/10 flex justify-between items-center">
+                  <div className="pt-2 border-t border-slate-200 flex justify-between items-center">
                     <Link href={`/territories/${r.id}`}>
                       <Button variant="secondary" className="text-[11px] h-7 px-3">View Territory</Button>
                     </Link>

@@ -6,12 +6,14 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import { MotionConfig } from "framer-motion";
 import type { Operator, Role, RoleId, Territory, TerritoryId } from "@/lib/types";
-import { OPERATORS, ROLES, territoryById } from "@/lib/data/mock";
+import { ROLES, territoryById } from "@/lib/data/mock";
+import { buildActivityRecord } from "@/lib/activity";
 import { canAccess } from "@/lib/nav";
 import type {
   Incident,
@@ -22,19 +24,40 @@ import type {
   City as PrototypeCity,
   Venue as PrototypeVenue,
   PlayingArea as PrototypePlayingArea,
-  CrewMember
+  CrewMember,
+  OperatorAccount
 } from "./prototype/entities";
 import {
   getInitialState,
+  getEmptyState,
   applyScenario,
   type PrototypeState
 } from "./prototype/scenarios";
 import {
-  loadPrototypeState,
-  savePrototypeState,
+  loadWorkspace,
+  saveWorkspace,
+  clearWorkspace,
+  parseWorkspaceBackup,
+  downloadWorkspaceBackup,
+  onWorkspaceSavedElsewhere,
   loadDemoStep,
-  saveDemoStep
+  saveDemoStep,
+  type LoadSource
 } from "./prototype/persistence";
+import { migrateState } from "./prototype/migrations";
+import { resolveDataMode } from "./firebase/mode";
+
+/** Local workspace: the operator account is the source of truth for role. Firebase: the verified token claim is. */
+const ROLE_FROM_ACCOUNT = resolveDataMode() === "prototype";
+import {
+  decideGovernanceCase as decideGovernanceCaseCommand,
+  setGovernanceEntityStatus as setGovernanceEntityStatusCommand,
+  submitGovernanceIntake as submitGovernanceIntakeCommand,
+  type GovernanceOutcome,
+  type GovernanceEntityType,
+  type GovernanceEntityStatus,
+  type IntakeInput
+} from "./prototype/governance/commands";
 import {
   createFranchise,
   createTerritory,
@@ -171,6 +194,7 @@ import {
   recommendRefundException,
   approveRefundException,
   rejectRefundException,
+  releaseExpiredHolds,
   pushAudit,
   pushSignal,
   type FranchiseInput,
@@ -204,9 +228,19 @@ interface PersistedConsole {
   sidebarCollapsed: boolean;
 }
 
+export interface WorkspaceStatus {
+  source: LoadSource | null;
+  saveState: "idle" | "saving" | "saved" | "error";
+  lastSavedAt: string | null;
+}
+
+export type CommandOutcome = { error?: string };
+
 interface StoreValue {
   authed: boolean;
   hydrated: boolean;
+  workspace: WorkspaceStatus;
+  operators: OperatorAccount[];
   operator: Operator | null;
   role: Role;
   territory: Territory;
@@ -397,6 +431,20 @@ interface StoreValue {
   addSignal: (s: Signal) => void;
   addAudit: (sessionId: string | undefined, action: string, description: string) => void;
 
+  // Marketplace governance (local workspace mode)
+  decideGovernanceCase: (caseId: string, expectedVersion: number, outcome: GovernanceOutcome, note: string) => CommandOutcome;
+  setGovernanceEntityStatus: (entityType: GovernanceEntityType, entityId: string, expectedVersion: number, status: GovernanceEntityStatus, reason: string) => CommandOutcome;
+  submitGovernanceIntake: (input: IntakeInput) => CommandOutcome & { id?: string };
+
+  // Operator accounts
+  createOperator: (input: { name: string; title: string; role: RoleId; territoryId: string; email?: string }) => CommandOutcome & { id?: string };
+  updateOperator: (id: string, patch: Partial<Pick<OperatorAccount, "name" | "title" | "role" | "territoryId" | "email" | "status">>) => CommandOutcome;
+
+  // Workspace records
+  exportWorkspace: () => void;
+  importWorkspace: (text: string) => CommandOutcome;
+  startFreshWorkspace: () => void;
+
   // Demo controls
   resetDemoData: () => void;
   loadScenario: (name: string) => void;
@@ -433,17 +481,70 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [signalOpen, setSignalOpen] = useState(false);
 
-  // Prototype state
+  // Workspace state. `stateRef` is the synchronous source of truth for commands;
+  // React state mirrors it for rendering.
   const [state, setState] = useState<PrototypeState>(getInitialState);
+  const stateRef = useRef<PrototypeState>(state);
   const [demoStep, setDemoStepState] = useState<number>(0);
+  const [workspace, setWorkspace] = useState<WorkspaceStatus>({ source: null, saveState: "idle", lastSavedAt: null });
+  const saveTimer = useRef<number | null>(null);
+  const dirty = useRef(false);
+
+  const flushSave = useCallback(async () => {
+    if (saveTimer.current !== null) {
+      window.clearTimeout(saveTimer.current);
+      saveTimer.current = null;
+    }
+    if (!dirty.current) return;
+    dirty.current = false;
+    setWorkspace((w) => ({ ...w, saveState: "saving" }));
+    const ok = await saveWorkspace(stateRef.current);
+    setWorkspace((w) => ({ ...w, saveState: ok ? "saved" : "error", lastSavedAt: ok ? new Date().toISOString() : w.lastSavedAt }));
+  }, []);
+
+  const scheduleSave = useCallback(() => {
+    dirty.current = true;
+    if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(() => void flushSave(), 250);
+  }, [flushSave]);
+
+  const replaceState = useCallback((next: PrototypeState, save = true) => {
+    stateRef.current = next;
+    setState(next);
+    if (save) scheduleSave();
+  }, [scheduleSave]);
 
   useEffect(() => {
+    let cancelled = false;
     setAuth(readAuth());
     setConsolePrefs(readConsole());
-    setState(loadPrototypeState());
     setDemoStepState(loadDemoStep());
-    setHydrated(true);
-  }, []);
+    void loadWorkspace().then(({ state: loaded, source, savedAt }) => {
+      if (cancelled) return;
+      stateRef.current = loaded;
+      setState(loaded);
+      setWorkspace({ source, saveState: "saved", lastSavedAt: savedAt ?? null });
+      setHydrated(true);
+    });
+    const offOther = onWorkspaceSavedElsewhere(() => {
+      void loadWorkspace().then(({ state: loaded, savedAt }) => {
+        stateRef.current = loaded;
+        setState(loaded);
+        setWorkspace((w) => ({ ...w, saveState: "saved", lastSavedAt: savedAt ?? w.lastSavedAt }));
+      });
+    });
+    const onHide = () => {
+      if (document.visibilityState === "hidden") void flushSave();
+    };
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("pagehide", onHide);
+    return () => {
+      cancelled = true;
+      offOther();
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("pagehide", onHide);
+    };
+  }, [flushSave]);
 
   const persist = useCallback((key: string, value: unknown) => {
     try {
@@ -457,15 +558,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
    * Single coordination primitive: apply a pure service transform to the
    * current state and persist the result. No business logic lives here.
    */
-  const commit = useCallback((fn: (prev: PrototypeState) => PrototypeState) => {
-    setState((prev) => {
-      const next = fn(prev);
-      savePrototypeState(next);
-      return next;
-    });
-  }, []);
+  const commit = useCallback((fn: (prev: PrototypeState) => PrototypeState): PrototypeState => {
+    const prev = stateRef.current;
+    const next = fn(prev);
+    if (next !== prev) replaceState(next);
+    return next;
+  }, [replaceState]);
 
-  const operatorId = auth?.operatorId;
+  // The acting operator is always the signed-in operator. Callers can never
+  // supply or override it (DEC-PT-007).
+  const operatorId = auth?.operatorId ?? "system";
+  const accountRole = auth ? state.operators.find((o) => o.id === auth.operatorId)?.role : undefined;
+  const roleId: RoleId | undefined = (ROLE_FROM_ACCOUNT ? accountRole : undefined) ?? auth?.roleId;
 
   /* ------------------------------ auth ------------------------------ */
 
@@ -599,7 +703,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     (params: any) => {
       let res: any;
       commit((prev) => {
-        const out = createBookingReservation(prev, { ...params, operatorId: params.operatorId || operatorId });
+        const out = createBookingReservation(prev, { ...params, operatorId });
         res = out;
         return out.state;
       });
@@ -611,7 +715,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const confirmBookingPaymentCb = useCallback((id: string, method = "card") => commit((prev) => confirmBookingPayment(prev, id, method, operatorId)), [commit, operatorId]);
   const failBookingPaymentCb = useCallback((id: string, reason?: string) => commit((prev) => failBookingPayment(prev, id, reason, operatorId)), [commit, operatorId]);
   const expireReservationCb = useCallback((id: string) => commit((prev) => expireReservation(prev, id, operatorId)), [commit, operatorId]);
-  const joinWaitlistCb = useCallback((params: any) => commit((prev) => joinWaitlist(prev, { ...params, operatorId: params.operatorId || operatorId })), [commit, operatorId]);
+  const joinWaitlistCb = useCallback((params: any) => commit((prev) => joinWaitlist(prev, { ...params, operatorId })), [commit, operatorId]);
   const offerWaitlistSlotCb = useCallback((sessionId: string) => commit((prev) => offerWaitlistSlot(prev, sessionId, operatorId)), [commit, operatorId]);
   const acceptWaitlistOfferCb = useCallback((bookingId: string) => commit((prev) => acceptWaitlistOffer(prev, bookingId, operatorId)), [commit, operatorId]);
   const expireWaitlistOfferCb = useCallback((bookingId: string) => commit((prev) => expireWaitlistOffer(prev, bookingId, operatorId)), [commit, operatorId]);
@@ -620,7 +724,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     (params: any) => {
       let res: any;
       commit((prev) => {
-        const out = initiateRefund(prev, { ...params, operatorId: params.operatorId || operatorId });
+        const out = initiateRefund(prev, { ...params, operatorId });
         res = out;
         return out.state;
       });
@@ -678,7 +782,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     (params: any) => {
       let res: any;
       commit((prev) => {
-        const out = moveTeamParticipant(prev, { ...params, operatorId: params.operatorId || operatorId });
+        const out = moveTeamParticipant(prev, { ...params, operatorId });
         res = out;
         return out.state;
       });
@@ -691,7 +795,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     (params: any) => {
       let res: any;
       commit((prev) => {
-        const out = swapTeamParticipants(prev, { ...params, operatorId: params.operatorId || operatorId });
+        const out = swapTeamParticipants(prev, { ...params, operatorId });
         res = out;
         return out.state;
       });
@@ -742,7 +846,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     (params: any) => {
       let res: any;
       commit((prev) => {
-        const out = updateCheckInStatus(prev, { ...params, operatorId: params.operatorId || operatorId });
+        const out = updateCheckInStatus(prev, { ...params, operatorId });
         res = out;
         return out.state;
       });
@@ -820,13 +924,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     (params: any) => {
       let res: any;
       commit((prev) => {
-        const out = requestEmergencyIdentityAccess(prev, { ...params, operatorId: params.operatorId || operatorId });
+        const out = requestEmergencyIdentityAccess(prev, { ...params, operatorId, operatorRole: roleId ?? "" });
         res = out;
         return out.state;
       });
       return res;
     },
-    [commit, operatorId]
+    [commit, operatorId, roleId]
   );
 
   const closeEmergencyIdentityAccessCb = useCallback(
@@ -892,26 +996,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     (params: any) => {
       let res: any;
       commit((prev) => {
-        const out = enterEmergencyMode(prev, { ...params, operatorId: params.operatorId || operatorId });
+        const out = enterEmergencyMode(prev, { ...params, operatorId, operatorRole: roleId ?? "" });
         res = out;
         return out.state;
       });
       return res;
     },
-    [commit, operatorId]
+    [commit, operatorId, roleId]
   );
 
   const exitEmergencyModeCb = useCallback(
     (params: any) => {
       let res: any;
       commit((prev) => {
-        const out = exitEmergencyMode(prev, { ...params, operatorId: params.operatorId || operatorId });
+        const out = exitEmergencyMode(prev, { ...params, operatorId, operatorRole: roleId ?? "" });
         res = out;
         return out.state;
       });
       return res;
     },
-    [commit, operatorId]
+    [commit, operatorId, roleId]
   );
 
   const endLiveSessionCb = useCallback(
@@ -983,7 +1087,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     (params: any) => {
       let res: any;
       commit((prev) => {
-        const out = createDraftResult(prev, { ...params, operatorId: params.operatorId || operatorId });
+        const out = createDraftResult(prev, { ...params, operatorId });
         res = out;
         return out.state;
       });
@@ -1009,7 +1113,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     (params: any) => {
       let res: any;
       commit((prev) => {
-        const out = correctResult(prev, { ...params, operatorId: params.operatorId || operatorId });
+        const out = correctResult(prev, { ...params, operatorId });
         res = out;
         return out.state;
       });
@@ -1035,7 +1139,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     (params: any) => {
       let res: any;
       commit((prev) => {
-        const out = updateEquipmentStatus(prev, { ...params, operatorId: params.operatorId || operatorId });
+        const out = updateEquipmentStatus(prev, { ...params, operatorId });
         res = out;
         return out.state;
       });
@@ -1131,12 +1235,121 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   /* ------------------------------ demo controls ------------------------------ */
 
   const resetDemoData = useCallback(() => {
-    const fresh = getInitialState();
-    setState(fresh);
-    savePrototypeState(fresh);
+    const prev = stateRef.current;
+    // The activity record survives a reset: it is the history of the workspace.
+    replaceState({ ...migrateState(getInitialState()), activityLog: prev.activityLog, operators: prev.operators });
     setDemoStepState(0);
     saveDemoStep(0);
-  }, []);
+  }, [replaceState]);
+
+  const startFreshWorkspace = useCallback(() => {
+    const prev = stateRef.current;
+    replaceState({ ...getEmptyState(), activityLog: prev.activityLog, operators: prev.operators });
+  }, [replaceState]);
+
+  const exportWorkspace = useCallback(() => {
+    void flushSave();
+    downloadWorkspaceBackup(stateRef.current);
+  }, [flushSave]);
+
+  const importWorkspace = useCallback((text: string): CommandOutcome => {
+    try {
+      const restored = parseWorkspaceBackup(text);
+      replaceState({ ...restored, activityLog: [...restored.activityLog] });
+      return {};
+    } catch (cause) {
+      return { error: cause instanceof Error ? cause.message : "The backup could not be restored." };
+    }
+  }, [replaceState]);
+
+  /* --------------------------- governance (local) --------------------------- */
+
+  const actorRef = useRef({ id: "system", name: "System", roleId: "system" });
+  const latestCommands = useRef<Record<string, unknown>>({});
+  const journalWrappers = useRef<Record<string, (...args: unknown[]) => unknown>>({});
+
+  const decideGovernanceCaseCb = useCallback(
+    (caseId: string, expectedVersion: number, outcome: GovernanceOutcome, note: string): CommandOutcome => {
+      const out = decideGovernanceCaseCommand(stateRef.current, { caseId, expectedVersion, outcome, note }, actorRef.current);
+      if (!out.error) replaceState(out.state);
+      return { error: out.error };
+    },
+    [replaceState]
+  );
+
+  const setGovernanceEntityStatusCb = useCallback(
+    (entityType: GovernanceEntityType, entityId: string, expectedVersion: number, status: GovernanceEntityStatus, reason: string): CommandOutcome => {
+      const out = setGovernanceEntityStatusCommand(stateRef.current, { entityType, entityId, expectedVersion, status, reason }, actorRef.current);
+      if (!out.error) replaceState(out.state);
+      return { error: out.error };
+    },
+    [replaceState]
+  );
+
+  const submitGovernanceIntakeCb = useCallback(
+    (input: IntakeInput) => {
+      const out = submitGovernanceIntakeCommand(stateRef.current, input, actorRef.current);
+      if (!out.error) replaceState(out.state);
+      return { error: out.error, id: out.id };
+    },
+    [replaceState]
+  );
+
+  /* ---------------------------- operator accounts ---------------------------- */
+
+  const isOwner = roleId === "platform-owner" || roleId === "super-admin";
+
+  const createOperatorCb = useCallback(
+    (input: { name: string; title: string; role: RoleId; territoryId: string; email?: string }) => {
+      if (!isOwner) return { error: "Only a Platform Owner or Super Admin can add operators." };
+      const name = input.name.trim();
+      if (name.length < 2) return { error: "Enter the operator's full name." };
+      if (input.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email)) return { error: "Enter a valid email address." };
+      if (!ROLES.some((r) => r.id === input.role)) return { error: "Choose a role." };
+      if (input.role === "platform-owner" && roleId !== "platform-owner") return { error: "Only a Platform Owner can create another Platform Owner." };
+      const prev = stateRef.current;
+      const nums = prev.operators.map((o) => parseInt(o.id.replace(/^op-/, ""), 10)).filter(Number.isFinite);
+      const id = `op-${Math.max(0, ...nums) + 1}`;
+      const initials = name.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+      const at = new Date().toISOString();
+      const account: OperatorAccount = { id, name, title: input.title.trim() || (ROLES.find((r) => r.id === input.role)?.name ?? ""), role: input.role, territoryId: input.territoryId, initials, email: input.email?.trim(), status: "active", createdAt: at, updatedAt: at };
+      replaceState({ ...prev, operators: [...prev.operators, account] });
+      return { id };
+    },
+    [isOwner, roleId, replaceState]
+  );
+
+  const updateOperatorCb = useCallback(
+    (id: string, patch: Partial<Pick<OperatorAccount, "name" | "title" | "role" | "territoryId" | "email" | "status">>) => {
+      if (!isOwner) return { error: "Only a Platform Owner or Super Admin can change operators." };
+      const prev = stateRef.current;
+      const target = prev.operators.find((o) => o.id === id);
+      if (!target) return { error: "This operator no longer exists." };
+      if (id === operatorId && (patch.status === "suspended" || (patch.role && patch.role !== target.role))) {
+        return { error: "You cannot suspend yourself or change your own role." };
+      }
+      if ((target.role === "platform-owner" || patch.role === "platform-owner") && roleId !== "platform-owner") {
+        return { error: "Only a Platform Owner can change a Platform Owner account." };
+      }
+      const owners = prev.operators.filter((o) => o.role === "platform-owner" && o.status === "active");
+      if (target.role === "platform-owner" && owners.length <= 1 && (patch.status === "suspended" || (patch.role && patch.role !== "platform-owner"))) {
+        return { error: "At least one active Platform Owner must remain." };
+      }
+      replaceState({ ...prev, operators: prev.operators.map((o) => (o.id === id ? { ...o, ...patch, updatedAt: new Date().toISOString() } : o)) });
+      return {};
+    },
+    [isOwner, operatorId, roleId, replaceState]
+  );
+
+  /* --------------------------- hold-expiry sweeper --------------------------- */
+
+  useEffect(() => {
+    if (!hydrated) return;
+    const sweep = () => commit((prev) => releaseExpiredHolds(prev, new Date().toISOString(), "system"));
+    sweep();
+    const t = window.setInterval(sweep, 30_000);
+    return () => window.clearInterval(t);
+  }, [hydrated, commit]);
 
   const loadScenario = useCallback(
     (name: string) => {
@@ -1151,11 +1364,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<StoreValue>(() => {
-    const operator = auth ? (OPERATORS.find((o) => o.id === auth.operatorId) ?? null) : null;
-    const role = ROLES.find((r) => r.id === (auth?.roleId ?? "coordinator")) ?? ROLES[6];
+    const account = auth ? (state.operators.find((o) => o.id === auth.operatorId) ?? null) : null;
+    const operator = account && account.status === "active" ? account : null;
+    const role = ROLES.find((r) => r.id === (roleId ?? "coordinator")) ?? ROLES[6];
+    actorRef.current = { id: operator?.id ?? "system", name: operator?.name ?? "System", roleId: roleId ?? "system" };
     // Resolve territory: prototype state is the source of truth for the id/name;
     // legacy meta (TERRITORIES) only supplies the shell's stats (time/venues/fill).
-    const territoryData = state.territories.find((t) => t.id === consolePrefs.territoryId) ?? SEED_TERRITORIES[0];
+    const territoryData = state.territories.find((t) => t.id === consolePrefs.territoryId) ?? state.territories[0] ?? SEED_TERRITORIES[0];
     const legacy = territoryById(territoryData.id as never);
     const resolvedTerritoryObj = {
       ...legacy,
@@ -1164,9 +1379,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       code: territoryData.name.slice(0, 3).toUpperCase(),
     };
 
-    return {
-      authed: !!auth && hydrated,
+    const commands = {
+      authed: !!auth && hydrated && !!operator,
       hydrated,
+      workspace,
+      operators: state.operators,
       operator,
       role,
       territory: resolvedTerritoryObj,
@@ -1184,7 +1401,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setSignalOpen,
       markAllRead,
       markSignalRead,
-      canAccess: (href: string) => (auth ? canAccess(href, auth.roleId) : false),
+      canAccess: (href: string) => (auth && roleId && operator ? canAccess(href, roleId) : false),
       createFranchise: createFranchiseCb,
       createTerritory: createTerritoryCb,
       createCity: createCityCb,
@@ -1328,13 +1545,39 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       updateIncident,
       addSignal,
       addAudit,
+      decideGovernanceCase: decideGovernanceCaseCb,
+      setGovernanceEntityStatus: setGovernanceEntityStatusCb,
+      submitGovernanceIntake: submitGovernanceIntakeCb,
+      createOperator: createOperatorCb,
+      updateOperator: updateOperatorCb,
+      exportWorkspace,
+      importWorkspace,
+      startFreshWorkspace,
       resetDemoData,
       loadScenario,
       setDemoStep
     };
+    latestCommands.current = commands as unknown as Record<string, unknown>;
+    return journalled(commands as StoreValue, latestCommands, journalWrappers, actorRef, (rec) =>
+      commit((prev) => ({ ...prev, activityLog: [rec, ...prev.activityLog] }))
+    );
   }, [
     auth,
     hydrated,
+    workspace,
+    roleId,
+    commit,
+    createCrewMemberCb,
+    updateCrewMemberCb,
+    assignCrewToSessionCb,
+    decideGovernanceCaseCb,
+    setGovernanceEntityStatusCb,
+    submitGovernanceIntakeCb,
+    createOperatorCb,
+    updateOperatorCb,
+    exportWorkspace,
+    importWorkspace,
+    startFreshWorkspace,
     consolePrefs,
     paletteOpen,
     signalOpen,
@@ -1497,6 +1740,61 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
     </MotionConfig>
   );
+}
+
+/** Commands that are UI-only or read-only and are not journalled. */
+const NOT_JOURNALLED = new Set([
+  "canAccess",
+  "setPaletteOpen",
+  "setSignalOpen",
+  "toggleSidebar",
+  "switchTerritory",
+  "markSignalRead",
+  "markAllRead",
+  "setDemoStep",
+  "exportWorkspace",
+  "addAudit",
+  "addSignal",
+]);
+
+/**
+ * Wrap every command so each invocation writes one ActivityRecord with the
+ * signed-in actor, the arguments' target/reason and whether it took effect.
+ */
+function journalled(
+  value: StoreValue,
+  latest: { current: Record<string, unknown> },
+  wrappers: { current: Record<string, (...args: unknown[]) => unknown> },
+  actorRef: { current: { id: string; name: string; roleId: string } },
+  record: (rec: ReturnType<typeof buildActivityRecord>) => void,
+): StoreValue {
+  const out = { ...value } as unknown as Record<string, unknown>;
+  for (const [key, fn] of Object.entries(value as unknown as Record<string, unknown>)) {
+    if (typeof fn !== "function" || NOT_JOURNALLED.has(key)) continue;
+    // Wrappers are created once per command so their identity is stable across renders.
+    out[key] = wrappers.current[key] ??= (...args: unknown[]) => {
+      const actor = actorRef.current;
+      const current = latest.current[key] as (...a: unknown[]) => unknown;
+      const result = current(...args);
+      const error =
+        result && typeof result === "object" && "error" in (result as Record<string, unknown>) && (result as { error?: unknown }).error
+          ? String((result as { error?: unknown }).error)
+          : undefined;
+      record(
+        buildActivityRecord({
+          command: key,
+          args: key === "importWorkspace" ? ["backup file"] : args,
+          actorId: actor.id,
+          actorName: actor.name,
+          roleId: actor.roleId,
+          outcome: error ? "rejected" : "ok",
+          error,
+        }),
+      );
+      return result;
+    };
+  }
+  return out as unknown as StoreValue;
 }
 
 const SEED_TERRITORIES = [

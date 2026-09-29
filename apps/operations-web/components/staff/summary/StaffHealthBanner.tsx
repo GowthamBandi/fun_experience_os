@@ -31,15 +31,15 @@ export function StaffHealthBanner({
   actionLabel = "Assign Staff",
 }: StaffHealthBannerProps) {
   return (
-    <div className="glass p-5 rounded-2xl border border-white/10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+    <div className="glass p-5 rounded-2xl border border-slate-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
       <div className="flex items-center gap-3">
         <StaffStatusBadge status={status} />
         <div>
           <h3 className="text-sm font-bold text-ink-lum flex items-center gap-2">
             {status === "ready" ? (
-              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
             ) : (
-              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
             )}
             <span>Staffing Readiness: {label}</span>
           </h3>

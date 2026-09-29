@@ -238,12 +238,12 @@ export default function TournamentWorkspacePage() {
           <p className="text-xs text-ink-mut mt-1">Code: {detail.code} · Format: {detail.format} · Seeding: {detail.seedingMethod}</p>
         </div>
 
-        <div className="flex items-center gap-3 bg-white/4 border border-white/5 rounded-xl p-3">
+        <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl p-3">
           <div>
             <span className="block text-[10px] text-ink-mut overline">Progress</span>
-            <span className="text-sm font-semibold text-[#ffd28a]">{progress.progressPercent}% resolved</span>
+            <span className="text-sm font-semibold text-amber-700">{progress.progressPercent}% resolved</span>
           </div>
-          <div className="h-8 w-px bg-white/10" />
+          <div className="h-8 w-px bg-slate-100" />
           <div>
             <span className="block text-[10px] text-ink-mut overline">Entrants</span>
             <span className="text-sm font-semibold text-ink-sec">{detail.teamIds.length} Teams</span>
@@ -252,7 +252,7 @@ export default function TournamentWorkspacePage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-white/5 overflow-x-auto gap-4">
+      <div className="flex border-b border-slate-200 overflow-x-auto gap-4">
         {[
           { id: "bracket", label: "Bracket", icon: GitFork },
           { id: "teams", label: "Teams", icon: Users },
@@ -299,14 +299,14 @@ export default function TournamentWorkspacePage() {
                   if (rMatches.length === 0) return null;
                   return (
                     <div key={rNum} className="space-y-6 min-w-[220px]">
-                      <h3 className="text-xs font-bold text-ink-mut overline border-b border-white/5 pb-2">
+                      <h3 className="text-xs font-bold text-ink-mut overline border-b border-slate-200 pb-2">
                         {rMatches[0].roundLabel || `Round ${rNum}`}
                       </h3>
                       <div className="space-y-4">
                         {rMatches.map((m) => {
                           const ready = m.teamAId && m.teamBId;
                           return (
-                            <div key={m.id} className="solid rounded-xl p-3 space-y-2 border border-white/5 relative">
+                            <div key={m.id} className="solid rounded-xl p-3 space-y-2 border border-slate-200 relative">
                               <div className="flex items-center justify-between text-[10px] text-ink-mut">
                                 <span>Match {m.matchNumber}</span>
                                 <StatusChip value={m.status} />
@@ -349,7 +349,7 @@ export default function TournamentWorkspacePage() {
                 ) : (
                   <div className="grid grid-cols-2 gap-2">
                     {detail.teamIds.map((t) => (
-                      <div key={t} className="flex justify-between items-center bg-white/4 p-2 rounded-lg border border-white/5 text-xs text-ink-sec">
+                      <div key={t} className="flex justify-between items-center bg-slate-50 p-2 rounded-lg border border-slate-200 text-xs text-ink-sec">
                         <span>{t}</span>
                         {(detail.status === "draft" || detail.status === "registration-open") && (
                           <button onClick={() => handleRemoveTeam(t)} className="text-danger hover:underline">Remove</button>
@@ -375,7 +375,7 @@ export default function TournamentWorkspacePage() {
                     <Button onClick={() => handleAddTeam(addTeamName)} className="w-full">Add Custom Team</Button>
                   </div>
 
-                  <div className="border-t border-white/5 pt-4 space-y-2">
+                  <div className="border-t border-slate-200 pt-4 space-y-2">
                     <span className="block text-xs font-semibold text-ink-mut">Quick Selection Pool</span>
                     <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
                       {availableTeamsPool.map((teamName) => {
@@ -386,7 +386,7 @@ export default function TournamentWorkspacePage() {
                             onClick={() => !added && handleAddTeam(teamName)}
                             disabled={added}
                             className={`text-[10px] px-2 py-1 rounded-md border transition-all ${
-                              added ? "border-transparent bg-white/5 text-ink-mut" : "border-white/10 text-ink-sec hover:border-brand hover:text-brand"
+                              added ? "border-transparent bg-slate-50 text-ink-mut" : "border-slate-200 text-ink-sec hover:border-brand hover:text-brand"
                             }`}
                           >
                             {teamName}
@@ -411,12 +411,12 @@ export default function TournamentWorkspacePage() {
             )}
 
             {detail.status === "bracket-ready" && (
-              <div className="solid rounded-panel p-4 flex justify-between items-center gap-4 bg-[#12b76a]/5 border border-[#12b76a]/20">
+              <div className="solid rounded-panel p-4 flex justify-between items-center gap-4 bg-emerald-50 border border-emerald-200">
                 <div>
                   <span className="block text-sm font-semibold text-ink-lum">Bracket is ready. Publish now?</span>
                   <span className="text-xs text-ink-mut">Publishing opens scheduling, referee assignment, and match execution.</span>
                 </div>
-                <Button onClick={handlePublish} className="bg-[#12b76a] hover:bg-[#10a35e] text-white">Publish Tournament</Button>
+                <Button onClick={handlePublish} className="bg-emerald-500 hover:bg-[#10a35e] text-white">Publish Tournament</Button>
               </div>
             )}
           </div>
@@ -433,7 +433,7 @@ export default function TournamentWorkspacePage() {
                 {detail.matches.map((m) => {
                   const ready = m.teamAId && m.teamBId;
                   return (
-                    <Card key={m.id} className="p-4 flex flex-wrap items-center justify-between gap-4 border border-white/5 bg-white/2">
+                    <Card key={m.id} className="p-4 flex flex-wrap items-center justify-between gap-4 border border-slate-200 bg-slate-50">
                       <div className="space-y-1 min-w-[200px]">
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-bold text-ink-mut">{m.roundLabel || `Round ${m.roundNumber}`}</span>
@@ -455,7 +455,7 @@ export default function TournamentWorkspacePage() {
 
                       {/* Score Board */}
                       {(m.status === "completed" || m.status === "awaiting-verification" || m.status === "verified") && (
-                        <div className="bg-white/4 rounded-xl px-4 py-2 text-center border border-white/5 min-w-[80px]">
+                        <div className="bg-slate-50 rounded-xl px-4 py-2 text-center border border-slate-200 min-w-[80px]">
                           <span className="block text-[9px] text-ink-mut overline">Final Score</span>
                           <span className="font-mono text-base font-semibold text-ink-lum">{m.scoreA} – {m.scoreB}</span>
                         </div>
@@ -506,7 +506,7 @@ export default function TournamentWorkspacePage() {
 
                         {/* Verify Result */}
                         {m.status === "awaiting-verification" && (
-                          <Button onClick={() => verifyTournamentMatchResult(tournamentId, m.id)} className="h-8 text-xs rounded-lg px-3 bg-[#12b76a] hover:bg-[#10a35e] text-white">
+                          <Button onClick={() => verifyTournamentMatchResult(tournamentId, m.id)} className="h-8 text-xs rounded-lg px-3 bg-emerald-500 hover:bg-[#10a35e] text-white">
                             Verify Result
                           </Button>
                         )}
@@ -663,7 +663,7 @@ export default function TournamentWorkspacePage() {
                   ) : (
                     <div className="space-y-2">
                       {incidents.map((inc) => (
-                        <div key={inc.id} className="bg-white/4 p-2 rounded-lg border border-white/5 text-xs">
+                        <div key={inc.id} className="bg-slate-50 p-2 rounded-lg border border-slate-200 text-xs">
                           <div className="flex justify-between items-center">
                             <span className="font-semibold text-ink-sec">{inc.incidentCode || inc.id}</span>
                             <StatusChip value={inc.status || "reported"} />
@@ -689,7 +689,7 @@ export default function TournamentWorkspacePage() {
                   ) : (
                     <div className="space-y-2">
                       {disputes.map((disp) => (
-                        <div key={disp.id} className="bg-white/4 p-2 rounded-lg border border-white/5 text-xs">
+                        <div key={disp.id} className="bg-slate-50 p-2 rounded-lg border border-slate-200 text-xs">
                           <div className="flex justify-between items-center">
                             <span className="font-semibold text-ink-sec">{disp.id}</span>
                             <StatusChip value={disp.status || "submitted"} />
@@ -780,11 +780,11 @@ export default function TournamentWorkspacePage() {
               <Card className="p-4 space-y-4">
                 <h3 className="text-sm font-semibold text-ink-lum">Final Summary Status</h3>
                 <div className="solid rounded-xl p-4 space-y-2 text-xs">
-                  <div className="flex justify-between border-b border-white/5 pb-2">
+                  <div className="flex justify-between border-b border-slate-200 pb-2">
                     <span className="text-ink-mut">Matches Complete:</span>
                     <span className="font-semibold text-ink-sec">{progress.completed} / {progress.total}</span>
                   </div>
-                  <div className="flex justify-between border-b border-white/5 pb-2">
+                  <div className="flex justify-between border-b border-slate-200 pb-2">
                     <span className="text-ink-mut">Champion Declared:</span>
                     <span className="font-semibold text-brand">{detail.winnerTeamId || "TBD"}</span>
                   </div>
@@ -792,13 +792,13 @@ export default function TournamentWorkspacePage() {
 
                 {detail.status !== "completed" && (
                   <div className="space-y-3">
-                    <div className="text-xs text-ink-mut bg-white/4 p-3 rounded-lg border border-white/5">
+                    <div className="text-xs text-ink-mut bg-slate-50 p-3 rounded-lg border border-slate-200">
                       <strong>Completion Check:</strong> {completion.reason || "All matches verified! Ready to close."}
                     </div>
                     <Button
                       onClick={handleCompleteTournamentSubmit}
                       disabled={!completion.canComplete}
-                      className="w-full bg-[#12b76a] hover:bg-[#10a35e] text-white"
+                      className="w-full bg-emerald-500 hover:bg-[#10a35e] text-white"
                     >
                       Complete & Declare Champion
                     </Button>
@@ -836,7 +836,7 @@ function IconButton({
 } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
-      className="inline-flex h-10 w-10 items-center justify-center rounded-xl glass hover:bg-white/5 border border-white/5 text-ink-sec hover:text-ink-lum transition-all duration-200"
+      className="inline-flex h-10 w-10 items-center justify-center rounded-xl glass hover:bg-slate-50 border border-slate-200 text-ink-sec hover:text-ink-lum transition-all duration-200"
       title={label}
       {...rest}
     >

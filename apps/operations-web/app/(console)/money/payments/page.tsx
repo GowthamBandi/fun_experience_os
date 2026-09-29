@@ -71,7 +71,7 @@ export default function PaymentsPage() {
               <Button
                 variant="ghost"
                 onClick={() => failBookingPayment(p.bookingId)}
-                className="h-8 px-3 text-xs text-red-400 hover:text-red-300 hover:bg-red-950/30"
+                className="h-8 px-3 text-xs text-red-600 hover:text-red-700 hover:bg-red-100"
               >
                 Mark Failed
               </Button>

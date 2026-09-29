@@ -41,9 +41,9 @@ export function RunOfShowWorkspace({
   const sorted = [...segments].sort((a, b) => a.sequence - b.sequence);
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-lg p-5 font-mono text-xs space-y-4">
-      <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-        <span className="font-bold text-slate-200 uppercase tracking-wider text-xs flex items-center gap-2">
+    <div className="bg-slate-50 border border-slate-200 rounded-lg p-5 font-mono text-xs space-y-4">
+      <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+        <span className="font-bold text-slate-800 uppercase tracking-wider text-xs flex items-center gap-2">
           <span>📋 Run-of-Show Activity Segments</span>
         </span>
         <span className="text-[10px] text-slate-500">
@@ -64,29 +64,29 @@ export function RunOfShowWorkspace({
               key={seg.id}
               className={`p-3 rounded-lg border flex flex-wrap items-center justify-between gap-3 ${
                 isActive
-                  ? "bg-purple-950/70 border-purple-800 shadow-md shadow-purple-950/50"
+                  ? "bg-purple-200 border-purple-200 shadow-md shadow-purple-950/50"
                   : isPaused
-                  ? "bg-amber-950/50 border-amber-800"
+                  ? "bg-amber-200 border-amber-200"
                   : isCompleted
-                  ? "bg-slate-950 border-slate-800 text-slate-400"
+                  ? "bg-slate-50 border-slate-200 text-slate-500"
                   : isSkipped
-                  ? "bg-slate-950 border-slate-800 text-slate-500 italic"
-                  : "bg-slate-950 border-slate-800 text-slate-200"
+                  ? "bg-slate-50 border-slate-200 text-slate-500 italic"
+                  : "bg-slate-50 border-slate-200 text-slate-800"
               }`}
             >
               <div className="flex items-center gap-3">
-                <span className="w-6 h-6 rounded-full bg-slate-800 text-slate-300 font-bold flex items-center justify-center text-[10px]">
+                <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 font-bold flex items-center justify-center text-[10px]">
                   {seg.sequence}
                 </span>
                 <div>
                   <div className="font-bold text-sm flex items-center gap-2">
                     <span>{seg.name}</span>
-                    <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-slate-800 text-slate-400">
+                    <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-slate-100 text-slate-500">
                       {seg.type}
                     </span>
                   </div>
                   {seg.skipReason && (
-                    <div className="text-[10px] text-amber-400">
+                    <div className="text-[10px] text-amber-600">
                       Skipped reason: {seg.skipReason}
                     </div>
                   )}
@@ -97,14 +97,14 @@ export function RunOfShowWorkspace({
                 <span
                   className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                     isActive
-                      ? "bg-emerald-950 text-emerald-400 border border-emerald-800 animate-pulse"
+                      ? "bg-emerald-50 text-emerald-600 border border-emerald-200 animate-pulse"
                       : isPaused
-                      ? "bg-amber-950 text-amber-300 border border-amber-800"
+                      ? "bg-amber-50 text-amber-700 border border-amber-200"
                       : isCompleted
-                      ? "bg-slate-800 text-slate-400"
+                      ? "bg-slate-100 text-slate-500"
                       : isSkipped
-                      ? "bg-red-950 text-red-400 border border-red-800"
-                      : "bg-slate-800 text-slate-300"
+                      ? "bg-red-50 text-red-600 border border-red-200"
+                      : "bg-slate-100 text-slate-700"
                   }`}
                 >
                   {seg.status.toUpperCase()}
@@ -133,7 +133,7 @@ export function RunOfShowWorkspace({
                     {!isCompleted && !isSkipped && (
                       <button
                         onClick={() => setSkipModalSegId(seg.id)}
-                        className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px]"
+                        className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px]"
                       >
                         Skip
                       </button>
@@ -154,12 +154,12 @@ export function RunOfShowWorkspace({
             placeholder="Add segment name (e.g. Match 3: Tie-breaker)..."
             value={newSegName}
             onChange={(e) => setNewSegName(e.target.value)}
-            className="flex-1 bg-slate-950 border border-slate-700 rounded px-3 py-1.5 text-slate-200"
+            className="flex-1 bg-slate-50 border border-slate-200 rounded px-3 py-1.5 text-slate-800"
           />
           <select
             value={newSegType}
             onChange={(e) => setNewSegType(e.target.value)}
-            className="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-slate-200"
+            className="bg-slate-50 border border-slate-200 rounded px-2 py-1.5 text-slate-800"
           >
             <option value="Briefing">Briefing</option>
             <option value="Warm-up">Warm-up</option>
@@ -173,7 +173,7 @@ export function RunOfShowWorkspace({
           <button
             type="submit"
             disabled={!newSegName.trim()}
-            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded disabled:opacity-50"
+            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded disabled:opacity-50"
           >
             + Add Segment
           </button>
@@ -182,23 +182,23 @@ export function RunOfShowWorkspace({
 
       {/* Skip Reason Modal */}
       {skipModalSegId && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <form onSubmit={handleSkipSubmit} className="bg-slate-900 border border-slate-800 rounded-lg p-6 max-w-md w-full space-y-4">
-            <h4 className="font-bold text-slate-200 text-sm">Skip Activity Segment</h4>
-            <p className="text-slate-300">Provide a mandatory reason for skipping this segment.</p>
+        <div className="fixed inset-0 z-50 bg-slate-50 flex items-center justify-center p-4">
+          <form onSubmit={handleSkipSubmit} className="bg-slate-50 border border-slate-200 rounded-lg p-6 max-w-md w-full space-y-4">
+            <h4 className="font-bold text-slate-800 text-sm">Skip Activity Segment</h4>
+            <p className="text-slate-700">Provide a mandatory reason for skipping this segment.</p>
             <textarea
               rows={3}
               placeholder="e.g. Time constraint; team forfeited match."
               value={skipReason}
               onChange={(e) => setSkipReason(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-slate-200"
+              className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-slate-800"
               required
             />
             <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setSkipModalSegId(null)}
-                className="px-3 py-1 bg-slate-800 text-slate-300 rounded font-bold"
+                className="px-3 py-1 bg-slate-100 text-slate-700 rounded font-bold"
               >
                 Cancel
               </button>

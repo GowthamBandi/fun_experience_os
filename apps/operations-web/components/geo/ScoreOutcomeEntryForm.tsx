@@ -100,23 +100,23 @@ export function ScoreOutcomeEntryForm({
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-lg p-5 font-mono text-xs space-y-4">
-      <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+    <div className="bg-slate-50 border border-slate-200 rounded-lg p-5 font-mono text-xs space-y-4">
+      <div className="flex items-center justify-between border-b border-slate-200 pb-3">
         <div>
-          <span className="font-bold text-slate-200 text-sm">
+          <span className="font-bold text-slate-800 text-sm">
             🎯 Result Entry: {segment.name}
           </span>
-          <span className="ml-2 text-[10px] text-slate-400 font-normal font-mono">
+          <span className="ml-2 text-[10px] text-slate-500 font-normal font-mono">
             (Sequence #{segment.sequence})
           </span>
         </div>
         <span
           className={`px-2 py-0.5 rounded text-[10px] font-bold ${
             existingResult?.status === "Confirmed"
-              ? "bg-emerald-950 text-emerald-400 border border-emerald-800"
+              ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
               : existingResult?.status === "Corrected"
-              ? "bg-purple-950 text-purple-300 border border-purple-800"
-              : "bg-amber-950 text-amber-300 border border-amber-800"
+              ? "bg-purple-50 text-purple-700 border border-purple-200"
+              : "bg-amber-50 text-amber-700 border border-amber-200"
           }`}
         >
           {existingResult?.status || "NO RESULT RECORDED"}
@@ -125,13 +125,13 @@ export function ScoreOutcomeEntryForm({
 
       <form onSubmit={handleSaveDraftSubmit} className="space-y-4">
         {/* Result Mode Switcher */}
-        <div className="flex items-center gap-3 bg-slate-950 p-2 rounded border border-slate-800">
-          <span className="text-slate-400 font-bold uppercase text-[10px]">Result Mode:</span>
+        <div className="flex items-center gap-3 bg-slate-50 p-2 rounded border border-slate-200">
+          <span className="text-slate-500 font-bold uppercase text-[10px]">Result Mode:</span>
           <select
             value={resultType}
             onChange={(e) => setResultType(e.target.value as ResultType)}
             disabled={isConfirmed || isReadOnly}
-            className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 font-bold"
+            className="bg-slate-50 border border-slate-200 rounded px-2 py-1 text-slate-800 font-bold"
           >
             <option value="score">Score-based (Team vs Team)</option>
             <option value="outcome">Outcome-based (Social/Objective)</option>
@@ -143,38 +143,38 @@ export function ScoreOutcomeEntryForm({
 
         {/* Score-Based Input Controls */}
         {resultType === "score" && teamA && teamB && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-950 p-4 rounded border border-slate-800">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded border border-slate-200">
             <div className="space-y-1">
-              <label className="text-emerald-400 font-bold block">{teamA.name} Score:</label>
+              <label className="text-emerald-600 font-bold block">{teamA.name} Score:</label>
               <input
                 type="number"
                 min={0}
                 value={teamAScore}
                 onChange={(e) => setTeamAScore(parseInt(e.target.value, 10) || 0)}
                 disabled={isConfirmed || isReadOnly}
-                className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 text-lg font-bold"
+                className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-slate-800 text-lg font-bold"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-emerald-400 font-bold block">{teamB.name} Score:</label>
+              <label className="text-emerald-600 font-bold block">{teamB.name} Score:</label>
               <input
                 type="number"
                 min={0}
                 value={teamBScore}
                 onChange={(e) => setTeamBScore(parseInt(e.target.value, 10) || 0)}
                 disabled={isConfirmed || isReadOnly}
-                className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 text-lg font-bold"
+                className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-slate-800 text-lg font-bold"
               />
             </div>
 
             <div className="sm:col-span-2 space-y-1">
-              <label className="text-slate-400 block font-bold">Declared Winner Team:</label>
+              <label className="text-slate-500 block font-bold">Declared Winner Team:</label>
               <select
                 value={winnerTeamId}
                 onChange={(e) => setWinnerTeamId(e.target.value)}
                 disabled={isConfirmed || isReadOnly}
-                className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 font-bold"
+                className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-slate-800 font-bold"
               >
                 <option value="">Select Winner...</option>
                 <option value={teamA.id}>{teamA.name}</option>
@@ -186,20 +186,20 @@ export function ScoreOutcomeEntryForm({
 
         {/* Outcome-Based Input Controls */}
         {(resultType === "outcome" || resultType === "abandoned" || resultType === "no-contest") && (
-          <div className="space-y-1 bg-slate-950 p-4 rounded border border-slate-800">
-            <label className="text-slate-400 block font-bold">Operational Outcome Details:</label>
+          <div className="space-y-1 bg-slate-50 p-4 rounded border border-slate-200">
+            <label className="text-slate-500 block font-bold">Operational Outcome Details:</label>
             <textarea
               rows={2}
               placeholder="e.g. Group objective achieved cleanly; route completed by all participants."
               value={outcomeText}
               onChange={(e) => setOutcomeText(e.target.value)}
               disabled={isConfirmed || isReadOnly}
-              className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-slate-200"
+              className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-slate-800"
             />
           </div>
         )}
 
-        {errorMsg && <div className="bg-red-950 border border-red-800 text-red-300 p-2 rounded">{errorMsg}</div>}
+        {errorMsg && <div className="bg-red-50 border border-red-200 text-red-700 p-2 rounded">{errorMsg}</div>}
 
         {/* Action Controls */}
         {!isReadOnly && (
@@ -208,7 +208,7 @@ export function ScoreOutcomeEntryForm({
               <div className="flex items-center gap-2">
                 <button
                   type="submit"
-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded"
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded"
                 >
                   Save Draft
                 </button>
@@ -236,15 +236,15 @@ export function ScoreOutcomeEntryForm({
 
       {/* Revision History Log */}
       {existingResult?.revisions && existingResult.revisions.length > 0 && (
-        <div className="bg-slate-950 border border-slate-800 rounded p-3 space-y-2">
-          <span className="font-bold text-slate-400 uppercase text-[10px]">
+        <div className="bg-slate-50 border border-slate-200 rounded p-3 space-y-2">
+          <span className="font-bold text-slate-500 uppercase text-[10px]">
             Revision History Audit ({existingResult.revisions.length} Revisions)
           </span>
           <div className="space-y-1">
             {existingResult.revisions.map((rev) => (
-              <div key={rev.revisionNumber} className="text-[10px] text-slate-400 border-b border-slate-800 pb-1">
-                <strong className="text-slate-200">Rev #{rev.revisionNumber}</strong> ({rev.status}) by {rev.recordedBy} at {rev.recordedAt}
-                {rev.reason && <span className="text-amber-400 ml-2">Reason: {rev.reason}</span>}
+              <div key={rev.revisionNumber} className="text-[10px] text-slate-500 border-b border-slate-200 pb-1">
+                <strong className="text-slate-800">Rev #{rev.revisionNumber}</strong> ({rev.status}) by {rev.recordedBy} at {rev.recordedAt}
+                {rev.reason && <span className="text-amber-600 ml-2">Reason: {rev.reason}</span>}
               </div>
             ))}
           </div>
@@ -253,10 +253,10 @@ export function ScoreOutcomeEntryForm({
 
       {/* Audited Correction Modal */}
       {correctionModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <form onSubmit={handleCorrectionSubmit} className="bg-slate-900 border border-purple-800 rounded-lg p-6 max-w-md w-full space-y-4">
-            <h4 className="font-bold text-purple-300 text-sm">Audited Result Correction</h4>
-            <p className="text-slate-300">
+        <div className="fixed inset-0 z-50 bg-slate-50 flex items-center justify-center p-4">
+          <form onSubmit={handleCorrectionSubmit} className="bg-slate-50 border border-purple-200 rounded-lg p-6 max-w-md w-full space-y-4">
+            <h4 className="font-bold text-purple-700 text-sm">Audited Result Correction</h4>
+            <p className="text-slate-700">
               Confirmed results cannot be silently overwritten. Provide a mandatory correction reason to append an immutable revision to the audit ledger.
             </p>
             <textarea
@@ -264,14 +264,14 @@ export function ScoreOutcomeEntryForm({
               placeholder="e.g. Score miscount corrected by Lead Coordinator after scorecard review."
               value={correctionReason}
               onChange={(e) => setCorrectionReason(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-slate-200"
+              className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-slate-800"
               required
             />
             <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setCorrectionModalOpen(false)}
-                className="px-3 py-1 bg-slate-800 text-slate-300 rounded font-bold"
+                className="px-3 py-1 bg-slate-100 text-slate-700 rounded font-bold"
               >
                 Cancel
               </button>

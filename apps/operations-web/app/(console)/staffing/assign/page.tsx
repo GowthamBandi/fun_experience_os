@@ -78,8 +78,8 @@ function AssignStaffForm() {
 
   if (savedSuccess) {
     return (
-      <div className="glass p-8 rounded-2xl border border-emerald-800/40 bg-emerald-950/20 text-center space-y-6 max-w-xl mx-auto my-8">
-        <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center mx-auto text-emerald-400">
+      <div className="glass p-8 rounded-2xl border border-emerald-300 bg-emerald-100 text-center space-y-6 max-w-xl mx-auto my-8">
+        <div className="w-16 h-16 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center mx-auto text-emerald-600">
           <CheckCircle2 className="w-10 h-10" />
         </div>
 
@@ -90,10 +90,10 @@ function AssignStaffForm() {
           </p>
         </div>
 
-        <div className="p-4 rounded-xl bg-black/40 border border-white/5 text-left text-xs space-y-1">
+        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-left text-xs space-y-1">
           <p className="text-ink-mut">Event: <strong className="text-ink-lum">Event #{session?.id}</strong></p>
-          <p className="text-ink-mut">Lead Coordinator: <span className="text-purple-300 font-bold">{staffList.find((s) => s.id === selectedLeadId)?.name || "Assigned"}</span></p>
-          <p className="text-ink-mut">Safety Lead: <span className="text-emerald-400 font-bold">{staffList.find((s) => s.id === selectedSafetyId)?.name || "Assigned"}</span></p>
+          <p className="text-ink-mut">Lead Coordinator: <span className="text-purple-700 font-bold">{staffList.find((s) => s.id === selectedLeadId)?.name || "Assigned"}</span></p>
+          <p className="text-ink-mut">Safety Lead: <span className="text-emerald-600 font-bold">{staffList.find((s) => s.id === selectedSafetyId)?.name || "Assigned"}</span></p>
         </div>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
@@ -120,7 +120,7 @@ function AssignStaffForm() {
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* 1. Choose Event */}
-      <div className="glass p-6 rounded-2xl border border-white/5 space-y-4">
+      <div className="glass p-6 rounded-2xl border border-slate-200 space-y-4">
         <h3 className="text-sm font-bold text-ink-lum">1. Choose Event to Staff</h3>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
@@ -135,8 +135,8 @@ function AssignStaffForm() {
                 onClick={() => setSelectedSessionId(s.id)}
                 className={`p-3 rounded-xl border text-xs cursor-pointer transition-all ${
                   selected
-                    ? "bg-purple-950/40 border-brand text-ink-lum ring-1 ring-brand"
-                    : "bg-black/30 border-white/5 text-ink-sec hover:border-white/10"
+                    ? "bg-purple-200 border-brand text-ink-lum ring-1 ring-brand"
+                    : "bg-slate-50 border-slate-200 text-ink-sec hover:border-slate-200"
                 }`}
               >
                 <div className="font-bold text-ink-lum flex justify-between">
@@ -155,13 +155,13 @@ function AssignStaffForm() {
 
       {/* 2. Plain-Language Required Role Questions */}
       {session && (
-        <div className="glass p-6 rounded-2xl border border-white/5 space-y-6">
-          <h3 className="text-sm font-bold text-ink-lum border-b border-white/5 pb-3">
+        <div className="glass p-6 rounded-2xl border border-slate-200 space-y-6">
+          <h3 className="text-sm font-bold text-ink-lum border-b border-slate-200 pb-3">
             2. Assign Event Staff for Event #{session.id} ({session.date} @ {session.startTime})
           </h3>
 
           {assignmentError && (
-            <div className="p-3 rounded-xl bg-rose-950/20 border border-rose-800/40 text-rose-300 text-xs font-semibold">
+            <div className="p-3 rounded-xl bg-rose-100 border border-rose-300 text-rose-700 text-xs font-semibold">
               ⚠️ {assignmentError}
             </div>
           )}
@@ -175,7 +175,7 @@ function AssignStaffForm() {
             <select
               value={selectedLeadId}
               onChange={(e) => setSelectedLeadId(e.target.value)}
-              className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum font-bold text-purple-300"
+              className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum font-bold text-purple-700"
             >
               <option value="">-- Choose Lead Coordinator --</option>
               {staffList.map((st) => (
@@ -189,13 +189,13 @@ function AssignStaffForm() {
           {/* Question 2: Safety Lead */}
           <div className="space-y-2">
             <label className="text-xs font-bold text-ink-lum flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
               <span>Who is the Safety Lead? (Safety Officer)</span>
             </label>
             <select
               value={selectedSafetyId}
               onChange={(e) => setSelectedSafetyId(e.target.value)}
-              className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum font-bold text-emerald-400"
+              className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum font-bold text-emerald-600"
             >
               <option value="">-- Choose Safety Officer --</option>
               {staffList.map((st) => (
@@ -206,7 +206,7 @@ function AssignStaffForm() {
             </select>
           </div>
 
-          <div className="flex justify-end pt-4 border-t border-white/5">
+          <div className="flex justify-end pt-4 border-t border-slate-200">
             <Button variant="primary" onClick={handleAssign} className="font-bold text-xs bg-emerald-500 text-slate-950 px-6">
               Save Staff Assignments
             </Button>

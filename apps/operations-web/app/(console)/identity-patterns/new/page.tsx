@@ -59,10 +59,10 @@ export default function NewIdentityPatternPage() {
         }
       />
 
-      <form onSubmit={handleSubmit} className="bg-slate-900 border border-slate-800 rounded-lg p-6 space-y-6">
+      <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-lg p-6 space-y-6">
         <div className="space-y-4">
           <div>
-            <label className="text-slate-400 block mb-1 font-bold uppercase">
+            <label className="text-slate-500 block mb-1 font-bold uppercase">
               Pattern Name *:
             </label>
             <input
@@ -70,14 +70,14 @@ export default function NewIdentityPatternPage() {
               placeholder="e.g. Cyber Padel League, Urban Cricket"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-slate-200"
+              className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-slate-800"
               required
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="text-slate-400 block mb-1 font-bold uppercase">
+              <label className="text-slate-500 block mb-1 font-bold uppercase">
                 Code Prefix *:
               </label>
               <input
@@ -85,19 +85,19 @@ export default function NewIdentityPatternPage() {
                 placeholder="e.g. CR, MX, NIGHT"
                 value={prefix}
                 onChange={(e) => setPrefix(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-slate-200 font-bold"
+                className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-slate-800 font-bold"
                 required
               />
             </div>
 
             <div>
-              <label className="text-slate-400 block mb-1 font-bold uppercase">
+              <label className="text-slate-500 block mb-1 font-bold uppercase">
                 Separator:
               </label>
               <select
                 value={separator}
                 onChange={(e) => setSeparator(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-slate-200 font-bold"
+                className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-slate-800 font-bold"
               >
                 <option value="-">Hyphen (-)</option>
                 <option value="#">Hash (#)</option>
@@ -107,13 +107,13 @@ export default function NewIdentityPatternPage() {
             </div>
 
             <div>
-              <label className="text-slate-400 block mb-1 font-bold uppercase">
+              <label className="text-slate-500 block mb-1 font-bold uppercase">
                 Number Digits:
               </label>
               <select
                 value={numberLength}
                 onChange={(e) => setNumberLength(parseInt(e.target.value, 10))}
-                className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-slate-200 font-bold"
+                className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-slate-800 font-bold"
               >
                 <option value={2}>2 Digits (01 - 99)</option>
                 <option value={3}>3 Digits (001 - 999)</option>
@@ -123,17 +123,17 @@ export default function NewIdentityPatternPage() {
           </div>
 
           {/* Example Format Card */}
-          <div className="bg-slate-950 border border-slate-800 p-4 rounded text-center space-y-1">
+          <div className="bg-slate-50 border border-slate-200 p-4 rounded text-center space-y-1">
             <span className="text-[10px] text-slate-500 uppercase">Generated Code Preview:</span>
-            <div className="text-2xl font-bold text-amber-400 font-mono tracking-widest">
+            <div className="text-2xl font-bold text-amber-600 font-mono tracking-widest">
               {example}
             </div>
           </div>
         </div>
 
-        {errorMsg && <div className="bg-red-950 border border-red-800 text-red-300 p-3 rounded">{errorMsg}</div>}
+        {errorMsg && <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded">{errorMsg}</div>}
 
-        <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+        <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
           <Link href="/identity-patterns">
             <Button variant="ghost" className="h-9 px-4 text-xs font-mono">
               Cancel

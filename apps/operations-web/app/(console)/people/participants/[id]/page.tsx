@@ -62,9 +62,9 @@ export default function ParticipantDetailPage({ params }: { params: Promise<{ id
       />
 
       {/* Privacy Notice */}
-      <div className="glass p-4 rounded-xl border border-emerald-800/40 bg-emerald-950/20 text-xs space-y-1">
-        <div className="flex items-center gap-2 font-bold text-emerald-300">
-          <Lock className="w-4 h-4 text-emerald-400" />
+      <div className="glass p-4 rounded-xl border border-emerald-300 bg-emerald-100 text-xs space-y-1">
+        <div className="flex items-center gap-2 font-bold text-emerald-700">
+          <Lock className="w-4 h-4 text-emerald-600" />
           <span>Operational Identity Protection Active</span>
         </div>
         <p className="text-ink-sec text-[11px]">
@@ -74,19 +74,19 @@ export default function ParticipantDetailPage({ params }: { params: Promise<{ id
 
       {/* Overview Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-        <div className="glass p-5 rounded-2xl border border-white/5 space-y-1">
+        <div className="glass p-5 rounded-2xl border border-slate-200 space-y-1">
           <span className="text-[10px] text-ink-mut uppercase font-semibold">Temporary ID</span>
           <p className="text-lg font-mono font-bold text-brand">{participant.tempId}</p>
           <p className="text-[11px] text-ink-sec">Alias: {participant.alias}</p>
         </div>
 
-        <div className="glass p-5 rounded-2xl border border-white/5 space-y-1">
+        <div className="glass p-5 rounded-2xl border border-slate-200 space-y-1">
           <span className="text-[10px] text-ink-mut uppercase font-semibold">Assigned Team</span>
-          <p className="text-lg font-bold text-purple-300">{participant.teamName}</p>
+          <p className="text-lg font-bold text-purple-700">{participant.teamName}</p>
           <p className="text-[11px] text-ink-sec">Reveal status: {participant.isRevealed ? "Revealed" : "Hidden"}</p>
         </div>
 
-        <div className="glass p-5 rounded-2xl border border-white/5 space-y-1">
+        <div className="glass p-5 rounded-2xl border border-slate-200 space-y-1">
           <span className="text-[10px] text-ink-mut uppercase font-semibold">Check-In Status</span>
           <p className="text-lg font-bold text-ink-lum">{participant.isCheckedIn ? "Checked In" : "Pending Check-In"}</p>
           <p className="text-[11px] text-ink-sec">Payment: {participant.paymentStatus}</p>
@@ -95,12 +95,12 @@ export default function ParticipantDetailPage({ params }: { params: Promise<{ id
 
       {/* Details Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
-        <div className="glass p-5 rounded-2xl border border-white/5 space-y-3">
+        <div className="glass p-5 rounded-2xl border border-slate-200 space-y-3">
           <h3 className="font-bold text-ink-lum text-sm flex items-center gap-2">
             <Ticket className="w-4 h-4 text-brand" />
             <span>Event & Booking Information</span>
           </h3>
-          <div className="p-4 rounded-xl bg-black/40 border border-white/5 space-y-2">
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
             <div className="flex justify-between">
               <span className="text-ink-mut">Session Title:</span>
               <span className="font-bold text-ink-lum">{participant.sessionTitle}</span>
@@ -111,17 +111,17 @@ export default function ParticipantDetailPage({ params }: { params: Promise<{ id
             </div>
             <div className="flex justify-between">
               <span className="text-ink-mut">Booking Status:</span>
-              <span className="text-emerald-400 capitalize">{participant.bookingStatus}</span>
+              <span className="text-emerald-600 capitalize">{participant.bookingStatus}</span>
             </div>
           </div>
         </div>
 
-        <div className="glass p-5 rounded-2xl border border-white/5 space-y-3">
+        <div className="glass p-5 rounded-2xl border border-slate-200 space-y-3">
           <h3 className="font-bold text-ink-lum text-sm flex items-center gap-2">
-            <ShieldAlert className="w-4 h-4 text-amber-400" />
+            <ShieldAlert className="w-4 h-4 text-amber-600" />
             <span>Audited Emergency Access</span>
           </h3>
-          <div className="p-4 rounded-xl bg-black/40 border border-white/5 space-y-3">
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
             <div className="flex justify-between font-mono">
               <span className="text-ink-mut">Phone Number:</span>
               <span className="text-ink-lum">{participant.maskedPhone}</span>
@@ -130,7 +130,7 @@ export default function ParticipantDetailPage({ params }: { params: Promise<{ id
               To unmask personal contact details for urgent safety or emergency resolution, click below.
             </p>
             <Button variant="secondary" className="h-8 text-xs font-bold w-full" onClick={handleEmergencyAccess}>
-              <ShieldAlert className="w-3.5 h-3.5 mr-1 text-amber-400" />
+              <ShieldAlert className="w-3.5 h-3.5 mr-1 text-amber-600" />
               Request Audited Emergency Access
             </Button>
           </div>

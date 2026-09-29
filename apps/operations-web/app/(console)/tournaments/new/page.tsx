@@ -93,7 +93,7 @@ export default function NewTournamentPage() {
           <div key={s.label} className="space-y-2">
             <div
               className={`h-1.5 rounded-full transition-all duration-300 ${
-                idx <= step ? "bg-brand" : "bg-white/10"
+                idx <= step ? "bg-brand" : "bg-slate-100"
               }`}
             />
             <span className={`block text-[10px] font-semibold ${idx === step ? "text-ink-lum" : "text-ink-mut"}`}>
@@ -210,27 +210,27 @@ export default function NewTournamentPage() {
           <div className="space-y-4">
             <PanelHeader title="Review Details" sub="Ensure everything is correct" />
             <div className="solid rounded-xl p-4 space-y-3 text-sm">
-              <div className="flex justify-between border-b border-white/5 pb-2">
+              <div className="flex justify-between border-b border-slate-200 pb-2">
                 <span className="text-ink-mut">Name:</span>
                 <span className="font-semibold text-ink-lum">{name || "—"}</span>
               </div>
-              <div className="flex justify-between border-b border-white/5 pb-2">
+              <div className="flex justify-between border-b border-slate-200 pb-2">
                 <span className="text-ink-mut">Code:</span>
                 <span className="font-semibold text-ink-lum">{code || "—"}</span>
               </div>
-              <div className="flex justify-between border-b border-white/5 pb-2">
+              <div className="flex justify-between border-b border-slate-200 pb-2">
                 <span className="text-ink-mut">Format:</span>
                 <span className="text-ink-sec">{format}</span>
               </div>
-              <div className="flex justify-between border-b border-white/5 pb-2">
+              <div className="flex justify-between border-b border-slate-200 pb-2">
                 <span className="text-ink-mut">Venue:</span>
                 <span className="text-ink-sec">{venues.find((v) => v.id === venueId)?.name || "Select venue..."}</span>
               </div>
-              <div className="flex justify-between border-b border-white/5 pb-2">
+              <div className="flex justify-between border-b border-slate-200 pb-2">
                 <span className="text-ink-mut">Match duration:</span>
                 <span className="text-ink-sec">{matchDuration} mins</span>
               </div>
-              <div className="flex justify-between border-b border-white/5 pb-2">
+              <div className="flex justify-between border-b border-slate-200 pb-2">
                 <span className="text-ink-mut">Start time:</span>
                 <span className="text-ink-sec">{scheduledStart}</span>
               </div>
@@ -238,7 +238,7 @@ export default function NewTournamentPage() {
           </div>
         )}
 
-        <div className="mt-8 flex justify-between gap-4 border-t border-white/5 pt-4">
+        <div className="mt-8 flex justify-between gap-4 border-t border-slate-200 pt-4">
           <Button variant="secondary" onClick={back} disabled={step === 0} className="gap-1.5">
             <ArrowLeft className="h-4 w-4" />
             Back
@@ -270,7 +270,7 @@ function IconButton({
 } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
-      className="inline-flex h-10 w-10 items-center justify-center rounded-xl glass hover:bg-white/5 border border-white/5 text-ink-sec hover:text-ink-lum transition-all duration-200"
+      className="inline-flex h-10 w-10 items-center justify-center rounded-xl glass hover:bg-slate-50 border border-slate-200 text-ink-sec hover:text-ink-lum transition-all duration-200"
       title={label}
       {...rest}
     >

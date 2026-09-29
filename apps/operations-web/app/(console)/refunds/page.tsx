@@ -1,2 +1,6 @@
+import { ReceiptIndianRupee } from "lucide-react";
 import { GovernanceRoutePage } from "@/components/governance/GovernanceRoutePage";
-export default function Page(){return <GovernanceRoutePage config={{collection:"refundCases",readOnly:true,eyebrow:"Finance",title:"Refunds",description:"Review authorized cancellation and exception refunds. Payment execution is intentionally not connected.",metricLabel:"Refund cases",primaryAction:"Inspect authorization"}}/>}
+
+export default function Page() {
+  return <GovernanceRoutePage config={{href:"/refunds",collection:"refundCases",eyebrow:"Finance",title:"Refund cases",description:"Bulk cancellation refunds and policy exceptions. Approve refund exceptions from the Approvals queue.",metricLabel:"Refund cases",primaryAction:"View",readOnly:true,icon:<ReceiptIndianRupee className="h-6 w-6" />}} />;
+}

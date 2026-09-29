@@ -88,42 +88,42 @@ export default function StaffDirectoryPage() {
 
       {/* Top Operational Metrics */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 text-center text-xs">
-        <div className="glass p-3 rounded-xl border border-white/5 space-y-0.5">
+        <div className="glass p-3 rounded-xl border border-slate-200 space-y-0.5">
           <span className="text-[10px] text-ink-mut uppercase block">Total</span>
           <span className="font-bold text-ink-lum text-base">{health.totalStaff}</span>
         </div>
-        <div className="glass p-3 rounded-xl border border-white/5 space-y-0.5">
+        <div className="glass p-3 rounded-xl border border-slate-200 space-y-0.5">
           <span className="text-[10px] text-ink-mut uppercase block">Working</span>
-          <span className="font-bold text-blue-400 text-base">{health.workingToday}</span>
+          <span className="font-bold text-blue-600 text-base">{health.workingToday}</span>
         </div>
-        <div className="glass p-3 rounded-xl border border-white/5 space-y-0.5">
+        <div className="glass p-3 rounded-xl border border-slate-200 space-y-0.5">
           <span className="text-[10px] text-ink-mut uppercase block">Available</span>
-          <span className="font-bold text-emerald-400 text-base">{health.availableCount}</span>
+          <span className="font-bold text-emerald-600 text-base">{health.availableCount}</span>
         </div>
-        <div className="glass p-3 rounded-xl border border-white/5 space-y-0.5">
+        <div className="glass p-3 rounded-xl border border-slate-200 space-y-0.5">
           <span className="text-[10px] text-ink-mut uppercase block">Assigned</span>
           <span className="font-bold text-ink-lum text-base">{health.assignedCount}</span>
         </div>
-        <div className="glass p-3 rounded-xl border border-white/5 space-y-0.5">
+        <div className="glass p-3 rounded-xl border border-slate-200 space-y-0.5">
           <span className="text-[10px] text-ink-mut uppercase block">Checked In</span>
-          <span className="font-bold text-emerald-400 text-base">{health.checkedInCount}</span>
+          <span className="font-bold text-emerald-600 text-base">{health.checkedInCount}</span>
         </div>
-        <div className="glass p-3 rounded-xl border border-white/5 space-y-0.5">
+        <div className="glass p-3 rounded-xl border border-slate-200 space-y-0.5">
           <span className="text-[10px] text-ink-mut uppercase block">Late</span>
-          <span className="font-bold text-amber-400 text-base">{health.lateCount}</span>
+          <span className="font-bold text-amber-600 text-base">{health.lateCount}</span>
         </div>
-        <div className="glass p-3 rounded-xl border border-white/5 space-y-0.5">
+        <div className="glass p-3 rounded-xl border border-slate-200 space-y-0.5">
           <span className="text-[10px] text-ink-mut uppercase block">Safety Staff</span>
-          <span className="font-bold text-purple-300 text-base">{health.safetyStaffCount}</span>
+          <span className="font-bold text-purple-700 text-base">{health.safetyStaffCount}</span>
         </div>
-        <div className="glass p-3 rounded-xl border border-white/5 space-y-0.5">
+        <div className="glass p-3 rounded-xl border border-slate-200 space-y-0.5">
           <span className="text-[10px] text-ink-mut uppercase block">Leads</span>
           <span className="font-bold text-brand text-base">{health.leadCoordinatorCount}</span>
         </div>
       </div>
 
       {/* Filter Rail */}
-      <div className="glass p-5 rounded-2xl border border-white/5 space-y-4">
+      <div className="glass p-5 rounded-2xl border border-slate-200 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="w-full sm:w-80">
             <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search staff name, role, venue..." />
@@ -149,13 +149,13 @@ export default function StaffDirectoryPage() {
         </div>
 
         {showMoreFilters && (
-          <div className="p-4 rounded-xl bg-black/40 border border-white/5 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
             <div className="space-y-1">
               <label className="text-[11px] text-ink-mut">Filter by Role</label>
               <select
                 value={roleFilter}
                 onChange={(e) => setRoleFilter(e.target.value)}
-                className="w-full h-8 px-2 rounded-lg bg-black/40 border border-white/10 text-xs text-ink-lum"
+                className="w-full h-8 px-2 rounded-lg bg-slate-50 border border-slate-200 text-xs text-ink-lum"
               >
                 <option value="all">All Roles</option>
                 <option value="coordinator">Lead Coordinator</option>

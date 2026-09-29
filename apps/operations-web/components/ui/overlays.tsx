@@ -37,16 +37,16 @@ export function Dialog({ open, onClose, title, children, wide = false }: { open:
           aria-modal="true"
           aria-label={title}
         >
-          <div className="absolute inset-0 bg-[#0c0e12]/70 backdrop-blur-[8px]" onClick={onClose} />
+          <div className="absolute inset-0 bg-slate-900/30 backdrop-blur-[3px]" onClick={onClose} />
           <motion.div
             initial={{ opacity: 0, y: 16, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.99 }}
             transition={{ duration: 0.28, ease: LIGHT }}
-            className={cn("glass relative w-full rounded-panel p-6", wide ? "max-w-2xl" : "max-w-md")}
+            className={cn("relative w-full rounded-panel border border-edge bg-white p-6 shadow-glass", wide ? "max-w-2xl" : "max-w-md")}
           >
             <div className="flex items-start justify-between gap-4">
-              <h2 className="text-base font-semibold text-ink-lum">{title}</h2>
+              <h2 className="font-display text-lg font-bold text-ink-lum">{title}</h2>
               <IconButton label="Close" onClick={onClose}>
                 <X className="h-4 w-4" />
               </IconButton>
@@ -72,18 +72,18 @@ export function Drawer({ open, onClose, title, sub, children, width = "max-w-md"
     <AnimatePresence>
       {open && (
         <motion.div className="fixed inset-0 z-50" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-          <div className="absolute inset-0 bg-[#0c0e12]/70 backdrop-blur-[8px]" onClick={onClose} />
+          <div className="absolute inset-0 bg-slate-900/30 backdrop-blur-[3px]" onClick={onClose} />
           <motion.aside
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ duration: 0.32, ease: LIGHT }}
-            className={cn("glass absolute right-0 top-0 flex h-full w-full flex-col", width)}
+            className={cn("absolute right-0 top-0 flex h-full w-full flex-col border-l border-edge bg-white shadow-glass", width)}
             aria-label={title}
           >
-            <header className="glass-surface flex items-start justify-between gap-4 border-b border-white/5 p-5">
+            <header className="flex items-start justify-between gap-4 border-b border-edge bg-white p-5">
               <div>
-                <h2 className="text-base font-semibold text-ink-lum">{title}</h2>
+                <h2 className="font-display text-lg font-bold text-ink-lum">{title}</h2>
                 {sub && <p className="mt-0.5 text-sm text-ink-mut">{sub}</p>}
               </div>
               <IconButton label="Close" onClick={onClose}>

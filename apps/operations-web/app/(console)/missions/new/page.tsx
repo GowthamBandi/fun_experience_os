@@ -113,8 +113,8 @@ function ScheduleEventForm() {
 
   if (step === 3) {
     return (
-      <div className="glass p-8 rounded-2xl border border-emerald-800/40 bg-emerald-950/20 text-center space-y-6 max-w-xl mx-auto my-8">
-        <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center mx-auto text-emerald-400">
+      <div className="glass p-8 rounded-2xl border border-emerald-300 bg-emerald-100 text-center space-y-6 max-w-xl mx-auto my-8">
+        <div className="w-16 h-16 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center mx-auto text-emerald-600">
           <CheckCircle2 className="w-10 h-10" />
         </div>
 
@@ -125,9 +125,9 @@ function ScheduleEventForm() {
           </p>
         </div>
 
-        <div className="p-4 rounded-xl bg-black/40 border border-white/5 text-left text-xs space-y-1">
+        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-left text-xs space-y-1">
           <p className="text-ink-mut">Session ID: <strong className="text-ink-lum">{createdSessionId}</strong></p>
-          <p className="text-ink-mut">Experience: <span className="text-purple-300 font-bold">{template?.name}</span></p>
+          <p className="text-ink-mut">Experience: <span className="text-purple-700 font-bold">{template?.name}</span></p>
           <p className="text-ink-mut">Date & Time: <span className="text-ink-sec">{formData.date} @ {formData.startTime}</span></p>
           <p className="text-ink-mut">Venue: <span className="text-ink-sec">{venues.find((v) => v.id === formData.venueId)?.name || "Venue"}</span></p>
         </div>
@@ -156,7 +156,7 @@ function ScheduleEventForm() {
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Select Experience Section */}
-      <div className="glass p-6 rounded-2xl border border-white/5 space-y-4">
+      <div className="glass p-6 rounded-2xl border border-slate-200 space-y-4">
         <h3 className="text-sm font-bold text-ink-lum">1. Choose Experience Plan</h3>
 
         {templates.length === 0 ? (
@@ -178,8 +178,8 @@ function ScheduleEventForm() {
                   onClick={() => setSelectedTemplateId(t.id)}
                   className={`p-3 rounded-xl border text-xs cursor-pointer transition-all ${
                     selected
-                      ? "bg-purple-950/40 border-brand text-ink-lum ring-1 ring-brand"
-                      : "bg-black/30 border-white/5 text-ink-sec hover:border-white/10"
+                      ? "bg-purple-200 border-brand text-ink-lum ring-1 ring-brand"
+                      : "bg-slate-50 border-slate-200 text-ink-sec hover:border-slate-200"
                   }`}
                 >
                   <div className="font-bold text-ink-lum truncate">{t.name}</div>
@@ -197,9 +197,9 @@ function ScheduleEventForm() {
         {template && readiness && (
           <div className="pt-2">
             {isBlocked ? (
-              <div className="p-4 rounded-xl bg-rose-950/30 border border-rose-800/40 text-rose-200 text-xs space-y-2">
-                <div className="flex items-center gap-2 font-bold text-rose-300">
-                  <AlertTriangle className="w-4 h-4 text-rose-400" />
+              <div className="p-4 rounded-xl bg-rose-100 border border-rose-300 text-rose-700 text-xs space-y-2">
+                <div className="flex items-center gap-2 font-bold text-rose-700">
+                  <AlertTriangle className="w-4 h-4 text-rose-600" />
                   <span>This experience is not ready to schedule yet.</span>
                 </div>
                 <p>Fix the following blockers in catalog before scheduling an event:</p>
@@ -215,12 +215,12 @@ function ScheduleEventForm() {
                 </div>
               </div>
             ) : (
-              <div className="p-4 rounded-xl bg-emerald-950/20 border border-emerald-800/40 text-emerald-200 text-xs flex items-center justify-between">
+              <div className="p-4 rounded-xl bg-emerald-100 border border-emerald-300 text-emerald-700 text-xs flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                   <span>Selected Experience &quot;{template.name}&quot; is ready to schedule.</span>
                 </div>
-                <span className="font-mono font-bold text-emerald-400">Default: ₹{template.basePrice} · {template.targetParticipants} pax</span>
+                <span className="font-mono font-bold text-emerald-600">Default: ₹{template.basePrice} · {template.targetParticipants} pax</span>
               </div>
             )}
           </div>
@@ -229,7 +229,7 @@ function ScheduleEventForm() {
 
       {/* Event Details Section */}
       {template && !isBlocked && (
-        <div className="glass p-6 rounded-2xl border border-white/5 space-y-4">
+        <div className="glass p-6 rounded-2xl border border-slate-200 space-y-4">
           <h3 className="text-sm font-bold text-ink-lum">2. Schedule Event Time & Location</h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -239,7 +239,7 @@ function ScheduleEventForm() {
                 type="date"
                 value={formData.date}
                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
               />
             </div>
 
@@ -249,7 +249,7 @@ function ScheduleEventForm() {
                 type="time"
                 value={formData.startTime}
                 onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
               />
             </div>
           </div>
@@ -260,7 +260,7 @@ function ScheduleEventForm() {
               <select
                 value={formData.venueId}
                 onChange={(e) => setFormData({ ...formData, venueId: e.target.value })}
-                className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
               >
                 {venues.map((v) => (
                   <option key={v.id} value={v.id}>
@@ -275,7 +275,7 @@ function ScheduleEventForm() {
               <select
                 value={formData.playingAreaId}
                 onChange={(e) => setFormData({ ...formData, playingAreaId: e.target.value })}
-                className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
               >
                 {playingAreas.map((pa) => (
                   <option key={pa.id} value={pa.id}>
@@ -286,14 +286,14 @@ function ScheduleEventForm() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-white/5 pt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-200 pt-4">
             <div className="space-y-2">
               <label className="text-xs font-medium text-ink-sec">Event Price Override (₹)</label>
               <input
                 type="number"
                 value={formData.priceOverride}
                 onChange={(e) => setFormData({ ...formData, priceOverride: Number(e.target.value) })}
-                className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum font-bold text-emerald-400"
+                className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum font-bold text-emerald-600"
               />
             </div>
 
@@ -303,12 +303,12 @@ function ScheduleEventForm() {
                 type="number"
                 value={formData.maxCapacityOverride}
                 onChange={(e) => setFormData({ ...formData, maxCapacityOverride: Number(e.target.value) })}
-                className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum font-bold"
+                className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum font-bold"
               />
             </div>
           </div>
 
-          <div className="flex justify-end pt-4 border-t border-white/5">
+          <div className="flex justify-end pt-4 border-t border-slate-200">
             <Button
               variant="primary"
               onClick={handleSchedule}

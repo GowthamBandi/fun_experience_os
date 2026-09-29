@@ -1,52 +1,58 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Building2, Check } from "lucide-react";
+import Link from "next/link";
+import { Check, ChevronsUpDown, MapPin, Plus } from "lucide-react";
+import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { territoryViews } from "@/lib/prototype/repositories";
 import { cn } from "@/lib/format";
 import { useClickOutside } from "@/lib/hooks";
-import { useState } from "react";
 
-/** The scope control — a territory is owned, not merely selected. */
+/** Territory scope for the operations modules. */
 export function TerritorySwitcher({ collapsed }: { collapsed: boolean }) {
-  const { territory, switchTerritory, state } = useStore();
+  const { territory, switchTerritory, state, canAccess } = useStore();
   const [open, setOpen] = useState(false);
   const ref = useClickOutside<HTMLDivElement>(() => setOpen(false));
   const territories = territoryViews(state);
   const active = territories.find((t) => t.id === territory.id);
+  const none = territories.length === 0;
 
   return (
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "flex w-full items-center gap-2.5 rounded-xl border border-white/6 bg-white/3 px-3 py-2.5 text-left",
-          "transition-colors hover:bg-white/6",
-          collapsed && "justify-center px-0 py-3",
+          "flex w-full items-center gap-2.5 rounded-xl border border-edge bg-bg-sunken px-3 py-2 text-left transition-colors hover:border-edge-strong hover:bg-white",
+          collapsed && "justify-center px-0 py-2.5",
         )}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-label="Territory scope"
+        title={collapsed ? territory.name : undefined}
       >
-        <Building2 className="h-4 w-4 shrink-0 text-ink-sec" />
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-400 to-indigo-500 text-white">
+          <MapPin className="h-3.5 w-3.5" />
+        </span>
         {!collapsed && (
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-xs font-medium text-ink-lum">{territory.name}</span>
-            <span className="block text-[11px] text-ink-mut">
-              {active?.tonight ?? territory.tonight} tonight · {active?.fill ?? territory.fill}% fill
+          <>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-xs font-semibold text-ink-lum">{none ? "No territories yet" : territory.name}</span>
+              <span className="block text-[11px] text-ink-mut">{none ? "Create one in Setup" : `${active?.tonight ?? 0} sessions today · ${active?.fill ?? 0}% fill`}</span>
             </span>
-          </span>
+            <ChevronsUpDown className="h-3.5 w-3.5 text-ink-mut" />
+          </>
         )}
       </button>
 
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0, y: 8 }}
+            initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 4 }}
-            transition={{ duration: 0.2, ease: [0.19, 1, 0.22, 1] }}
-            className="glass absolute left-0 top-full z-40 mt-2 min-w-[200px] rounded-xl p-1.5"
+            transition={{ duration: 0.18, ease: [0.19, 1, 0.22, 1] }}
+            className="absolute left-0 top-full z-40 mt-2 w-[240px] rounded-2xl border border-edge bg-white p-1.5 shadow-glass"
             role="listbox"
             aria-label="Territory"
           >
@@ -61,21 +67,23 @@ export function TerritorySwitcher({ collapsed }: { collapsed: boolean }) {
                     switchTerritory(t.id);
                     setOpen(false);
                   }}
-                  className={cn(
-                    "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors",
-                    isActive ? "bg-white/8" : "hover:bg-white/5",
-                  )}
+                  className={cn("flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors", isActive ? "bg-brand-subtle" : "hover:bg-slate-50")}
                 >
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-xs font-medium text-ink-lum">{t.name}</span>
+                    <span className={cn("block truncate text-xs font-semibold", isActive ? "text-brand-ink" : "text-ink-lum")}>{t.name}</span>
                     <span className="block text-[11px] text-ink-mut">
-                      {t.code} · {t.venuesCount} arenas
+                      {t.code} · {t.venuesCount} venues · {t.tonight} today
                     </span>
                   </span>
-                  {isActive && <Check className="h-3.5 w-3.5 text-[#ffd28a]" />}
+                  {isActive && <Check className="h-4 w-4 text-brand" />}
                 </button>
               );
             })}
+            {canAccess("/territories/new") && (
+              <Link href="/territories/new" onClick={() => setOpen(false)} className="mt-1 flex items-center gap-2 rounded-xl border-t border-edge px-2.5 py-2 text-xs font-semibold text-brand hover:bg-brand-subtle/50">
+                <Plus className="h-3.5 w-3.5" /> New territory
+              </Link>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

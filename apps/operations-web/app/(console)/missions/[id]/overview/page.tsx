@@ -85,7 +85,7 @@ export default function SessionOverviewPage() {
         </div>
         <div>
           <Link href="/missions">
-            <button className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink-mut hover:text-ink-lum transition-colors bg-white/4 border border-white/5 px-3 py-1.5 rounded-lg">
+            <button className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink-mut hover:text-ink-lum transition-colors bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg">
               <ArrowLeft className="h-4 w-4" />
               ← Back to All Events
             </button>
@@ -108,18 +108,18 @@ export default function SessionOverviewPage() {
       {/* Three main stages cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
         {/* Step 1: Run Event */}
-        <div className="glass rounded-panel border border-white/5 p-5 flex flex-col justify-between space-y-4">
+        <div className="glass rounded-panel border border-slate-200 p-5 flex flex-col justify-between space-y-4">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-brand uppercase tracking-wider">1. Run Event</span>
               <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                 lss.status === "Live"
-                  ? "bg-emerald-950 text-emerald-400 border border-emerald-800"
+                  ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
                   : lss.status === "Paused"
-                  ? "bg-amber-950 text-amber-300 border border-amber-800"
+                  ? "bg-amber-50 text-amber-700 border border-amber-200"
                   : lss.status === "Emergency"
-                  ? "bg-red-950 text-red-400 border border-red-800"
-                  : "bg-white/5 text-ink-sec"
+                  ? "bg-red-50 text-red-600 border border-red-200"
+                  : "bg-slate-50 text-ink-sec"
               }`}>
                 {getOperationalStatusLabel(lss.status)}
               </span>
@@ -136,16 +136,16 @@ export default function SessionOverviewPage() {
         </div>
 
         {/* Step 2: Record Results */}
-        <div className="glass rounded-panel border border-white/5 p-5 flex flex-col justify-between space-y-4">
+        <div className="glass rounded-panel border border-slate-200 p-5 flex flex-col justify-between space-y-4">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-[#5fd7a3] uppercase tracking-wider">2. Record Results</span>
+              <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">2. Record Results</span>
               <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                 !hasStarted
-                  ? "bg-white/2 border-white/5 text-ink-mut"
+                  ? "bg-slate-50 border-slate-200 text-ink-mut"
                   : confirmedCount === results.length && results.length > 0
-                  ? "bg-emerald-950 text-emerald-400 border border-emerald-800"
-                  : "bg-amber-950 text-amber-300 border border-amber-800"
+                  ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
+                  : "bg-amber-50 text-amber-700 border border-amber-200"
               }`}>
                 {!hasStarted ? "LOCKED" : `${confirmedCount}/${results.length} Confirmed`}
               </span>
@@ -155,7 +155,7 @@ export default function SessionOverviewPage() {
           </div>
           {hasStarted ? (
             <Link href={`/missions/${sessionId}/results`} className="w-full">
-              <Button variant="ghost" className="w-full border border-white/10 justify-center text-xs h-9 gap-1.5">
+              <Button variant="ghost" className="w-full border border-slate-200 justify-center text-xs h-9 gap-1.5">
                 <ClipboardCheck className="h-3.5 w-3.5" />
                 Record Results
               </Button>
@@ -169,18 +169,18 @@ export default function SessionOverviewPage() {
         </div>
 
         {/* Step 3: Finish Event */}
-        <div className="glass rounded-panel border border-white/5 p-5 flex flex-col justify-between space-y-4">
+        <div className="glass rounded-panel border border-slate-200 p-5 flex flex-col justify-between space-y-4">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-[#ffd28a] uppercase tracking-wider">3. Finish Event</span>
+              <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">3. Finish Event</span>
               <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                 isCompleted
-                  ? "bg-slate-900 border-slate-800 text-slate-400"
+                  ? "bg-slate-50 border-slate-200 text-slate-500"
                   : !hasEnded
-                  ? "bg-white/2 border-white/5 text-ink-mut"
+                  ? "bg-slate-50 border-slate-200 text-ink-mut"
                   : checklist.isReadyToComplete
-                  ? "bg-emerald-950 text-emerald-400 border border-emerald-800"
-                  : "bg-red-950 text-red-400 border border-red-800"
+                  ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
+                  : "bg-red-50 text-red-600 border border-red-200"
               }`}>
                 {isCompleted ? "COMPLETED" : !hasEnded ? "LOCKED" : checklist.isReadyToComplete ? "READY" : "NEEDS ACTION"}
               </span>
@@ -190,7 +190,7 @@ export default function SessionOverviewPage() {
           </div>
           {hasEnded ? (
             <Link href={`/missions/${sessionId}/completion`} className="w-full">
-              <Button variant="ghost" className="w-full border border-white/10 justify-center text-xs h-9 gap-1.5">
+              <Button variant="ghost" className="w-full border border-slate-200 justify-center text-xs h-9 gap-1.5">
                 <ClipboardCheck className="h-3.5 w-3.5" />
                 Review Completion
               </Button>

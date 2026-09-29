@@ -64,7 +64,7 @@ export default function ParticipantsDirectoryPage() {
 
       <StaffHelpPanel />
 
-      <div className="glass p-5 rounded-2xl border border-white/5 space-y-4">
+      <div className="glass p-5 rounded-2xl border border-slate-200 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="w-full sm:w-80">
             <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search alias, temp ID, event..." />
@@ -83,7 +83,7 @@ export default function ParticipantsDirectoryPage() {
           <Stagger className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map((p) => (
               <Item key={p.id}>
-                <div className="glass p-5 rounded-2xl border border-white/5 hover:border-purple-500/30 transition-all flex flex-col justify-between space-y-3">
+                <div className="glass p-5 rounded-2xl border border-slate-200 hover:border-purple-200 transition-all flex flex-col justify-between space-y-3">
                   <div className="space-y-3">
                     <div className="flex items-start justify-between gap-2">
                       <div>
@@ -99,18 +99,18 @@ export default function ParticipantsDirectoryPage() {
                       />
                     </div>
 
-                    <div className="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1.5 text-xs">
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5 text-xs">
                       <div className="flex justify-between text-ink-sec">
                         <span>Event:</span>
                         <span className="font-bold text-ink-lum truncate max-w-[160px]">{p.sessionTitle}</span>
                       </div>
                       <div className="flex justify-between text-ink-sec">
                         <span>Team:</span>
-                        <span className="font-bold text-purple-300">{p.teamName}</span>
+                        <span className="font-bold text-purple-700">{p.teamName}</span>
                       </div>
-                      <div className="flex justify-between text-ink-mut text-[11px] pt-1 border-t border-white/5">
+                      <div className="flex justify-between text-ink-mut text-[11px] pt-1 border-t border-slate-200">
                         <span className="flex items-center gap-1">
-                          <Lock className="w-3 h-3 text-emerald-400" />
+                          <Lock className="w-3 h-3 text-emerald-600" />
                           <span>Protected Phone:</span>
                         </span>
                         <span className="font-mono">{p.maskedPhone}</span>
@@ -118,7 +118,7 @@ export default function ParticipantsDirectoryPage() {
                     </div>
                   </div>
 
-                  <div className="pt-2 border-t border-white/5 flex items-center justify-between">
+                  <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
                     <span className="text-[11px] text-ink-mut font-mono">Joined {p.joinedAt}</span>
                     <Link href={`/people/participants/${p.id}`}>
                       <Button variant="secondary" className="h-7 text-xs font-bold px-3">

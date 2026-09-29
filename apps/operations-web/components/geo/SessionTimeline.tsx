@@ -55,15 +55,15 @@ export function SessionTimeline({
   const activeIndex = getActiveStepIndex();
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-lg p-4 space-y-3">
-      <div className="flex items-center justify-between text-xs font-mono text-slate-400">
-        <span className="font-bold uppercase tracking-wider text-slate-300">Operational Session Lifecycle</span>
-        <span>Fill Rate: <strong className="text-emerald-400">{fillRate}%</strong> {waitlistCount > 0 && `| Waitlist: ${waitlistCount}`}</span>
+    <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
+      <div className="flex items-center justify-between text-xs font-mono text-slate-500">
+        <span className="font-bold uppercase tracking-wider text-slate-700">Operational Session Lifecycle</span>
+        <span>Fill Rate: <strong className="text-emerald-600">{fillRate}%</strong> {waitlistCount > 0 && `| Waitlist: ${waitlistCount}`}</span>
       </div>
 
       <div className="relative flex items-center justify-between">
         {/* Connector Line */}
-        <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-slate-800 -translate-y-1/2 z-0" />
+        <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-slate-100 -translate-y-1/2 z-0" />
         <div
           className="absolute top-1/2 left-0 h-0.5 bg-emerald-500 -translate-y-1/2 transition-all duration-500 z-0"
           style={{ width: `${(activeIndex / (STEPS.length - 1)) * 100}%` }}
@@ -79,10 +79,10 @@ export function SessionTimeline({
               <div
                 className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold font-mono transition-all ${
                   isCurrent
-                    ? "bg-emerald-500 text-slate-950 ring-4 ring-emerald-500/20 scale-125"
+                    ? "bg-emerald-500 text-slate-950 ring-4 ring-emerald-200 scale-125"
                     : isDone
                     ? "bg-emerald-600 text-white"
-                    : "bg-slate-800 text-slate-500 border border-slate-700"
+                    : "bg-slate-100 text-slate-500 border border-slate-200"
                 }`}
               >
                 {isDone ? "✓" : idx + 1}
@@ -90,10 +90,10 @@ export function SessionTimeline({
               <span
                 className={`text-[10px] font-mono mt-1 transition-colors whitespace-nowrap hidden sm:inline-block ${
                   isCurrent
-                    ? "text-emerald-400 font-bold"
+                    ? "text-emerald-600 font-bold"
                     : isDone
-                    ? "text-slate-300"
-                    : "text-slate-600"
+                    ? "text-slate-700"
+                    : "text-slate-400"
                 }`}
               >
                 {step.label}

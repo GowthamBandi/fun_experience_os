@@ -32,6 +32,7 @@ export function pushAudit(
         action: entry.action,
         operatorId: entry.operatorId ?? "system",
         timestamp: nowLabel(),
+        at: new Date().toISOString(),
         description: entry.description
       },
       ...state.audits
@@ -52,6 +53,7 @@ export function pushSignal(
         message: entry.message,
         sessionId: entry.sessionId,
         at: entry.at ?? nowLabel(),
+        atIso: new Date().toISOString(),
         read: entry.read ?? false
       },
       ...state.signals

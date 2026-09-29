@@ -1085,6 +1085,8 @@ export interface Signal {
   message: string;
   sessionId?: SessionId;
   at: string;
+  /** ISO-8601 time the signal was raised. */
+  atIso?: string;
   read: boolean;
 }
 
@@ -1093,7 +1095,10 @@ export interface AuditEvent {
   sessionId?: SessionId;
   action: string;
   operatorId: string;
+  /** Display label kept for older records, e.g. "Today, 18:42". */
   timestamp: string;
+  /** ISO-8601 time the event was recorded. Present on every record written since the production pass. */
+  at?: string;
   description: string;
 }
 
@@ -1297,4 +1302,65 @@ export interface SessionCompletionSnapshot {
   safetySignals: string[];
   followUpItems: string[];
   label: string;
+}
+
+/* ------------------------------------------------------------------
+   PLATFORM RECORDS (workspace-level, added in the production pass)
+------------------------------------------------------------------- */
+
+/** One immutable entry in the activity record: every console command is journalled. */
+export interface ActivityRecord {
+  id: string;
+  /** ISO-8601 timestamp. */
+  at: string;
+  actorId: string;
+  actorName: string;
+  roleId: string;
+  /** Store command name, e.g. "confirmBookingPayment". */
+  command: string;
+  /** Human-readable module, e.g. "Bookings". */
+  module: string;
+  summary: string;
+  /** Primary entity id the command acted on, when known. */
+  target?: string;
+  outcome: "ok" | "rejected";
+  detail?: string;
+}
+
+/** Operator account for the console (the people who sign in). */
+export interface OperatorAccount {
+  id: string;
+  name: string;
+  title: string;
+  role: RoleId;
+  territoryId: TerritoryId;
+  initials: string;
+  email?: string;
+  status: "active" | "suspended";
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type GovernanceCollectionName =
+  | "governanceCases"
+  | "organizers"
+  | "arenas"
+  | "events"
+  | "commercialAgreements"
+  | "riskAlerts"
+  | "refundCases"
+  | "settlementControls"
+  | "policyVersions"
+  | "auditEvents"
+  | "customers"
+  | "users";
+
+/** A marketplace-governance document. Mirrors the Firestore document shape. */
+export interface GovernanceDoc {
+  collection: GovernanceCollectionName;
+  id: string;
+  version: number;
+  data: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
 }

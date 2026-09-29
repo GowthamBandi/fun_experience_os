@@ -142,7 +142,7 @@ export default function EventBookingsPage() {
             </div>
             <div>
               <div className="text-xs text-ink-mut mb-1">Failed</div>
-              <div className="font-medium text-red-400">{inr(failedAmount)}</div>
+              <div className="font-medium text-red-600">{inr(failedAmount)}</div>
             </div>
           </div>
         </div>

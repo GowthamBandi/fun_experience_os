@@ -37,7 +37,10 @@ import type {
   ModerationCase,
   ModerationAction,
   RefundException,
-  TournamentMatch
+  TournamentMatch,
+  ActivityRecord,
+  OperatorAccount,
+  GovernanceDoc
 } from "../entities";
 
 export interface PrototypeState {
@@ -80,4 +83,10 @@ export interface PrototypeState {
   audits: AuditEvent[];
   analytics: DayPoint[];
   promoCodes: PromoCode[];
+  /** Console operator accounts (who can sign in, with which role). */
+  operators: OperatorAccount[];
+  /** Marketplace governance documents (local mirror of the Firestore collections). */
+  governance: GovernanceDoc[];
+  /** Immutable activity record of every console command. */
+  activityLog: ActivityRecord[];
 }

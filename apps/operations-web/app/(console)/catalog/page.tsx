@@ -66,23 +66,23 @@ export default function CatalogLandingPage() {
       />
 
       {/* 4-Step Operator Workflow Bar */}
-      <div className="glass p-4 rounded-2xl border border-white/5 space-y-3">
+      <div className="glass p-4 rounded-2xl border border-slate-200 space-y-3">
         <div className="text-xs font-semibold text-ink-sec">Operator Mental Model Workflow:</div>
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-center text-xs">
-          <div className="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
+          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
             <span className="font-bold text-brand block">1. Category</span>
             <span className="text-[11px] text-ink-mut">Activity type</span>
           </div>
-          <div className="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
-            <span className="font-bold text-purple-400 block">2. Experience</span>
+          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+            <span className="font-bold text-purple-600 block">2. Experience</span>
             <span className="text-[11px] text-ink-mut">Reusable event plan</span>
           </div>
-          <div className="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
-            <span className="font-bold text-emerald-400 block">3. Readiness</span>
+          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+            <span className="font-bold text-emerald-600 block">3. Readiness</span>
             <span className="text-[11px] text-ink-mut">Review checklist</span>
           </div>
-          <div className="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
-            <span className="font-bold text-emerald-300 block">4. Schedule</span>
+          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+            <span className="font-bold text-emerald-700 block">4. Schedule</span>
             <span className="text-[11px] text-ink-mut">Select venue & time</span>
           </div>
         </div>
@@ -93,7 +93,7 @@ export default function CatalogLandingPage() {
 
       {/* SECTION 1 — Categories */}
       <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-3">
           <div>
             <h2 className="text-lg font-bold text-ink-lum flex items-center gap-2">
               <Layers className="w-5 h-5 text-brand" />
@@ -124,7 +124,7 @@ export default function CatalogLandingPage() {
               const catTemplates = templates.filter((t) => t.categoryId === c.id);
               return (
                 <Item key={c.id}>
-                  <div className="glass p-5 rounded-2xl border border-white/5 hover:border-white/10 transition-all flex flex-col justify-between space-y-3">
+                  <div className="glass p-5 rounded-2xl border border-slate-200 hover:border-slate-200 transition-all flex flex-col justify-between space-y-3">
                     <div>
                       <div className="flex justify-between items-start mb-2">
                         <h3 className="font-bold text-base text-ink-lum">{c.name}</h3>
@@ -133,7 +133,7 @@ export default function CatalogLandingPage() {
                       <p className="text-xs text-ink-mut line-clamp-2">{c.description || "Activity category"}</p>
                     </div>
 
-                    <div className="pt-2 border-t border-white/5 flex items-center justify-between text-xs">
+                    <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-xs">
                       <span className="text-ink-sec font-medium">{catTemplates.length} Experiences</span>
                       <Link href={`/catalog/categories/${c.id}`}>
                         <Button variant="ghost" className="h-7 text-xs px-2 font-bold text-brand">
@@ -151,10 +151,10 @@ export default function CatalogLandingPage() {
 
       {/* SECTION 2 — Experiences (Templates) */}
       <div className="space-y-4 pt-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-3">
           <div>
             <h2 className="text-lg font-bold text-ink-lum flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-purple-400" />
+              <Sparkles className="w-5 h-5 text-purple-600" />
               <span>2. Reusable Experiences</span>
             </h2>
             <p className="text-xs text-ink-sec">
@@ -185,33 +185,33 @@ export default function CatalogLandingPage() {
 
               return (
                 <Item key={t.id}>
-                  <div className="glass p-5 rounded-2xl border border-white/5 hover:border-white/10 transition-all flex flex-col justify-between space-y-4">
+                  <div className="glass p-5 rounded-2xl border border-slate-200 hover:border-slate-200 transition-all flex flex-col justify-between space-y-4">
                     <div className="space-y-3">
                       <div className="flex items-start justify-between gap-2">
                         <div>
                           <h3 className="font-bold text-base text-ink-lum">{t.name}</h3>
-                          <span className="text-xs text-purple-400 font-medium">{cat?.name || "Category"}</span>
+                          <span className="text-xs text-purple-600 font-medium">{cat?.name || "Category"}</span>
                         </div>
                         <ExperienceStatusBadge status={read.status} size="sm" />
                       </div>
 
-                      <div className="grid grid-cols-3 gap-2 text-center text-xs border-t border-white/5 pt-2">
-                        <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                      <div className="grid grid-cols-3 gap-2 text-center text-xs border-t border-slate-200 pt-2">
+                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
                           <span className="text-[10px] text-ink-mut block uppercase">Price</span>
-                          <span className="font-bold text-emerald-400">₹{t.basePrice}</span>
+                          <span className="font-bold text-emerald-600">₹{t.basePrice}</span>
                         </div>
-                        <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
                           <span className="text-[10px] text-ink-mut block uppercase">Capacity</span>
                           <span className="font-bold text-ink-lum">{t.targetParticipants} pax</span>
                         </div>
-                        <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
                           <span className="text-[10px] text-ink-mut block uppercase">Duration</span>
                           <span className="font-bold text-ink-lum">{t.duration}m</span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="pt-2 border-t border-white/5 flex items-center justify-between">
+                    <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
                       <span className="text-[11px] text-ink-sec">{sessionsCount} scheduled</span>
                       <Link href={read.nextActionHref}>
                         <Button

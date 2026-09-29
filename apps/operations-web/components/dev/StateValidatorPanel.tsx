@@ -7,9 +7,9 @@ import { ShieldAlert, ShieldCheck, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/format";
 
 const SEVERITY_TONE: Record<ValidationIssue["severity"], string> = {
-  error: "text-red-400 border-red-400/30 bg-red-400/10",
-  warning: "text-amber-300 border-amber-300/30 bg-amber-300/10",
-  info: "text-sky-300 border-sky-300/20 bg-sky-300/5"
+  error: "text-red-600 border-red-200 bg-red-50",
+  warning: "text-amber-700 border-amber-200 bg-amber-50",
+  info: "text-sky-700 border-sky-200 bg-sky-50"
 };
 
 export function StateValidatorPanel() {
@@ -28,8 +28,8 @@ export function StateValidatorPanel() {
         className={cn(
           "flex items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider shadow-lg backdrop-blur-md transition",
           healthy
-            ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-300"
-            : "border-red-400/30 bg-red-500/10 text-red-300"
+            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+            : "border-red-200 bg-red-50 text-red-700"
         )}
         title="Cross-entity state validation (dev only)"
       >
@@ -39,10 +39,10 @@ export function StateValidatorPanel() {
       </button>
 
       {open && (
-        <div className="glass mt-2 w-[340px] rounded-panel border border-white/10 p-3 shadow-[0_32px_64px_rgba(0,0,0,0.5)] text-left">
+        <div className="glass mt-2 w-[340px] rounded-panel border border-slate-200 p-3 shadow-[0_32px_64px_rgba(0,0,0,0.5)] text-left">
           <p className="overline text-[9px] text-ink-mut">State validator · {issues.length} checks raised</p>
           {issues.length === 0 ? (
-            <p className="mt-2 text-xs text-emerald-300">All cross-entity references, capacities and matches are consistent.</p>
+            <p className="mt-2 text-xs text-emerald-700">All cross-entity references, capacities and matches are consistent.</p>
           ) : (
             <div className="mt-2 max-h-64 space-y-1.5 overflow-y-auto">
               {issues.map((i, idx) => (

@@ -8,26 +8,26 @@ export interface StaffStatusBadgeProps {
 }
 
 export function StaffStatusBadge({ status, size = "md" }: StaffStatusBadgeProps) {
-  let color = "border-emerald-500/30 bg-emerald-500/10 text-emerald-400";
+  let color = "border-emerald-200 bg-emerald-50 text-emerald-600";
   let label = "Available";
 
   if (status === "assigned") {
-    color = "border-blue-500/30 bg-blue-500/10 text-blue-400";
+    color = "border-blue-200 bg-blue-50 text-blue-600";
     label = "Assigned";
   } else if (status === "checked-in") {
-    color = "border-emerald-500/30 bg-emerald-500/10 text-emerald-400";
+    color = "border-emerald-200 bg-emerald-50 text-emerald-600";
     label = "Checked In";
   } else if (status === "late" || status === "needs-attention") {
-    color = "border-amber-500/30 bg-amber-500/10 text-amber-400";
+    color = "border-amber-200 bg-amber-50 text-amber-600";
     label = status === "late" ? "Late" : "Needs Attention";
   } else if (status === "off") {
-    color = "border-white/10 bg-white/5 text-ink-mut";
+    color = "border-slate-200 bg-slate-50 text-ink-mut";
     label = "Off Duty";
   } else if (status === "blocked" || status === "missing") {
-    color = "border-rose-500/30 bg-rose-500/10 text-rose-400";
+    color = "border-rose-200 bg-rose-50 text-rose-600";
     label = status === "missing" ? "Missing Staff" : "Blocked";
   } else if (status === "ready") {
-    color = "border-emerald-500/30 bg-emerald-500/10 text-emerald-400";
+    color = "border-emerald-200 bg-emerald-50 text-emerald-600";
     label = "Ready";
   }
 

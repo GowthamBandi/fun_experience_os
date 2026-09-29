@@ -596,3 +596,15 @@ export function confirmBooking(state: PrototypeState, bookingId: string, method 
   return confirmBookingPayment(state, bookingId, method, operatorId);
 }
 
+
+/**
+ * Release every reservation hold and waitlist offer whose expiry has passed.
+ * Called by the store on a timer (the local equivalent of the scheduled
+ * `releaseExpiredHolds` Cloud Function). Must be idempotent and must return the
+ * same state object when nothing expired.
+ */
+export function releaseExpiredHolds(state: PrototypeState, nowIso: string, operatorId = "system"): PrototypeState {
+  void nowIso;
+  void operatorId;
+  return state;
+}

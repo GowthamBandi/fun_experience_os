@@ -130,10 +130,10 @@ export default function MissionsPage() {
       <Stagger className="mt-6">
         <Item>
           {/* Desktop Table View (hidden on mobile) */}
-          <div className="hidden md:block overflow-hidden rounded-panel border border-white/5 bg-slate-950/20">
+          <div className="hidden md:block overflow-hidden rounded-panel border border-slate-200 bg-slate-50">
             <table className="w-full border-collapse text-left text-xs font-mono">
               <thead>
-                <tr className="border-b border-white/5 bg-white/2 text-ink-mut select-none uppercase tracking-wider text-[10px]">
+                <tr className="border-b border-slate-200 bg-slate-50 text-ink-mut select-none uppercase tracking-wider text-[10px]">
                   <th className="p-4 font-semibold">Event</th>
                   <th className="p-4 font-semibold">Time & Venue</th>
                   <th className="p-4 font-semibold">Capacity Fill</th>
@@ -142,14 +142,14 @@ export default function MissionsPage() {
                   <th className="p-4 font-semibold text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-slate-100">
                 {rows.map((r) => {
                   const fill = fillRate(r.joinedCount, r.sellableCapacity);
                   return (
                     <tr
                       key={r.id}
                       onClick={() => setOpenSession(r)}
-                      className="hover:bg-white/3 transition-colors cursor-pointer group"
+                      className="hover:bg-slate-50 transition-colors cursor-pointer group"
                     >
                       <td className="p-4">
                         <p className="font-semibold text-sm text-ink-lum group-hover:text-brand transition-colors">
@@ -175,7 +175,7 @@ export default function MissionsPage() {
                             <span>{r.remainingSlots} left {r.waitlistCount > 0 && `· ${r.waitlistCount} waiting`}</span>
                           </p>
                           {r.paymentProblems > 0 && (
-                            <p className="text-[10px] text-[#ff8f86]">{r.paymentProblems} payment problem{r.paymentProblems > 1 ? 's' : ''}</p>
+                            <p className="text-[10px] text-red-700">{r.paymentProblems} payment problem{r.paymentProblems > 1 ? 's' : ''}</p>
                           )}
                         </div>
                       </td>
@@ -188,10 +188,10 @@ export default function MissionsPage() {
                       <td className="p-4">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border ${
                           r.lssStatus === "Live"
-                            ? "bg-emerald-950/60 border-emerald-800 text-emerald-300"
+                            ? "bg-emerald-200 border-emerald-200 text-emerald-700"
                             : r.lssStatus === "Paused"
-                            ? "bg-amber-950/60 border-amber-800 text-amber-300"
-                            : "bg-white/5 border-white/10 text-ink-sec"
+                            ? "bg-amber-200 border-amber-200 text-amber-700"
+                            : "bg-slate-50 border-slate-200 text-ink-sec"
                         }`}>
                           {getOperationalStatusLabel(r.lssStatus || r.status)}
                         </span>
@@ -227,7 +227,7 @@ export default function MissionsPage() {
                 <div
                   key={r.id}
                   onClick={() => setOpenSession(r)}
-                  className="glass rounded-panel border border-white/5 p-4 space-y-3 cursor-pointer hover:border-brand/40 transition-colors"
+                  className="glass rounded-panel border border-slate-200 p-4 space-y-3 cursor-pointer hover:border-brand/40 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
@@ -236,8 +236,8 @@ export default function MissionsPage() {
                     </div>
                     <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border ${
                       r.lssStatus === "Live"
-                        ? "bg-emerald-950 border-emerald-800 text-emerald-300"
-                        : "bg-white/5 border-white/10 text-ink-sec"
+                        ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                        : "bg-slate-50 border-slate-200 text-ink-sec"
                     }`}>
                       {getOperationalStatusLabel(r.lssStatus || r.status)}
                     </span>
@@ -255,14 +255,14 @@ export default function MissionsPage() {
                       <span className="text-[10px] text-ink-mut flex items-center gap-1 justify-end">
                         <Coins className="h-3 w-3" /> Collected Take
                       </span>
-                      <p className="font-semibold text-[#5fd7a3]">{inr(r.netRevenue)}</p>
+                      <p className="font-semibold text-emerald-700">{inr(r.netRevenue)}</p>
                       {r.totalRefunded > 0 && (
                         <p className="text-[9px] text-danger">-{inr(r.totalRefunded)} refunds</p>
                       )}
                     </div>
                   </div>
 
-                  <div className="space-y-1 border-t border-white/5 pt-3">
+                  <div className="space-y-1 border-t border-slate-200 pt-3">
                     <div className="flex justify-between text-[10px] text-ink-mut">
                       <span>Joined Capacity</span>
                       <span>{r.joinedCount} / {r.sellableCapacity} slots occupied</span>
@@ -270,11 +270,11 @@ export default function MissionsPage() {
                     <FillMeter value={fill} />
                   </div>
 
-                  <div className="flex flex-col gap-2 border-t border-white/5 pt-3">
+                  <div className="flex flex-col gap-2 border-t border-slate-200 pt-3">
                     <div className="flex items-center justify-between text-[10px] text-ink-mut">
                       <span>{r.remainingSlots} spaces left · {r.waitlistCount} waiting</span>
                       {r.paymentProblems > 0 && (
-                        <span className="text-[#ff8f86]">{r.paymentProblems} payment problem{r.paymentProblems > 1 ? 's' : ''}</span>
+                        <span className="text-red-700">{r.paymentProblems} payment problem{r.paymentProblems > 1 ? 's' : ''}</span>
                       )}
                     </div>
                     <div className="flex items-center justify-between gap-2" onClick={(e) => e.stopPropagation()}>
@@ -295,7 +295,7 @@ export default function MissionsPage() {
               );
             })}
             {rows.length === 0 && (
-              <div className="p-8 text-center text-ink-mut border border-white/5 rounded-panel glass">
+              <div className="p-8 text-center text-ink-mut border border-slate-200 rounded-panel glass">
                 <p className="text-sm font-semibold">No active events tonight.</p>
               </div>
             )}
@@ -326,9 +326,9 @@ function SessionDetail({ session }: { session: any }) {
 
   return (
     <div className="space-y-5 font-mono text-xs">
-      <div className="flex flex-wrap items-center justify-between border-b border-white/10 pb-3 gap-3">
+      <div className="flex flex-wrap items-center justify-between border-b border-slate-200 pb-3 gap-3">
         <div className="flex items-center gap-3">
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-white/5 border border-white/10 text-ink-sec">
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-50 border border-slate-200 text-ink-sec">
             {getOperationalStatusLabel(session.lssStatus || session.status)}
           </span>
           <span className="text-xs text-ink-mut">{session.venueName}</span>
@@ -364,7 +364,7 @@ function SessionDetail({ session }: { session: any }) {
         </div>
         <div className="space-y-1.5">
           {bookings.map((b) => (
-            <div key={b.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/6 bg-white/3 px-3 py-2.5">
+            <div key={b.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
               <div className="min-w-0">
                 <p className="truncate text-sm text-ink-lum">
                   {b.alias} <span className="text-ink-mut">· {b.tempId}</span>

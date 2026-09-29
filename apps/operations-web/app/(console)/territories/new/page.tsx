@@ -101,7 +101,7 @@ export default function NewTerritoryPage() {
     return (
       <PageFrame>
         <div className="max-w-md mx-auto mt-12 text-center space-y-6">
-          <div className="w-16 h-16 rounded-full bg-emerald-950/50 border border-emerald-800 flex items-center justify-center mx-auto text-emerald-400">
+          <div className="w-16 h-16 rounded-full bg-emerald-200 border border-emerald-200 flex items-center justify-center mx-auto text-emerald-600">
             <CheckCircle2 className="w-8 h-8" />
           </div>
           <div>
@@ -109,7 +109,7 @@ export default function NewTerritoryPage() {
             <p className="text-ink-sec mt-2">The territory has been successfully created under the franchise.</p>
           </div>
           
-          <div className="glass p-5 rounded-2xl border border-white/10 space-y-3">
+          <div className="glass p-5 rounded-2xl border border-slate-200 space-y-3">
             <h3 className="text-sm font-semibold text-ink-lum">Recommended Next Action</h3>
             <p className="text-xs text-ink-mut mb-4">A territory needs cities to operate in.</p>
             <Link href={`/cities/new?territoryId=${createdId}`} className="block">
@@ -237,19 +237,19 @@ export default function NewTerritoryPage() {
             <div>
               <p className="overline mb-2">Summary</p>
               <div className="space-y-1">
-                <div className="flex justify-between py-1 border-b border-white/5 text-sm">
+                <div className="flex justify-between py-1 border-b border-slate-200 text-sm">
                   <span className="text-ink-mut">Franchise</span>
                   <span className="text-ink-lum font-medium">{franchiseName}</span>
                 </div>
-                <div className="flex justify-between py-1 border-b border-white/5 text-sm">
+                <div className="flex justify-between py-1 border-b border-slate-200 text-sm">
                   <span className="text-ink-mut">Name</span>
                   <span className="text-ink-lum font-medium">{nameTrimmed}</span>
                 </div>
-                <div className="flex justify-between py-1 border-b border-white/5 text-sm">
+                <div className="flex justify-between py-1 border-b border-slate-200 text-sm">
                   <span className="text-ink-mut">Manager</span>
                   <span className="text-ink-lum font-medium">{managerId ? operatorName(managerId) : "—"}</span>
                 </div>
-                <div className="flex justify-between py-1 border-b border-white/5 text-sm">
+                <div className="flex justify-between py-1 border-b border-slate-200 text-sm">
                   <span className="text-ink-mut">State/Region</span>
                   <span className="text-ink-lum font-medium">{geoState} / {region}</span>
                 </div>

@@ -8,17 +8,17 @@ export interface ExperienceStatusBadgeProps {
 }
 
 export function ExperienceStatusBadge({ status, size = "md" }: ExperienceStatusBadgeProps) {
-  let color = "border-emerald-500/30 bg-emerald-500/10 text-emerald-400";
+  let color = "border-emerald-200 bg-emerald-50 text-emerald-600";
   let label = "Ready to Schedule";
 
   if (status === "blocked") {
-    color = "border-rose-500/30 bg-rose-500/10 text-rose-400";
+    color = "border-rose-200 bg-rose-50 text-rose-600";
     label = "Blocked";
   } else if (status === "needs-attention" || status === "draft") {
-    color = "border-amber-500/30 bg-amber-500/10 text-amber-400";
+    color = "border-amber-200 bg-amber-50 text-amber-600";
     label = status === "draft" ? "Draft Setup" : "Needs Attention";
   } else if (status === "paused") {
-    color = "border-white/10 bg-white/5 text-ink-mut";
+    color = "border-slate-200 bg-slate-50 text-ink-mut";
     label = "Paused";
   }
 

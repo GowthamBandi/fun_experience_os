@@ -68,7 +68,7 @@ export default function ReconciliationPage() {
 
             {unpaidConfirmedBookings.map((b) => (
               <Item key={b.id}>
-                <div className="glass p-5 rounded-xl border border-red-500/30">
+                <div className="glass p-5 rounded-xl border border-red-200">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                       <h4 className="text-ink-lum font-medium text-lg">Booking confirmed but payment missing</h4>

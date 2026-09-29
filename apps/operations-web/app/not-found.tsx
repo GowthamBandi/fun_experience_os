@@ -8,7 +8,7 @@ export default function NotFound() {
       <span className="mark h-12 w-12" />
       <p className="text-lg font-semibold text-ink-lum">This door isn&apos;t on the map.</p>
       <p className="text-sm text-ink-mut">The room you asked for doesn&apos;t exist — or the night moved it.</p>
-      <Link href="/" className="text-sm text-[#9db4ff] transition-colors hover:text-ink-lum">
+      <Link href="/" className="text-sm text-indigo-700 transition-colors hover:text-ink-lum">
         Back to Command
       </Link>
     </div>

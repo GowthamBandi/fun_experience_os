@@ -40,7 +40,7 @@ export default function RefundsPage() {
       ),
     },
     { key: "reason", header: "Reason", render: (re) => <span className="text-ink-sec">{re.reason}</span> },
-    { key: "amount", header: "Amount", align: "right", render: (re) => <span className="font-mono text-red-400 font-bold">{inr(re.amount)}</span> },
+    { key: "amount", header: "Amount", align: "right", render: (re) => <span className="font-mono text-red-600 font-bold">{inr(re.amount)}</span> },
     { key: "status", header: "Status", render: (re) => <RefundStatusBadge status={re.status as string} /> },
     { key: "notes", header: "Notes", render: (re) => <span className="text-ink-mut max-w-xs truncate">{re.notes || "—"}</span> },
     {
@@ -60,7 +60,7 @@ export default function RefundsPage() {
             <Button
               variant="ghost"
               onClick={() => rejectRefundException(re.id, "Rejected")}
-              className="h-8 px-3 text-xs text-red-400"
+              className="h-8 px-3 text-xs text-red-600"
             >
               Reject
             </Button>
@@ -125,7 +125,7 @@ export default function RefundsPage() {
                            </Button>
                            <Button
                              variant="ghost"
-                             className="text-red-400 hover:text-red-300 hover:bg-red-950/30"
+                             className="text-red-600 hover:text-red-700 hover:bg-red-100"
                              onClick={() => rejectRefund(r.id, "Rejected", role.id)}
                            >
                              Reject

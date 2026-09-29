@@ -37,7 +37,7 @@ export default function TeamFormationPage() {
   const readiness = useMemo(() => selectTeamAllocationReadiness(state, sessionId), [state, sessionId]);
 
   if (!session) {
-    return <div className="p-8 text-xs font-mono text-slate-400">Session not found.</div>;
+    return <div className="p-8 text-xs font-mono text-slate-500">Session not found.</div>;
   }
 
   const handleRunAllocation = () => {
@@ -102,7 +102,7 @@ export default function TeamFormationPage() {
             ) : (
               <button
                 onClick={() => setShowOverrideModal(true)}
-                className="px-3 py-1.5 bg-red-950 hover:bg-red-900 text-red-300 border border-red-800 font-bold rounded"
+                className="px-3 py-1.5 bg-red-50 hover:bg-red-50 text-red-700 border border-red-200 font-bold rounded"
               >
                 🔓 Audited Unlock Override
               </button>
@@ -117,9 +117,9 @@ export default function TeamFormationPage() {
       />
 
       {/* Allocation Method Banner per Correction 5 */}
-      <div className="bg-slate-900 border border-slate-800 rounded-lg p-3 flex flex-wrap items-center justify-between gap-3 text-slate-300">
+      <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 flex flex-wrap items-center justify-between gap-3 text-slate-700">
         <div>
-          <span className="font-bold text-slate-200">Active Allocation Mode:</span> Random Distribution & Manual Adjustment
+          <span className="font-bold text-slate-800">Active Allocation Mode:</span> Random Distribution & Manual Adjustment
         </div>
         <div className="text-purple-400/80 text-[11px] italic">
           “Future allocation model — not available in this prototype.” (Balanced Allocation)
@@ -138,14 +138,14 @@ export default function TeamFormationPage() {
       {/* Team Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {teams.map((t) => (
-          <div key={t.team.id} className="bg-slate-900 border border-slate-800 rounded-lg p-4 space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+          <div key={t.team.id} className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
               <div>
-                <span className="font-bold text-emerald-400 text-sm">{t.team.name}</span>
-                <span className="ml-2 text-slate-400 text-xs font-bold">[{t.team.code}]</span>
+                <span className="font-bold text-emerald-600 text-sm">{t.team.name}</span>
+                <span className="ml-2 text-slate-500 text-xs font-bold">[{t.team.code}]</span>
               </div>
               <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                t.team.status === "locked" ? "bg-amber-950 text-amber-300 border border-amber-800" : "bg-slate-800 text-slate-300"
+                t.team.status === "locked" ? "bg-amber-50 text-amber-700 border border-amber-200" : "bg-slate-100 text-slate-700"
               }`}>
                 {t.team.status.toUpperCase()} ({t.currentMemberCount} / {t.team.capacity})
               </span>
@@ -155,15 +155,15 @@ export default function TeamFormationPage() {
               {t.activeAssignments.map((ta) => {
                 const p = pool.find((x) => x.booking.id === ta.bookingId);
                 return (
-                  <div key={ta.id} className="bg-slate-950 border border-slate-800 p-2 rounded flex items-center justify-between text-slate-300">
+                  <div key={ta.id} className="bg-slate-50 border border-slate-200 p-2 rounded flex items-center justify-between text-slate-700">
                     <div>
-                      <span className="font-bold text-amber-400">{p?.temporaryIdentity?.temporaryCode || "CR-??"}</span>
-                      <span className="ml-2 font-medium text-slate-200">{p?.booking.alias}</span>
+                      <span className="font-bold text-amber-600">{p?.temporaryIdentity?.temporaryCode || "CR-??"}</span>
+                      <span className="ml-2 font-medium text-slate-800">{p?.booking.alias}</span>
                     </div>
                     {!readiness.isLocked && (
                       <button
                         onClick={() => setSelectedBookingToMove(ta.bookingId)}
-                        className="text-[10px] text-emerald-400 hover:underline"
+                        className="text-[10px] text-emerald-600 hover:underline"
                       >
                         Move
                       </button>
@@ -178,17 +178,17 @@ export default function TeamFormationPage() {
 
       {/* Move Participant Form */}
       {selectedBookingToMove && (
-        <form onSubmit={handleMoveParticipant} className="bg-slate-900 border border-slate-800 rounded-lg p-4 space-y-3">
-          <div className="font-bold text-slate-200 uppercase tracking-wider text-xs">
+        <form onSubmit={handleMoveParticipant} className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
+          <div className="font-bold text-slate-800 uppercase tracking-wider text-xs">
             Move Participant: {selectedBookingToMove}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <span className="text-slate-400 block mb-1">Target Team:</span>
+              <span className="text-slate-500 block mb-1">Target Team:</span>
               <select
                 value={targetTeamId}
                 onChange={(e) => setTargetTeamId(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-slate-200"
+                className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-slate-800"
                 required
               >
                 <option value="">Select Target Team...</option>
@@ -201,25 +201,25 @@ export default function TeamFormationPage() {
             </div>
 
             <div>
-              <span className="text-slate-400 block mb-1">Mandatory Operational Reason:</span>
+              <span className="text-slate-500 block mb-1">Mandatory Operational Reason:</span>
               <input
                 type="text"
                 placeholder="e.g. Balancing play position preference"
                 value={moveReason}
                 onChange={(e) => setMoveReason(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-slate-200"
+                className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-slate-800"
                 required
               />
             </div>
           </div>
 
-          {errorMsg && <div className="bg-red-950 border border-red-800 text-red-300 p-2 rounded">{errorMsg}</div>}
+          {errorMsg && <div className="bg-red-50 border border-red-200 text-red-700 p-2 rounded">{errorMsg}</div>}
 
           <div className="flex justify-end gap-2 pt-2">
             <button
               type="button"
               onClick={() => setSelectedBookingToMove(null)}
-              className="px-3 py-1 bg-slate-800 text-slate-300 rounded font-bold"
+              className="px-3 py-1 bg-slate-100 text-slate-700 rounded font-bold"
             >
               Cancel
             </button>
@@ -235,10 +235,10 @@ export default function TeamFormationPage() {
 
       {/* Unlock Override Modal */}
       {showOverrideModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <form onSubmit={handleUnlockOverride} className="bg-slate-900 border border-red-800 rounded-lg p-6 max-w-md w-full space-y-4">
-            <h4 className="font-bold text-red-400 text-sm">Audited Team Unlock Override</h4>
-            <p className="text-slate-300">
+        <div className="fixed inset-0 z-50 bg-slate-50 flex items-center justify-center p-4">
+          <form onSubmit={handleUnlockOverride} className="bg-slate-50 border border-red-200 rounded-lg p-6 max-w-md w-full space-y-4">
+            <h4 className="font-bold text-red-600 text-sm">Audited Team Unlock Override</h4>
+            <p className="text-slate-700">
               Unlocking teams after locking requires an audited justification reason.
             </p>
             <textarea
@@ -246,20 +246,20 @@ export default function TeamFormationPage() {
               placeholder="e.g. Late participant replacement requested by Lead Coordinator."
               value={overrideReason}
               onChange={(e) => setOverrideReason(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-slate-200"
+              className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-slate-800"
               required
             />
             <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setShowOverrideModal(false)}
-                className="px-3 py-1 bg-slate-800 text-slate-300 rounded font-bold"
+                className="px-3 py-1 bg-slate-100 text-slate-700 rounded font-bold"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-1 bg-red-950 border border-red-800 text-red-300 font-bold rounded"
+                className="px-4 py-1 bg-red-50 border border-red-200 text-red-700 font-bold rounded"
               >
                 Confirm Audited Unlock
               </button>

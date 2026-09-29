@@ -62,7 +62,7 @@ export default function PlayingAreasPage() {
         }
       />
 
-      <div className="glass p-5 rounded-2xl border border-white/5 space-y-4">
+      <div className="glass p-5 rounded-2xl border border-slate-200 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h3 className="text-sm font-semibold text-ink-lum">Activity Spaces</h3>
@@ -93,12 +93,12 @@ export default function PlayingAreasPage() {
 
               return (
                 <Item key={pa.id}>
-                  <div className="glass p-5 rounded-2xl border border-white/5 hover:border-white/10 transition-all flex flex-col justify-between space-y-4">
+                  <div className="glass p-5 rounded-2xl border border-slate-200 hover:border-slate-200 transition-all flex flex-col justify-between space-y-4">
                     <div className="space-y-3">
                       <div className="flex items-start justify-between gap-2">
                         <div className="space-y-1">
                           <h4 className="font-bold text-base text-ink-lum flex items-center gap-2">
-                            <Layers className="w-4 h-4 text-emerald-400 shrink-0" />
+                            <Layers className="w-4 h-4 text-emerald-600 shrink-0" />
                             <Link href={`/locations/playing-areas/${pa.id}`} className="hover:text-brand transition-colors">
                               {pa.name}
                             </Link>
@@ -110,23 +110,23 @@ export default function PlayingAreasPage() {
                         <SetupStatusBadge status="complete" size="sm" />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2 text-xs border-t border-white/5 pt-2">
-                        <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                      <div className="grid grid-cols-2 gap-2 text-xs border-t border-slate-200 pt-2">
+                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
                           <span className="text-[10px] text-ink-mut block uppercase">Max Capacity</span>
                           <span className="font-bold text-ink-lum">{pa.maxCapacity} pax</span>
                         </div>
-                        <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
                           <span className="text-[10px] text-ink-mut block uppercase">Staff Capacity</span>
                           <span className="font-bold text-ink-lum">{pa.staffCapacity || 1} staff</span>
                         </div>
                       </div>
 
                       <div className="text-[11px] text-ink-sec truncate">
-                        Activities: <span className="text-emerald-300 font-medium">{pa.activityCompatibility.join(", ") || "General"}</span>
+                        Activities: <span className="text-emerald-700 font-medium">{pa.activityCompatibility.join(", ") || "General"}</span>
                       </div>
                     </div>
 
-                    <div className="pt-2 border-t border-white/5 flex items-center justify-between">
+                    <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
                       <StatusChip value={pa.status} />
                       <Link href={nextAction.href}>
                         <Button variant="secondary" className="h-7 text-xs font-bold px-3">

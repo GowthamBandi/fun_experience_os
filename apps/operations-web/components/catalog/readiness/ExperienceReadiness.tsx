@@ -17,16 +17,16 @@ export function ExperienceReadiness({ status, items, compact = false }: Experien
   const complete = items.filter((i) => i.status === "complete");
 
   return (
-    <div className="glass p-5 rounded-2xl border border-white/5 space-y-4">
-      <div className="flex items-center justify-between border-b border-white/5 pb-3">
+    <div className="glass p-5 rounded-2xl border border-slate-200 space-y-4">
+      <div className="flex items-center justify-between border-b border-slate-200 pb-3">
         <div className="space-y-0.5">
           <h3 className="text-sm font-bold text-ink-lum flex items-center gap-2">
             {status === "complete" ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
             ) : status === "needs-attention" ? (
-              <AlertTriangle className="w-4 h-4 text-amber-400" />
+              <AlertTriangle className="w-4 h-4 text-amber-600" />
             ) : (
-              <XCircle className="w-4 h-4 text-rose-400" />
+              <XCircle className="w-4 h-4 text-rose-600" />
             )}
             <span>Scheduling Readiness Checklist</span>
           </h3>
@@ -38,11 +38,11 @@ export function ExperienceReadiness({ status, items, compact = false }: Experien
         </div>
 
         <div className="flex items-center gap-2 text-xs font-mono">
-          <span className="px-2 py-0.5 rounded bg-emerald-950/40 text-emerald-400 border border-emerald-800/40">
+          <span className="px-2 py-0.5 rounded bg-emerald-200 text-emerald-600 border border-emerald-300">
             {complete.length} Passed
           </span>
           {blockers.length > 0 && (
-            <span className="px-2 py-0.5 rounded bg-rose-950/40 text-rose-400 border border-rose-800/40">
+            <span className="px-2 py-0.5 rounded bg-rose-200 text-rose-600 border border-rose-300">
               {blockers.length} Blocked
             </span>
           )}
@@ -55,20 +55,20 @@ export function ExperienceReadiness({ status, items, compact = false }: Experien
             key={item.id}
             className={`p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs ${
               item.status === "blocked"
-                ? "bg-rose-950/20 border-rose-800/40 text-rose-200"
+                ? "bg-rose-100 border-rose-300 text-rose-700"
                 : item.status === "needs-attention"
-                ? "bg-amber-950/20 border-amber-800/40 text-amber-200"
-                : "bg-black/30 border-white/5 text-ink-sec"
+                ? "bg-amber-100 border-amber-300 text-amber-700"
+                : "bg-slate-50 border-slate-200 text-ink-sec"
             }`}
           >
             <div className="flex items-start gap-2">
               <div className="mt-0.5 shrink-0">
                 {item.status === "complete" ? (
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                 ) : item.status === "needs-attention" ? (
-                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
                 ) : (
-                  <XCircle className="w-3.5 h-3.5 text-rose-400" />
+                  <XCircle className="w-3.5 h-3.5 text-rose-600" />
                 )}
               </div>
               <div>

@@ -8,20 +8,20 @@ export interface CategoryStatusBadgeProps {
 }
 
 export function CategoryStatusBadge({ status, size = "md" }: CategoryStatusBadgeProps) {
-  let color = "border-emerald-500/30 bg-emerald-500/10 text-emerald-400";
+  let color = "border-emerald-200 bg-emerald-50 text-emerald-600";
   let label = "Active";
 
   if (status === "draft" || status === "needs-attention") {
-    color = "border-amber-500/30 bg-amber-500/10 text-amber-400";
+    color = "border-amber-200 bg-amber-50 text-amber-600";
     label = status === "draft" ? "Draft" : "Needs Attention";
   } else if (status === "paused" || status === "incomplete") {
-    color = "border-rose-500/30 bg-rose-500/10 text-rose-400";
+    color = "border-rose-200 bg-rose-50 text-rose-600";
     label = status === "paused" ? "Paused" : "Incomplete";
   } else if (status === "archived") {
-    color = "border-white/10 bg-white/5 text-ink-mut";
+    color = "border-slate-200 bg-slate-50 text-ink-mut";
     label = "Archived";
   } else if (status === "complete") {
-    color = "border-emerald-500/30 bg-emerald-500/10 text-emerald-400";
+    color = "border-emerald-200 bg-emerald-50 text-emerald-600";
     label = "Ready";
   }
 

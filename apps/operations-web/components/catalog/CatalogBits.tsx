@@ -25,8 +25,8 @@ export function ReadinessPanel({
           className={cn(
             "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium",
             ready
-              ? "border-[#12b76a]/25 bg-[#12b76a]/12 text-[#5fd7a3]"
-              : "border-[#f04438]/25 bg-[#f04438]/12 text-[#ff8f86]",
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-red-200 bg-red-50 text-red-700",
           )}
         >
           {ready ? <Check className="h-3.5 w-3.5" /> : <AlertTriangle className="h-3.5 w-3.5" />}
@@ -36,8 +36,8 @@ export function ReadinessPanel({
           className={cn(
             "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium",
             schedulable
-              ? "border-[#12b76a]/25 bg-[#12b76a]/12 text-[#5fd7a3]"
-              : "border-[#f7b955]/30 bg-[#f7b955]/10 text-[#ffd28a]",
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-amber-200 bg-amber-50 text-amber-700",
           )}
         >
           {schedulable ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
@@ -49,11 +49,11 @@ export function ReadinessPanel({
         <ul className="mt-3 space-y-1.5">
           {issues.map((issue, i) => (
             <li key={i} className="flex items-start gap-2 text-xs leading-relaxed">
-              <span className={cn("mt-0.5 shrink-0 font-bold", issue.level === "error" ? "text-[#ff8f86]" : "text-[#ffc46b]")}>
+              <span className={cn("mt-0.5 shrink-0 font-bold", issue.level === "error" ? "text-red-700" : "text-amber-700")}>
                 {issue.level === "error" ? "✕" : "!"}
               </span>
               <span className="text-ink-sec">{issue.message}</span>
-              <span className="ml-auto shrink-0 rounded bg-white/5 px-1.5 py-px text-[10px] uppercase tracking-wide text-ink-mut">
+              <span className="ml-auto shrink-0 rounded bg-slate-50 px-1.5 py-px text-[10px] uppercase tracking-wide text-ink-mut">
                 {issue.field}
               </span>
             </li>
@@ -92,8 +92,8 @@ export function CompatList({ rows, empty }: { rows: VenueCompatResult[]; empty?:
             className={cn(
               "shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
               r.compatible
-                ? "border-[#12b76a]/25 bg-[#12b76a]/12 text-[#5fd7a3]"
-                : "border-white/8 bg-white/4 text-ink-mut",
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-slate-200 bg-slate-50 text-ink-mut",
             )}
           >
             {r.compatible ? "Compatible" : "Blocked"}
@@ -118,17 +118,17 @@ export function EconomicsPanel({ eco }: { eco: { basePrice: number; venueCost: n
       </div>
       <div className="solid rounded-xl p-3">
         <p className="overline">Break-even participants</p>
-        <p className={cn("mt-1 text-lg font-semibold tabular", eco.breakEvenParticipants <= 4 ? "text-[#5fd7a3]" : "text-[#ffd28a]")}>
+        <p className={cn("mt-1 text-lg font-semibold tabular", eco.breakEvenParticipants <= 4 ? "text-emerald-700" : "text-amber-700")}>
           {eco.breakEvenParticipants}
         </p>
       </div>
       <div className="solid rounded-xl p-3">
         <p className="overline">Margin at target</p>
-        <p className={cn("mt-1 text-lg font-semibold tabular", eco.marginPct < 20 ? "text-[#ff8f86]" : eco.marginPct < 40 ? "text-[#ffd28a]" : "text-[#5fd7a3]")}>
+        <p className={cn("mt-1 text-lg font-semibold tabular", eco.marginPct < 20 ? "text-red-700" : eco.marginPct < 40 ? "text-amber-700" : "text-emerald-700")}>
           {eco.marginPct}%
         </p>
       </div>
-      <div className="col-span-2 rounded-xl bg-white/3 px-3 py-2 text-[11px] text-ink-mut md:col-span-4">
+      <div className="col-span-2 rounded-xl bg-slate-50 px-3 py-2 text-[11px] text-ink-mut md:col-span-4">
         Revenue at target {inr(eco.revenueAtTarget)} · at minimum {inr(eco.revenueAtMin)} · net at target{" "}
         {inr(eco.netAtTarget)} · net at minimum {inr(eco.netAtMin)}
       </div>
@@ -139,7 +139,7 @@ export function EconomicsPanel({ eco }: { eco: { basePrice: number; venueCost: n
 /** Small stat card reused across catalog pages. */
 export function StatCard({ label, value, tone, hint }: { label: string; value: ReactNode; tone?: "ok" | "warm" | "danger"; hint?: string }) {
   const color =
-    tone === "ok" ? "text-[#5fd7a3]" : tone === "warm" ? "text-[#ffd28a]" : tone === "danger" ? "text-[#ff8f86]" : "text-ink-lum";
+    tone === "ok" ? "text-emerald-700" : tone === "warm" ? "text-amber-700" : tone === "danger" ? "text-red-700" : "text-ink-lum";
   return (
     <div className="glass rounded-panel p-5">
       <p className="overline">{label}</p>

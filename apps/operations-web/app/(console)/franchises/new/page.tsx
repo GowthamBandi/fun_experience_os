@@ -78,8 +78,8 @@ export default function NewFranchisePage() {
       <PageFrame>
         <div className="max-w-2xl mx-auto mt-12">
           <div className="solid rounded-panel p-8 flex flex-col items-center text-center space-y-6">
-            <div className="h-16 w-16 rounded-full bg-[#12b76a]/20 flex items-center justify-center">
-              <CheckCircle2 className="h-8 w-8 text-[#12b76a]" />
+            <div className="h-16 w-16 rounded-full bg-emerald-50 flex items-center justify-center">
+              <CheckCircle2 className="h-8 w-8 text-emerald-600" />
             </div>
             
             <div className="space-y-2">
@@ -99,7 +99,7 @@ export default function NewFranchisePage() {
               </Button>
             </div>
             
-            <div className="flex gap-4 mt-6 pt-6 border-t border-white/10 w-full justify-center">
+            <div className="flex gap-4 mt-6 pt-6 border-t border-slate-200 w-full justify-center">
               <Button variant="secondary" onClick={() => router.push(`/franchises/${createdId}`)}>
                 View Franchise
               </Button>
@@ -166,7 +166,7 @@ export default function NewFranchisePage() {
                   type="checkbox"
                   checked={isInternal}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setIsInternal(e.target.checked)}
-                  className="rounded border-white/20 bg-black/40 text-brand focus:ring-0"
+                  className="rounded border-slate-300 bg-slate-50 text-brand focus:ring-0"
                 />
                 <div>
                   <div className="text-sm font-medium text-ink-lum">Internal Organization</div>
@@ -223,27 +223,27 @@ export default function NewFranchisePage() {
               <div>
                 <p className="overline mb-3">Review Details</p>
                 <div className="space-y-1">
-                  <div className="flex items-start justify-between gap-4 border-b border-white/4 py-2">
+                  <div className="flex items-start justify-between gap-4 border-b border-slate-200 py-2">
                     <span className="text-sm text-ink-mut">Name</span>
                     <span className="text-sm font-medium text-ink-lum">{name || "—"}</span>
                   </div>
-                  <div className="flex items-start justify-between gap-4 border-b border-white/4 py-2">
+                  <div className="flex items-start justify-between gap-4 border-b border-slate-200 py-2">
                     <span className="text-sm text-ink-mut">Legal Entity</span>
                     <span className="text-sm text-ink-lum">{legalEntity || "—"}</span>
                   </div>
-                  <div className="flex items-start justify-between gap-4 border-b border-white/4 py-2">
+                  <div className="flex items-start justify-between gap-4 border-b border-slate-200 py-2">
                     <span className="text-sm text-ink-mut">Type</span>
                     <span className="text-sm text-ink-lum capitalize">{isInternal ? 'Internal' : 'External'} {type}</span>
                   </div>
-                  <div className="flex items-start justify-between gap-4 border-b border-white/4 py-2">
+                  <div className="flex items-start justify-between gap-4 border-b border-slate-200 py-2">
                     <span className="text-sm text-ink-mut">Operating Head</span>
                     <span className="text-sm text-ink-lum">{franchiseHead || "—"}</span>
                   </div>
-                  <div className="flex items-start justify-between gap-4 border-b border-white/4 py-2">
+                  <div className="flex items-start justify-between gap-4 border-b border-slate-200 py-2">
                     <span className="text-sm text-ink-mut">Contact</span>
                     <span className="text-sm text-ink-lum">{contactDetails || "—"}</span>
                   </div>
-                  <div className="flex items-start justify-between gap-4 border-b border-white/4 py-2">
+                  <div className="flex items-start justify-between gap-4 border-b border-slate-200 py-2">
                     <span className="text-sm text-ink-mut">Revenue Share</span>
                     <span className="text-sm text-ink-lum">{share}%</span>
                   </div>

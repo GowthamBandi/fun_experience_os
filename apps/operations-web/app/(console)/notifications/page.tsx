@@ -21,7 +21,7 @@ export default function NotificationsPage() {
           <Item key={s.id}>
             <button
               onClick={markAllRead}
-              className="flex w-full items-start gap-3 rounded-xl border border-white/5 bg-white/3 px-4 py-3 text-left transition-colors hover:bg-white/6"
+              className="flex w-full items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-left transition-colors hover:bg-slate-50"
             >
               <StatusChip value={s.kind} dot={false} />
               <div className="min-w-0 flex-1">

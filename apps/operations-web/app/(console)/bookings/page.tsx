@@ -180,7 +180,7 @@ export default function BookingsOverviewPage() {
                     key={t.id}
                     onClick={() => setTab(t.id)}
                     className={`whitespace-nowrap px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                      tab === t.id ? "bg-ink-lum text-ink-inv" : "text-ink-sec hover:text-ink-lum hover:bg-white/5"
+                      tab === t.id ? "bg-ink-lum text-ink-inv" : "text-ink-sec hover:text-ink-lum hover:bg-slate-50"
                     }`}
                   >
                     {t.label}
@@ -217,7 +217,7 @@ export default function BookingsOverviewPage() {
                 />
               ) : (
                 filteredBookings.map((b) => (
-                  <div key={b.id} className="glass p-4 rounded-xl border border-white/5 flex flex-col gap-3">
+                  <div key={b.id} className="glass p-4 rounded-xl border border-slate-200 flex flex-col gap-3">
                     <div className="flex justify-between items-start">
                       <div>
                         <Link href={`/bookings/${b.id}`} className="font-medium text-ink-lum hover:underline">

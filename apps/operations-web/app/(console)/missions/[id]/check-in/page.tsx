@@ -44,7 +44,7 @@ export default function DoorCheckInPage() {
   const handover = useMemo(() => selectSessionOpenReadiness(state, sessionId), [state, sessionId]);
 
   if (!session) {
-    return <div className="p-8 text-xs font-mono text-slate-400">Session not found.</div>;
+    return <div className="p-8 text-xs font-mono text-slate-500">Session not found.</div>;
   }
 
   const handleScanCode = (code: string) => {
@@ -137,7 +137,7 @@ export default function DoorCheckInPage() {
       key: "tempId",
       header: "Temp Code",
       render: (p) => (
-        <span className="font-mono font-bold text-amber-400">
+        <span className="font-mono font-bold text-amber-600">
           {p.temporaryIdentity?.temporaryCode || "—"}
         </span>
       ),
@@ -147,15 +147,15 @@ export default function DoorCheckInPage() {
       header: "Participant Alias",
       render: (p) => (
         <div>
-          <p className="font-medium text-slate-200">{p.booking.alias}</p>
-          <p className="text-[11px] text-slate-400 font-mono">{p.booking.phoneMask}</p>
+          <p className="font-medium text-slate-800">{p.booking.alias}</p>
+          <p className="text-[11px] text-slate-500 font-mono">{p.booking.phoneMask}</p>
         </div>
       ),
     },
     {
       key: "team",
       header: "Team",
-      render: (p) => <span className="font-mono text-slate-300">{p.teamName || "Unassigned"}</span>,
+      render: (p) => <span className="font-mono text-slate-700">{p.teamName || "Unassigned"}</span>,
     },
     {
       key: "status",
@@ -189,7 +189,7 @@ export default function DoorCheckInPage() {
           {p.checkInStatus !== "no-show" && (
             <button
               onClick={() => handleStatusClick(p.booking.id, p.checkInStatus, "no-show")}
-              className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px]"
+              className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px]"
             >
               No Show
             </button>
@@ -198,7 +198,7 @@ export default function DoorCheckInPage() {
           {p.checkInStatus !== "denied" && (
             <button
               onClick={() => handleStatusClick(p.booking.id, p.checkInStatus, "denied")}
-              className="px-2 py-1 bg-red-950 hover:bg-red-900 text-red-300 border border-red-800 rounded text-[10px]"
+              className="px-2 py-1 bg-red-50 hover:bg-red-50 text-red-700 border border-red-200 rounded text-[10px]"
             >
               Deny Entry
             </button>
@@ -227,10 +227,10 @@ export default function DoorCheckInPage() {
       {/* Handover Readiness Banner per Correction 8 */}
       <div className={`p-4 rounded-lg border font-mono space-y-2 ${
         handover.status === "Ready"
-          ? "bg-emerald-950/60 border-emerald-800 text-emerald-300"
+          ? "bg-emerald-200 border-emerald-200 text-emerald-700"
           : handover.status === "At Risk"
-          ? "bg-amber-950/60 border-amber-800 text-amber-300"
-          : "bg-red-950/60 border-red-800 text-red-300"
+          ? "bg-amber-200 border-amber-200 text-amber-700"
+          : "bg-red-200 border-red-200 text-red-700"
       }`}>
         <div className="flex items-center justify-between">
           <span className="font-bold text-sm flex items-center gap-2">
@@ -242,48 +242,48 @@ export default function DoorCheckInPage() {
           </span>
         </div>
         <div className="text-[11px] space-y-1">
-          <div><strong className="text-slate-400">Status Audit:</strong> {handover.reasons.join(" | ")}</div>
-          <div><strong className="text-slate-400">Next Action:</strong> {handover.recommendedAction}</div>
+          <div><strong className="text-slate-500">Status Audit:</strong> {handover.reasons.join(" | ")}</div>
+          <div><strong className="text-slate-500">Next Action:</strong> {handover.recommendedAction}</div>
         </div>
       </div>
 
       {/* Attendance Summary KPI Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
-        <div className="bg-slate-900 border border-slate-800 rounded-lg p-3">
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
           <div className="text-[10px] text-slate-500 uppercase">Expected</div>
-          <div className="text-xl font-bold text-slate-200">{summary.expectedCount}</div>
+          <div className="text-xl font-bold text-slate-800">{summary.expectedCount}</div>
         </div>
-        <div className="bg-slate-900 border border-slate-800 rounded-lg p-3">
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
           <div className="text-[10px] text-slate-500 uppercase">Checked In</div>
-          <div className="text-xl font-bold text-emerald-400">{summary.checkedInCount}</div>
+          <div className="text-xl font-bold text-emerald-600">{summary.checkedInCount}</div>
         </div>
-        <div className="bg-slate-900 border border-slate-800 rounded-lg p-3">
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
           <div className="text-[10px] text-slate-500 uppercase">Late (Present)</div>
-          <div className="text-xl font-bold text-amber-400">{summary.lateCount}</div>
+          <div className="text-xl font-bold text-amber-600">{summary.lateCount}</div>
         </div>
-        <div className="bg-slate-900 border border-slate-800 rounded-lg p-3">
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
           <div className="text-[10px] text-slate-500 uppercase">Derived Missing</div>
-          <div className="text-xl font-bold text-purple-400">{summary.missingCount}</div>
+          <div className="text-xl font-bold text-purple-600">{summary.missingCount}</div>
         </div>
-        <div className="bg-slate-900 border border-slate-800 rounded-lg p-3">
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
           <div className="text-[10px] text-slate-500 uppercase">No Show</div>
-          <div className="text-xl font-bold text-slate-400">{summary.noShowCount}</div>
+          <div className="text-xl font-bold text-slate-500">{summary.noShowCount}</div>
         </div>
-        <div className="bg-slate-900 border border-slate-800 rounded-lg p-3">
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
           <div className="text-[10px] text-slate-500 uppercase">Denied</div>
-          <div className="text-xl font-bold text-red-400">{summary.deniedCount}</div>
+          <div className="text-xl font-bold text-red-600">{summary.deniedCount}</div>
         </div>
       </div>
 
       {/* Staff Check-In Card */}
-      <div className="bg-slate-900 border border-slate-800 rounded-lg p-4 space-y-3">
-        <h4 className="font-bold text-slate-200 uppercase tracking-wider text-xs">
+      <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
+        <h4 className="font-bold text-slate-800 uppercase tracking-wider text-xs">
           Required Operating Crew Check-In
         </h4>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="bg-slate-950 border border-slate-800 p-3 rounded flex items-center justify-between">
+          <div className="bg-slate-50 border border-slate-200 p-3 rounded flex items-center justify-between">
             <div>
-              <span className="font-bold text-slate-200">Lead Coordinator:</span> {staff.leadCoordinator?.name || "Unassigned"}
+              <span className="font-bold text-slate-800">Lead Coordinator:</span> {staff.leadCoordinator?.name || "Unassigned"}
               <div className="text-[10px] text-slate-500">Status: {staff.leadCoordinator?.status || "missing"}</div>
             </div>
             {session.leadCoordinatorId && staff.leadCoordinator?.status !== "checked-in" && (
@@ -296,9 +296,9 @@ export default function DoorCheckInPage() {
             )}
           </div>
 
-          <div className="bg-slate-950 border border-slate-800 p-3 rounded flex items-center justify-between">
+          <div className="bg-slate-50 border border-slate-200 p-3 rounded flex items-center justify-between">
             <div>
-              <span className="font-bold text-slate-200">Safety Contact:</span> {staff.safetyContact?.name || "Unassigned"}
+              <span className="font-bold text-slate-800">Safety Contact:</span> {staff.safetyContact?.name || "Unassigned"}
               <div className="text-[10px] text-slate-500">Status: {staff.safetyContact?.status || "missing"}</div>
             </div>
             {session.safetyContactId && staff.safetyContact?.status !== "checked-in" && (
@@ -316,11 +316,11 @@ export default function DoorCheckInPage() {
       {/* QR Scanner Simulator */}
       <CheckInQRScannerSimulator onScan={handleScanCode} />
 
-      {errorMsg && <div className="bg-red-950 border border-red-800 text-red-300 p-3 rounded">{errorMsg}</div>}
+      {errorMsg && <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded">{errorMsg}</div>}
 
       {/* Door Roster Table */}
       <div className="space-y-3">
-        <h3 className="font-bold text-slate-200 uppercase tracking-wider text-xs">
+        <h3 className="font-bold text-slate-800 uppercase tracking-wider text-xs">
           Door Attendance Roster ({pool.length})
         </h3>
         <DataTable columns={columns} rows={pool} emptyTitle="Roster empty." emptyLine="Initialize door roster above." />
@@ -328,10 +328,10 @@ export default function DoorCheckInPage() {
 
       {/* Denial Reason Modal */}
       {denialModalBookingId && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <form onSubmit={handleDenialSubmit} className="bg-slate-900 border border-red-800 rounded-lg p-6 max-w-md w-full space-y-4">
-            <h4 className="font-bold text-red-400 text-sm">Deny Participant Door Entry</h4>
-            <p className="text-slate-300">
+        <div className="fixed inset-0 z-50 bg-slate-50 flex items-center justify-center p-4">
+          <form onSubmit={handleDenialSubmit} className="bg-slate-50 border border-red-200 rounded-lg p-6 max-w-md w-full space-y-4">
+            <h4 className="font-bold text-red-600 text-sm">Deny Participant Door Entry</h4>
+            <p className="text-slate-700">
               Provide a mandatory operational reason for denying entry to participant {denialModalBookingId}.
             </p>
             <textarea
@@ -339,20 +339,20 @@ export default function DoorCheckInPage() {
               placeholder="e.g. Failed venue safety gear inspection; intoxicated on arrival."
               value={denialReason}
               onChange={(e) => setDenialReason(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-slate-200"
+              className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-slate-800"
               required
             />
             <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setDenialModalBookingId(null)}
-                className="px-3 py-1 bg-slate-800 text-slate-300 rounded font-bold"
+                className="px-3 py-1 bg-slate-100 text-slate-700 rounded font-bold"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-1 bg-red-950 border border-red-800 text-red-300 font-bold rounded"
+                className="px-4 py-1 bg-red-50 border border-red-200 text-red-700 font-bold rounded"
               >
                 Confirm Denial
               </button>
@@ -363,10 +363,10 @@ export default function DoorCheckInPage() {
 
       {/* Audited Override Correction Modal */}
       {overrideModalBookingId && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <form onSubmit={handleOverrideSubmit} className="bg-slate-900 border border-amber-800 rounded-lg p-6 max-w-md w-full space-y-4">
-            <h4 className="font-bold text-amber-400 text-sm">Audited Attendance State Correction</h4>
-            <p className="text-slate-300">
+        <div className="fixed inset-0 z-50 bg-slate-50 flex items-center justify-center p-4">
+          <form onSubmit={handleOverrideSubmit} className="bg-slate-50 border border-amber-200 rounded-lg p-6 max-w-md w-full space-y-4">
+            <h4 className="font-bold text-amber-600 text-sm">Audited Attendance State Correction</h4>
+            <p className="text-slate-700">
               Changing status from &apos;no-show&apos; or &apos;denied&apos; to &apos;{targetOverrideStatus}&apos; requires an audited correction reason.
             </p>
             <textarea
@@ -374,14 +374,14 @@ export default function DoorCheckInPage() {
               placeholder="e.g. Arrived late at door after initial no-show marking; safety cleared by Lead Coordinator."
               value={overrideReason}
               onChange={(e) => setOverrideReason(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-slate-200"
+              className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-slate-800"
               required
             />
             <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setOverrideModalBookingId(null)}
-                className="px-3 py-1 bg-slate-800 text-slate-300 rounded font-bold"
+                className="px-3 py-1 bg-slate-100 text-slate-700 rounded font-bold"
               >
                 Cancel
               </button>

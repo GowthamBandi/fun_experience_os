@@ -159,7 +159,7 @@ export default function NewPlayingAreaPage() {
         sub="A playing area belongs to exactly one venue."
         right={
           <Link href={`/locations/venues/${venueId}`}>
-            <Badge className="border border-white/8 bg-white/4 text-ink-sec transition-colors hover:bg-white/8">
+            <Badge className="border border-slate-200 bg-slate-50 text-ink-sec transition-colors hover:bg-slate-100">
               {venue.name}
             </Badge>
           </Link>
@@ -204,7 +204,7 @@ export default function NewPlayingAreaPage() {
               <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Turf North" />
             </Field>
             {name.trim().length > 0 && !nameUnique && (
-              <p className="text-xs text-[#ff8f86]">A playing area with this name already exists at this venue.</p>
+              <p className="text-xs text-red-700">A playing area with this name already exists at this venue.</p>
             )}
             <Field label="Operating hours">
               <Input value={operatingHours} onChange={(e) => setOperatingHours(e.target.value)} />
@@ -227,8 +227,8 @@ export default function NewPlayingAreaPage() {
                       className={cn(
                         "rounded-md border px-2.5 py-1 text-[11px] transition-colors",
                         selected
-                          ? "border-[#4c6fff]/40 bg-[#4c6fff]/15 text-[#9db4ff]"
-                          : "border-white/8 bg-white/4 text-ink-sec hover:bg-white/8",
+                          ? "border-indigo-200 bg-indigo-50 text-indigo-700"
+                          : "border-slate-200 bg-slate-50 text-ink-sec hover:bg-slate-100",
                       )}
                     >
                       {c.name}
@@ -241,7 +241,7 @@ export default function NewPlayingAreaPage() {
               </p>
               {activityCompatibility.length > 0 &&
                 !activityCompatibility.every((a) => venue.supportedActivities.includes(a)) && (
-                  <p className="mt-2 text-xs text-[#ff8f86]">
+                  <p className="mt-2 text-xs text-red-700">
                     Some selected activities are not supported by this venue.
                   </p>
                 )}
@@ -292,7 +292,7 @@ export default function NewPlayingAreaPage() {
               <p className="overline mb-2">Assumptions</p>
               <div className="space-y-1">
                 {assumptions.map((a) => (
-                  <div key={a.label} className="flex items-start justify-between gap-4 border-b border-white/4 py-1.5">
+                  <div key={a.label} className="flex items-start justify-between gap-4 border-b border-slate-200 py-1.5">
                     <span className="overline shrink-0 pt-px">{a.label}</span>
                     <span className="min-w-0 text-right text-sm text-ink-sec">{a.value}</span>
                   </div>

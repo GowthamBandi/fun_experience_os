@@ -66,7 +66,7 @@ export default function VenuesListPage() {
         }
       />
 
-      <div className="glass p-5 rounded-2xl border border-white/5 space-y-4">
+      <div className="glass p-5 rounded-2xl border border-slate-200 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h3 className="text-sm font-semibold text-ink-lum">Where will this event happen?</h3>
@@ -100,18 +100,18 @@ export default function VenuesListPage() {
 
               return (
                 <Item key={v.id}>
-                  <div className="glass p-5 rounded-2xl border border-white/5 hover:border-white/10 transition-all flex flex-col justify-between space-y-4">
+                  <div className="glass p-5 rounded-2xl border border-slate-200 hover:border-slate-200 transition-all flex flex-col justify-between space-y-4">
                     <div className="space-y-3">
                       <div className="flex items-start justify-between gap-2">
                         <div className="space-y-1">
                           <h4 className="font-bold text-base text-ink-lum flex items-center gap-2">
-                            <Building2 className="w-4 h-4 text-purple-400 shrink-0" />
+                            <Building2 className="w-4 h-4 text-purple-600 shrink-0" />
                             <Link href={`/locations/venues/${v.id}`} className="hover:text-brand transition-colors">
                               {v.name}
                             </Link>
                           </h4>
                           <p className="text-xs text-ink-mut flex items-center gap-1">
-                            <MapPin className="w-3 h-3 text-emerald-400 shrink-0" />
+                            <MapPin className="w-3 h-3 text-emerald-600 shrink-0" />
                             <span>{city?.name || "City"} · {t?.name || "Territory"}</span>
                           </p>
                         </div>
@@ -120,23 +120,23 @@ export default function VenuesListPage() {
 
                       <p className="text-xs text-ink-sec truncate">{v.address || "Address not specified"}</p>
 
-                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/5 text-center text-xs">
-                        <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200 text-center text-xs">
+                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
                           <span className="text-[10px] text-ink-mut block uppercase">Areas</span>
                           <span className="font-bold text-ink-lum">{vAreas.length}</span>
                         </div>
-                        <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
                           <span className="text-[10px] text-ink-mut block uppercase">Capacity</span>
                           <span className="font-bold text-ink-lum">{combinedCapacity}</span>
                         </div>
-                        <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
                           <span className="text-[10px] text-ink-mut block uppercase">Today</span>
                           <span className="font-bold text-ink-lum">{vEventsToday}</span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="pt-2 border-t border-white/5 flex items-center justify-between">
+                    <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
                       <StatusChip value={v.status} />
                       <Link href={vAreas.length === 0 ? `/locations/playing-areas/new?venueId=${v.id}` : `/locations/venues/${v.id}`}>
                         <Button variant={vAreas.length === 0 ? "primary" : "secondary"} className="h-7 text-xs font-bold px-3">

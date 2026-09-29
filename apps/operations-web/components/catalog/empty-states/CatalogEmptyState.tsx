@@ -18,7 +18,7 @@ export function CatalogEmptyState({
   actionHref = "/catalog/experiences/new",
 }: CatalogEmptyStateProps) {
   return (
-    <div className="glass p-8 rounded-2xl border border-white/5 text-center space-y-4 my-4 max-w-md mx-auto">
+    <div className="glass p-8 rounded-2xl border border-slate-200 text-center space-y-4 my-4 max-w-md mx-auto">
       <div className="w-12 h-12 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center mx-auto text-brand">
         <Sparkles className="w-6 h-6" />
       </div>

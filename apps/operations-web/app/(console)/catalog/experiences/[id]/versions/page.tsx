@@ -78,7 +78,7 @@ export default function TemplateVersionsPage() {
             <p className="text-sm text-ink-mut">
               <span className="font-medium text-ink-lum">{t.name}</span> · {versions.length} version{versions.length === 1 ? "" : "s"}
             </p>
-            <Badge className="border border-white/8 bg-white/4 text-ink-sec">
+            <Badge className="border border-slate-200 bg-slate-50 text-ink-sec">
               current: <StatusChip value={t.status} />
             </Badge>
           </div>
@@ -96,7 +96,7 @@ export default function TemplateVersionsPage() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Badge className="border border-[#4c6fff]/25 bg-[#4c6fff]/10 text-[#9db4ff]">v{v.version}</Badge>
+                      <Badge className="border border-indigo-200 bg-indigo-50 text-indigo-700">v{v.version}</Badge>
                       {v.previousStatus && v.newStatus && v.previousStatus !== v.newStatus && (
                         <span className="flex items-center gap-1.5 text-[11px] text-ink-mut">
                           <StatusChip value={v.previousStatus} dot={false} /> → <StatusChip value={v.newStatus} dot={false} />
@@ -113,10 +113,10 @@ export default function TemplateVersionsPage() {
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {snap.basePrice != null && (
-                      <Badge className="border border-white/8 bg-white/4 text-ink-sec">{inr(snap.basePrice)}</Badge>
+                      <Badge className="border border-slate-200 bg-slate-50 text-ink-sec">{inr(snap.basePrice)}</Badge>
                     )}
                     {snap.maxParticipants != null && (
-                      <Badge className="border border-white/8 bg-white/4 text-ink-sec">max {snap.maxParticipants}</Badge>
+                      <Badge className="border border-slate-200 bg-slate-50 text-ink-sec">max {snap.maxParticipants}</Badge>
                     )}
                     {canManage && (
                       <Button
@@ -134,7 +134,7 @@ export default function TemplateVersionsPage() {
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   <span className={cn("text-[10px] uppercase tracking-wide text-ink-mut")}>changed:</span>
                   {v.changedFields.map((f) => (
-                    <Badge key={f} className="border border-white/8 bg-white/4 text-ink-mut">{f}</Badge>
+                    <Badge key={f} className="border border-slate-200 bg-slate-50 text-ink-mut">{f}</Badge>
                   ))}
                 </div>
               </Card>

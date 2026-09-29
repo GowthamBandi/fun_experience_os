@@ -274,7 +274,7 @@ export default function SafetyHubPage() {
             </Badge>
           )}
           {triageQueue.length > 0 && (
-            <Badge className="bg-warning/10 border border-warning/30 text-[#ffd28a] gap-1">
+            <Badge className="bg-warning/10 border border-warning/30 text-amber-700 gap-1">
               <Clock className="h-3.5 w-3.5" />
               {triageQueue.length} Pending Triage
             </Badge>
@@ -283,7 +283,7 @@ export default function SafetyHubPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-white/5 overflow-x-auto gap-4">
+      <div className="flex border-b border-slate-200 overflow-x-auto gap-4">
         {[
           { id: "incidents", label: "Safety Incidents", icon: ShieldAlert },
           { id: "disputes", label: "Disputes Log", icon: Scale },
@@ -326,13 +326,13 @@ export default function SafetyHubPage() {
                         setSelectedDisputeId(null);
                       }}
                       className={`rounded-panel glass p-4 border transition-all cursor-pointer text-left ${
-                        selectedIncidentId === i.id ? "border-brand bg-brand/5" : "border-white/5 bg-white/2 hover:bg-white/4"
+                        selectedIncidentId === i.id ? "border-brand bg-brand/5" : "border-slate-200 bg-slate-50 hover:bg-slate-50"
                       }`}
                     >
                       <div className="flex justify-between items-center">
                         <div className="flex items-center gap-2">
                           <span className="font-semibold text-ink-lum">{i.incidentCode}</span>
-                          <Badge className={i.severity === "critical" ? "bg-danger/20 text-danger border-danger/30" : "bg-white/8 text-ink-sec"}>
+                          <Badge className={i.severity === "critical" ? "bg-danger/20 text-danger border-danger/30" : "bg-slate-100 text-ink-sec"}>
                             {i.severity}
                           </Badge>
                         </div>
@@ -350,7 +350,7 @@ export default function SafetyHubPage() {
             <div className="space-y-4">
               <PanelHeader title="Incident Workspace" sub="Mitigate risk and record resolutions." />
               {detailI ? (
-                <Card className="p-4 space-y-4 border border-white/5">
+                <Card className="p-4 space-y-4 border border-slate-200">
                   <div className="flex justify-between items-start">
                     <div>
                       <h4 className="text-sm font-bold text-ink-lum">{detailI.incidentCode}</h4>
@@ -385,7 +385,7 @@ export default function SafetyHubPage() {
                     )}
 
                     {detailI.status === "triaged" && (
-                      <div className="space-y-2 border-t border-white/5 pt-2">
+                      <div className="space-y-2 border-t border-slate-200 pt-2">
                         <Field label="Assign Lead Investigator">
                           <Select value={detailI.investigatorId || ""} onChange={(e) => handleAssignInvestigatorSubmit(detailI.id, e.target.value)}>
                             <option value="">Choose investigator...</option>
@@ -409,7 +409,7 @@ export default function SafetyHubPage() {
                     )}
 
                     {detailI.status === "resolved" && (
-                      <Button onClick={() => handleCloseIncidentSubmit(detailI.id)} className="w-full bg-[#12b76a] hover:bg-[#10a35e] text-white">
+                      <Button onClick={() => handleCloseIncidentSubmit(detailI.id)} className="w-full bg-emerald-500 hover:bg-[#10a35e] text-white">
                         Verify & Close Case
                       </Button>
                     )}
@@ -432,11 +432,11 @@ export default function SafetyHubPage() {
 
                   {/* Evidence Attachments Placeholder Log */}
                   {detailI.evidence && detailI.evidence.length > 0 && (
-                    <div className="border-t border-white/5 pt-3 space-y-2">
+                    <div className="border-t border-slate-200 pt-3 space-y-2">
                       <span className="block text-[10px] text-ink-mut overline">Evidence Files (No uploads)</span>
                       <div className="space-y-1">
                         {detailI.evidence.map((ev: any) => (
-                          <div key={ev.id} className="flex justify-between items-center text-[10px] bg-white/4 p-1.5 rounded border border-white/5">
+                          <div key={ev.id} className="flex justify-between items-center text-[10px] bg-slate-50 p-1.5 rounded border border-slate-200">
                             <span className="truncate text-ink-sec">{ev.label} ({ev.type})</span>
                             <span className="text-brand font-mono">{ev.placeholderFileName}</span>
                           </div>
@@ -447,7 +447,7 @@ export default function SafetyHubPage() {
 
                   {/* Follow ups */}
                   {detailI.followUpOwnerId && (
-                    <div className="border-t border-white/5 pt-3 text-[10px] text-ink-mut">
+                    <div className="border-t border-slate-200 pt-3 text-[10px] text-ink-mut">
                       <p><strong>Follow up owner:</strong> {detailI.followUpOwnerId} · <strong>Due:</strong> {detailI.followUpDueAt}</p>
                     </div>
                   )}
@@ -582,13 +582,13 @@ export default function SafetyHubPage() {
                         setSelectedIncidentId(null);
                       }}
                       className={`rounded-panel glass p-4 border transition-all cursor-pointer text-left ${
-                        selectedDisputeId === d.id ? "border-brand bg-brand/5" : "border-white/5 bg-white/2 hover:bg-white/4"
+                        selectedDisputeId === d.id ? "border-brand bg-brand/5" : "border-slate-200 bg-slate-50 hover:bg-slate-50"
                       }`}
                     >
                       <div className="flex justify-between items-center">
                         <div className="flex items-center gap-2">
                           <span className="font-semibold text-ink-lum">{d.id}</span>
-                          <Badge className="bg-white/8 text-ink-sec">{d.type}</Badge>
+                          <Badge className="bg-slate-100 text-ink-sec">{d.type}</Badge>
                         </div>
                         <StatusChip value={d.status} />
                       </div>
@@ -604,7 +604,7 @@ export default function SafetyHubPage() {
             <div className="space-y-4">
               <PanelHeader title="Dispute Review" sub="Assign ownership and record decisions." />
               {detailD ? (
-                <Card className="p-4 space-y-4 border border-white/5">
+                <Card className="p-4 space-y-4 border border-slate-200">
                   <div className="flex justify-between items-start">
                     <div>
                       <h4 className="text-sm font-bold text-ink-lum">{detailD.id}</h4>
@@ -638,7 +638,7 @@ export default function SafetyHubPage() {
                     )}
 
                     {(detailD.status === "upheld" || detailD.status === "rejected") && (
-                      <Button onClick={() => handleCloseDisputeSubmit(detailD.id)} className="w-full bg-[#12b76a] hover:bg-[#10a35e] text-white">
+                      <Button onClick={() => handleCloseDisputeSubmit(detailD.id)} className="w-full bg-emerald-500 hover:bg-[#10a35e] text-white">
                         Verify & Close Case
                       </Button>
                     )}
@@ -686,7 +686,7 @@ export default function SafetyHubPage() {
                 <h3 className="text-sm font-semibold text-ink-lum">Cases Open ({state.moderationCases.length})</h3>
                 <div className="space-y-3">
                   {state.moderationCases.map((c) => (
-                    <div key={c.id} className="solid rounded-xl p-3 border border-white/5 space-y-3">
+                    <div key={c.id} className="solid rounded-xl p-3 border border-slate-200 space-y-3">
                       <div className="flex justify-between items-center">
                         <span className="text-xs font-bold text-ink-lum">{c.id}</span>
                         <StatusChip value={c.status} />
@@ -719,9 +719,9 @@ export default function SafetyHubPage() {
                 ) : (
                   <div className="space-y-3">
                     {state.moderationActions.filter((a) => a.status === "proposed").map((a) => (
-                      <div key={a.id} className="solid rounded-xl p-3 border border-[#f7b955]/30 bg-[#f7b955]/5 space-y-3">
+                      <div key={a.id} className="solid rounded-xl p-3 border border-amber-200 bg-amber-50 space-y-3">
                         <div className="flex justify-between items-center text-xs">
-                          <span className="font-bold text-[#ffd28a]">{a.type}</span>
+                          <span className="font-bold text-amber-700">{a.type}</span>
                           <StatusChip value={a.status} />
                         </div>
                         <div className="text-xs text-ink-sec space-y-1">
@@ -733,7 +733,7 @@ export default function SafetyHubPage() {
 
                         {/* Authority Gated buttons */}
                         <div className="flex gap-2">
-                          <Button onClick={() => handleApproveActionSubmit(a.id, a.type)} className="h-8 text-xs rounded-lg px-3 bg-[#12b76a] hover:bg-[#10a35e] text-white">
+                          <Button onClick={() => handleApproveActionSubmit(a.id, a.type)} className="h-8 text-xs rounded-lg px-3 bg-emerald-500 hover:bg-[#10a35e] text-white">
                             Approve Action
                           </Button>
                           <Button onClick={() => handleRejectActionSubmit(a.id)} className="h-8 text-xs rounded-lg px-3" variant="danger">
@@ -746,14 +746,14 @@ export default function SafetyHubPage() {
                 )}
 
                 {/* Warnings lists and bans */}
-                <div className="border-t border-white/5 pt-4 space-y-2">
+                <div className="border-t border-slate-200 pt-4 space-y-2">
                   <h4 className="text-xs font-semibold text-ink-mut overline">Active Suspensions & Bans</h4>
                   {state.moderationActions.filter((a) => a.status === "active").length === 0 ? (
                     <p className="text-[10px] text-ink-mut">No active bans or restrictions.</p>
                   ) : (
                     <div className="space-y-1">
                       {state.moderationActions.filter((a) => a.status === "active").map((a) => (
-                        <div key={a.id} className="flex justify-between items-center text-[10px] bg-white/4 p-2 rounded border border-white/5">
+                        <div key={a.id} className="flex justify-between items-center text-[10px] bg-slate-50 p-2 rounded border border-slate-200">
                           <div>
                             <span className="font-semibold text-ink-sec">{a.subjectTemporaryId || a.subjectPersonId}</span>
                             <span className="text-ink-mut"> · {a.type} ({a.scope})</span>
@@ -830,11 +830,11 @@ export default function SafetyHubPage() {
               ) : (
                 <div className="space-y-3">
                   {rexQueue.map((re) => (
-                    <div key={re.id} className="rounded-panel glass p-4 border border-white/5 bg-white/2 space-y-3">
+                    <div key={re.id} className="rounded-panel glass p-4 border border-slate-200 bg-slate-50 space-y-3">
                       <div className="flex justify-between items-center">
                         <div className="flex items-center gap-2">
                           <span className="font-semibold text-ink-lum">{re.id}</span>
-                          <Badge className="bg-[#12b76a]/10 border border-[#12b76a]/30 text-[#5fd7a3]">
+                          <Badge className="bg-emerald-50 border border-emerald-200 text-emerald-700">
                             Amount: ₹{re.amount}
                           </Badge>
                         </div>
@@ -847,8 +847,8 @@ export default function SafetyHubPage() {
                       </div>
 
                       {/* Approve / Reject buttons with authority check */}
-                      <div className="flex gap-2 justify-end border-t border-white/5 pt-2">
-                        <Button onClick={() => handleApproveRexSubmit(re.id)} className="h-8 text-xs px-3 bg-[#12b76a] hover:bg-[#10a35e] text-white">
+                      <div className="flex gap-2 justify-end border-t border-slate-200 pt-2">
+                        <Button onClick={() => handleApproveRexSubmit(re.id)} className="h-8 text-xs px-3 bg-emerald-500 hover:bg-[#10a35e] text-white">
                           Approve Refund Exception
                         </Button>
                         <Button onClick={() => handleRejectRexSubmit(re.id)} className="h-8 text-xs px-3" variant="danger">
@@ -881,7 +881,7 @@ function IconButton({
 } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
-      className="inline-flex h-10 w-10 items-center justify-center rounded-xl glass hover:bg-white/5 border border-white/5 text-ink-sec hover:text-ink-lum transition-all duration-200"
+      className="inline-flex h-10 w-10 items-center justify-center rounded-xl glass hover:bg-slate-50 border border-slate-200 text-ink-sec hover:text-ink-lum transition-all duration-200"
       title={label}
       {...rest}
     >

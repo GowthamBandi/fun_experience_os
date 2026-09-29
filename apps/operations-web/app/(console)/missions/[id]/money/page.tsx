@@ -19,7 +19,7 @@ export default function SessionMoneyPage() {
   const fin = useMemo(() => selectSessionFinancialSummary(state, sessionId), [state, sessionId]);
 
   if (!session) {
-    return <div className="p-8 text-xs font-mono text-slate-400">Session not found.</div>;
+    return <div className="p-8 text-xs font-mono text-slate-500">Session not found.</div>;
   }
 
   return (
@@ -30,7 +30,7 @@ export default function SessionMoneyPage() {
         sub="Gross revenue collected, processed refunds, break-even thresholds, and net margin."
         right={
           <Link href={`/missions/${session.id}/bookings`}>
-            <span className="text-xs text-emerald-400 hover:underline">← Back to Reservations</span>
+            <span className="text-xs text-emerald-600 hover:underline">← Back to Reservations</span>
           </Link>
         }
       />
@@ -39,21 +39,21 @@ export default function SessionMoneyPage() {
 
       {/* Financial Metrics Summary Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-slate-900 border border-slate-800 rounded-lg p-3">
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
           <div className="text-[10px] text-slate-500 uppercase">Gross Collected</div>
-          <div className="text-xl font-bold text-emerald-400">{inr(fin.grossCollected)}</div>
+          <div className="text-xl font-bold text-emerald-600">{inr(fin.grossCollected)}</div>
         </div>
-        <div className="bg-slate-900 border border-slate-800 rounded-lg p-3">
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
           <div className="text-[10px] text-slate-500 uppercase">Total Refunded</div>
-          <div className="text-xl font-bold text-red-400">{inr(fin.totalRefunded)}</div>
+          <div className="text-xl font-bold text-red-600">{inr(fin.totalRefunded)}</div>
         </div>
-        <div className="bg-slate-900 border border-slate-800 rounded-lg p-3">
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
           <div className="text-[10px] text-slate-500 uppercase">Net Revenue</div>
-          <div className="text-xl font-bold text-slate-200">{inr(fin.netRevenue)}</div>
+          <div className="text-xl font-bold text-slate-800">{inr(fin.netRevenue)}</div>
         </div>
-        <div className="bg-slate-900 border border-slate-800 rounded-lg p-3">
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
           <div className="text-[10px] text-slate-500 uppercase">Break-Even Status</div>
-          <div className={`text-base font-bold ${fin.isProfitable ? "text-emerald-400" : "text-amber-400"}`}>
+          <div className={`text-base font-bold ${fin.isProfitable ? "text-emerald-600" : "text-amber-600"}`}>
             {fin.isProfitable ? "PROFITABLE ✓" : "BELOW TARGET ⚠️"}
           </div>
           <div className="text-[10px] text-slate-500">Target: {inr(fin.breakEvenRevenue)}</div>

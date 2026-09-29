@@ -58,7 +58,7 @@ export function SetupBackNavigation({
       <div>
         <Link
           href={href}
-          className="inline-flex items-center gap-1.5 text-xs text-ink-sec hover:text-ink-lum transition-colors py-1 px-2.5 rounded-lg bg-white/4 hover:bg-white/8 border border-white/5"
+          className="inline-flex items-center gap-1.5 text-xs text-ink-sec hover:text-ink-lum transition-colors py-1 px-2.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           <span>{label}</span>
@@ -79,31 +79,31 @@ export function SetupStatusBadge({
   size?: "sm" | "md";
 }) {
   let label = "Unknown";
-  let classes = "bg-white/5 text-ink-sec border-white/10";
+  let classes = "bg-slate-50 text-ink-sec border-slate-200";
   let icon = <Clock className="w-3 h-3" />;
 
   switch (status) {
     case "complete":
     case "ready":
       label = "Complete";
-      classes = "bg-emerald-950/60 text-emerald-300 border-emerald-800/80";
-      icon = <CheckCircle2 className="w-3 h-3 text-emerald-400" />;
+      classes = "bg-emerald-200 text-emerald-700 border-emerald-300";
+      icon = <CheckCircle2 className="w-3 h-3 text-emerald-600" />;
       break;
     case "needs-attention":
       label = "Needs Attention";
-      classes = "bg-amber-950/60 text-amber-300 border-amber-800/80";
-      icon = <AlertTriangle className="w-3 h-3 text-amber-400" />;
+      classes = "bg-amber-200 text-amber-700 border-amber-300";
+      icon = <AlertTriangle className="w-3 h-3 text-amber-600" />;
       break;
     case "in-progress":
       label = "In Progress";
-      classes = "bg-blue-950/60 text-blue-300 border-blue-800/80";
-      icon = <Clock className="w-3 h-3 text-blue-400" />;
+      classes = "bg-blue-200 text-blue-700 border-blue-300";
+      icon = <Clock className="w-3 h-3 text-blue-600" />;
       break;
     case "not-started":
     case "incomplete":
       label = "Incomplete";
-      classes = "bg-red-950/60 text-red-300 border-red-800/80";
-      icon = <Clock className="w-3 h-3 text-red-400" />;
+      classes = "bg-red-200 text-red-700 border-red-300";
+      icon = <Clock className="w-3 h-3 text-red-600" />;
       break;
   }
 
@@ -126,7 +126,7 @@ export function SetupStatusBadge({
 ================================================================= */
 export function SetupProgress({ steps }: { steps: SetupStepStatus[] }) {
   return (
-    <div className="glass p-5 rounded-2xl border border-white/10 space-y-4">
+    <div className="glass p-5 rounded-2xl border border-slate-200 space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-ink-lum flex items-center gap-2">
           <Layers className="w-4 h-4 text-brand" />
@@ -145,20 +145,20 @@ export function SetupProgress({ steps }: { steps: SetupStepStatus[] }) {
               className={cn(
                 "p-3 rounded-xl border flex flex-col justify-between transition-all",
                 isDone
-                  ? "bg-emerald-950/20 border-emerald-800/40 text-emerald-200"
+                  ? "bg-emerald-100 border-emerald-300 text-emerald-700"
                   : isNeedsAttention
-                  ? "bg-amber-950/20 border-amber-800/40 text-amber-200"
-                  : "bg-white/3 border-white/5 text-ink-sec"
+                  ? "bg-amber-100 border-amber-300 text-amber-700"
+                  : "bg-slate-50 border-slate-200 text-ink-sec"
               )}
             >
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-bold text-ink-lum">Step {s.step}</span>
                 {isDone ? (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                 ) : isNeedsAttention ? (
-                  <AlertTriangle className="w-4 h-4 text-amber-400" />
+                  <AlertTriangle className="w-4 h-4 text-amber-600" />
                 ) : (
-                  <span className="w-2 h-2 rounded-full bg-white/20" />
+                  <span className="w-2 h-2 rounded-full bg-slate-200" />
                 )}
               </div>
               <div>
@@ -219,8 +219,8 @@ export function SetupRelationshipTree({ state }: { state: PrototypeState }) {
   const playingAreas = state.playingAreas ?? [];
 
   return (
-    <div className="glass p-5 rounded-2xl border border-white/5 space-y-4">
-      <div className="flex items-center justify-between border-b border-white/5 pb-3">
+    <div className="glass p-5 rounded-2xl border border-slate-200 space-y-4">
+      <div className="flex items-center justify-between border-b border-slate-200 pb-3">
         <div>
           <h3 className="text-sm font-semibold text-ink-lum flex items-center gap-2">
             <Globe className="w-4 h-4 text-brand" />
@@ -230,7 +230,7 @@ export function SetupRelationshipTree({ state }: { state: PrototypeState }) {
         </div>
       </div>
 
-      <div className="font-mono text-xs space-y-4 overflow-x-auto p-3 bg-slate-950/40 rounded-xl border border-white/5">
+      <div className="font-mono text-xs space-y-4 overflow-x-auto p-3 bg-slate-50 rounded-xl border border-slate-200">
         {franchises.length === 0 ? (
           <div className="text-ink-mut py-4 text-center">
             No franchises created yet. Click <strong>&quot;Create Franchise&quot;</strong> to begin.
@@ -241,7 +241,7 @@ export function SetupRelationshipTree({ state }: { state: PrototypeState }) {
             return (
               <div key={f.id} className="space-y-2">
                 <div className="flex items-center gap-2 text-ink-lum font-bold">
-                  <Landmark className="w-4 h-4 text-amber-400" />
+                  <Landmark className="w-4 h-4 text-amber-600" />
                   <Link href={`/franchises/${f.id}`} className="hover:text-brand transition-colors">
                     {f.name}
                   </Link>
@@ -266,7 +266,7 @@ export function SetupRelationshipTree({ state }: { state: PrototypeState }) {
                       <div key={t.id} className="pl-6 space-y-1.5">
                         <div className="flex items-center gap-2 text-ink-sec">
                           <span>{tPrefix}</span>
-                          <Globe className="w-3.5 h-3.5 text-blue-400" />
+                          <Globe className="w-3.5 h-3.5 text-blue-600" />
                           <Link href={`/territories/${t.id}`} className="hover:text-ink-lum transition-colors font-medium">
                             {t.name}
                           </Link>
@@ -291,7 +291,7 @@ export function SetupRelationshipTree({ state }: { state: PrototypeState }) {
                               <div key={c.id} className="pl-12 space-y-1">
                                 <div className="flex items-center gap-2 text-ink-sec">
                                   <span>{tIndent}{cPrefix}</span>
-                                  <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+                                  <MapPin className="w-3.5 h-3.5 text-emerald-600" />
                                   <Link href={`/cities/${c.id}`} className="hover:text-ink-lum transition-colors">
                                     {c.name}
                                   </Link>
@@ -316,7 +316,7 @@ export function SetupRelationshipTree({ state }: { state: PrototypeState }) {
                                       <div key={v.id} className="pl-20 space-y-1">
                                         <div className="flex items-center gap-2 text-ink-sec">
                                           <span>{tIndent}{cIndent}{vPrefix}</span>
-                                          <Building2 className="w-3.5 h-3.5 text-purple-400" />
+                                          <Building2 className="w-3.5 h-3.5 text-purple-600" />
                                           <Link href={`/locations/venues/${v.id}`} className="hover:text-ink-lum transition-colors font-medium">
                                             {v.name}
                                           </Link>
@@ -338,7 +338,7 @@ export function SetupRelationshipTree({ state }: { state: PrototypeState }) {
                                               <div key={pa.id} className="pl-28 flex items-center gap-2 text-ink-mut text-[11px]">
                                                 <span>{tIndent}{cIndent}{vIndent}{paPrefix}</span>
                                                 <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                                                <Link href={`/locations/playing-areas/${pa.id}`} className="text-emerald-300 hover:underline">
+                                                <Link href={`/locations/playing-areas/${pa.id}`} className="text-emerald-700 hover:underline">
                                                   {pa.name}
                                                 </Link>
                                                 <span>({pa.maxCapacity} cap)</span>
@@ -372,7 +372,7 @@ export function SetupRelationshipTree({ state }: { state: PrototypeState }) {
 ================================================================= */
 export function SetupHelpPanel() {
   return (
-    <div className="glass p-5 rounded-2xl border border-white/5 space-y-4">
+    <div className="glass p-5 rounded-2xl border border-slate-200 space-y-4">
       <h3 className="text-sm font-semibold text-ink-lum flex items-center gap-2">
         <HelpCircle className="w-4 h-4 text-brand" />
         <span>Hierarchy Guide for Operators</span>
@@ -413,8 +413,8 @@ export function SetupEmptyState({
   actionHref?: string;
 }) {
   return (
-    <div className="glass p-8 rounded-2xl border border-white/5 text-center space-y-4">
-      <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mx-auto text-ink-mut">
+    <div className="glass p-8 rounded-2xl border border-slate-200 text-center space-y-4">
+      <div className="w-12 h-12 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center mx-auto text-ink-mut">
         <Layers className="w-6 h-6" />
       </div>
       <div className="space-y-1">
@@ -469,7 +469,7 @@ export function SetupPrimaryAction({
     return (
       <div className="relative group inline-block">
         {btn}
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-slate-900 text-xs text-white p-2 rounded-lg border border-white/10 whitespace-nowrap z-50 shadow-xl">
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-slate-50 text-xs text-white p-2 rounded-lg border border-slate-200 whitespace-nowrap z-50 shadow-xl">
           Role restricted ({role.name}). Prototype simulation mode.
         </div>
       </div>

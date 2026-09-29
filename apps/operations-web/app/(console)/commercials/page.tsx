@@ -1,2 +1,6 @@
+import { BadgeIndianRupee } from "lucide-react";
 import { GovernanceRoutePage } from "@/components/governance/GovernanceRoutePage";
-export default function Page(){return <GovernanceRoutePage config={{collection:"commercialAgreements",readOnly:true,eyebrow:"Finance",title:"Commercial terms",description:"Inspect versioned commission, reserve, payout cadence and liability terms negotiated with organizers.",metricLabel:"Agreement versions",primaryAction:"Inspect terms"}}/>}
+
+export default function Page() {
+  return <GovernanceRoutePage config={{href:"/commercials",collection:"commercialAgreements",eyebrow:"Finance",title:"Commercials",description:"Commission terms and contract versions with effective dates. Exceptional rates go through Approvals.",metricLabel:"Agreements",primaryAction:"View",readOnly:true,intake:"commission",intakeLabel:"Propose terms",icon:<BadgeIndianRupee className="h-6 w-6" />}} />;
+}

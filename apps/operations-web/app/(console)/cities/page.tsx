@@ -65,7 +65,7 @@ export default function CitiesPage() {
         }
       />
 
-      <div className="glass p-5 rounded-2xl border border-white/5 space-y-4">
+      <div className="glass p-5 rounded-2xl border border-slate-200 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h3 className="text-sm font-semibold text-ink-lum">Operating Cities</h3>
@@ -100,12 +100,12 @@ export default function CitiesPage() {
 
               return (
                 <Item key={c.id}>
-                  <div className="glass p-5 rounded-2xl border border-white/5 hover:border-white/10 transition-all flex flex-col justify-between space-y-4">
+                  <div className="glass p-5 rounded-2xl border border-slate-200 hover:border-slate-200 transition-all flex flex-col justify-between space-y-4">
                     <div className="space-y-3">
                       <div className="flex items-start justify-between gap-2">
                         <div className="space-y-1">
                           <h4 className="font-bold text-base text-ink-lum flex items-center gap-2">
-                            <MapPin className="w-4 h-4 text-emerald-400 shrink-0" />
+                            <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
                             <Link href={`/cities/${c.id}`} className="hover:text-brand transition-colors">
                               {c.name}
                             </Link>
@@ -117,23 +117,23 @@ export default function CitiesPage() {
                         <SetupStatusBadge status={status} size="sm" />
                       </div>
 
-                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/5 text-center text-xs">
-                        <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200 text-center text-xs">
+                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
                           <span className="text-[10px] text-ink-mut block uppercase">Venues</span>
                           <span className="font-bold text-ink-lum">{cVenues.length}</span>
                         </div>
-                        <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
                           <span className="text-[10px] text-ink-mut block uppercase">Areas</span>
                           <span className="font-bold text-ink-lum">{cAreas.length}</span>
                         </div>
-                        <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
                           <span className="text-[10px] text-ink-mut block uppercase">Events</span>
                           <span className="font-bold text-ink-lum">{cSessions.length}</span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="pt-2 border-t border-white/5 flex items-center justify-between">
+                    <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
                       <StatusChip value={c.status} />
                       <Link href={cVenues.length === 0 ? `/locations/venues/new?cityId=${c.id}` : `/cities/${c.id}`}>
                         <Button variant={cVenues.length === 0 ? "primary" : "secondary"} className="h-7 text-xs font-bold px-3">

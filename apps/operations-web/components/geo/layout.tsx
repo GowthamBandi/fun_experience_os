@@ -38,7 +38,7 @@ export function PrototypeNote({ children, className }: { children: ReactNode; cl
 /** Compact labeled row used inside detail panels. */
 export function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-white/4 py-2 last:border-0">
+    <div className="flex items-start justify-between gap-4 border-b border-slate-200 py-2 last:border-0">
       <span className="overline shrink-0 pt-px">{label}</span>
       <span className="min-w-0 text-right text-sm text-ink-sec">{children}</span>
     </div>
@@ -58,7 +58,7 @@ export function PageFrame({ children, className }: { children: ReactNode; classN
 /** The mandated restricted-action disclosure for the role simulator. */
 export function PrototypeRoleNote({ className }: { className?: string }) {
   return (
-    <div className={cn("flex items-center gap-2 rounded-lg border border-[#4c6fff]/20 bg-[#4c6fff]/8 px-3 py-2 text-[11px] text-[#9db4ff]", className)}>
+    <div className={cn("flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-[11px] text-indigo-700", className)}>
       <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
       <span>Prototype role simulation — not production authorization.</span>
     </div>
@@ -67,7 +67,7 @@ export function PrototypeRoleNote({ className }: { className?: string }) {
 
 /** Small inline "prototype placeholder" marker for commercial-only fields. */
 export function Proto({ className }: { className?: string }) {
-  return <span className={cn("rounded border border-white/10 bg-white/5 px-1 py-px text-[9px] uppercase tracking-wide text-ink-mut", className)}>prototype</span>;
+  return <span className={cn("rounded border border-slate-200 bg-slate-50 px-1 py-px text-[9px] uppercase tracking-wide text-ink-mut", className)}>prototype</span>;
 }
 
 /** Renders a list of category ids as readable chips. */
@@ -76,7 +76,7 @@ export function CatChips({ ids, names, className }: { ids: string[]; names: (id:
   return (
     <div className={cn("flex flex-wrap gap-1.5", className)}>
       {ids.map((id) => (
-        <span key={id} className="rounded-md border border-white/8 bg-white/4 px-2 py-0.5 text-[11px] text-ink-sec">
+        <span key={id} className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] text-ink-sec">
           {names(id)}
         </span>
       ))}

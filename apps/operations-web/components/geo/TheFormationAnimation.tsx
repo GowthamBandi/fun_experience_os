@@ -36,17 +36,17 @@ export function TheFormationAnimation({
   }, [reducedMotion, onComplete]);
 
   return (
-    <div className="bg-slate-950 border border-slate-800 rounded-lg p-6 space-y-6 font-mono text-xs text-center relative overflow-hidden">
-      <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+    <div className="bg-slate-50 border border-slate-200 rounded-lg p-6 space-y-6 font-mono text-xs text-center relative overflow-hidden">
+      <div className="flex items-center justify-between border-b border-slate-200 pb-3">
         <div className="flex items-center gap-2">
-          <span className="text-amber-400 font-bold text-sm">⚛️ The Formation</span>
+          <span className="text-amber-600 font-bold text-sm">⚛️ The Formation</span>
           <span className="text-slate-500 text-[10px]">
             {stage === "atoms" ? "Initializing Pool Atoms..." : stage === "gathering" ? "Gathering into Team Clusters..." : "Allocation Complete"}
           </span>
         </div>
         <button
           onClick={() => setReducedMotion(!reducedMotion)}
-          className="text-[10px] px-2 py-1 bg-slate-900 border border-slate-700 text-slate-400 rounded hover:text-slate-200"
+          className="text-[10px] px-2 py-1 bg-slate-50 border border-slate-200 text-slate-500 rounded hover:text-slate-800"
         >
           {reducedMotion ? "⚡ Reduced Motion ON" : "✨ Motion Normal"}
         </button>
@@ -61,8 +61,8 @@ export function TheFormationAnimation({
                 key={p.booking.id}
                 className={`px-3 py-1.5 rounded-full border transition-all duration-700 font-mono font-bold text-xs ${
                   stage === "gathering"
-                    ? "scale-105 border-purple-500/80 bg-purple-950/80 text-purple-200 shadow-lg shadow-purple-950/50"
-                    : "border-slate-700 bg-slate-900 text-slate-300"
+                    ? "scale-105 border-purple-300 bg-purple-200 text-purple-700 shadow-lg shadow-purple-950/50"
+                    : "border-slate-200 bg-slate-50 text-slate-700"
                 }`}
                 style={{
                   transitionDelay: `${idx * 80}ms`,
@@ -79,9 +79,9 @@ export function TheFormationAnimation({
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
           {teams.map((t) => (
-            <div key={t.team.id} className="bg-slate-900 border border-slate-800 rounded-lg p-4 space-y-2">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                <span className="font-bold text-emerald-400">{t.team.name} ({t.team.code})</span>
+            <div key={t.team.id} className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-2">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                <span className="font-bold text-emerald-600">{t.team.name} ({t.team.code})</span>
                 <span className="text-[10px] text-slate-500">
                   {t.currentMemberCount} / {t.team.capacity} Members
                 </span>
@@ -90,9 +90,9 @@ export function TheFormationAnimation({
                 {t.activeAssignments.map((ta) => {
                   const p = participants.find((x) => x.booking.id === ta.bookingId);
                   return (
-                    <div key={ta.id} className="bg-slate-950 px-2 py-1 rounded text-[11px] text-slate-300 flex items-center justify-between">
-                      <span className="font-bold text-slate-200">{p?.temporaryIdentity?.temporaryCode || ta.bookingId}</span>
-                      <span className="text-slate-400">{p?.booking.alias}</span>
+                    <div key={ta.id} className="bg-slate-50 px-2 py-1 rounded text-[11px] text-slate-700 flex items-center justify-between">
+                      <span className="font-bold text-slate-800">{p?.temporaryIdentity?.temporaryCode || ta.bookingId}</span>
+                      <span className="text-slate-500">{p?.booking.alias}</span>
                     </div>
                   );
                 })}

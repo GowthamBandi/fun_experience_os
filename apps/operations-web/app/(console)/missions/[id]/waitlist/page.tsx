@@ -116,7 +116,7 @@ export default function WaitlistPage() {
                     </Button>
                     <Button
                       variant="ghost"
-                      className="text-red-400 hover:text-red-300 hover:bg-red-950/30"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-100"
                       onClick={() => expireWaitlistOffer(b.id, role.id)}
                     >
                       Expire Offer

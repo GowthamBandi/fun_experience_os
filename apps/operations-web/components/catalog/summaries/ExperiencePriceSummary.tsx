@@ -24,27 +24,27 @@ export function ExperiencePriceSummary({
   const targetRevenue = basePrice * targetParticipants;
 
   return (
-    <div className="glass p-4 rounded-xl border border-white/5 space-y-3 text-xs">
+    <div className="glass p-4 rounded-xl border border-slate-200 space-y-3 text-xs">
       <div className="flex items-center justify-between">
         <span className="font-bold text-ink-lum flex items-center gap-1.5">
-          <IndianRupee className="w-3.5 h-3.5 text-emerald-400" />
+          <IndianRupee className="w-3.5 h-3.5 text-emerald-600" />
           Default Pricing & Revenue
         </span>
         <span className="text-[10px] text-ink-mut font-medium">Reusable Defaults</span>
       </div>
 
       <div className="grid grid-cols-3 gap-2 text-center text-[11px]">
-        <div className="p-2 rounded-lg bg-black/40 border border-white/5 space-y-0.5">
+        <div className="p-2 rounded-lg bg-slate-50 border border-slate-200 space-y-0.5">
           <span className="text-[10px] text-ink-mut uppercase block">Default Price</span>
-          <span className="font-bold text-emerald-400 text-sm">₹{basePrice}</span>
+          <span className="font-bold text-emerald-600 text-sm">₹{basePrice}</span>
         </div>
 
-        <div className="p-2 rounded-lg bg-black/40 border border-white/5 space-y-0.5">
+        <div className="p-2 rounded-lg bg-slate-50 border border-slate-200 space-y-0.5">
           <span className="text-[10px] text-ink-mut uppercase block">Est. Break-Even</span>
           <span className="font-bold text-ink-lum">{breakEven} pax</span>
         </div>
 
-        <div className="p-2 rounded-lg bg-black/40 border border-white/5 space-y-0.5">
+        <div className="p-2 rounded-lg bg-slate-50 border border-slate-200 space-y-0.5">
           <span className="text-[10px] text-ink-mut uppercase block">Est. Target Revenue</span>
           <span className="font-bold text-ink-lum">₹{targetRevenue}</span>
         </div>

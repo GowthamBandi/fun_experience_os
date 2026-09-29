@@ -18,13 +18,13 @@ export function DataTable<T>({ columns, rows, emptyTitle, emptyLine, onRowClick 
       <div className="overflow-x-auto">
         <table className="w-full min-w-[640px] text-sm">
           <thead>
-            <tr className="border-b border-white/5">
+            <tr className="border-b border-edge bg-bg-sunken/80">
               {columns.map((c) => (
                 <th
                   key={c.key}
                   scope="col"
                   className={cn(
-                    "overline px-4 py-3 text-left font-medium",
+                    "px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-mut",
                     c.align === "right" && "text-right",
                   )}
                   style={{ width: c.width }}
@@ -40,8 +40,8 @@ export function DataTable<T>({ columns, rows, emptyTitle, emptyLine, onRowClick 
                 key={i}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
                 className={cn(
-                  "border-b border-white/4 last:border-0 transition-colors hover:bg-white/2",
-                  onRowClick && "cursor-pointer hover:bg-white/4",
+                  "border-b border-slate-100 last:border-0 transition-colors hover:bg-slate-50/80",
+                  onRowClick && "cursor-pointer hover:bg-brand-subtle/40",
                 )}
               >
                 {columns.map((c) => (
@@ -59,7 +59,7 @@ export function DataTable<T>({ columns, rows, emptyTitle, emptyLine, onRowClick 
       </div>
       {rows.length === 0 && (
         <div className="px-4 py-14 text-center">
-          <p className="text-sm text-ink-lum">{emptyTitle}</p>
+          <p className="text-sm font-semibold text-ink-lum">{emptyTitle}</p>
           <p className="mt-1 text-sm text-ink-mut">{emptyLine}</p>
         </div>
       )}

@@ -56,7 +56,7 @@ export default function SessionResultsPage() {
   const allConfirmed = resultsConfirmedCount === segments.length && segments.length > 0;
 
   if (!session) {
-    return <div className="p-8 text-xs font-mono text-slate-400">Session not found.</div>;
+    return <div className="p-8 text-xs font-mono text-slate-500">Session not found.</div>;
   }
 
   const handleSaveDraft = (segId: string, resultType: string, teamScores: any, winnerTeamId: string, outcomeText: string) => {
@@ -111,7 +111,7 @@ export default function SessionResultsPage() {
       {/* Three step navigator */}
       <MissionStageNavigation />
 
-      {errorMsg && <div className="bg-red-950 border border-red-800 text-red-300 p-3 rounded-xl">{errorMsg}</div>}
+      {errorMsg && <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl">{errorMsg}</div>}
 
       {/* Form Workspace for each Event Step */}
       <div className="space-y-6">
@@ -134,7 +134,7 @@ export default function SessionResultsPage() {
       </div>
 
       {/* Next Actions at bottom */}
-      <div className="p-5 rounded-panel border border-white/5 bg-white/3 flex items-center justify-between flex-wrap gap-4 mt-6">
+      <div className="p-5 rounded-panel border border-slate-200 bg-slate-50 flex items-center justify-between flex-wrap gap-4 mt-6">
         <div className="space-y-1">
           <span className="font-bold text-sm text-ink-lum">
             {allConfirmed ? "All results are confirmed." : `${segments.length - resultsConfirmedCount} results still need confirmation.`}
@@ -155,12 +155,12 @@ export default function SessionResultsPage() {
           ) : (
             <button
               onClick={() => {
-                const firstUnconfirmed = document.querySelector(".border-amber-800");
+                const firstUnconfirmed = document.querySelector(".border-amber-200");
                 if (firstUnconfirmed) {
                   firstUnconfirmed.scrollIntoView({ behavior: "smooth" });
                 }
               }}
-              className="px-6 py-2.5 bg-white/5 border border-white/10 hover:bg-white/10 text-ink-sec font-bold rounded-xl text-sm transition-all"
+              className="px-6 py-2.5 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-ink-sec font-bold rounded-xl text-sm transition-all"
             >
               Review Missing Results
             </button>
@@ -230,28 +230,28 @@ function ResultEntryCard({
   // Status Chips & Explanations
   let statusText = "Not Recorded";
   let statusExplanation = "No result details have been registered yet.";
-  let badgeStyle = "bg-white/5 border-white/10 text-ink-sec";
+  let badgeStyle = "bg-slate-50 border-slate-200 text-ink-sec";
 
   if (existingResult?.status === "Draft") {
     statusText = "Draft";
     statusExplanation = "This result is saved but not final. Review scores and click Confirm Result.";
-    badgeStyle = "bg-amber-950/40 border-amber-800 text-amber-300";
+    badgeStyle = "bg-amber-200 border-amber-200 text-amber-700";
   } else if (existingResult?.status === "Confirmed") {
     statusText = "Confirmed";
     statusExplanation = "This result is final. Any changes will generate an audit correction record.";
-    badgeStyle = "bg-emerald-950/40 border-emerald-800 text-emerald-400";
+    badgeStyle = "bg-emerald-200 border-emerald-200 text-emerald-600";
   } else if (existingResult?.status === "Corrected") {
     statusText = "Corrected";
     statusExplanation = "The result has been modified. The previous history is logged below.";
-    badgeStyle = "bg-purple-950 border-purple-800 text-purple-300";
+    badgeStyle = "bg-purple-50 border-purple-200 text-purple-700";
   }
 
   return (
     <div className={`glass rounded-panel border p-5 space-y-4 ${
-      isConfirmed ? "border-white/5" : "border-amber-800/80 bg-amber-950/5"
+      isConfirmed ? "border-slate-200" : "border-amber-300 bg-amber-50"
     }`}>
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/5 pb-2">
+      <div className="flex items-center justify-between border-b border-slate-200 pb-2">
         <div className="space-y-0.5">
           <span className="text-xs font-bold text-ink-lum">Event Step: {segment.name}</span>
           <span className="block text-[10px] text-ink-mut uppercase tracking-wider">Step Sequence #{segment.sequence}</span>
@@ -268,7 +268,7 @@ function ResultEntryCard({
       {/* Score-based / Sports Experience */}
       {isSport && teamA && teamB ? (
         <form onSubmit={handleSave} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4 bg-black/10 border border-white/5 p-4 rounded-xl">
+          <div className="grid grid-cols-2 gap-4 bg-slate-50 border border-slate-200 p-4 rounded-xl">
             <div className="space-y-1">
               <label className="text-[10px] text-ink-mut uppercase font-semibold">{teamA.name} Score</label>
               <input
@@ -277,7 +277,7 @@ function ResultEntryCard({
                 value={scoreA}
                 onChange={(e) => setScoreA(parseInt(e.target.value) || 0)}
                 disabled={isConfirmed || isReadOnly}
-                className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-lg font-bold text-ink-lum focus:outline-none focus:border-brand"
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-lg font-bold text-ink-lum focus:outline-none focus:border-brand"
               />
             </div>
             <div className="space-y-1">
@@ -288,7 +288,7 @@ function ResultEntryCard({
                 value={scoreB}
                 onChange={(e) => setScoreB(parseInt(e.target.value) || 0)}
                 disabled={isConfirmed || isReadOnly}
-                className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-lg font-bold text-ink-lum focus:outline-none focus:border-brand"
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-lg font-bold text-ink-lum focus:outline-none focus:border-brand"
               />
             </div>
 
@@ -298,7 +298,7 @@ function ResultEntryCard({
                 value={winnerId}
                 onChange={(e) => setWinnerId(e.target.value)}
                 disabled={isConfirmed || isReadOnly}
-                className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-xs font-semibold focus:outline-none focus:border-brand"
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold focus:outline-none focus:border-brand"
               >
                 <option value="">Select Winner...</option>
                 <option value={teamA.id}>{teamA.name}</option>
@@ -314,7 +314,7 @@ function ResultEntryCard({
                 <>
                   <button
                     type="submit"
-                    className="px-4 py-1.5 bg-white/5 border border-white/10 hover:bg-white/10 text-ink-sec font-bold rounded-lg"
+                    className="px-4 py-1.5 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-ink-sec font-bold rounded-lg"
                   >
                     Save Draft
                   </button>
@@ -342,14 +342,14 @@ function ResultEntryCard({
       ) : (
         /* Outcome-based Experience */
         <form onSubmit={handleSave} className="space-y-4">
-          <div className="space-y-3 bg-black/10 border border-white/5 p-4 rounded-xl">
+          <div className="space-y-3 bg-slate-50 border border-slate-200 p-4 rounded-xl">
             <div className="space-y-1">
               <label className="text-[10px] text-ink-mut uppercase font-semibold">What was the outcome?</label>
               <select
                 value={winnerId}
                 onChange={(e) => setWinnerId(e.target.value)}
                 disabled={isConfirmed || isReadOnly}
-                className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-xs font-semibold"
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold"
               >
                 <option value="">Select Outcome...</option>
                 <option value="completed">Activity Completed</option>
@@ -369,7 +369,7 @@ function ResultEntryCard({
                 value={outcomeText}
                 onChange={(e) => setOutcomeText(e.target.value)}
                 disabled={isConfirmed || isReadOnly}
-                className="w-full bg-slate-950 border border-white/5 rounded-lg p-2.5 text-xs text-ink-lum"
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs text-ink-lum"
               />
             </div>
           </div>
@@ -381,7 +381,7 @@ function ResultEntryCard({
                 <>
                   <button
                     type="submit"
-                    className="px-4 py-1.5 bg-white/5 border border-white/10 hover:bg-white/10 text-ink-sec font-bold rounded-lg"
+                    className="px-4 py-1.5 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-ink-sec font-bold rounded-lg"
                   >
                     Save Draft
                   </button>
@@ -410,15 +410,15 @@ function ResultEntryCard({
 
       {/* Revision History Logs */}
       {existingResult?.revisions && existingResult.revisions.length > 0 && (
-        <div className="bg-slate-950 border border-white/5 rounded-xl p-3.5 space-y-2">
-          <span className="font-bold text-ink-mut uppercase text-[10px] block border-b border-white/5 pb-1">
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2">
+          <span className="font-bold text-ink-mut uppercase text-[10px] block border-b border-slate-200 pb-1">
             Result History
           </span>
           <div className="space-y-1.5">
             {existingResult.revisions.map((rev: any) => (
               <div key={rev.revisionNumber} className="text-[10px] text-ink-mut leading-relaxed">
                 <span className="font-bold text-ink-sec">Revision #{rev.revisionNumber}</span> ({rev.resultType}) by <strong className="text-ink-sec">{rev.recordedBy}</strong> at {rev.recordedAt}
-                {rev.reason && <p className="text-amber-400 mt-0.5">Reason for correction: {rev.reason}</p>}
+                {rev.reason && <p className="text-amber-600 mt-0.5">Reason for correction: {rev.reason}</p>}
               </div>
             ))}
           </div>
@@ -427,10 +427,10 @@ function ResultEntryCard({
 
       {/* Correction Modal */}
       {correctionModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <form onSubmit={handleCorrectSubmit} className="bg-slate-900 border border-purple-800 rounded-lg p-6 max-w-md w-full space-y-4">
-            <h4 className="font-bold text-purple-300 text-sm">Correct Result</h4>
-            <p className="text-slate-300">
+        <div className="fixed inset-0 z-50 bg-slate-50 flex items-center justify-center p-4">
+          <form onSubmit={handleCorrectSubmit} className="bg-slate-50 border border-purple-200 rounded-lg p-6 max-w-md w-full space-y-4">
+            <h4 className="font-bold text-purple-700 text-sm">Correct Result</h4>
+            <p className="text-slate-700">
               Confirmed results cannot be silently overwritten. Provide a mandatory reason to log the correction.
             </p>
             <textarea
@@ -438,14 +438,14 @@ function ResultEntryCard({
               placeholder="e.g. Score miscount corrected by Lead Coordinator after scorecard review."
               value={correctionReason}
               onChange={(e) => setCorrectionReason(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-slate-200"
+              className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-slate-800"
               required
             />
             <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setCorrectionModalOpen(false)}
-                className="px-3 py-1 bg-slate-800 text-slate-300 rounded font-bold"
+                className="px-3 py-1 bg-slate-100 text-slate-700 rounded font-bold"
               >
                 Cancel
               </button>

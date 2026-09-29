@@ -72,9 +72,9 @@ export default function VenueDetailsPage({ params }: { params: Promise<{ id: str
       />
 
       {/* Parent Hierarchy Card */}
-      <div className="p-4 rounded-xl glass border border-white/5 text-xs flex flex-wrap items-center justify-between gap-4">
+      <div className="p-4 rounded-xl glass border border-slate-200 text-xs flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2 text-ink-sec">
-          <Building2 className="w-4 h-4 text-purple-400" />
+          <Building2 className="w-4 h-4 text-purple-600" />
           <span>Parent City:</span>
           {city ? (
             <Link href={`/cities/${city.id}`} className="text-brand font-semibold hover:underline">
@@ -98,25 +98,25 @@ export default function VenueDetailsPage({ params }: { params: Promise<{ id: str
 
       {/* Top Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div className="glass p-4 rounded-xl border border-white/5 space-y-1">
+        <div className="glass p-4 rounded-xl border border-slate-200 space-y-1">
           <p className="text-[10px] text-ink-mut uppercase font-semibold">Playing Areas</p>
           <p className="text-2xl font-bold text-ink-lum">{vAreas.length}</p>
           <p className="text-[11px] text-ink-sec">Courts, fields, or rooms</p>
         </div>
 
-        <div className="glass p-4 rounded-xl border border-white/5 space-y-1">
+        <div className="glass p-4 rounded-xl border border-slate-200 space-y-1">
           <p className="text-[10px] text-ink-mut uppercase font-semibold">Max Combined Capacity</p>
           <p className="text-2xl font-bold text-ink-lum">{combinedCapacity}</p>
           <p className="text-[11px] text-ink-sec">Maximum headcount</p>
         </div>
 
-        <div className="glass p-4 rounded-xl border border-white/5 space-y-1">
+        <div className="glass p-4 rounded-xl border border-slate-200 space-y-1">
           <p className="text-[10px] text-ink-mut uppercase font-semibold">Scheduled Events</p>
           <p className="text-2xl font-bold text-ink-lum">{vSessions.length}</p>
           <p className="text-[11px] text-ink-sec">Events assigned to venue</p>
         </div>
 
-        <div className="glass p-4 rounded-xl border border-white/5 space-y-1">
+        <div className="glass p-4 rounded-xl border border-slate-200 space-y-1">
           <p className="text-[10px] text-ink-mut uppercase font-semibold">Setup Readiness</p>
           <div className="mt-1">
             <SetupStatusBadge status={health.status} />
@@ -128,8 +128,8 @@ export default function VenueDetailsPage({ params }: { params: Promise<{ id: str
       </div>
 
       {/* Playing Areas List Section */}
-      <div className="glass p-6 rounded-2xl border border-white/5 space-y-4">
-        <div className="flex items-center justify-between border-b border-white/5 pb-4">
+      <div className="glass p-6 rounded-2xl border border-slate-200 space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-200 pb-4">
           <div>
             <h3 className="text-base font-bold text-ink-lum">Playing Areas inside {venue.name}</h3>
             <p className="text-xs text-ink-sec">The exact courts, fields, rooms, or halls available for events.</p>
@@ -152,18 +152,18 @@ export default function VenueDetailsPage({ params }: { params: Promise<{ id: str
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {vAreas.map((pa) => (
-              <div key={pa.id} className="p-4 rounded-xl bg-black/40 border border-white/5 space-y-3">
+              <div key={pa.id} className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
                 <div className="flex items-start justify-between">
                   <div>
                     <h4 className="font-bold text-sm text-ink-lum">{pa.name}</h4>
-                    <span className="text-[10px] text-emerald-400 font-medium uppercase tracking-wider">{pa.activityCompatibility.join(", ") || "General Purpose"}</span>
+                    <span className="text-[10px] text-emerald-600 font-medium uppercase tracking-wider">{pa.activityCompatibility.join(", ") || "General Purpose"}</span>
                   </div>
-                  <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-950/60 text-emerald-300 border border-emerald-800/80">
+                  <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-200 text-emerald-700 border border-emerald-300">
                     {pa.status}
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-xs text-ink-sec border-t border-white/5 pt-2">
+                <div className="grid grid-cols-2 gap-2 text-xs text-ink-sec border-t border-slate-200 pt-2">
                   <div>Capacity: <strong className="text-ink-lum">{pa.maxCapacity} pax</strong></div>
                   <div>Staff: <strong className="text-ink-lum">{pa.staffCapacity || 1} staff</strong></div>
                 </div>
@@ -182,26 +182,26 @@ export default function VenueDetailsPage({ params }: { params: Promise<{ id: str
       </div>
 
       {/* Safety & Location Details */}
-      <div className="glass p-6 rounded-2xl border border-white/5 space-y-4">
+      <div className="glass p-6 rounded-2xl border border-slate-200 space-y-4">
         <h3 className="text-sm font-semibold text-ink-lum flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4 text-emerald-400" />
+          <ShieldCheck className="w-4 h-4 text-emerald-600" />
           <span>Safety & Operating Details</span>
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-ink-sec">
-          <div className="p-3 rounded-xl bg-black/30 border border-white/5 space-y-1">
+          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
             <span className="text-ink-mut block">Address:</span>
             <span className="text-ink-lum font-medium">{venue.address || "Address not provided"}</span>
           </div>
-          <div className="p-3 rounded-xl bg-black/30 border border-white/5 space-y-1">
+          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
             <span className="text-ink-mut block">Operating Hours:</span>
             <span className="text-ink-lum font-medium">{venue.operatingHours || "06:00 AM - 10:00 PM"}</span>
           </div>
-          <div className="p-3 rounded-xl bg-black/30 border border-white/5 space-y-1">
+          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
             <span className="text-ink-mut block">Contact Person & Phone:</span>
             <span className="text-ink-lum font-medium">{venue.contactPerson} ({venue.contactNumber})</span>
           </div>
-          <div className="p-3 rounded-xl bg-black/30 border border-white/5 space-y-1">
+          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
             <span className="text-ink-mut block">Emergency Exits & First Aid:</span>
             <span className="text-ink-lum font-medium">{venue.emergencyExits} · {venue.firstAid ? "First Aid Kit Verified" : "No kit logged"}</span>
           </div>

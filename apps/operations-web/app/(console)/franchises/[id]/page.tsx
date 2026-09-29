@@ -148,7 +148,7 @@ export default function FranchiseDetailPage() {
                     <SetupStatusBadge status={t.status === "active" ? "complete" : "needs-attention"} />
                   </div>
                   
-                  <div className="pt-3 border-t border-white/10 flex justify-end">
+                  <div className="pt-3 border-t border-slate-200 flex justify-end">
                     <Button variant="secondary" onClick={() => router.push(`/territories/${t.id}`)}>
                       Manage Territory
                     </Button>

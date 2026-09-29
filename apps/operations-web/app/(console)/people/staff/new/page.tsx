@@ -53,8 +53,8 @@ export default function AddStaffPage() {
       <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6">
         <StaffBackNavigation label="Back to Staff" href="/people/staff" />
 
-        <div className="glass p-8 rounded-2xl border border-emerald-800/40 bg-emerald-950/20 text-center space-y-6 max-w-xl mx-auto my-8">
-          <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center mx-auto text-emerald-400">
+        <div className="glass p-8 rounded-2xl border border-emerald-300 bg-emerald-100 text-center space-y-6 max-w-xl mx-auto my-8">
+          <div className="w-16 h-16 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center mx-auto text-emerald-600">
             <CheckCircle2 className="w-10 h-10" />
           </div>
 
@@ -65,9 +65,9 @@ export default function AddStaffPage() {
             </p>
           </div>
 
-          <div className="p-4 rounded-xl bg-black/40 border border-white/5 text-left text-xs space-y-1">
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-left text-xs space-y-1">
             <p className="text-ink-mut">Name: <strong className="text-ink-lum">{formData.name || "Rahul Kumar"}</strong></p>
-            <p className="text-ink-mut">Role: <span className="text-purple-300 font-bold capitalize">{formData.role}</span></p>
+            <p className="text-ink-mut">Role: <span className="text-purple-700 font-bold capitalize">{formData.role}</span></p>
             <p className="text-ink-mut">Primary Venue: <span className="text-ink-sec">{venues.find((v) => v.id === formData.venueId)?.name || "Venue"}</span></p>
           </div>
 
@@ -112,7 +112,7 @@ export default function AddStaffPage() {
 
       <div className="space-y-6 max-w-3xl mx-auto">
         {/* Step Indicator */}
-        <div className="flex items-center justify-between border-b border-white/5 pb-4">
+        <div className="flex items-center justify-between border-b border-slate-200 pb-4">
           {[
             { num: 1, label: "1. Basics" },
             { num: 2, label: "2. Contact" },
@@ -128,7 +128,7 @@ export default function AddStaffPage() {
                 step === s.num
                   ? "bg-brand text-slate-950"
                   : step > s.num
-                  ? "bg-white/10 text-ink-lum"
+                  ? "bg-slate-100 text-ink-lum"
                   : "text-ink-mut hover:text-ink-sec"
               }`}
             >
@@ -137,7 +137,7 @@ export default function AddStaffPage() {
           ))}
         </div>
 
-        <div className="glass p-6 rounded-2xl border border-white/5 space-y-6">
+        <div className="glass p-6 rounded-2xl border border-slate-200 space-y-6">
           {step === 1 && (
             <div className="space-y-4">
               <h3 className="text-sm font-bold text-ink-lum">Step 1: Basic Information</h3>
@@ -149,7 +149,7 @@ export default function AddStaffPage() {
                   placeholder="e.g. Rahul Kumar"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum placeholder:text-ink-mut"
+                  className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum placeholder:text-ink-mut"
                 />
               </div>
 
@@ -158,7 +158,7 @@ export default function AddStaffPage() {
                 <select
                   value={formData.status}
                   onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                  className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                  className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
                 >
                   <option value="available">Available (Ready for assignment)</option>
                   <option value="assigned">Assigned to Event</option>
@@ -179,7 +179,7 @@ export default function AddStaffPage() {
                   placeholder="+91 98765 43210"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum font-mono"
+                  className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum font-mono"
                 />
               </div>
 
@@ -190,7 +190,7 @@ export default function AddStaffPage() {
                   placeholder="Emergency Contact Phone"
                   value={formData.emergencyContact}
                   onChange={(e) => setFormData({ ...formData, emergencyContact: e.target.value })}
-                  className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum font-mono"
+                  className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum font-mono"
                 />
               </div>
             </div>
@@ -205,7 +205,7 @@ export default function AddStaffPage() {
                 <select
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value as any })}
-                  className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum font-bold text-purple-300"
+                  className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum font-bold text-purple-700"
                 >
                   <option value="coordinator">Lead Coordinator (Manages full event flow)</option>
                   <option value="safety">Safety Officer (First Aid & Escalations)</option>
@@ -217,11 +217,11 @@ export default function AddStaffPage() {
               <div className="space-y-2">
                 <label className="text-xs font-medium text-ink-sec">Operational Skills & Training</label>
                 <div className="grid grid-cols-2 gap-2 text-xs">
-                  <label className="flex items-center gap-2 p-2.5 rounded-lg bg-black/30 border border-white/5 cursor-pointer">
+                  <label className="flex items-center gap-2 p-2.5 rounded-lg bg-slate-50 border border-slate-200 cursor-pointer">
                     <input type="checkbox" defaultChecked className="rounded text-brand" />
                     <span>Check-in Trained</span>
                   </label>
-                  <label className="flex items-center gap-2 p-2.5 rounded-lg bg-black/30 border border-white/5 cursor-pointer">
+                  <label className="flex items-center gap-2 p-2.5 rounded-lg bg-slate-50 border border-slate-200 cursor-pointer">
                     <input type="checkbox" defaultChecked={formData.role === "safety"} className="rounded text-brand" />
                     <span>Safety Certified</span>
                   </label>
@@ -239,7 +239,7 @@ export default function AddStaffPage() {
                 <select
                   value={formData.territoryId}
                   onChange={(e) => setFormData({ ...formData, territoryId: e.target.value })}
-                  className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                  className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
                 >
                   {territories.map((t) => (
                     <option key={t.id} value={t.id}>
@@ -254,7 +254,7 @@ export default function AddStaffPage() {
                 <select
                   value={formData.venueId}
                   onChange={(e) => setFormData({ ...formData, venueId: e.target.value })}
-                  className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                  className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
                 >
                   {venues.map((v) => (
                     <option key={v.id} value={v.id}>
@@ -270,16 +270,16 @@ export default function AddStaffPage() {
             <div className="space-y-4">
               <h3 className="text-sm font-bold text-ink-lum">Step 5: Review Details</h3>
 
-              <div className="p-4 rounded-xl bg-black/40 border border-white/5 space-y-2 text-xs">
-                <div className="flex justify-between border-b border-white/5 pb-2">
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
+                <div className="flex justify-between border-b border-slate-200 pb-2">
                   <span className="text-ink-mut">Name:</span>
                   <span className="font-bold text-ink-lum">{formData.name || "Rahul Kumar"}</span>
                 </div>
-                <div className="flex justify-between border-b border-white/5 pb-2">
+                <div className="flex justify-between border-b border-slate-200 pb-2">
                   <span className="text-ink-mut">Role:</span>
-                  <span className="text-purple-300 font-bold capitalize">{formData.role}</span>
+                  <span className="text-purple-700 font-bold capitalize">{formData.role}</span>
                 </div>
-                <div className="flex justify-between border-b border-white/5 pb-2">
+                <div className="flex justify-between border-b border-slate-200 pb-2">
                   <span className="text-ink-mut">Primary Venue:</span>
                   <span className="text-ink-sec">{venues.find((v) => v.id === formData.venueId)?.name || "Venue"}</span>
                 </div>
@@ -288,7 +288,7 @@ export default function AddStaffPage() {
           )}
 
           {/* Wizard Buttons */}
-          <div className="flex items-center justify-between pt-4 border-t border-white/5">
+          <div className="flex items-center justify-between pt-4 border-t border-slate-200">
             <Button
               variant="ghost"
               onClick={() => (step > 1 ? setStep(step - 1) : router.push("/people/staff"))}

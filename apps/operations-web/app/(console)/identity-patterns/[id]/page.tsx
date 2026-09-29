@@ -21,9 +21,9 @@ export default function IdentityPatternDetailPage() {
 
   if (!pattern) {
     return (
-      <div className="mx-auto max-w-4xl p-8 font-mono text-xs text-slate-400 space-y-4">
-        <div>❌ Identity Pattern <strong className="text-slate-200">{id}</strong> not found.</div>
-        <Link href="/identity-patterns" className="text-emerald-400 hover:underline">
+      <div className="mx-auto max-w-4xl p-8 font-mono text-xs text-slate-500 space-y-4">
+        <div>❌ Identity Pattern <strong className="text-slate-800">{id}</strong> not found.</div>
+        <Link href="/identity-patterns" className="text-emerald-600 hover:underline">
           ← Return to Identity Pattern Catalog
         </Link>
       </div>
@@ -53,17 +53,17 @@ export default function IdentityPatternDetailPage() {
         }
       />
 
-      <div className="bg-slate-900 border border-slate-800 rounded-lg p-6 space-y-4">
-        <h3 className="font-bold text-slate-200 uppercase tracking-wider text-xs border-b border-slate-800 pb-2">
+      <div className="bg-slate-50 border border-slate-200 rounded-lg p-6 space-y-4">
+        <h3 className="font-bold text-slate-800 uppercase tracking-wider text-xs border-b border-slate-200 pb-2">
           Test Bench: Simulated Sequence Generator
         </h3>
 
         <div className="flex items-center gap-4">
-          <span className="text-slate-400">Generate Sample Count:</span>
+          <span className="text-slate-500">Generate Sample Count:</span>
           <select
             value={sampleCount}
             onChange={(e) => setSampleCount(parseInt(e.target.value, 10))}
-            className="bg-slate-950 border border-slate-700 rounded px-3 py-1 text-slate-200 font-bold"
+            className="bg-slate-50 border border-slate-200 rounded px-3 py-1 text-slate-800 font-bold"
           >
             <option value={5}>5 Codes</option>
             <option value={10}>10 Codes</option>
@@ -73,7 +73,7 @@ export default function IdentityPatternDetailPage() {
 
         <div className="flex flex-wrap gap-2 pt-2">
           {generatedSamples.map((code, idx) => (
-            <div key={idx} className="bg-slate-950 border border-slate-800 px-3 py-1.5 rounded font-bold font-mono text-amber-400 text-sm">
+            <div key={idx} className="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded font-bold font-mono text-amber-600 text-sm">
               {code}
             </div>
           ))}

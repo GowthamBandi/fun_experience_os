@@ -62,9 +62,9 @@ export default function PlayingAreaDetailsPage({ params }: { params: Promise<{ i
       />
 
       {/* Parent Venue Card */}
-      <div className="p-4 rounded-xl glass border border-white/5 text-xs flex flex-wrap items-center justify-between gap-4">
+      <div className="p-4 rounded-xl glass border border-slate-200 text-xs flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2 text-ink-sec">
-          <Building2 className="w-4 h-4 text-purple-400" />
+          <Building2 className="w-4 h-4 text-purple-600" />
           <span>Parent Venue:</span>
           {venue ? (
             <Link href={`/locations/venues/${venue.id}`} className="text-brand font-semibold hover:underline">
@@ -88,19 +88,19 @@ export default function PlayingAreaDetailsPage({ params }: { params: Promise<{ i
 
       {/* Detail Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="glass p-5 rounded-2xl border border-white/5 space-y-2">
+        <div className="glass p-5 rounded-2xl border border-slate-200 space-y-2">
           <span className="text-[10px] text-ink-mut uppercase font-semibold">Max Player Capacity</span>
           <p className="text-3xl font-bold text-ink-lum">{area.maxCapacity} <span className="text-xs font-normal text-ink-sec">players</span></p>
           <p className="text-xs text-ink-sec">Spectator capacity: {area.spectatorCapacity || 10} pax</p>
         </div>
 
-        <div className="glass p-5 rounded-2xl border border-white/5 space-y-2">
+        <div className="glass p-5 rounded-2xl border border-slate-200 space-y-2">
           <span className="text-[10px] text-ink-mut uppercase font-semibold">Staff Required</span>
           <p className="text-3xl font-bold text-ink-lum">{area.staffCapacity || 1} <span className="text-xs font-normal text-ink-sec">staff</span></p>
           <p className="text-xs text-ink-sec">Operational crew size</p>
         </div>
 
-        <div className="glass p-5 rounded-2xl border border-white/5 space-y-2">
+        <div className="glass p-5 rounded-2xl border border-slate-200 space-y-2">
           <span className="text-[10px] text-ink-mut uppercase font-semibold">Operating Hours</span>
           <p className="text-base font-bold text-ink-lum mt-1">{area.operatingHours || "06:00 AM - 10:00 PM"}</p>
           <p className="text-xs text-ink-sec">Standard slot hours</p>
@@ -108,29 +108,29 @@ export default function PlayingAreaDetailsPage({ params }: { params: Promise<{ i
       </div>
 
       {/* Activities & Equipment */}
-      <div className="glass p-6 rounded-2xl border border-white/5 space-y-4">
+      <div className="glass p-6 rounded-2xl border border-slate-200 space-y-4">
         <h3 className="text-sm font-bold text-ink-lum flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4 text-emerald-400" />
+          <ShieldCheck className="w-4 h-4 text-emerald-600" />
           <span>Compatible Activities & Equipment</span>
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-ink-sec">
-          <div className="p-4 rounded-xl bg-black/30 border border-white/5 space-y-1">
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
             <span className="text-ink-mut block font-semibold">Compatible Activities:</span>
             <div className="flex flex-wrap gap-1.5 pt-1">
               {(area.activityCompatibility ?? ["General Purpose"]).map((act, i) => (
-                <span key={i} className="px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-300 border border-emerald-800/80 font-medium">
+                <span key={i} className="px-2 py-0.5 rounded bg-emerald-200 text-emerald-700 border border-emerald-300 font-medium">
                   {act}
                 </span>
               ))}
             </div>
           </div>
 
-          <div className="p-4 rounded-xl bg-black/30 border border-white/5 space-y-1">
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
             <span className="text-ink-mut block font-semibold">Available Equipment:</span>
             <div className="flex flex-wrap gap-1.5 pt-1">
               {(area.equipment ?? ["Standard Gear"]).map((eq, i) => (
-                <span key={i} className="px-2 py-0.5 rounded bg-white/5 text-ink-sec border border-white/10">
+                <span key={i} className="px-2 py-0.5 rounded bg-slate-50 text-ink-sec border border-slate-200">
                   {eq}
                 </span>
               ))}
@@ -139,7 +139,7 @@ export default function PlayingAreaDetailsPage({ params }: { params: Promise<{ i
         </div>
 
         {area.restrictions && (
-          <div className="p-4 rounded-xl bg-amber-950/20 border border-amber-800/40 text-amber-200 text-xs">
+          <div className="p-4 rounded-xl bg-amber-100 border border-amber-300 text-amber-700 text-xs">
             <strong>Operating Restrictions:</strong> {area.restrictions}
           </div>
         )}

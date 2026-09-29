@@ -79,8 +79,8 @@ export default function TemplatePreviewPage() {
           {/* Phone card */}
           <div>
             <p className="overline mb-3">Mobile listing</p>
-            <div className="mx-auto max-w-[320px] overflow-hidden rounded-2xl border border-white/10 bg-[#0d0f14] shadow-[0_24px_48px_rgba(0,0,0,0.4)]">
-              <div className="h-28 bg-gradient-to-br from-[#4c6fff]/30 to-[#12b76a]/20" />
+            <div className="mx-auto max-w-[320px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_48px_rgba(0,0,0,0.4)]">
+              <div className="h-28 bg-gradient-to-br from-indigo-100 to-emerald-100" />
               <div className="p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div>
@@ -90,12 +90,12 @@ export default function TemplatePreviewPage() {
                   <span className="shrink-0 text-base font-semibold text-ink-lum">{inr(preview.basePrice)}</span>
                 </div>
                 <p className="mt-2 text-xs leading-relaxed text-ink-sec">{preview.shortDesc}</p>
-                <div className="mt-3 rounded-lg bg-white/4 px-3 py-2 text-[11px] text-ink-sec">
+                <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-ink-sec">
                   <span className="font-medium text-ink-lum">{preview.duration} min</span> · {preview.minParticipants}–{preview.maxParticipants} seats
                 </div>
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  <Badge className="border border-[#12b76a]/25 bg-[#12b76a]/12 text-[#5fd7a3]">{preview.promise}</Badge>
-                  {preview.promoEligible && <Badge className="border border-[#f7b955]/30 bg-[#f7b955]/10 text-[#ffd28a]">promo eligible</Badge>}
+                  <Badge className="border border-emerald-200 bg-emerald-50 text-emerald-700">{preview.promise}</Badge>
+                  {preview.promoEligible && <Badge className="border border-amber-200 bg-amber-50 text-amber-700">promo eligible</Badge>}
                 </div>
               </div>
             </div>
@@ -126,9 +126,9 @@ export default function TemplatePreviewPage() {
                 </div>
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   {preview.infoRevealed.map((k) => (
-                    <Badge key={k} className="border border-white/8 bg-white/4 text-ink-sec">{k}</Badge>
+                    <Badge key={k} className="border border-slate-200 bg-slate-50 text-ink-sec">{k}</Badge>
                   ))}
-                  <Badge className="border border-white/8 bg-white/4 text-ink-mut">
+                  <Badge className="border border-slate-200 bg-slate-50 text-ink-mut">
                     <EyeOff className="h-3 w-3" /> details hidden
                   </Badge>
                 </div>
@@ -139,7 +139,7 @@ export default function TemplatePreviewPage() {
               <PanelHeader
                 title="After reveal"
                 sub={preview.privacyLockedUntil}
-                right={<LockOpen className="h-4 w-4 text-[#5fd7a3]" />}
+                right={<LockOpen className="h-4 w-4 text-emerald-700" />}
               />
               <div className="mt-3 space-y-2">
                 <div className="solid rounded-xl px-3 py-2 text-xs text-ink-sec">
@@ -148,7 +148,7 @@ export default function TemplatePreviewPage() {
                 </div>
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   {preview.infoRevealed.map((k) => (
-                    <Badge key={k} className="border border-[#12b76a]/25 bg-[#12b76a]/12 text-[#5fd7a3]">{k}</Badge>
+                    <Badge key={k} className="border border-emerald-200 bg-emerald-50 text-emerald-700">{k}</Badge>
                   ))}
                 </div>
               </div>
@@ -158,7 +158,7 @@ export default function TemplatePreviewPage() {
               <PanelHeader title="Never revealed" sub="Identity and contact stay masked" />
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {preview.infoNeverRevealed.map((k) => (
-                  <Badge key={k} className="border border-[#f04438]/25 bg-[#f04438]/12 text-[#ff8f86]">
+                  <Badge key={k} className="border border-red-200 bg-red-50 text-red-700">
                     <EyeOff className="h-3 w-3" /> {k}
                   </Badge>
                 ))}

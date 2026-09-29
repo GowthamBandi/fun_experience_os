@@ -87,7 +87,7 @@ export default function SetupLandingPage() {
               {journeySteps.map((s) => (
                 <div
                   key={s.key}
-                  className="glass p-5 rounded-2xl border border-white/5 flex flex-col justify-between space-y-4"
+                  className="glass p-5 rounded-2xl border border-slate-200 flex flex-col justify-between space-y-4"
                 >
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
@@ -98,7 +98,7 @@ export default function SetupLandingPage() {
                     <p className="text-xs text-ink-sec leading-relaxed">{s.explanation}</p>
                   </div>
 
-                  <div className="pt-2 space-y-3 border-t border-white/5">
+                  <div className="pt-2 space-y-3 border-t border-slate-200">
                     <div className="flex justify-between items-center text-xs text-ink-mut">
                       <span>Registered:</span>
                       <span className="font-mono text-ink-lum font-semibold">{s.count}</span>
@@ -123,14 +123,14 @@ export default function SetupLandingPage() {
         <Item>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Setup Health Overview */}
-            <div className="glass p-6 rounded-2xl border border-white/5 space-y-4 lg:col-span-2">
-              <div className="flex items-center justify-between border-b border-white/5 pb-4">
+            <div className="glass p-6 rounded-2xl border border-slate-200 space-y-4 lg:col-span-2">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-4">
                 <div>
                   <h3 className="text-sm font-semibold text-ink-lum flex items-center gap-2">
                     {health.status === "complete" ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                     ) : (
-                      <AlertTriangle className="w-4 h-4 text-amber-400" />
+                      <AlertTriangle className="w-4 h-4 text-amber-600" />
                     )}
                     <span>Setup Readiness & Health</span>
                   </h3>
@@ -140,23 +140,23 @@ export default function SetupLandingPage() {
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
-                <div className="bg-black/30 p-3 rounded-xl border border-white/5">
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
                   <p className="text-[10px] text-ink-mut uppercase">Franchises</p>
                   <p className="text-xl font-bold text-ink-lum mt-1">{health.franchiseCount}</p>
                 </div>
-                <div className="bg-black/30 p-3 rounded-xl border border-white/5">
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
                   <p className="text-[10px] text-ink-mut uppercase">Territories</p>
                   <p className="text-xl font-bold text-ink-lum mt-1">{health.territoryCount}</p>
                 </div>
-                <div className="bg-black/30 p-3 rounded-xl border border-white/5">
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
                   <p className="text-[10px] text-ink-mut uppercase">Cities</p>
                   <p className="text-xl font-bold text-ink-lum mt-1">{health.cityCount}</p>
                 </div>
-                <div className="bg-black/30 p-3 rounded-xl border border-white/5">
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
                   <p className="text-[10px] text-ink-mut uppercase">Venues</p>
                   <p className="text-xl font-bold text-ink-lum mt-1">{health.venueCount}</p>
                 </div>
-                <div className="bg-black/30 p-3 rounded-xl border border-white/5">
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
                   <p className="text-[10px] text-ink-mut uppercase">Playing Areas</p>
                   <p className="text-xl font-bold text-ink-lum mt-1">{health.playingAreaCount}</p>
                 </div>
@@ -164,7 +164,7 @@ export default function SetupLandingPage() {
 
               {health.missingItems.length > 0 ? (
                 <div className="space-y-2 pt-2">
-                  <p className="text-xs font-semibold text-amber-300">Items requiring attention before scheduling:</p>
+                  <p className="text-xs font-semibold text-amber-700">Items requiring attention before scheduling:</p>
                   <ul className="space-y-1 text-xs text-ink-sec list-disc list-inside">
                     {health.missingItems.map((item, idx) => (
                       <li key={idx}>{item}</li>
@@ -172,8 +172,8 @@ export default function SetupLandingPage() {
                   </ul>
                 </div>
               ) : (
-                <div className="p-3 rounded-xl bg-emerald-950/30 border border-emerald-800/40 text-emerald-300 text-xs flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                <div className="p-3 rounded-xl bg-emerald-100 border border-emerald-300 text-emerald-700 text-xs flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
                   <span>All operating areas are configured and ready for live session scheduling!</span>
                 </div>
               )}
@@ -193,13 +193,13 @@ export default function SetupLandingPage() {
 
         {/* Simple Example Section */}
         <Item>
-          <div className="glass p-6 rounded-2xl border border-white/5 space-y-4">
+          <div className="glass p-6 rounded-2xl border border-slate-200 space-y-4">
             <h3 className="text-sm font-semibold text-ink-lum">Simple Setup Example</h3>
             <p className="text-xs text-ink-sec">
               Here is how a real operating region is structured from top to bottom:
             </p>
-            <div className="bg-slate-950/60 p-4 rounded-xl border border-white/5 font-mono text-xs text-ink-sec space-y-1">
-              <div className="text-amber-400 font-bold">Hyderabad Operations (Franchise)</div>
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 font-mono text-xs text-ink-sec space-y-1">
+              <div className="text-amber-600 font-bold">Hyderabad Operations (Franchise)</div>
               <div>└── Madhapur Central (Territory)</div>
               <div>    └── Hyderabad (City)</div>
               <div>        └── Arena Sports Hub (Venue)</div>

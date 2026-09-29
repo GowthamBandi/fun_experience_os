@@ -70,8 +70,8 @@ function AddCityForm() {
 
   if (step === 5) {
     return (
-      <div className="glass p-8 rounded-2xl border border-emerald-800/40 bg-emerald-950/20 text-center space-y-6 max-w-xl mx-auto my-8">
-        <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center mx-auto text-emerald-400">
+      <div className="glass p-8 rounded-2xl border border-emerald-300 bg-emerald-100 text-center space-y-6 max-w-xl mx-auto my-8">
+        <div className="w-16 h-16 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center mx-auto text-emerald-600">
           <CheckCircle2 className="w-10 h-10" />
         </div>
         <div className="space-y-2">
@@ -81,7 +81,7 @@ function AddCityForm() {
           </p>
         </div>
 
-        <div className="p-4 rounded-xl bg-black/40 border border-white/5 text-left text-xs space-y-1">
+        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-left text-xs space-y-1">
           <p className="text-ink-mut">City: <strong className="text-ink-lum">{formData.name}</strong></p>
           <p className="text-ink-mut">Territory: <span className="text-ink-sec">{territories.find((t) => t.id === formData.territoryId)?.name || "Territory"}</span></p>
           <p className="text-ink-mut">State: <span className="text-ink-sec">{formData.state}</span></p>
@@ -118,7 +118,7 @@ function AddCityForm() {
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
       {/* Step Navigation */}
-      <div className="flex items-center justify-between border-b border-white/5 pb-4">
+      <div className="flex items-center justify-between border-b border-slate-200 pb-4">
         {[
           { num: 1, label: "1. Choose Territory" },
           { num: 2, label: "2. City Details" },
@@ -133,7 +133,7 @@ function AddCityForm() {
               step === s.num
                 ? "bg-brand text-slate-950"
                 : step > s.num
-                ? "bg-white/10 text-ink-lum"
+                ? "bg-slate-100 text-ink-lum"
                 : "text-ink-mut hover:text-ink-sec"
             }`}
           >
@@ -142,7 +142,7 @@ function AddCityForm() {
         ))}
       </div>
 
-      <div className="glass p-6 rounded-2xl border border-white/5 space-y-6">
+      <div className="glass p-6 rounded-2xl border border-slate-200 space-y-6">
         {step === 1 && (
           <div className="space-y-4">
             <h3 className="text-sm font-bold text-ink-lum">Step 1: Choose Franchise & Territory</h3>
@@ -152,7 +152,7 @@ function AddCityForm() {
               <select
                 value={formData.franchiseId}
                 onChange={(e) => setFormData({ ...formData, franchiseId: e.target.value, territoryId: "" })}
-                className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
               >
                 <option value="">All Franchises...</option>
                 {franchises.map((f) => (
@@ -168,7 +168,7 @@ function AddCityForm() {
               <select
                 value={formData.territoryId}
                 onChange={(e) => setFormData({ ...formData, territoryId: e.target.value })}
-                className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
               >
                 <option value="">Select Territory...</option>
                 {filteredTerritories.map((t) => (
@@ -192,7 +192,7 @@ function AddCityForm() {
                 placeholder="e.g. Hyderabad"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum placeholder:text-ink-mut"
+                className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum placeholder:text-ink-mut"
               />
             </div>
 
@@ -203,7 +203,7 @@ function AddCityForm() {
                 placeholder="e.g. Telangana"
                 value={formData.state}
                 onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum placeholder:text-ink-mut"
+                className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum placeholder:text-ink-mut"
               />
             </div>
           </div>
@@ -219,7 +219,7 @@ function AddCityForm() {
                 type="text"
                 value={formData.managerId}
                 onChange={(e) => setFormData({ ...formData, managerId: e.target.value })}
-                className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
               />
             </div>
 
@@ -228,7 +228,7 @@ function AddCityForm() {
               <select
                 value={formData.status}
                 onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
               >
                 <option value="ready">Ready for Venues</option>
                 <option value="draft">Draft</option>
@@ -242,16 +242,16 @@ function AddCityForm() {
           <div className="space-y-4">
             <h3 className="text-sm font-bold text-ink-lum">Step 4: Review Summary</h3>
 
-            <div className="p-4 rounded-xl bg-black/40 border border-white/5 space-y-2 text-xs">
-              <div className="flex justify-between border-b border-white/5 pb-2">
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
+              <div className="flex justify-between border-b border-slate-200 pb-2">
                 <span className="text-ink-mut">City Name:</span>
                 <span className="font-bold text-ink-lum">{formData.name || "Hyderabad"}</span>
               </div>
-              <div className="flex justify-between border-b border-white/5 pb-2">
+              <div className="flex justify-between border-b border-slate-200 pb-2">
                 <span className="text-ink-mut">State:</span>
                 <span className="text-ink-sec">{formData.state}</span>
               </div>
-              <div className="flex justify-between border-b border-white/5 pb-2">
+              <div className="flex justify-between border-b border-slate-200 pb-2">
                 <span className="text-ink-mut">Territory:</span>
                 <span className="text-ink-sec">{territories.find((t) => t.id === formData.territoryId)?.name || "Territory"}</span>
               </div>
@@ -259,7 +259,7 @@ function AddCityForm() {
           </div>
         )}
 
-        <div className="flex items-center justify-between pt-4 border-t border-white/5">
+        <div className="flex items-center justify-between pt-4 border-t border-slate-200">
           <Button
             variant="ghost"
             onClick={() => (step > 1 ? setStep(step - 1) : router.push("/cities"))}

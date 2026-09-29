@@ -14,7 +14,7 @@ export function StaffCard({ staff }: StaffCardProps) {
   const isWorking = staff.status === "assigned" || staff.status === "checked-in";
 
   return (
-    <div className="glass p-5 rounded-2xl border border-white/5 hover:border-white/10 transition-all flex flex-col justify-between space-y-4">
+    <div className="glass p-5 rounded-2xl border border-slate-200 hover:border-slate-200 transition-all flex flex-col justify-between space-y-4">
       <div className="space-y-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-3">
@@ -30,7 +30,7 @@ export function StaffCard({ staff }: StaffCardProps) {
                   {staff.name}
                 </Link>
               </h4>
-              <p className="text-xs text-purple-300 font-semibold">{staff.roleLabel}</p>
+              <p className="text-xs text-purple-700 font-semibold">{staff.roleLabel}</p>
             </div>
           </div>
 
@@ -50,14 +50,14 @@ export function StaffCard({ staff }: StaffCardProps) {
         </div>
 
         {staff.currentSessionTitle && (
-          <div className="p-2.5 rounded-lg bg-black/40 border border-white/5 text-[11px] space-y-0.5">
+          <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-[11px] space-y-0.5">
             <span className="text-ink-mut uppercase text-[10px] block">Current Event:</span>
             <span className="font-bold text-ink-lum">{staff.currentSessionTitle}</span>
           </div>
         )}
       </div>
 
-      <div className="pt-2 border-t border-white/5 flex items-center justify-between">
+      <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
         <span className="text-[11px] font-mono text-ink-mut">{staff.shiftFrom} - {staff.shiftTo}</span>
 
         <Link href={isWorking && staff.currentSessionId ? `/missions/${staff.currentSessionId}/overview` : `/people/staff/${staff.id}`}>

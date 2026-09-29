@@ -78,19 +78,19 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
 
       {/* Category Overview Card */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="glass p-5 rounded-2xl border border-white/5 space-y-1">
+        <div className="glass p-5 rounded-2xl border border-slate-200 space-y-1">
           <span className="text-[10px] text-ink-mut uppercase font-semibold">Format & Type</span>
           <p className="text-lg font-bold text-ink-lum capitalize">{category.visualTreatment || "Sport"}</p>
           <p className="text-xs text-ink-sec">Risk level: {category.riskLevel || "low"}</p>
         </div>
 
-        <div className="glass p-5 rounded-2xl border border-white/5 space-y-1">
+        <div className="glass p-5 rounded-2xl border border-slate-200 space-y-1">
           <span className="text-[10px] text-ink-mut uppercase font-semibold">Compatible Spaces</span>
           <p className="text-lg font-bold text-ink-lum">{category.isIndoor ? "Indoor Facility" : "Outdoor Space"}</p>
           <p className="text-xs text-ink-sec">Courts, fields, or rooms</p>
         </div>
 
-        <div className="glass p-5 rounded-2xl border border-white/5 space-y-1">
+        <div className="glass p-5 rounded-2xl border border-slate-200 space-y-1">
           <span className="text-[10px] text-ink-mut uppercase font-semibold">Associated Experiences</span>
           <p className="text-3xl font-bold text-ink-lum">{catTemplates.length}</p>
           <p className="text-xs text-ink-sec">{health.activeExperiences} active plans</p>
@@ -98,8 +98,8 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
       </div>
 
       {/* Experiences in Category */}
-      <div className="glass p-6 rounded-2xl border border-white/5 space-y-4">
-        <div className="flex items-center justify-between border-b border-white/5 pb-4">
+      <div className="glass p-6 rounded-2xl border border-slate-200 space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-200 pb-4">
           <div>
             <h3 className="text-base font-bold text-ink-lum">Experiences in {category.name}</h3>
             <p className="text-xs text-ink-sec">Reusable event plans belonging to this category.</p>
@@ -127,7 +127,7 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
             {catTemplates.map((t) => {
               const read = selectExperienceReadiness(t, state);
               return (
-                <div key={t.id} className="p-4 rounded-xl bg-black/40 border border-white/5 space-y-3">
+                <div key={t.id} className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
                   <div className="flex items-start justify-between">
                     <div>
                       <h4 className="font-bold text-sm text-ink-lum">{t.name}</h4>
@@ -138,7 +138,7 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
                     <ExperienceStatusBadge status={read.status} size="sm" />
                   </div>
 
-                  <div className="flex items-center justify-between text-xs border-t border-white/5 pt-2">
+                  <div className="flex items-center justify-between text-xs border-t border-slate-200 pt-2">
                     <span className="text-ink-sec">
                       {read.schedulable ? "Ready to Schedule" : `${read.blockedCount} Blocker(s)`}
                     </span>

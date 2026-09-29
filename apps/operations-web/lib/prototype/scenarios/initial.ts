@@ -39,7 +39,12 @@ import {
   SEED_MODERATION_ACTIONS,
   SEED_REFUND_EXCEPTIONS
 } from "../seed";
+import { SEED_GOVERNANCE } from "../governance/seed";
+import { OPERATORS } from "@/lib/data/mock";
+import type { OperatorAccount } from "../entities";
 import type { PrototypeState } from "./state";
+
+export const SEED_OPERATORS: OperatorAccount[] = OPERATORS.map((o) => ({ ...o, status: "active" as const }));
 
 /** Fresh deterministic seed. Every call returns an independent copy. */
 export const getInitialState = (): PrototypeState => ({
@@ -81,5 +86,17 @@ export const getInitialState = (): PrototypeState => ({
   signals: [...SEED_SIGNALS],
   audits: [...SEED_AUDITS],
   analytics: [...SEED_ANALYTICS],
-  promoCodes: [...SEED_PROMOS]
+  promoCodes: [...SEED_PROMOS],
+  operators: SEED_OPERATORS.map((o) => ({ ...o })),
+  governance: SEED_GOVERNANCE.map((d) => ({ ...d, data: { ...d.data } })),
+  activityLog: []
 });
+
+/**
+ * A clean workspace with no sample records. Operator accounts are kept so the
+ * console can still be signed into; everything else starts empty.
+ */
+export const getEmptyState = (): PrototypeState => {
+  const empty = Object.fromEntries(Object.keys(getInitialState()).map((k) => [k, []])) as unknown as PrototypeState;
+  return { ...empty, operators: SEED_OPERATORS.map((o) => ({ ...o })) };
+};

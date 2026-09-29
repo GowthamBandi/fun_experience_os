@@ -55,8 +55,8 @@ export default function CreateCategoryPage() {
       <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6">
         <CatalogBackNavigation label="Back to Categories" href="/catalog/categories" />
 
-        <div className="glass p-8 rounded-2xl border border-emerald-800/40 bg-emerald-950/20 text-center space-y-6 max-w-xl mx-auto my-8">
-          <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center mx-auto text-emerald-400">
+        <div className="glass p-8 rounded-2xl border border-emerald-300 bg-emerald-100 text-center space-y-6 max-w-xl mx-auto my-8">
+          <div className="w-16 h-16 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center mx-auto text-emerald-600">
             <CheckCircle2 className="w-10 h-10" />
           </div>
 
@@ -67,7 +67,7 @@ export default function CreateCategoryPage() {
             </p>
           </div>
 
-          <div className="p-4 rounded-xl bg-black/40 border border-white/5 text-left text-xs space-y-1">
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-left text-xs space-y-1">
             <p className="text-ink-mut">Category: <strong className="text-ink-lum">{formData.name}</strong></p>
             <p className="text-ink-mut">Type: <span className="text-ink-sec capitalize">{formData.visualTreatment}</span></p>
             <p className="text-ink-mut">Space: <span className="text-ink-sec">{formData.isIndoor ? "Indoor Facility" : "Outdoor Space"}</span></p>
@@ -114,7 +114,7 @@ export default function CreateCategoryPage() {
 
       <div className="space-y-6 max-w-3xl mx-auto">
         {/* Step Bar */}
-        <div className="flex items-center justify-between border-b border-white/5 pb-4">
+        <div className="flex items-center justify-between border-b border-slate-200 pb-4">
           {[
             { num: 1, label: "1. Category Name" },
             { num: 2, label: "2. Activity Type" },
@@ -129,7 +129,7 @@ export default function CreateCategoryPage() {
                 step === s.num
                   ? "bg-brand text-slate-950"
                   : step > s.num
-                  ? "bg-white/10 text-ink-lum"
+                  ? "bg-slate-100 text-ink-lum"
                   : "text-ink-mut hover:text-ink-sec"
               }`}
             >
@@ -138,7 +138,7 @@ export default function CreateCategoryPage() {
           ))}
         </div>
 
-        <div className="glass p-6 rounded-2xl border border-white/5 space-y-6">
+        <div className="glass p-6 rounded-2xl border border-slate-200 space-y-6">
           {step === 1 && (
             <div className="space-y-4">
               <h3 className="text-sm font-bold text-ink-lum">Step 1: Category Name & Description</h3>
@@ -150,7 +150,7 @@ export default function CreateCategoryPage() {
                   placeholder="e.g. Badminton, Box Cricket, Trekking"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum placeholder:text-ink-mut"
+                  className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum placeholder:text-ink-mut"
                 />
               </div>
 
@@ -161,7 +161,7 @@ export default function CreateCategoryPage() {
                   placeholder="Describe what kind of experiences fall under this category..."
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full p-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum placeholder:text-ink-mut"
+                  className="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum placeholder:text-ink-mut"
                 />
               </div>
             </div>
@@ -176,7 +176,7 @@ export default function CreateCategoryPage() {
                 <select
                   value={formData.visualTreatment}
                   onChange={(e) => setFormData({ ...formData, visualTreatment: e.target.value as any })}
-                  className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                  className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
                 >
                   <option value="sport">Sport (Score & Team Competitive)</option>
                   <option value="social">Social Games (Outcome & Casual)</option>
@@ -190,7 +190,7 @@ export default function CreateCategoryPage() {
                 <select
                   value={formData.riskLevel}
                   onChange={(e) => setFormData({ ...formData, riskLevel: e.target.value as any })}
-                  className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                  className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
                 >
                   <option value="low">Low Risk (Standard indoor/outdoor rules)</option>
                   <option value="medium">Medium Risk (Requires safety briefing)</option>
@@ -209,7 +209,7 @@ export default function CreateCategoryPage() {
                 <select
                   value={formData.isIndoor ? "indoor" : "outdoor"}
                   onChange={(e) => setFormData({ ...formData, isIndoor: e.target.value === "indoor" })}
-                  className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                  className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
                 >
                   <option value="indoor">Indoor Venue (Courts, Halls, Rooms)</option>
                   <option value="outdoor">Outdoor Space (Fields, Turfs, Grounds)</option>
@@ -221,7 +221,7 @@ export default function CreateCategoryPage() {
                 <select
                   value={formData.status}
                   onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                  className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs text-ink-lum"
+                  className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-ink-lum"
                 >
                   <option value="active">Active (Available for Experiences)</option>
                   <option value="draft">Draft</option>
@@ -235,16 +235,16 @@ export default function CreateCategoryPage() {
             <div className="space-y-4">
               <h3 className="text-sm font-bold text-ink-lum">Step 4: Review Category Details</h3>
 
-              <div className="p-4 rounded-xl bg-black/40 border border-white/5 space-y-2 text-xs">
-                <div className="flex justify-between border-b border-white/5 pb-2">
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
+                <div className="flex justify-between border-b border-slate-200 pb-2">
                   <span className="text-ink-mut">Category Name:</span>
                   <span className="font-bold text-ink-lum">{formData.name || "Badminton"}</span>
                 </div>
-                <div className="flex justify-between border-b border-white/5 pb-2">
+                <div className="flex justify-between border-b border-slate-200 pb-2">
                   <span className="text-ink-mut">Activity Type:</span>
                   <span className="text-ink-sec capitalize">{formData.visualTreatment}</span>
                 </div>
-                <div className="flex justify-between border-b border-white/5 pb-2">
+                <div className="flex justify-between border-b border-slate-200 pb-2">
                   <span className="text-ink-mut">Risk Level:</span>
                   <span className="text-ink-sec capitalize">{formData.riskLevel}</span>
                 </div>
@@ -252,7 +252,7 @@ export default function CreateCategoryPage() {
             </div>
           )}
 
-          <div className="flex items-center justify-between pt-4 border-t border-white/5">
+          <div className="flex items-center justify-between pt-4 border-t border-slate-200">
             <Button
               variant="ghost"
               onClick={() => (step > 1 ? setStep(step - 1) : router.push("/catalog/categories"))}

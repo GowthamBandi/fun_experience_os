@@ -153,7 +153,7 @@ export default function FranchisesPage() {
                 return (
                   <div 
                     key={r.id} 
-                    className="solid rounded-panel p-4 flex flex-col gap-4 cursor-pointer hover:bg-white/2 transition-colors"
+                    className="solid rounded-panel p-4 flex flex-col gap-4 cursor-pointer hover:bg-slate-50 transition-colors"
                     onClick={() => router.push(`/franchises/${r.id}`)}
                   >
                     <div className="flex justify-between items-start">
@@ -183,7 +183,7 @@ export default function FranchisesPage() {
                       </div>
                     </div>
                     
-                    <div className="pt-2 border-t border-white/10" onClick={(e) => e.stopPropagation()}>
+                    <div className="pt-2 border-t border-slate-200" onClick={(e) => e.stopPropagation()}>
                       <Button variant="secondary" className="w-full text-xs font-bold" onClick={() => router.push(nextAction.href)}>
                         {nextAction.label}
                       </Button>

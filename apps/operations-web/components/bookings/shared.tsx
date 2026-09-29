@@ -14,48 +14,48 @@ import { ArrowLeft, Clock, AlertTriangle, CheckCircle, Users, RefreshCw } from "
  * ================================================================= */
 
 const BOOKING_STATUS_MAP: Record<string, { label: string; explanation: string; tone: string }> = {
-  "reserved":              { label: "Waiting for Payment", explanation: "This person started booking but has not completed payment.", tone: "text-[#ffc46b] bg-[#f79009]/12 border-[#f79009]/25" },
-  "payment-pending":       { label: "Waiting for Payment", explanation: "This person started booking but has not completed payment.", tone: "text-[#ffc46b] bg-[#f79009]/12 border-[#f79009]/25" },
-  "payment-confirmed":     { label: "Confirmed", explanation: "Payment received. This person has a confirmed space.", tone: "text-[#5fd7a3] bg-[#12b76a]/12 border-[#12b76a]/25" },
-  "confirmed":             { label: "Confirmed", explanation: "Payment received. This person has a confirmed space.", tone: "text-[#5fd7a3] bg-[#12b76a]/12 border-[#12b76a]/25" },
-  "checked-in":            { label: "Checked In", explanation: "This person is physically present at the event.", tone: "text-[#5fd7a3] bg-[#12b76a]/12 border-[#12b76a]/25" },
-  "payment-failed":        { label: "Payment Problem", explanation: "The payment did not complete. The space is available again.", tone: "text-[#ff8f86] bg-[#f04438]/12 border-[#f04438]/25" },
-  "reservation-expired":   { label: "Booking Time Expired", explanation: "This person did not complete payment in time.", tone: "text-ink-mut bg-white/4 border-white/6" },
+  "reserved":              { label: "Waiting for Payment", explanation: "This person started booking but has not completed payment.", tone: "text-amber-700 bg-amber-50 border-amber-200" },
+  "payment-pending":       { label: "Waiting for Payment", explanation: "This person started booking but has not completed payment.", tone: "text-amber-700 bg-amber-50 border-amber-200" },
+  "payment-confirmed":     { label: "Confirmed", explanation: "Payment received. This person has a confirmed space.", tone: "text-emerald-700 bg-emerald-50 border-emerald-200" },
+  "confirmed":             { label: "Confirmed", explanation: "Payment received. This person has a confirmed space.", tone: "text-emerald-700 bg-emerald-50 border-emerald-200" },
+  "checked-in":            { label: "Checked In", explanation: "This person is physically present at the event.", tone: "text-emerald-700 bg-emerald-50 border-emerald-200" },
+  "payment-failed":        { label: "Payment Problem", explanation: "The payment did not complete. The space is available again.", tone: "text-red-700 bg-red-50 border-red-200" },
+  "reservation-expired":   { label: "Booking Time Expired", explanation: "This person did not complete payment in time.", tone: "text-ink-mut bg-slate-50 border-slate-200" },
   "waitlisted":            { label: "Waiting List", explanation: "This person is waiting for a space to become available.", tone: "text-[#c4b5fd] bg-[#7c3aed]/12 border-[#7c3aed]/25" },
   "waitlist-joined":       { label: "Waiting List", explanation: "This person is waiting for a space to become available.", tone: "text-[#c4b5fd] bg-[#7c3aed]/12 border-[#7c3aed]/25" },
-  "waitlist-offered":      { label: "Space Offered", explanation: "One space is being held temporarily for this person.", tone: "text-[#ffd28a] bg-[#f7b955]/14 border-[#f7b955]/30" },
-  "waitlist-promoted":     { label: "Space Accepted", explanation: "This person accepted the offered space.", tone: "text-[#5fd7a3] bg-[#12b76a]/12 border-[#12b76a]/25" },
-  "complimentary":         { label: "Free Pass", explanation: "This person has a complimentary entry.", tone: "text-[#9db4ff] bg-[#4c6fff]/12 border-[#4c6fff]/25" },
-  "cancelled":             { label: "Cancelled", explanation: "This booking was cancelled.", tone: "text-ink-mut bg-white/4 border-white/6" },
-  "cancelled-user":        { label: "Cancelled", explanation: "The customer cancelled this booking.", tone: "text-ink-mut bg-white/4 border-white/6" },
-  "cancelled-company":     { label: "Cancelled", explanation: "The company cancelled this booking.", tone: "text-ink-mut bg-white/4 border-white/6" },
-  "no-show":               { label: "No Show", explanation: "This person did not attend the event.", tone: "text-[#ff8f86] bg-[#f04438]/12 border-[#f04438]/25" },
-  "refund-pending":        { label: "Refund Pending", explanation: "A refund is being processed for this booking.", tone: "text-[#ffc46b] bg-[#f79009]/12 border-[#f79009]/25" },
-  "refunded":              { label: "Refunded", explanation: "The refund has been completed.", tone: "text-[#9db4ff] bg-[#4c6fff]/12 border-[#4c6fff]/25" },
-  "completed":             { label: "Completed", explanation: "This booking is complete.", tone: "text-[#5fd7a3] bg-[#12b76a]/12 border-[#12b76a]/25" },
+  "waitlist-offered":      { label: "Space Offered", explanation: "One space is being held temporarily for this person.", tone: "text-amber-700 bg-amber-50 border-amber-200" },
+  "waitlist-promoted":     { label: "Space Accepted", explanation: "This person accepted the offered space.", tone: "text-emerald-700 bg-emerald-50 border-emerald-200" },
+  "complimentary":         { label: "Free Pass", explanation: "This person has a complimentary entry.", tone: "text-indigo-700 bg-indigo-50 border-indigo-200" },
+  "cancelled":             { label: "Cancelled", explanation: "This booking was cancelled.", tone: "text-ink-mut bg-slate-50 border-slate-200" },
+  "cancelled-user":        { label: "Cancelled", explanation: "The customer cancelled this booking.", tone: "text-ink-mut bg-slate-50 border-slate-200" },
+  "cancelled-company":     { label: "Cancelled", explanation: "The company cancelled this booking.", tone: "text-ink-mut bg-slate-50 border-slate-200" },
+  "no-show":               { label: "No Show", explanation: "This person did not attend the event.", tone: "text-red-700 bg-red-50 border-red-200" },
+  "refund-pending":        { label: "Refund Pending", explanation: "A refund is being processed for this booking.", tone: "text-amber-700 bg-amber-50 border-amber-200" },
+  "refunded":              { label: "Refunded", explanation: "The refund has been completed.", tone: "text-indigo-700 bg-indigo-50 border-indigo-200" },
+  "completed":             { label: "Completed", explanation: "This booking is complete.", tone: "text-emerald-700 bg-emerald-50 border-emerald-200" },
 };
 
 const PAYMENT_STATUS_MAP: Record<string, { label: string; explanation: string; tone: string }> = {
-  "none":         { label: "No Payment", explanation: "No payment required.", tone: "text-ink-mut bg-white/4 border-white/6" },
-  "not-started":  { label: "Not Started", explanation: "Payment has not been initiated.", tone: "text-ink-mut bg-white/4 border-white/6" },
-  "pending":      { label: "Waiting", explanation: "Payment is being processed.", tone: "text-[#ffc46b] bg-[#f79009]/12 border-[#f79009]/25" },
-  "initiated":    { label: "Waiting", explanation: "Payment has been started.", tone: "text-[#ffc46b] bg-[#f79009]/12 border-[#f79009]/25" },
-  "confirmed":    { label: "Paid", explanation: "Payment is confirmed.", tone: "text-[#5fd7a3] bg-[#12b76a]/12 border-[#12b76a]/25" },
-  "failed":       { label: "Problem", explanation: "Payment failed. Please retry.", tone: "text-[#ff8f86] bg-[#f04438]/12 border-[#f04438]/25" },
-  "refund-pending": { label: "Refund Pending", explanation: "A refund is being processed.", tone: "text-[#ffc46b] bg-[#f79009]/12 border-[#f79009]/25" },
-  "refunded":     { label: "Refunded", explanation: "Payment was refunded.", tone: "text-[#9db4ff] bg-[#4c6fff]/12 border-[#4c6fff]/25" },
-  "reconciled":   { label: "Verified", explanation: "Payment has been verified.", tone: "text-[#5fd7a3] bg-[#12b76a]/12 border-[#12b76a]/25" },
-  "cancelled":    { label: "Cancelled", explanation: "Payment was cancelled.", tone: "text-ink-mut bg-white/4 border-white/6" },
+  "none":         { label: "No Payment", explanation: "No payment required.", tone: "text-ink-mut bg-slate-50 border-slate-200" },
+  "not-started":  { label: "Not Started", explanation: "Payment has not been initiated.", tone: "text-ink-mut bg-slate-50 border-slate-200" },
+  "pending":      { label: "Waiting", explanation: "Payment is being processed.", tone: "text-amber-700 bg-amber-50 border-amber-200" },
+  "initiated":    { label: "Waiting", explanation: "Payment has been started.", tone: "text-amber-700 bg-amber-50 border-amber-200" },
+  "confirmed":    { label: "Paid", explanation: "Payment is confirmed.", tone: "text-emerald-700 bg-emerald-50 border-emerald-200" },
+  "failed":       { label: "Problem", explanation: "Payment failed. Please retry.", tone: "text-red-700 bg-red-50 border-red-200" },
+  "refund-pending": { label: "Refund Pending", explanation: "A refund is being processed.", tone: "text-amber-700 bg-amber-50 border-amber-200" },
+  "refunded":     { label: "Refunded", explanation: "Payment was refunded.", tone: "text-indigo-700 bg-indigo-50 border-indigo-200" },
+  "reconciled":   { label: "Verified", explanation: "Payment has been verified.", tone: "text-emerald-700 bg-emerald-50 border-emerald-200" },
+  "cancelled":    { label: "Cancelled", explanation: "Payment was cancelled.", tone: "text-ink-mut bg-slate-50 border-slate-200" },
 };
 
 const REFUND_STATUS_MAP: Record<string, { label: string; explanation: string; tone: string }> = {
-  "requested":    { label: "Requested", explanation: "A refund has been requested.", tone: "text-[#ffc46b] bg-[#f79009]/12 border-[#f79009]/25" },
-  "under-review": { label: "Needs Review", explanation: "This refund is waiting for finance approval.", tone: "text-[#ffc46b] bg-[#f79009]/12 border-[#f79009]/25" },
-  "approved":     { label: "Approved", explanation: "Refund approved. Processing will begin.", tone: "text-[#9db4ff] bg-[#4c6fff]/12 border-[#4c6fff]/25" },
-  "processing":   { label: "Being Processed", explanation: "Refund is currently being processed.", tone: "text-[#9db4ff] bg-[#4c6fff]/12 border-[#4c6fff]/25" },
-  "completed":    { label: "Completed", explanation: "Refund has been sent back.", tone: "text-[#5fd7a3] bg-[#12b76a]/12 border-[#12b76a]/25" },
-  "failed":       { label: "Failed", explanation: "Refund could not be completed.", tone: "text-[#ff8f86] bg-[#f04438]/12 border-[#f04438]/25" },
-  "rejected":     { label: "Rejected", explanation: "This refund was rejected.", tone: "text-[#ff8f86] bg-[#f04438]/12 border-[#f04438]/25" },
+  "requested":    { label: "Requested", explanation: "A refund has been requested.", tone: "text-amber-700 bg-amber-50 border-amber-200" },
+  "under-review": { label: "Needs Review", explanation: "This refund is waiting for finance approval.", tone: "text-amber-700 bg-amber-50 border-amber-200" },
+  "approved":     { label: "Approved", explanation: "Refund approved. Processing will begin.", tone: "text-indigo-700 bg-indigo-50 border-indigo-200" },
+  "processing":   { label: "Being Processed", explanation: "Refund is currently being processed.", tone: "text-indigo-700 bg-indigo-50 border-indigo-200" },
+  "completed":    { label: "Completed", explanation: "Refund has been sent back.", tone: "text-emerald-700 bg-emerald-50 border-emerald-200" },
+  "failed":       { label: "Failed", explanation: "Refund could not be completed.", tone: "text-red-700 bg-red-50 border-red-200" },
+  "rejected":     { label: "Rejected", explanation: "This refund was rejected.", tone: "text-red-700 bg-red-50 border-red-200" },
 };
 
 /* =================================================================
@@ -63,7 +63,7 @@ const REFUND_STATUS_MAP: Record<string, { label: string; explanation: string; to
  * ================================================================= */
 
 export function BookingStatusBadge({ status, showTooltip = true }: { status: string; showTooltip?: boolean }) {
-  const mapped = BOOKING_STATUS_MAP[status] ?? { label: status.replace(/-/g, " "), explanation: "", tone: "text-ink-mut bg-white/4 border-white/6" };
+  const mapped = BOOKING_STATUS_MAP[status] ?? { label: status.replace(/-/g, " "), explanation: "", tone: "text-ink-mut bg-slate-50 border-slate-200" };
   return (
     <span className="relative group inline-flex">
       <Badge className={cn("border capitalize", mapped.tone)}>
@@ -71,7 +71,7 @@ export function BookingStatusBadge({ status, showTooltip = true }: { status: str
         {mapped.label}
       </Badge>
       {showTooltip && mapped.explanation && (
-        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-white/10 text-[10px] text-ink-sec whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
+        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-[10px] text-ink-sec whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
           {mapped.explanation}
         </span>
       )}
@@ -84,14 +84,14 @@ export function BookingStatusBadge({ status, showTooltip = true }: { status: str
  * ================================================================= */
 
 export function PaymentStatusBadge({ status, showTooltip = true }: { status: string; showTooltip?: boolean }) {
-  const mapped = PAYMENT_STATUS_MAP[status] ?? { label: status.replace(/-/g, " "), explanation: "", tone: "text-ink-mut bg-white/4 border-white/6" };
+  const mapped = PAYMENT_STATUS_MAP[status] ?? { label: status.replace(/-/g, " "), explanation: "", tone: "text-ink-mut bg-slate-50 border-slate-200" };
   return (
     <span className="relative group inline-flex">
       <Badge className={cn("border capitalize", mapped.tone)}>
         {mapped.label}
       </Badge>
       {showTooltip && mapped.explanation && (
-        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-white/10 text-[10px] text-ink-sec whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
+        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-[10px] text-ink-sec whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
           {mapped.explanation}
         </span>
       )}
@@ -104,14 +104,14 @@ export function PaymentStatusBadge({ status, showTooltip = true }: { status: str
  * ================================================================= */
 
 export function RefundStatusBadge({ status, showTooltip = true }: { status: string; showTooltip?: boolean }) {
-  const mapped = REFUND_STATUS_MAP[status] ?? { label: status.replace(/-/g, " "), explanation: "", tone: "text-ink-mut bg-white/4 border-white/6" };
+  const mapped = REFUND_STATUS_MAP[status] ?? { label: status.replace(/-/g, " "), explanation: "", tone: "text-ink-mut bg-slate-50 border-slate-200" };
   return (
     <span className="relative group inline-flex">
       <Badge className={cn("border capitalize", mapped.tone)}>
         {mapped.label}
       </Badge>
       {showTooltip && mapped.explanation && (
-        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-white/10 text-[10px] text-ink-sec whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
+        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-[10px] text-ink-sec whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
           {mapped.explanation}
         </span>
       )}
@@ -143,12 +143,12 @@ export function CapacitySummary({ ledger, compact = false }: { ledger: SessionCa
   }
 
   return (
-    <div className="glass rounded-xl p-4 border border-white/5 space-y-3">
+    <div className="glass rounded-xl p-4 border border-slate-200 space-y-3">
       {/* Fill bar */}
       <div className="space-y-1.5">
         <div className="flex items-center justify-between text-xs">
           <span className="font-bold text-ink-lum">{totalJoined} of {ledger.sellableCapacity} joined</span>
-          <span className={cn("font-bold", isFull ? "text-[#ff8f86]" : "text-ink-sec")}>
+          <span className={cn("font-bold", isFull ? "text-red-700" : "text-ink-sec")}>
             {isFull ? "Event Full" : `${ledger.remainingSellableCapacity} spaces left`}
           </span>
         </div>
@@ -158,9 +158,9 @@ export function CapacitySummary({ ledger, compact = false }: { ledger: SessionCa
       {/* Breakdown */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
         <MetricCell label="Total Spaces" value={ledger.sellableCapacity} />
-        <MetricCell label="Confirmed" value={ledger.confirmedPaidBookings} color="text-[#5fd7a3]" />
-        <MetricCell label="Waiting for Payment" value={ledger.activeReservationHolds} color="text-[#ffc46b]" />
-        <MetricCell label="Spaces Left" value={ledger.remainingSellableCapacity} color={isFull ? "text-[#ff8f86]" : "text-ink-sec"} />
+        <MetricCell label="Confirmed" value={ledger.confirmedPaidBookings} color="text-emerald-700" />
+        <MetricCell label="Waiting for Payment" value={ledger.activeReservationHolds} color="text-amber-700" />
+        <MetricCell label="Spaces Left" value={ledger.remainingSellableCapacity} color={isFull ? "text-red-700" : "text-ink-sec"} />
         <MetricCell label="Waiting" value={ledger.waitlistCount} color="text-[#c4b5fd]" />
       </div>
 
@@ -233,23 +233,23 @@ export function deriveBookingMetrics(state: PrototypeState): BookingMetrics {
 export function BookingMetricsSummary({ metrics }: { metrics: BookingMetrics }) {
   const cards: { label: string; value: string | number; color: string; hint?: string }[] = [
     { label: "Total Joined", value: metrics.totalJoined, color: "text-ink-lum", hint: "People who have a booking" },
-    { label: "Confirmed", value: metrics.confirmed, color: "text-[#5fd7a3]", hint: "Paid and ready" },
-    { label: "Waiting for Payment", value: metrics.waitingForPayment, color: "text-[#ffc46b]", hint: "Started but not paid yet" },
-    { label: "Payment Problems", value: metrics.paymentProblems, color: "text-[#ff8f86]", hint: "Payment failed" },
+    { label: "Confirmed", value: metrics.confirmed, color: "text-emerald-700", hint: "Paid and ready" },
+    { label: "Waiting for Payment", value: metrics.waitingForPayment, color: "text-amber-700", hint: "Started but not paid yet" },
+    { label: "Payment Problems", value: metrics.paymentProblems, color: "text-red-700", hint: "Payment failed" },
     { label: "Waiting List", value: metrics.waitingList, color: "text-[#c4b5fd]", hint: "Waiting for a space" },
-    { label: "Free Passes", value: metrics.freePasses, color: "text-[#9db4ff]", hint: "Complimentary entries" },
-    { label: "Spaces Left", value: metrics.spacesLeft, color: metrics.spacesLeft === 0 ? "text-[#ff8f86]" : "text-ink-sec", hint: "Across all events" },
-    { label: "Collected", value: inr(metrics.collectedToday), color: "text-[#5fd7a3]", hint: "From confirmed payments" },
+    { label: "Free Passes", value: metrics.freePasses, color: "text-indigo-700", hint: "Complimentary entries" },
+    { label: "Spaces Left", value: metrics.spacesLeft, color: metrics.spacesLeft === 0 ? "text-red-700" : "text-ink-sec", hint: "Across all events" },
+    { label: "Collected", value: inr(metrics.collectedToday), color: "text-emerald-700", hint: "From confirmed payments" },
   ];
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
       {cards.map((c) => (
-        <div key={c.label} className="glass rounded-xl p-3 border border-white/5 group relative">
+        <div key={c.label} className="glass rounded-xl p-3 border border-slate-200 group relative">
           <span className="block text-[9px] text-ink-mut uppercase font-semibold tracking-wider">{c.label}</span>
           <span className={cn("text-lg font-bold block mt-0.5", c.color)}>{c.value}</span>
           {c.hint && (
-            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg bg-slate-900 border border-white/10 text-[10px] text-ink-sec whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
+            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-[10px] text-ink-sec whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
               {c.hint}
             </span>
           )}
@@ -274,10 +274,10 @@ export function getBookingNextAction(booking: Booking): { label: string; actionK
 }
 
 const actionVariantStyle: Record<string, string> = {
-  primary: "bg-[#12b76a]/90 hover:bg-[#12b76a] text-white font-bold",
-  warning: "bg-[#f04438]/80 hover:bg-[#f04438] text-white font-bold",
+  primary: "bg-emerald-50 hover:bg-emerald-500 text-white font-bold",
+  warning: "bg-red-50 hover:bg-red-500 text-white font-bold",
   info: "bg-[#7c3aed]/80 hover:bg-[#7c3aed] text-white font-bold",
-  muted: "bg-white/5 hover:bg-white/10 text-ink-sec",
+  muted: "bg-slate-50 hover:bg-slate-100 text-ink-sec",
 };
 
 export function BookingPrimaryAction({
@@ -307,7 +307,7 @@ export function BookingPrimaryAction({
         {action.label}
       </button>
       {tooltip && disabled && (
-        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg bg-slate-900 border border-white/10 text-[10px] text-ink-sec whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
+        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-[10px] text-ink-sec whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
           {tooltip}
         </span>
       )}
@@ -350,10 +350,10 @@ export function PaymentCountdown({ expiresAt }: { expiresAt?: string }) {
   }, [expiresAt]);
 
   return (
-    <div className="glass rounded-xl p-4 border border-[#f79009]/25 space-y-2">
+    <div className="glass rounded-xl p-4 border border-amber-200 space-y-2">
       <div className="flex items-center gap-2">
-        <Clock className="h-4 w-4 text-[#ffc46b]" />
-        <span className="text-xs font-bold text-[#ffc46b] uppercase tracking-wider">Time Left to Complete Payment</span>
+        <Clock className="h-4 w-4 text-amber-700" />
+        <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">Time Left to Complete Payment</span>
       </div>
       <span className="text-3xl font-bold text-ink-lum font-mono tabular-nums">{timeLeft}</span>
       <p className="text-[11px] text-ink-mut">
@@ -446,17 +446,17 @@ export function deriveBookingTimeline(booking: Booking): TimelineStep[] {
 }
 
 const stageStyles: Record<TimelineStage, { dot: string; line: string; text: string }> = {
-  completed: { dot: "bg-[#12b76a] border-[#12b76a]/40", line: "bg-[#12b76a]/40", text: "text-ink-sec" },
-  current: { dot: "bg-brand border-brand/40 ring-4 ring-brand/20 animate-pulse", line: "bg-white/10", text: "text-ink-lum font-bold" },
-  upcoming: { dot: "bg-white/10 border-white/10", line: "bg-white/5", text: "text-ink-mut" },
-  problem: { dot: "bg-[#f04438] border-[#f04438]/40", line: "bg-[#f04438]/20", text: "text-[#ff8f86] font-bold" },
+  completed: { dot: "bg-emerald-500 border-emerald-200", line: "bg-emerald-50", text: "text-ink-sec" },
+  current: { dot: "bg-brand border-brand/40 ring-4 ring-brand/20 animate-pulse", line: "bg-slate-100", text: "text-ink-lum font-bold" },
+  upcoming: { dot: "bg-slate-100 border-slate-200", line: "bg-slate-50", text: "text-ink-mut" },
+  problem: { dot: "bg-red-500 border-red-200", line: "bg-red-50", text: "text-red-700 font-bold" },
 };
 
 export function BookingTimeline({ booking }: { booking: Booking }) {
   const steps = deriveBookingTimeline(booking);
 
   return (
-    <div className="glass rounded-xl p-4 border border-white/5 space-y-0">
+    <div className="glass rounded-xl p-4 border border-slate-200 space-y-0">
       {steps.map((step, i) => {
         const style = stageStyles[step.stage];
         const isLast = i === steps.length - 1;
@@ -505,7 +505,7 @@ export function BookingBackNavigation({
         </div>
       )}
       <Link href={href}>
-        <button className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink-mut hover:text-ink-lum transition-colors bg-white/4 border border-white/5 px-3 py-1.5 rounded-lg">
+        <button className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink-mut hover:text-ink-lum transition-colors bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg">
           <ArrowLeft className="h-4 w-4" />
           {label}
         </button>
@@ -530,8 +530,8 @@ export function BookingEmptyState({
   actionHref?: string;
 }) {
   return (
-    <div className="glass rounded-xl border border-white/5 p-8 text-center space-y-3">
-      <div className="mx-auto w-12 h-12 rounded-full bg-white/5 flex items-center justify-center">
+    <div className="glass rounded-xl border border-slate-200 p-8 text-center space-y-3">
+      <div className="mx-auto w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center">
         <Users className="h-6 w-6 text-ink-mut" />
       </div>
       <h3 className="text-sm font-bold text-ink-lum">{title}</h3>
@@ -574,20 +574,20 @@ export function deriveOperatorHints(state: PrototypeState): { hints: OperatorHin
   });
 
   if (waitingForPayment > 0) {
-    hints.push({ icon: <Clock className="h-4 w-4" />, text: `${waitingForPayment} booking${waitingForPayment > 1 ? "s are" : " is"} waiting for payment`, color: "text-[#ffc46b]" });
+    hints.push({ icon: <Clock className="h-4 w-4" />, text: `${waitingForPayment} booking${waitingForPayment > 1 ? "s are" : " is"} waiting for payment`, color: "text-amber-700" });
   }
   if (paymentProblems > 0) {
-    hints.push({ icon: <AlertTriangle className="h-4 w-4" />, text: `${paymentProblems} payment problem${paymentProblems > 1 ? "s" : ""} need attention`, color: "text-[#ff8f86]" });
+    hints.push({ icon: <AlertTriangle className="h-4 w-4" />, text: `${paymentProblems} payment problem${paymentProblems > 1 ? "s" : ""} need attention`, color: "text-red-700" });
   }
   if (pendingRefunds > 0) {
-    hints.push({ icon: <RefreshCw className="h-4 w-4" />, text: `${pendingRefunds} refund${pendingRefunds > 1 ? "s" : ""} need${pendingRefunds === 1 ? "s" : ""} review`, color: "text-[#ffc46b]" });
+    hints.push({ icon: <RefreshCw className="h-4 w-4" />, text: `${pendingRefunds} refund${pendingRefunds > 1 ? "s" : ""} need${pendingRefunds === 1 ? "s" : ""} review`, color: "text-amber-700" });
   }
   if (waitlist > 0) {
     hints.push({ icon: <Users className="h-4 w-4" />, text: `${waitlist} ${waitlist === 1 ? "person is" : "people are"} on the waiting list`, color: "text-[#c4b5fd]" });
   }
   for (const s of almostFull) {
     const name = s.templateId; // Will be resolved in the page
-    hints.push({ icon: <AlertTriangle className="h-4 w-4" />, text: `An event is almost full`, color: "text-[#ffc46b]" });
+    hints.push({ icon: <AlertTriangle className="h-4 w-4" />, text: `An event is almost full`, color: "text-amber-700" });
     break; // Only show one
   }
 
@@ -608,8 +608,8 @@ export function OperatorHintPanel({ state }: { state: PrototypeState }) {
 
   if (hints.length === 0) {
     return (
-      <div className="glass rounded-xl p-4 border border-[#12b76a]/20 space-y-1">
-        <div className="flex items-center gap-2 text-xs font-bold text-[#5fd7a3]">
+      <div className="glass rounded-xl p-4 border border-emerald-200 space-y-1">
+        <div className="flex items-center gap-2 text-xs font-bold text-emerald-700">
           <CheckCircle className="h-4 w-4" />
           All Clear
         </div>
@@ -619,7 +619,7 @@ export function OperatorHintPanel({ state }: { state: PrototypeState }) {
   }
 
   return (
-    <div className="glass rounded-xl p-4 border border-white/5 space-y-3">
+    <div className="glass rounded-xl p-4 border border-slate-200 space-y-3">
       <span className="text-[10px] font-bold text-ink-mut uppercase tracking-wider">Today&apos;s Priority</span>
       <ul className="space-y-2">
         {hints.map((h, i) => (
@@ -630,7 +630,7 @@ export function OperatorHintPanel({ state }: { state: PrototypeState }) {
         ))}
       </ul>
       {recommendedAction && (
-        <div className="pt-2 border-t border-white/5">
+        <div className="pt-2 border-t border-slate-200">
           <span className="text-[10px] text-ink-mut block mb-1.5">Recommended action</span>
           <Link href={recommendedAction.href}>
             <button className="px-3 py-1.5 rounded-lg text-xs font-bold bg-brand text-white hover:bg-brand-hover transition-colors">
@@ -666,7 +666,7 @@ export function RoleGate({
   return (
     <span className="relative group inline-flex">
       <span className="opacity-40 pointer-events-none">{children}</span>
-      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg bg-slate-900 border border-white/10 text-[10px] text-ink-sec whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
+      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-[10px] text-ink-sec whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
         {tooltip ?? defaultTooltip}
       </span>
     </span>
@@ -704,7 +704,7 @@ export function bookingSourceLabel(source?: string): string {
 
 export function PrototypeModeBanner({ message }: { message?: string }) {
   return (
-    <div className="rounded-lg bg-white/3 border border-white/5 px-3 py-2 text-[10px] text-ink-mut text-center">
+    <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-[10px] text-ink-mut text-center">
       {message ?? "Payment simulation — no payment provider is connected. · Prototype role simulation — not production authorization."}
     </div>
   );

@@ -32,7 +32,7 @@ export default function ParticipantPoolPage() {
   const summary = useMemo(() => selectSessionIdentitySummary(state, sessionId), [state, sessionId]);
 
   if (!session) {
-    return <div className="p-8 text-xs font-mono text-slate-400">Session not found.</div>;
+    return <div className="p-8 text-xs font-mono text-slate-500">Session not found.</div>;
   }
 
   const columns: Column<ParticipantPoolItem>[] = [
@@ -41,7 +41,7 @@ export default function ParticipantPoolPage() {
       header: "Temporary ID",
       render: (p) => (
         <div>
-          <span className="font-mono font-bold text-amber-400 text-sm">
+          <span className="font-mono font-bold text-amber-600 text-sm">
             {p.temporaryIdentity?.temporaryCode || "—"}
           </span>
           <div className="text-[10px] text-slate-500 font-mono">
@@ -55,26 +55,26 @@ export default function ParticipantPoolPage() {
       header: "Participant Alias",
       render: (p) => (
         <div>
-          <p className="font-medium text-slate-200">{p.booking.alias}</p>
-          <p className="text-[11px] text-slate-400 font-mono">{p.booking.phoneMask}</p>
+          <p className="font-medium text-slate-800">{p.booking.alias}</p>
+          <p className="text-[11px] text-slate-500 font-mono">{p.booking.phoneMask}</p>
         </div>
       ),
     },
     {
       key: "type",
       header: "Type",
-      render: (p) => <span className="font-mono text-slate-400 text-[10px]">{p.booking.bookingType || "individual"}</span>,
+      render: (p) => <span className="font-mono text-slate-500 text-[10px]">{p.booking.bookingType || "individual"}</span>,
     },
     {
       key: "eligibility",
       header: "Eligibility",
       render: (p) =>
         p.isEligible ? (
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200">
             ELIGIBLE
           </span>
         ) : (
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-950 text-red-400 border border-red-800">
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-50 text-red-600 border border-red-200">
             {p.blockedReason || "INELIGIBLE"}
           </span>
         ),
@@ -83,7 +83,7 @@ export default function ParticipantPoolPage() {
       key: "team",
       header: "Assigned Team",
       render: (p) => (
-        <span className="font-mono text-slate-300">
+        <span className="font-mono text-slate-700">
           {p.teamName ? `${p.teamName}` : <span className="text-slate-500 italic">Unassigned</span>}
         </span>
       ),
@@ -100,7 +100,7 @@ export default function ParticipantPoolPage() {
       render: (p) => (
         <button
           onClick={() => setSelectedBookingForEmergency(p.booking)}
-          className="px-2 py-1 bg-purple-950 hover:bg-purple-900 text-purple-300 border border-purple-800 rounded text-[10px] font-mono font-bold"
+          className="px-2 py-1 bg-purple-50 hover:bg-purple-50 text-purple-700 border border-purple-200 rounded text-[10px] font-mono font-bold"
         >
           🛡️ Emergency Unmask
         </button>
@@ -140,27 +140,27 @@ export default function ParticipantPoolPage() {
 
       {/* Identity Summary KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-slate-900 border border-slate-800 rounded-lg p-3">
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
           <div className="text-[10px] text-slate-500 uppercase">Eligible Roster</div>
-          <div className="text-xl font-bold text-slate-200">{summary.eligibleCount}</div>
+          <div className="text-xl font-bold text-slate-800">{summary.eligibleCount}</div>
         </div>
-        <div className="bg-slate-900 border border-slate-800 rounded-lg p-3">
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
           <div className="text-[10px] text-slate-500 uppercase">Temp IDs Generated</div>
-          <div className="text-xl font-bold text-emerald-400">{summary.generatedCount}</div>
+          <div className="text-xl font-bold text-emerald-600">{summary.generatedCount}</div>
         </div>
-        <div className="bg-slate-900 border border-slate-800 rounded-lg p-3">
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
           <div className="text-[10px] text-slate-500 uppercase">Identities Locked</div>
-          <div className="text-xl font-bold text-amber-400">{summary.lockedCount}</div>
+          <div className="text-xl font-bold text-amber-600">{summary.lockedCount}</div>
         </div>
-        <div className="bg-slate-900 border border-slate-800 rounded-lg p-3">
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
           <div className="text-[10px] text-slate-500 uppercase">Missing Identities</div>
-          <div className="text-xl font-bold text-red-400">{summary.missingIdentityCount}</div>
+          <div className="text-xl font-bold text-red-600">{summary.missingIdentityCount}</div>
         </div>
       </div>
 
       {/* Roster Table */}
       <div className="space-y-3">
-        <h3 className="font-bold text-slate-200 uppercase tracking-wider text-xs">
+        <h3 className="font-bold text-slate-800 uppercase tracking-wider text-xs">
           Participant Pool Roster ({pool.length})
         </h3>
         <DataTable columns={columns} rows={pool} emptyTitle="No participants in pool." emptyLine="Confirmed reservations will populate this workspace." />

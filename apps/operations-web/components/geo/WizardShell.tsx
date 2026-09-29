@@ -41,7 +41,7 @@ export function WizardShell({
                   aria-current={active ? "step" : undefined}
                   className={cn(
                     "flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors",
-                    clickable ? "cursor-pointer hover:bg-white/4" : "cursor-default",
+                    clickable ? "cursor-pointer hover:bg-slate-50" : "cursor-default",
                   )}
                 >
                   <span
@@ -50,8 +50,8 @@ export function WizardShell({
                       active
                         ? "border-brand bg-brand/15 text-ink-lum"
                         : done
-                          ? "border-[#12b76a]/40 bg-[#12b76a]/10 text-[#5fd7a3]"
-                          : "border-white/10 text-ink-mut",
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                          : "border-slate-200 text-ink-mut",
                     )}
                   >
                     {done ? <Check className="h-3 w-3" /> : i + 1}
@@ -70,7 +70,7 @@ export function WizardShell({
       <div className="order-1 min-w-0 lg:order-2">
         <div className="glass rounded-panel p-5 md:p-6">
           {children}
-          <div className="mt-8 flex items-center justify-between gap-3 border-t border-white/5 pt-5">{footer}</div>
+          <div className="mt-8 flex items-center justify-between gap-3 border-t border-slate-200 pt-5">{footer}</div>
         </div>
       </div>
     </div>
