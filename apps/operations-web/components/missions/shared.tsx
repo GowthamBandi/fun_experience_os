@@ -350,7 +350,7 @@ export function MissionStageStepper({ current, layout = "row" }: { current?: "li
   ];
 
   return (
-    <ol className={cn("grid gap-2 print:hidden", layout === "row" && "sm:grid-cols-3")} aria-label="Session stages">
+    <ol className={cn("grid grid-cols-1 gap-2 print:hidden", layout === "row" && "sm:grid-cols-3")} aria-label="Session stages">
       {steps.map((s) => {
         const isCurrent = s.id === current;
         const body = (

@@ -61,7 +61,7 @@ export default function CitiesPage() {
         )
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <MetricTile label="Cities" value={rows.length} detail={`${rows.filter((r) => r.status === "active").length} active`} icon={<MapPin className="h-4 w-4" />} />
             <MetricTile label="Venues" value={rows.reduce((a, r) => a + r.venues, 0)} detail={`${rows.filter((r) => r.venues === 0).length} cities without one`} icon={<Building2 className="h-4 w-4" />} tone="amber" />
             <MetricTile label="Playing areas" value={rows.reduce((a, r) => a + r.playingAreas, 0)} detail="bookable spaces" icon={<LayoutGrid className="h-4 w-4" />} tone="pink" />

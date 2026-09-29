@@ -58,7 +58,7 @@ function AssignStaff() {
       {sessions.length === 0 ? (
         <EmptyPanel icon={<CalendarClock className="h-5 w-5" />} title="No upcoming sessions to staff" line="Sessions appear here once they are scheduled and not in draft." actionHref={canAccess("/missions") ? "/missions/new" : undefined} actionLabel="Schedule a session" />
       ) : (
-        <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
           <Panel title="Upcoming sessions" sub={`${sessions.filter((s) => !s.isFullyStaffed).length} need staff`} bodyClassName="p-2">
             <ul className="max-h-[640px] space-y-1 overflow-y-auto">
               {sessions.map((s) => (
@@ -97,7 +97,7 @@ function AssignStaff() {
                   const opts = candidates(slot.slot);
                   const pick = picks[slot.slot] ?? "";
                   return (
-                    <li key={slot.slot} className="grid gap-3 py-4 md:grid-cols-[200px_1fr] md:items-center">
+                    <li key={slot.slot} className="grid grid-cols-1 gap-3 py-4 md:grid-cols-[200px_minmax(0,1fr)] md:items-center">
                       <div>
                         <p className="text-sm font-semibold text-ink-lum">
                           {slot.label} {slot.required && <span className="text-xs font-medium text-ink-mut">· required</span>}

@@ -118,7 +118,7 @@ export default function NewBookingPage() {
       <PageHeader overline="Bookings" title="New booking" sub="Add someone to a session. A paid booking holds its seat for 15 minutes until the payment is recorded; if the session is full they join the waitlist." />
 
       <form
-        className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]"
+        className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]"
         onSubmit={(e) => {
           e.preventDefault();
           submit();
@@ -155,7 +155,7 @@ export default function NewBookingPage() {
           </Section>
 
           <Section title="2. Participant">
-            <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_180px]">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_180px]">
               <FormField label="Name or alias" htmlFor={`${id}-alias`} error={touched ? errors.alias : undefined}>
                 <Input id={`${id}-alias`} value={alias} onChange={(e) => setAlias(e.target.value)} placeholder="e.g. Priya S or CourtQueen" autoComplete="off" aria-invalid={Boolean(touched && errors.alias) || undefined} />
               </FormField>
@@ -166,7 +166,7 @@ export default function NewBookingPage() {
           </Section>
 
           <Section title="3. Booking type">
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {kindCard({ value: "paid", icon: <Ticket className="h-4 w-4 text-brand" />, title: "Paid booking", line: `${session ? inr(price) : "Session price"}. Holds the seat for 15 minutes until payment is recorded.` })}
               {kindCard({ value: "comp", icon: <Gift className="h-4 w-4 text-sky-600" />, title: "Free pass", line: ledger ? `Confirmed immediately. ${compLeft} reserved free-pass slot${compLeft === 1 ? "" : "s"} left.` : "Confirmed immediately, no payment." })}
             </div>
@@ -182,7 +182,7 @@ export default function NewBookingPage() {
                   </span>
                 </label>
                 {paidNow && (
-                  <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <FormField label="Payment method" htmlFor={`${id}-method`}>
                       <Select id={`${id}-method`} value={method} onChange={(e) => setMethod(e.target.value as PaymentMethodId)}>
                         {PAYMENT_METHODS.map((m) => (

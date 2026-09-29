@@ -76,7 +76,7 @@ export default function FranchisesPage() {
         />
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <MetricTile label="Franchises" value={rows.length} detail={`${rows.filter((r) => r.status === "active").length} active`} icon={<Landmark className="h-4 w-4" />} />
             <MetricTile label="Territories" value={rows.reduce((a, r) => a + r.territories, 0)} detail="across all franchises" icon={<Globe2 className="h-4 w-4" />} tone="sky" />
             <MetricTile label="Settled revenue" value={inr(rows.reduce((a, r) => a + r.revenue, 0))} detail="payments settled to date" icon={<IndianRupee className="h-4 w-4" />} tone="emerald" />

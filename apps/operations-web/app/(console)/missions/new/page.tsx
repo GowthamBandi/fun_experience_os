@@ -126,7 +126,11 @@ function ScheduleForm() {
       weatherRisk: "low",
       cancellationThreshold: t.minParticipants,
     };
-    createSession(input);
+    const result = createSession(input);
+    if (result.error) {
+      toast.error("Session not scheduled", result.error);
+      return;
+    }
     toast.success("Session scheduled", `${t.name} · ${date} at ${time}. Bookings are open.`);
     router.push(`/missions/${id}/overview`);
   };
@@ -141,11 +145,11 @@ function ScheduleForm() {
       {templates.length === 0 ? (
         <EmptyState title="No experiences yet" line="Create an experience in the catalog before scheduling sessions." action={<Link href="/catalog"><Button variant="secondary">Open catalog</Button></Link>} />
       ) : (
-        <form onSubmit={submit} className="grid gap-6 lg:grid-cols-[1.4fr_1fr]" noValidate>
+        <form onSubmit={submit} className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]" noValidate>
           <div className="space-y-6">
             <section className="rounded-panel border border-edge bg-white p-6 shadow-panel">
               <h2 className="text-[15px] font-semibold text-ink-lum">1. Experience</h2>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Experience">
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Experience">
                 {templates.map(({ t: x, r }) => (
                   <label
                     key={x.id}
@@ -181,7 +185,7 @@ function ScheduleForm() {
 
             <section className="space-y-4 rounded-panel border border-edge bg-white p-6 shadow-panel">
               <h2 className="text-[15px] font-semibold text-ink-lum">2. Time and place</h2>
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field label="Date">
                   <Input type="date" min={localDate(new Date())} value={date} onChange={(e) => setDate(e.target.value)} />
                 </Field>
@@ -215,7 +219,7 @@ function ScheduleForm() {
 
             <section className="space-y-4 rounded-panel border border-edge bg-white p-6 shadow-panel">
               <h2 className="text-[15px] font-semibold text-ink-lum">3. Price, places and staff</h2>
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field label="Price per player (₹)" hint={t ? `Experience default ${inr(t.basePrice)}` : undefined}>
                   <Input type="number" min={0} value={price} placeholder={t ? String(t.basePrice) : ""} onChange={(e) => setPrice(e.target.value)} />
                 </Field>

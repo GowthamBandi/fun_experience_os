@@ -81,7 +81,7 @@ export default function ReconciliationPage() {
       />
       <ProviderNotice>Payment provider not connected — statements are not imported. Compare each reference with your bank or UPI statement, then mark it as matching.</ProviderNotice>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricTile label="Records that don't match" value={issues.length} detail={`${issues.filter((i) => i.severity === "high").length} need action today`} icon={<TriangleAlert className="h-4 w-4" />} tone="rose" />
         <MetricTile label="To verify" value={toVerify.length} detail={inr(toVerify.reduce((a, p) => a + p.amount, 0))} icon={<Scale className="h-4 w-4" />} tone="amber" />
         <MetricTile label="Verified" value={verified.length} detail={inr(verified.reduce((a, p) => a + p.amount, 0))} icon={<BadgeCheck className="h-4 w-4" />} tone="emerald" />

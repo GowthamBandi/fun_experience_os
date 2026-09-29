@@ -59,7 +59,7 @@ export default function PlayingAreaDetailPage() {
         <Figure label="Upcoming sessions" value={upcoming.length} />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
         <Panel title="Details">
           <DetailList
             rows={[

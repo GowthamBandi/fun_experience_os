@@ -90,9 +90,9 @@ function ExperienceDetail() {
         <Figure label="Upcoming sessions" value={upcoming.length} hint={`${sessions.length} all time`} />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <div className="space-y-6">
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <Panel title="Basics" right={editable(0)}>
               <DetailList rows={[{ label: "Category", value: category?.name ?? "" }, { label: "Promise", value: t.promise }, { label: "Description", value: t.fullDesc }]} />
             </Panel>

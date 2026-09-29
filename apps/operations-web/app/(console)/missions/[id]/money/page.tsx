@@ -81,14 +81,14 @@ export default function SessionMoneyPage() {
   return (
     <SessionFrame sessionId={sessionId} current="money" sub="What this session has collected, what is owed back, and how it compares with break-even.">
       <ProviderNotice />
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricTile label="Collected" value={inr(fin.grossCollected)} detail={`${fin.paidBookings} paid seat${fin.paidBookings === 1 ? "" : "s"} · ${fin.complimentaryBookings} free pass${fin.complimentaryBookings === 1 ? "" : "es"}`} icon={<IndianRupee className="h-4 w-4" />} tone="emerald" />
         <MetricTile label="Refunded" value={inr(fin.totalRefunded)} detail={`${inr(fin.refundsAwaitingApproval + fin.refundsAwaitingPayout)} more in progress`} icon={<RotateCcw className="h-4 w-4" />} tone="sky" />
         <MetricTile label="Net revenue" value={inr(fin.netRevenue)} detail={`Seat price ${inr(fin.price)}`} icon={<TrendingUp className="h-4 w-4" />} tone="violet" />
         <MetricTile label="Awaiting payment" value={inr(fin.pendingAmount)} detail={fin.failedAmount ? `${inr(fin.failedAmount)} failed` : "Seats on hold"} icon={<Clock className="h-4 w-4" />} tone="amber" />
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <Section title="Break-even" sub={`Break-even is ${fin.ledger.breakEvenAttendance} paid seats (${inr(fin.breakEvenRevenue)}); full target is ${fin.ledger.targetAttendance} seats (${inr(fin.targetRevenue)}).`}>
           <div className="space-y-4">
             {bars.map((b) => (

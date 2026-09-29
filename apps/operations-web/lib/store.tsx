@@ -91,7 +91,6 @@ import {
   duplicateTemplateVersion,
   addCatalogNote,
   createSession,
-  createBooking,
   cancelBooking,
   generateTemporaryIds,
   allocateTeams,
@@ -210,7 +209,6 @@ import {
   type CategoryInput,
   type TemplateInput,
   type SessionInput,
-  type BookingInput,
   createCrewMember as createCrewMemberCommand,
   updateCrewMember as updateCrewMemberCommand,
   assignCrewToSession as assignCrewToSessionCommand,
@@ -314,8 +312,7 @@ interface StoreValue {
   duplicateExperienceTemplate: (id: string) => CreatedOutcome;
   duplicateTemplateVersion: (versionId: string) => CreatedOutcome;
   addCatalogNote: (entity: string, name: string, note: string) => CommandOutcome;
-  createSession: (input: SessionInput) => void;
-  createBooking: (input: BookingInput) => void;
+  createSession: (input: SessionInput) => CommandOutcome & { id?: string };
   createCrewMember: (input: CrewInput) => CreatedOutcome;
   updateCrewMember: (id: string, patch: Partial<CrewInput>) => CommandOutcome;
   assignCrewToSession: (params: { sessionId: string; crewId: string; slot: StaffSlot }) => CommandOutcome;
@@ -716,8 +713,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const duplicateExperienceTemplateCb = useCallback((id: string) => runResult((prev) => duplicateExperienceTemplate(prev, id, operatorId)), [runResult, operatorId]);
   const duplicateTemplateVersionCb = useCallback((versionId: string) => runResult((prev) => duplicateTemplateVersion(prev, versionId, operatorId)), [runResult, operatorId]);
   const addCatalogNoteCb = useCallback((entity: string, name: string, note: string) => runResult((prev) => addCatalogNote(prev, entity, name, note, operatorId)), [runResult, operatorId]);
-  const createSessionCb = useCallback((input: SessionInput) => commit((prev) => createSession(prev, input, operatorId)), [commit, operatorId]);
-  const createBookingCb = useCallback((input: BookingInput) => commit((prev) => createBooking(prev, input, operatorId)), [commit, operatorId]);
+  const createSessionCb = useCallback((input: SessionInput) => runResult((prev) => createSession(prev, input, operatorId)), [runResult, operatorId]);
 
   /* ------------------- geography update/status commands ------------------- */
 
@@ -1180,7 +1176,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       duplicateTemplateVersion: duplicateTemplateVersionCb,
       addCatalogNote: addCatalogNoteCb,
       createSession: createSessionCb,
-      createBooking: createBookingCb,
       updateFranchise: updateFranchiseCb,
       changeFranchiseStatus: changeFranchiseStatusCb,
       changeFranchiseHead: changeFranchiseHeadCb,
@@ -1322,6 +1317,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     auth,
     hydrated,
     workspace,
+    setIdentityPatternStatusCb,
     roleId,
     commit,
     createCrewMemberCb,
@@ -1366,7 +1362,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     duplicateTemplateVersionCb,
     addCatalogNoteCb,
     createSessionCb,
-    createBookingCb,
     updateFranchiseCb,
     changeFranchiseStatusCb,
     changeFranchiseHeadCb,

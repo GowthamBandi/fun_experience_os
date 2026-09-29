@@ -76,7 +76,7 @@ export default function TerritoriesPage() {
         )
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <MetricTile label="Territories" value={rows.length} detail={`${rows.filter((r) => r.status === "active").length} active`} icon={<Globe2 className="h-4 w-4" />} />
             <MetricTile label="Cities" value={rows.reduce((a, r) => a + r.cities, 0)} detail={`${rows.reduce((a, r) => a + r.venues, 0)} venues`} icon={<MapPin className="h-4 w-4" />} tone="emerald" />
             <MetricTile label="Upcoming sessions" value={rows.reduce((a, r) => a + r.upcomingSessions, 0)} detail="today and tomorrow" icon={<CalendarClock className="h-4 w-4" />} tone="sky" />

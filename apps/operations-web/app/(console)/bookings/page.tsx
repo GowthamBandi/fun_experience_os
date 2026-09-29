@@ -170,7 +170,7 @@ export default function BookingsPage() {
       />
       <ProviderNotice />
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricTile label="Confirmed seats" value={counts.confirmed} detail={`${inr(confirmedValue)} booked value`} icon={<Ticket className="h-4 w-4" />} tone="emerald" onClick={() => setGroup("confirmed")} />
         <MetricTile label="Waiting for payment" value={counts.holds} detail={expiringSoon ? `${expiringSoon} expire within 5 minutes` : "Seats held for 15 minutes"} icon={<Clock className="h-4 w-4" />} tone="amber" onClick={() => setGroup("holds")} />
         <MetricTile label="Waitlist" value={counts.waitlist} detail={offers ? `${offers} seat offer${offers === 1 ? "" : "s"} open` : "No open offers"} icon={<ListOrdered className="h-4 w-4" />} tone="violet" onClick={() => setGroup("waitlist")} />
@@ -194,7 +194,7 @@ export default function BookingsPage() {
               ]}
             />
           </div>
-          <div className="grid gap-2 sm:grid-cols-2 2xl:w-[480px]">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 2xl:w-[480px]">
             <Select value={sessionId} onChange={(e) => setSessionId(e.target.value)} aria-label="Filter by session">
               <option value="all">All sessions</option>
               {sessions.map((s) => (

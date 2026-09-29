@@ -107,7 +107,7 @@ function LiveBody() {
         </section>
       )}
 
-      <section className="grid gap-5 rounded-panel border border-edge bg-white p-5 shadow-panel lg:grid-cols-[auto_1fr_auto] lg:items-center">
+      <section className="grid grid-cols-1 gap-5 rounded-panel border border-edge bg-white p-5 shadow-panel lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center">
         <div className="text-center lg:text-left">
           <p className="text-xs font-medium text-ink-mut">Active time</p>
           <p className={cn("font-display text-5xl font-bold tabular tracking-tight", lss.status === "Live" ? "text-ink-lum" : "text-ink-sec")} aria-live="off">
@@ -185,7 +185,7 @@ function LiveBody() {
         </WorkspaceCard>
       )}
 
-      <div className="grid items-start gap-6 xl:grid-cols-[1.25fr_1fr]">
+      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
         <RunOfShow segments={segments} readOnly={actions.isReadOnly || actions.isEnded} running={lss.status === "Live"} progress={progress.percent} />
         <div className="space-y-6">
           <EquipmentCard items={eq.items} readOnly={actions.isReadOnly} />

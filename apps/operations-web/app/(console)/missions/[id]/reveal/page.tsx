@@ -92,7 +92,7 @@ function RevealBody() {
         </div>
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <WorkspaceCard title="Reveal checklist" sub="Blocking items need fixing or an override reason.">
           <ul className="divide-y divide-edge">
             {readiness.checks.map((c) => (
@@ -164,7 +164,7 @@ function RevealBody() {
                     <p className="font-mono text-2xl font-bold text-ink-lum">{post.temporaryCode || "No code yet"}</p>
                     <p className="text-sm text-ink-sec">{post.teamName || "No team yet"}</p>
                   </div>
-                  <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                  <dl className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
                     <div>
                       <dt className="text-xs text-ink-mut">Where</dt>
                       <dd className="text-ink-lum">

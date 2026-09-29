@@ -55,6 +55,22 @@ const MIGRATIONS: Migration[] = [
       "Tournament teams become entrant records with stable ids; match slots, winners and champions reference those ids instead of team names, and deprecated mirror fields are removed.",
     run: (s) => migrateLegacyTournaments(s),
   },
+  {
+    id: "2026-09-29-area-capacity-covers-sessions",
+    description: "A playing area's capacity is at least the capacity of every session scheduled in it (repairs sample data).",
+    run: (s) => {
+      let changed = false;
+      const playingAreas = s.playingAreas.map((pa) => {
+        const need = Math.max(0, ...s.sessions.filter((x) => x.playingAreaId === pa.id).map((x) => x.maxParticipants || 0));
+        if (need > pa.maxCapacity) {
+          changed = true;
+          return { ...pa, maxCapacity: need };
+        }
+        return pa;
+      });
+      return changed ? { ...s, playingAreas } : s;
+    },
+  },
 ];
 
 /** Register an additional migration (module-level, at import time). */

@@ -61,7 +61,7 @@ export default function WorkspaceSettings() {
     <div className="mx-auto w-full max-w-[1200px] space-y-6 px-5 py-7 lg:px-8">
       <PageHeader overline="Control" title="Workspace & backups" sub="Where this console's data lives, how to back it up, and how to restore or start over." />
 
-      <section className="grid gap-4 lg:grid-cols-3">
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="rounded-panel border border-edge bg-white p-5 shadow-panel lg:col-span-2">
           <div className="flex items-start gap-4">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-500 text-white shadow-brand">
@@ -117,7 +117,7 @@ export default function WorkspaceSettings() {
           <Sparkles className="h-4 w-4 text-pink-500" /> Sample data & scenarios
         </p>
         <p className="mt-1 text-sm text-ink-mut">Load a realistic situation to train staff or rehearse a process. Scenarios change existing data; export a backup first.</p>
-        <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
           {SCENARIOS.map((s) => (
             <button
               key={s.name}

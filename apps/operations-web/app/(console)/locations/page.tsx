@@ -23,13 +23,13 @@ export default function LocationsPage() {
     <PageShell>
       <Crumbs items={[{ label: "Setup", href: "/setup" }, { label: "Locations" }]} />
       <PageHeader overline="Setup" title="Locations" sub="Where sessions physically happen." />
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricTile label="Venues" value={venues.length} detail={`${venues.filter((v) => v.status === "ready").length} open`} icon={<Building2 className="h-4 w-4" />} />
         <MetricTile label="Verified" value={venues.filter((v) => v.verificationStatus === "verified").length} detail={`${venues.filter((v) => v.verificationStatus !== "verified").length} pending or failed`} icon={<ShieldCheck className="h-4 w-4" />} tone="emerald" />
         <MetricTile label="Playing areas" value={areas.length} detail={`${areas.filter((a) => a.status === "active").length} active`} icon={<LayoutGrid className="h-4 w-4" />} tone="pink" />
         <MetricTile label="Out of service" value={venues.filter((v) => v.status !== "ready").length + areas.filter((a) => a.status !== "active").length} detail="venues and areas in maintenance or closed" icon={<Wrench className="h-4 w-4" />} tone="amber" />
       </div>
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {cards.map((c) => (
           <div key={c.href} className="flex flex-col justify-between gap-5 rounded-panel border border-edge bg-white p-6 shadow-panel">
             <div className="flex items-start gap-4">

@@ -94,14 +94,14 @@ export default function Overview() {
         </div>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {seeGov && <MetricTile label="Open decisions" value={openCases.length} detail={`${cases.records.length} cases in the queue history`} icon={<ClipboardCheck className="h-4 w-4" />} tone="violet" onClick={undefined} />}
         {seeOps && <MetricTile label="Seats filled today" value={capacity ? `${Math.round((booked / capacity) * 100)}%` : "—"} detail={`${booked} of ${capacity} seats · ${today.length} sessions`} icon={<Ticket className="h-4 w-4" />} tone="sky" />}
         {seeMoney && <MetricTile label="Net revenue" value={inr(money.netRevenue)} detail={`${inr(money.pendingRevenue)} pending · ${money.pendingRefundsCount} refunds waiting`} icon={<IndianRupee className="h-4 w-4" />} tone="emerald" />}
         {(seeGov || seeSafety) && <MetricTile label="Risk & safety" value={openRisks.length + openIncidents} detail={`${openRisks.length} risk alerts · ${openIncidents} incidents`} icon={<ShieldAlert className="h-4 w-4" />} tone="rose" />}
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="space-y-6">
           {seeGov && (
             <section className="overflow-hidden rounded-panel border border-edge bg-white shadow-panel">
@@ -142,7 +142,7 @@ export default function Overview() {
                   All sessions →
                 </Link>
               </header>
-              <div className="grid gap-3 p-4 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 p-4 md:grid-cols-2">
                 {upcoming.map((s) => {
                   const fill = Math.round((s.booked / Math.max(s.capacity, 1)) * 100);
                   return (

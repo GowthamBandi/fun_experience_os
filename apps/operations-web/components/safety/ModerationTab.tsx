@@ -47,7 +47,7 @@ export function ModerationTab() {
   const openGate = gate("moderation.open-case");
 
   return (
-    <div className="grid gap-0 xl:grid-cols-[1fr_380px]">
+    <div className="grid grid-cols-1 gap-0 xl:grid-cols-[minmax(0,1fr)_380px]">
       <div className="min-w-0 border-edge xl:border-r">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-edge p-4">
           <p className="text-sm text-ink-mut">Cases about a participant&apos;s behaviour. Proposals need approval before they take effect.</p>
@@ -135,7 +135,7 @@ function EligibilityCheck() {
         <UserSearch className="h-4 w-4 text-brand" /> Check a participant
       </h3>
       <p className="mt-1 text-xs text-ink-mut">Expired and future-dated actions are ignored.</p>
-      <div className="mt-3 grid gap-2">
+      <div className="mt-3 grid grid-cols-1 gap-2">
         <Input
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
@@ -426,7 +426,7 @@ function ProposeDialog({ open, onClose, caseId }: { open: boolean; onClose: () =
         })
       }
     >
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Action">
           <Select
             value={type}
@@ -471,7 +471,7 @@ function ProposeDialog({ open, onClose, caseId }: { open: boolean; onClose: () =
           </Select>
         </Field>
       )}
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Takes effect">
           <Input type="date" value={effective} onChange={(e) => setEffective(e.target.value)} />
         </Field>

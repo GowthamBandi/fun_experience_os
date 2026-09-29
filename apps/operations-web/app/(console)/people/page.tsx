@@ -30,13 +30,13 @@ export default function PeoplePage() {
         sub="The staff who run your sessions and the participants who book them."
         right={canManage && <LinkButton href="/people/staff/new"><UserPlus className="h-4 w-4" /> Add staff</LinkButton>}
       />
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricTile label="Staff" value={health.totalStaff} detail={`${health.availableCount} available`} icon={<Users className="h-4 w-4" />} />
         <MetricTile label="Working" value={health.workingToday} detail={`${health.checkedInCount} checked in`} icon={<UserCheck className="h-4 w-4" />} tone="emerald" />
         <MetricTile label="Participants" value={participants.length} detail={`${participants.filter((p) => p.isCheckedIn).length} checked in`} icon={<Ticket className="h-4 w-4" />} tone="pink" />
         <MetricTile label="Sessions short of staff" value={health.eventsMissingStaffCount} detail="missing a lead or safety contact" icon={<CalendarClock className="h-4 w-4" />} tone="amber" />
       </div>
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {cards.map((c) => (
           <div key={c.href} className="flex flex-col justify-between gap-5 rounded-panel border border-edge bg-white p-6 shadow-panel">
             <div className="flex items-start gap-4">

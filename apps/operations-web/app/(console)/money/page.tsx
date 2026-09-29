@@ -115,14 +115,14 @@ export default function MoneyPage() {
         </div>
       </div>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricTile label="Collected" value={inr(m.grossCollected)} detail={`${m.confirmedPaymentsCount} payments · ${m.reconciledPaymentsCount} verified`} icon={<IndianRupee className="h-4 w-4" />} tone="emerald" />
         <MetricTile label="Refunded" value={inr(m.totalRefunded)} detail={`${m.refundsCount} refunds paid out`} icon={<RotateCcw className="h-4 w-4" />} tone="sky" />
         <MetricTile label="Net revenue" value={inr(m.netRevenue)} detail={`${inr(m.awaitingApprovalAmount + m.awaitingPayoutAmount)} more owed back if pending refunds are paid`} icon={<TrendingUp className="h-4 w-4" />} tone="violet" />
         <MetricTile label="Awaiting payment" value={inr(m.pendingRevenue)} detail={`${m.pendingPaymentsCount} held seat${m.pendingPaymentsCount === 1 ? "" : "s"} · ${m.failedPaymentsCount} failed`} icon={<Clock className="h-4 w-4" />} tone="amber" />
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {actionCards.map((c) => (
           <Link key={c.title} href={c.href} className="group flex items-start gap-3 rounded-panel border border-edge bg-white p-4 shadow-panel transition-all hover:-translate-y-0.5 hover:border-brand/40 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/20">
             <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${c.tone}`}>

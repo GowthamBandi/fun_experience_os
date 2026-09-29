@@ -65,7 +65,7 @@ export default function StaffAvailabilityPage() {
     <PageShell>
       <PageHeader overline={`Staffing · ${scope.label}`} title="Availability" sub="Who is free, who is working, and who is off. People on upcoming sessions must be removed from them before they can be marked off." />
       <StaffingNav />
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricTile label="Available" value={staff.filter((s) => s.status === "available").length} icon={<Users className="h-4 w-4" />} tone="emerald" />
         <MetricTile label="Assigned" value={staff.filter((s) => s.status === "assigned").length} icon={<CalendarClock className="h-4 w-4" />} tone="sky" />
         <MetricTile label="Checked in" value={staff.filter((s) => s.status === "checked-in").length} icon={<UserCheck className="h-4 w-4" />} />

@@ -62,7 +62,7 @@ export default function SetupPage() {
         </div>
       </section>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <MetricTile label="Franchises" value={health.franchiseCount} icon={<Landmark className="h-4 w-4" />} tone="violet" detail={health.franchiseCount ? "businesses operating" : "none yet"} />
         <MetricTile label="Territories" value={health.territoryCount} icon={<Globe2 className="h-4 w-4" />} tone="sky" detail={!health.territoryCount ? "none yet" : health.territoriesWithoutCitiesCount ? `${health.territoriesWithoutCitiesCount} without a city` : "all have a city"} />
         <MetricTile label="Cities" value={health.cityCount} icon={<MapPin className="h-4 w-4" />} tone="emerald" detail={!health.cityCount ? "none yet" : health.citiesWithoutVenuesCount ? `${health.citiesWithoutVenuesCount} without a venue` : "all have a venue"} />
@@ -70,7 +70,7 @@ export default function SetupPage() {
         <MetricTile label="Playing areas" value={health.playingAreaCount} icon={<LayoutGrid className="h-4 w-4" />} tone="pink" detail="courts, pitches, tables, rooms" />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.25fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
         <Panel title="First-run checklist" sub="Eight steps from an empty workspace to a bookable session." icon={<ListChecks className="h-4 w-4" />} right={<StatusChip value={done === journey.length ? "complete" : `${done} of ${journey.length} done`} tone={done === journey.length ? "ok" : health.status === "needs-attention" ? "warn" : "info"} />}>
           <SetupJourney steps={journey} />
         </Panel>

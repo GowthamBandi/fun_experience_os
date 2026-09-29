@@ -55,7 +55,7 @@ export function EmergencyIdentityPanel({ bookingId, sessionId }: { bookingId: st
               <Timer className="h-3.5 w-3.5" /> Closes in {formatClock(remaining)} · {formatWhen(active.expiresAt)}
             </span>
           </div>
-          <dl className="mt-3 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+          <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
             <Row label="Participant account" value={<span className="font-mono text-xs">{identity.participantAccountId}</span>} />
             <Row label="Booking reference" value={<span className="font-mono text-xs">{identity.bookingReference}</span>} />
             <Row label="Contact on file" value={identity.contactOnFile} />

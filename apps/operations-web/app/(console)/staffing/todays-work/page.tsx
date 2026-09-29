@@ -26,7 +26,7 @@ export default function TodaysWorkPage() {
       {sessions.length === 0 ? (
         <EmptyPanel icon={<CalendarClock className="h-5 w-5" />} title="No sessions today" line="Nothing is scheduled for today in this territory." />
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {sessions.map((s) => (
             <section key={s.sessionId} className="flex flex-col rounded-panel border border-edge bg-white shadow-panel">
               <header className="flex items-start justify-between gap-3 border-b border-edge px-5 py-4">

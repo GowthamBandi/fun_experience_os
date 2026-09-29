@@ -108,7 +108,7 @@ export default function NewTournamentPage() {
       <form onSubmit={submit} className="space-y-5">
         <section className="rounded-panel border border-edge bg-white p-5 shadow-panel">
           <h2 className="text-[15px] font-semibold text-ink-lum">Details</h2>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Tournament name">
               <Input
                 value={name}
@@ -151,7 +151,7 @@ export default function NewTournamentPage() {
 
         <section className="rounded-panel border border-edge bg-white p-5 shadow-panel">
           <h2 className="text-[15px] font-semibold text-ink-lum">Venue & format</h2>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Venue" hint={venues.length ? undefined : `No venues in ${territory.name}. Add one in Setup first.`}>
               <Select
                 className="h-11"
@@ -195,7 +195,7 @@ export default function NewTournamentPage() {
               </div>
             </fieldset>
           )}
-          <div className="mt-4 grid gap-4 sm:grid-cols-3">
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Field label="Seeding">
               <Select className="h-11" value={seeding} onChange={(e) => setSeeding(e.target.value as "seeded" | "random")}>
                 <option value="seeded">Seeded (you set the order)</option>
@@ -213,7 +213,7 @@ export default function NewTournamentPage() {
 
         <section className="rounded-panel border border-edge bg-white p-5 shadow-panel">
           <h2 className="text-[15px] font-semibold text-ink-lum">Schedule & results</h2>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Registration closes">
               <Input type="datetime-local" value={closes} onChange={(e) => setCloses(e.target.value)} />
             </Field>

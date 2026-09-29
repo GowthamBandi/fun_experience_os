@@ -443,7 +443,7 @@ function WalkoverDialog({ open, onClose, tournament, match }: { open: boolean; o
       <p className="text-sm leading-6 text-ink-sec">
         The chosen team advances without playing. Use this when the opponent didn&apos;t arrive, withdrew or can&apos;t continue.
       </p>
-      <fieldset className="grid gap-2 sm:grid-cols-2">
+      <fieldset className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <legend className="sr-only">Team that advances</legend>
         {teams.map((t) => (
           <label

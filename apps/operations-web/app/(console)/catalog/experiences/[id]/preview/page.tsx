@@ -28,7 +28,7 @@ export default function ExperiencePreviewPage() {
       <PageHeader overline="Catalog · Customer preview" title={t.name} sub="How the session card and reveal look to customers, built from this experience's current settings." right={<StatusChip value={t.status} />} />
       {t.status !== "active" && <Notice tone="info">Customers do not see this experience until it is active and a session is scheduled.</Notice>}
 
-      <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
         <div>
           <p className="eyebrow mb-3">Session card (mobile)</p>
           <div className="mx-auto max-w-[340px] overflow-hidden rounded-[28px] border border-edge bg-white shadow-glass">
@@ -52,7 +52,7 @@ export default function ExperiencePreviewPage() {
             </div>
           </div>
         </div>
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <Panel title="Before reveal" sub={preview.privacyLockedUntil} icon={<Lock className="h-4 w-4" />}>
             <p className="text-sm leading-6 text-ink-sec">{preview.preRevealPreview}</p>
             <p className="mt-3 text-xs text-ink-mut">Participants appear as <span className="font-mono">{preview.tempIdFormat}</span> with {preview.aliasStyle.toLowerCase()} aliases.</p>

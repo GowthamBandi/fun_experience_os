@@ -133,7 +133,7 @@ export default function AnalyticsPage() {
         <EmptyPanel icon={<CalendarCheck2 className="h-5 w-5" />} title="No sessions in this period" line="Figures appear once sessions have run in the selected range. Try a longer range, or schedule sessions from Sessions." />
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <MetricTile label="Net revenue" value={inr(t.netRevenue)} detail={`${inr(t.revenue)} settled · ${inr(t.refunds)} refunded`} icon={<IndianRupee className="h-4 w-4" />} tone="emerald" />
             <MetricTile label="Bookings" value={t.bookings.toLocaleString("en-IN")} detail={`${inr(t.avgBookingValue)} average settled per booking`} icon={<Ticket className="h-4 w-4" />} />
             <MetricTile label="Fill rate" value={t.fillPct === null ? "—" : `${t.fillPct}%`} detail={`${t.bookings} of ${t.capacity} places across ${t.sessions} sessions`} icon={<Percent className="h-4 w-4" />} tone="sky" />
@@ -142,7 +142,7 @@ export default function AnalyticsPage() {
             <MetricTile label="Incidents" value={t.incidents} detail="reported in this period" icon={<AlertOctagon className="h-4 w-4" />} tone="rose" />
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <Panel title="Settled revenue per day" sub="Payments settled for sessions on each day">
               <DayBars days={report.days} value={(d) => d.revenue} format={(n) => inr(n)} color="#5b4cf5" empty="No settled payments in this period." />
             </Panel>
@@ -153,7 +153,7 @@ export default function AnalyticsPage() {
               <DayBars days={report.days} value={(d) => d.fillPct} format={(n) => `${n}%`} color="#10b981" empty="No sessions with capacity in this period." />
             </Panel>
             <Panel title="No-shows and incidents" sub="Two separate daily counts">
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <p className="mb-1 text-xs font-semibold text-ink-sec">No-shows</p>
                   <DayBars days={report.days} value={(d) => d.noShows} format={(n) => `${n} no-show${n === 1 ? "" : "s"}`} color="#f59e0b" empty="None recorded." />
@@ -166,7 +166,7 @@ export default function AnalyticsPage() {
             </Panel>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <div>
               <h2 className="mb-3 font-display text-[15px] font-bold text-ink-lum">By category</h2>
               <DataTable columns={breakdownCols} rows={report.byCategory} emptyTitle="No categories" emptyLine="No sessions in this period." />

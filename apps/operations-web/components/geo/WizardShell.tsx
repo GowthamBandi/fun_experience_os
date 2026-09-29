@@ -26,7 +26,7 @@ export function WizardShell({
   className?: string;
 }) {
   return (
-    <div className={cn("grid gap-5 lg:grid-cols-[240px_1fr]", className)}>
+    <div className={cn("grid grid-cols-1 gap-5 lg:grid-cols-[240px_minmax(0,1fr)]", className)}>
       <nav aria-label="Steps" className="min-w-0">
         <ol className="flex gap-1.5 overflow-x-auto pb-1 lg:flex-col lg:gap-1 lg:overflow-visible lg:pb-0">
           {steps.map((s, i) => {

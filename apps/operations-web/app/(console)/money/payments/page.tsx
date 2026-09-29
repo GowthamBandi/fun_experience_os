@@ -140,7 +140,7 @@ export default function PaymentsPage() {
       />
       <ProviderNotice />
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricTile label="Received" value={inr(sum("received") + sum("verified"))} detail={`${count("received") + count("verified")} payments`} icon={<IndianRupee className="h-4 w-4" />} tone="emerald" onClick={() => setFilter("received")} />
         <MetricTile label="Verified" value={count("verified")} detail={`${count("received")} still to verify`} icon={<BadgeCheck className="h-4 w-4" />} tone="sky" onClick={() => setFilter("verified")} />
         <MetricTile label="Awaiting payment" value={inr(sum("pending"))} detail={`${count("pending")} seat${count("pending") === 1 ? "" : "s"} on hold`} icon={<Clock className="h-4 w-4" />} tone="amber" onClick={() => setFilter("pending")} />

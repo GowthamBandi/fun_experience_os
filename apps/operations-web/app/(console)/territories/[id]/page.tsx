@@ -80,7 +80,7 @@ export default function TerritoryDetailPage() {
         <Figure label="Safety signals" value={m.safetySignals} tone={m.safetySignals ? "warn" : undefined} />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Panel title="Cities" sub={plural(detail.cities.length, "city", "cities")} icon={<MapPin className="h-4 w-4" />}>
           <LinkRows
             empty="No cities yet."
@@ -95,7 +95,7 @@ export default function TerritoryDetailPage() {
         </Panel>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
         <Panel title="Details">
           <DetailList
             rows={[

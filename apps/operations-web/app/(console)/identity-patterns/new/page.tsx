@@ -58,12 +58,12 @@ export default function NewIdentityPatternPage() {
       </Link>
       <PageHeader overline="Identity patterns" title="New identity pattern" sub="Participants see this code instead of their name until the session ends." />
 
-      <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
         <form onSubmit={submit} className="space-y-5 rounded-panel border border-edge bg-white p-6 shadow-panel" noValidate>
           <Field label="Pattern name" hint="Shown to operators when generating codes.">
             <Input value={name} onChange={(e) => { setName(e.target.value); setError(null); }} placeholder="e.g. Padel League" maxLength={60} required />
           </Field>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Field label="Prefix" hint="2–8 letters.">
               <Input
                 value={prefix}

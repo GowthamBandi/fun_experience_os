@@ -286,7 +286,7 @@ export function Money({ value, sign = false, className }: { value: number; sign?
 /** A segmented filter with counts. */
 export function Segments<T extends string>({ value, onChange, options, label }: { value: T; onChange: (v: T) => void; options: Array<{ id: T; label: string; count?: number }>; label: string }) {
   return (
-    <div role="tablist" aria-label={label} className="inline-flex gap-1 rounded-xl border border-edge bg-bg-sunken p-1">
+    <div role="tablist" aria-label={label} className="flex max-w-full gap-1 overflow-x-auto rounded-xl border border-edge bg-bg-sunken p-1">
       {options.map((o) => (
         <button
           key={o.id}

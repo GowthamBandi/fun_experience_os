@@ -51,14 +51,14 @@ export default function StaffingPage() {
             {next.detail}
           </Notice>
 
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <MetricTile label="Staff" value={health.totalStaff} detail={`${health.availableCount} available · ${health.offCount} off`} icon={<Users className="h-4 w-4" />} />
             <MetricTile label="Working" value={health.workingToday} detail={`${health.checkedInCount} checked in`} icon={<UserCheck className="h-4 w-4" />} tone="emerald" />
             <MetricTile label="Sessions short of staff" value={needing.length} detail={`of ${sessions.length} upcoming`} icon={<CalendarClock className="h-4 w-4" />} tone={needing.length ? "amber" : "sky"} />
             <MetricTile label="Overlapping assignments" value={health.doubleAssignedCount} detail="people on two sessions at once" icon={<ShieldAlert className="h-4 w-4" />} tone={health.doubleAssignedCount ? "rose" : "violet"} />
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
             <Panel title="Sessions that need staff" sub={needing.length ? "Assign the missing roles" : "Every upcoming session is staffed"} icon={<CalendarClock className="h-4 w-4" />}>
               <LinkRows
                 empty="Nothing to do here."

@@ -167,7 +167,7 @@ function Control({ f, value, onChange, invalid }: { f: FieldDef; value: unknown;
 /** A two-column grid of labelled controls with inline errors. */
 export function FormFields({ fields, values, onChange, errors = {} }: { fields: FieldDef[]; values: FormValues; onChange: (key: string, v: unknown) => void; errors?: Record<string, string> }) {
   return (
-    <div className="grid gap-x-5 gap-y-4 sm:grid-cols-2">
+    <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2">
       {fields
         .filter((f) => !f.show || f.show(values))
         .map((f) => {

@@ -217,7 +217,7 @@ function OperatorDialog({ account, onClose }: { account: OperatorAccount | null;
 
   return (
     <Dialog open onClose={onClose} title={account ? `Edit ${account.name}` : "Add operator"} wide>
-      <form onSubmit={save} className="grid gap-4 sm:grid-cols-2">
+      <form onSubmit={save} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className="block sm:col-span-2">
           <span className="mb-1.5 block text-[13px] font-medium text-ink-sec">Full name *</span>
           <input value={name} onChange={(e) => setName(e.target.value)} className="field h-11 w-full rounded-xl px-3.5 text-sm" required />

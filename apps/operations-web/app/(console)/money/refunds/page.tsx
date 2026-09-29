@@ -155,7 +155,7 @@ export default function RefundsPage() {
         </p>
       )}
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricTile label="Awaiting approval" value={inr(total("approval"))} detail={`${count("approval")} request${count("approval") === 1 ? "" : "s"}`} icon={<RotateCcw className="h-4 w-4" />} tone="amber" onClick={() => setFilter("approval")} />
         <MetricTile label="Approved, to pay out" value={inr(total("payout"))} detail={`${count("payout")} refund${count("payout") === 1 ? "" : "s"}`} icon={<HandCoins className="h-4 w-4" />} tone="sky" onClick={() => setFilter("payout")} />
         <MetricTile label="Paid out" value={inr(total("paid"))} detail={`${count("paid")} refunds`} icon={<CircleCheck className="h-4 w-4" />} tone="emerald" onClick={() => setFilter("paid")} />

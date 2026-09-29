@@ -287,12 +287,12 @@ export const SEED_VENUES: Venue[] = [
 ];
 
 export const SEED_PLAYING_AREAS: PlayingArea[] = [
-  { id: "pa-1", venueId: "v-1", name: "Court 1", activityCompatibility: ["cat-badminton"], maxCapacity: 4, staffCapacity: 1, spectatorCapacity: 10, equipment: ["Posts", "Nets"], operatingHours: "06:00 - 23:30", status: "active", restrictions: "Non-marking shoes mandatory" },
-  { id: "pa-2", venueId: "v-1", name: "Court 2", activityCompatibility: ["cat-badminton"], maxCapacity: 4, staffCapacity: 1, spectatorCapacity: 10, equipment: ["Posts", "Nets"], operatingHours: "06:00 - 23:30", status: "active", restrictions: "Non-marking shoes mandatory" },
-  { id: "pa-3", venueId: "v-2", name: "Hall A Table 1", activityCompatibility: ["cat-tt"], maxCapacity: 4, staffCapacity: 1, spectatorCapacity: 5, equipment: ["Stiga Table"], operatingHours: "07:00 - 23:00", status: "active", restrictions: "No food near table" },
+  { id: "pa-1", venueId: "v-1", name: "Court 1", activityCompatibility: ["cat-badminton"], maxCapacity: 16, staffCapacity: 1, spectatorCapacity: 10, equipment: ["Posts", "Nets"], operatingHours: "06:00 - 23:30", status: "active", restrictions: "Non-marking shoes mandatory" },
+  { id: "pa-2", venueId: "v-1", name: "Court 2", activityCompatibility: ["cat-badminton"], maxCapacity: 12, staffCapacity: 1, spectatorCapacity: 10, equipment: ["Posts", "Nets"], operatingHours: "06:00 - 23:30", status: "active", restrictions: "Non-marking shoes mandatory" },
+  { id: "pa-3", venueId: "v-2", name: "Hall A Table 1", activityCompatibility: ["cat-tt"], maxCapacity: 8, staffCapacity: 1, spectatorCapacity: 5, equipment: ["Stiga Table"], operatingHours: "07:00 - 23:00", status: "active", restrictions: "No food near table" },
   { id: "pa-4", venueId: "v-3", name: "Pitch 1", activityCompatibility: ["cat-cricket"], maxCapacity: 16, staffCapacity: 2, spectatorCapacity: 40, equipment: ["Turf Nets", "Wickets"], operatingHours: "05:00 - 01:00", status: "active", restrictions: "Molded studs allowed only" },
   { id: "pa-5", venueId: "v-4", name: "Court A", activityCompatibility: ["cat-cricket"], maxCapacity: 14, staffCapacity: 2, spectatorCapacity: 20, equipment: ["Nets"], operatingHours: "06:00 - 00:00", status: "active", restrictions: "Sports sneakers only" },
-  { id: "pa-6", venueId: "v-5", name: "Main Hall Table 1", activityCompatibility: ["cat-board"], maxCapacity: 8, staffCapacity: 1, spectatorCapacity: 5, equipment: ["Table and Chairs"], operatingHours: "08:00 - 22:00", status: "active", restrictions: "None" },
+  { id: "pa-6", venueId: "v-5", name: "Main Hall Table 1", activityCompatibility: ["cat-board"], maxCapacity: 10, staffCapacity: 1, spectatorCapacity: 5, equipment: ["Table and Chairs"], operatingHours: "08:00 - 22:00", status: "active", restrictions: "None" },
   { id: "pa-7", venueId: "v-6", name: "Turf 1", activityCompatibility: ["cat-cricket", "cat-badminton"], maxCapacity: 16, staffCapacity: 2, spectatorCapacity: 30, equipment: ["Indoor netting"], operatingHours: "06:00 - 02:00", status: "active", restrictions: "Sports sneakers only" }
 ];
 
@@ -959,7 +959,7 @@ const S = (s: SessionSeed): ScheduledSession => ({
 export const SEED_SESSIONS: ScheduledSession[] = [
   S({
     id: "s-1", templateId: "et-1", categoryId: "cat-cricket", territoryId: "hvd-central", cityId: "c-hyd", venueId: "v-3", playingAreaId: "pa-4",
-    status: "live", date: "Today", startTime: "19:00", max: 12, min: 8, base: 499, lead: "c-1", safety: "c-9",
+    status: "check-in-open", date: "Today", startTime: "19:00", max: 12, min: 8, base: 499, lead: "c-1", safety: "c-9",
     opts: { bookingOpensAt: "5 Days ago", bookingClosesAt: "Today, 17:00", revealAt: "Today, 18:00", checkInOpensAt: "Today, 18:45", refereeId: "c-10", weatherRisk: "low", equipmentChecklist: ["2 Bats", "6 Tennis balls", "Stumps set"] }
   }),
   S({
@@ -2424,7 +2424,7 @@ export const SEED_LIVE_SESSION_STATES: LiveSessionState[] = [
     accumulatedActiveSeconds: 0,
     emergencyMode: false,
     currentStage: "Pre-session Handover",
-    operationalOwnerId: "op-master",
+    operationalOwnerId: "c-1",
     updatedAt: new Date().toISOString(),
   },
   {
@@ -2434,7 +2434,7 @@ export const SEED_LIVE_SESSION_STATES: LiveSessionState[] = [
     accumulatedActiveSeconds: 0,
     emergencyMode: false,
     currentStage: "Pre-session Handover",
-    operationalOwnerId: "op-master",
+    operationalOwnerId: "c-1",
     updatedAt: new Date().toISOString(),
   },
 ];

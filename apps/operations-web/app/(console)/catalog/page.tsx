@@ -49,14 +49,14 @@ export default function CatalogPage() {
         />
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <MetricTile label="Categories" value={health.categoryCount} detail={`${state.categories.filter((c) => (c.status ?? "active") === "active").length} active`} icon={<Shapes className="h-4 w-4" />} />
             <MetricTile label="Active experiences" value={health.activeCount} detail={`${health.experienceCount} in total`} icon={<Sparkles className="h-4 w-4" />} tone="emerald" />
             <MetricTile label="Drafts" value={health.draftCount} detail="not yet schedulable" icon={<FileClock className="h-4 w-4" />} tone="sky" />
             <MetricTile label="Blocked" value={health.blockedCount} detail="fail a readiness check" icon={<TriangleAlert className="h-4 w-4" />} tone="amber" />
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
             <Panel
               title="Experiences"
               sub="Most recently changed"
@@ -97,7 +97,7 @@ export default function CatalogPage() {
             </Panel>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             {[
               { href: "/catalog/categories", title: "Categories", line: "Activity types and their defaults.", icon: Shapes },
               { href: "/catalog/experiences", title: "Experiences", line: "Plans that sessions are scheduled from.", icon: Sparkles },

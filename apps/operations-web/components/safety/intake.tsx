@@ -86,7 +86,7 @@ export function ReportIncidentDialog({
         })
       }
     >
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="What kind of incident">
           <Select value={category} onChange={(e) => setCategory(e.target.value as IncidentCategory)}>
             {INCIDENT_CATEGORIES.map((c) => (
@@ -241,7 +241,7 @@ export function LogDisputeDialog({
       success="Dispute logged for review"
       onSubmit={submit}
     >
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Dispute type">
           <Select value={type} onChange={(e) => setType(e.target.value as DisputeType)}>
             {DISPUTE_TYPES.map((t) => (

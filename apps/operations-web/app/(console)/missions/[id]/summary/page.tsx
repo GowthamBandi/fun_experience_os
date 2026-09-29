@@ -110,7 +110,7 @@ function ReportBody() {
         <Figure label="Net collected" value={inr(money.netTake)} detail={`${inr(money.refundsTotal)} refunded`} />
       </div>
 
-      <div className="grid gap-x-8 gap-y-6 px-6 py-6 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-x-8 gap-y-6 px-6 py-6 md:grid-cols-2">
         <Section title="Attendance">
           <Rows
             rows={[

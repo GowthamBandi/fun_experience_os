@@ -92,7 +92,7 @@ export default function VenueDetailPage() {
         <Figure label="Open incidents" value={m.incidentCount} tone={m.incidentCount ? "warn" : undefined} />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Panel title="Playing areas" sub={plural(detail.playingAreas.length, "area")} icon={<LayoutGrid className="h-4 w-4" />}>
           <LinkRows
             empty="No playing areas yet."
@@ -104,7 +104,7 @@ export default function VenueDetailPage() {
         </Panel>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Panel title="Venue details">
           <DetailList
             rows={[
@@ -143,7 +143,7 @@ export default function VenueDetailPage() {
         </Panel>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Panel title="Staff based here" icon={<Users className="h-4 w-4" />}>
           <LinkRows empty="No staff are based at this venue." rows={detail.crew.map((c) => ({ href: `/people/staff/${c.id}`, title: c.name, meta: `${formatStaffRole(c.role)} · ${c.assignment}`, right: <StatusChip value={c.status} /> }))} />
         </Panel>

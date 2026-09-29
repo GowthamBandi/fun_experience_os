@@ -210,7 +210,7 @@ function RecordReviewDrawer({ record, config, onClose }: { record: LiveGovernanc
             <h3 className="text-sm font-semibold text-ink-lum">Details</h3>
             <dl className="mt-3 divide-y divide-slate-100 rounded-xl border border-edge">
               {fields.map(([key, value]) => (
-                <div key={key} className="grid grid-cols-[10rem_1fr] gap-3 px-4 py-2.5 text-sm">
+                <div key={key} className="grid grid-cols-[10rem_minmax(0,1fr)] gap-3 px-4 py-2.5 text-sm">
                   <dt className="text-ink-mut">{labelOf(key)}</dt>
                   <dd className="break-words font-medium text-ink-lum">{valueOf(key, value)}</dd>
                 </div>
@@ -380,7 +380,7 @@ function IntakeDialog({ open, kind, title, onClose }: { open: boolean; kind: Int
   return (
     <Dialog open={open} onClose={onClose} title={title} wide>
       <form onSubmit={submit} className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {fields.map((f) => (
             <label key={f.key as string} className={cn("block", (f.key === "summary" || f.key === "name") && "sm:col-span-2")}>
               <span className="mb-1.5 block text-[13px] font-medium text-ink-sec">

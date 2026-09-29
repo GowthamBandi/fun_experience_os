@@ -124,7 +124,7 @@ function TeamsBody() {
           }
         />
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {teams.map((t) => (
             <section key={t.team.id} className="rounded-panel border border-edge bg-white shadow-panel">
               <header className="border-b border-edge px-5 py-4">
@@ -287,7 +287,7 @@ function TeamsBody() {
       >
         <fieldset>
           <legend className="mb-2 text-[13px] font-medium text-ink-sec">Move to</legend>
-          <div className="grid gap-2">
+          <div className="grid grid-cols-1 gap-2">
             {teams
               .filter((t) => t.team.id !== move?.currentTeamId)
               .map((t) => (

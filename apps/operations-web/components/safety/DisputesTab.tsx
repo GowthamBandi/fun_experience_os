@@ -335,7 +335,7 @@ function DecisionDialog({ open, onClose, disputeId }: { open: boolean; onClose: 
     >
       <fieldset>
         <legend className="mb-2 text-[13px] font-medium text-ink-sec">Outcome</legend>
-        <div className="grid gap-2 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           {OUTCOMES.map((o) => (
             <label
               key={o.id}

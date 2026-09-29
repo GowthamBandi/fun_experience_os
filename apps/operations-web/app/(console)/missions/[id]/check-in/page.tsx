@@ -204,7 +204,7 @@ function CheckInBody() {
         <MetricTile label="No-show or denied" value={summary.noShowCount + summary.deniedCount} detail={`${summary.deniedCount} denied entry`} icon={<UserX className="h-4 w-4" />} tone="rose" />
       </div>
 
-      <div className="grid items-start gap-6 xl:grid-cols-2">
+      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-2">
         <WorkspaceCard title="Staff on site" sub="The lead coordinator and safety contact check in here too.">
           <ul className="divide-y divide-edge">
             {[

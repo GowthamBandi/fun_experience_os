@@ -66,7 +66,7 @@ export default function CategoryDetailPage() {
         <Figure label="Risk" value={<span className="capitalize">{category.riskLevel}</span>} />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Panel title="Experiences" sub="Built on this category" icon={<Sparkles className="h-4 w-4" />}>
           <LinkRows
             empty="No experiences in this category yet."

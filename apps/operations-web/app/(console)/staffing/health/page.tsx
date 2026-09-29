@@ -28,13 +28,13 @@ export default function StaffHealthPage() {
       <PageHeader overline={`Staffing · ${scope.label}`} title="Staffing health" sub="Gaps and risks in upcoming staffing, with a link to fix each one." />
       <StaffingNav />
       <Notice tone={health.status === "ready" || health.status === "empty" ? "ok" : health.status === "blocked" ? "danger" : "warn"} title={health.label} />
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricTile label="No lead coordinator" value={noLead.length} icon={<CalendarX2 className="h-4 w-4" />} tone={noLead.length ? "rose" : "emerald"} detail="sessions blocked from opening" />
         <MetricTile label="No safety contact" value={noSafety.length} icon={<ShieldAlert className="h-4 w-4" />} tone={noSafety.length ? "amber" : "emerald"} detail="where the experience requires one" />
         <MetricTile label="Overlapping" value={overlaps.length} icon={<Users className="h-4 w-4" />} tone={overlaps.length ? "rose" : "emerald"} detail="people on two sessions at once" />
         <MetricTile label="Safety officers" value={health.safetyStaffCount} icon={<ShieldCheck className="h-4 w-4" />} tone="sky" detail={`${health.leadCoordinatorCount} coordinators on the list`} />
       </div>
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Panel title="Sessions without a lead coordinator" icon={<CalendarX2 className="h-4 w-4" />}>
           <LinkRows empty="Every upcoming session has a lead coordinator." rows={noLead.map(sessionRow)} />
         </Panel>

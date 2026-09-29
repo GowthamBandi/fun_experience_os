@@ -26,7 +26,7 @@ export default function LoginPage() {
   }, [router, session.state]);
 
   return (
-    <main className="grid min-h-screen lg:grid-cols-[minmax(0,1fr)_minmax(0,560px)]">
+    <main className="grid grid-cols-1 min-h-screen lg:grid-cols-[minmax(0,1fr)_minmax(0,560px)]">
       <BrandPanel />
       <section className="flex items-center justify-center p-6 sm:p-10">
         <div className="w-full max-w-md">

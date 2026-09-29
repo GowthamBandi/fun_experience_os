@@ -85,7 +85,7 @@ function CompletionBody() {
           }
         />
       ) : (
-        <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
           <WorkspaceCard
             title="Before you finish"
             sub={checklist.isReadyToComplete ? (open.length ? "Nothing blocks completion; review the warnings." : "Every check has passed.") : `${blockers.length} item(s) block completion.`}

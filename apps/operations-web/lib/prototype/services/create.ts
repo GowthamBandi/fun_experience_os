@@ -21,7 +21,6 @@ export type PlayingAreaInput = Omit<PlayingArea, "id"> & { id?: string };
 export type CategoryInput = Omit<ActivityCategory, "id"> & { id?: string };
 export type TemplateInput = Omit<ExperienceTemplate, "id"> & { id?: string };
 export type SessionInput = Omit<ScheduledSession, "id"> & { id?: string };
-export type BookingInput = Omit<Booking, "id"> & { id?: string };
 
 const has = (v: unknown): boolean => typeof v === "string" && v.trim().length > 0;
 const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
@@ -189,31 +188,65 @@ export function createTemplate(state: PrototypeState, input: TemplateInput, oper
   );
 }
 
-export function createSession(state: PrototypeState, input: SessionInput, operatorId?: string): PrototypeState {
-  const id = input.id ?? nextId("s", state.sessions.map((x) => x.id));
-  const session: ScheduledSession = { ...input, id };
-  return pushAudit(
-    { ...state, sessions: [...state.sessions, session] },
-    { action: "Session Created", description: `Session ${id} scheduled (${session.date}, ${session.startTime}).`, sessionId: id, operatorId }
-  );
+const CLOSED_SESSION = new Set(["cancelled", "completed", "archived"]);
+
+function minutesOf(hhmm: string): number | null {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm.trim());
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  return h < 24 && min < 60 ? h * 60 + min : null;
 }
 
-export function createBooking(state: PrototypeState, input: BookingInput, operatorId?: string): PrototypeState {
-  const id = input.id ?? nextId("b", state.bookings.map((b) => b.id));
-  const booking: Booking = { ...input, id, createdAt: input.createdAt ?? nowLabel() };
-  const next = { ...state, bookings: [...state.bookings, booking] };
-  if (booking.status === "payment-confirmed") {
-    return pushAudit(next, {
-      action: "Booking Created",
-      description: `Booking ${id} (${booking.alias}) confirmed on session ${booking.sessionId}.`,
-      sessionId: booking.sessionId,
-      operatorId
-    });
+/** Operator-readable validation for scheduling a session. Mirrors the checks on the Schedule page. */
+export function validateSessionInput(state: PrototypeState, input: SessionInput): string | undefined {
+  if (input.id && state.sessions.some((x) => x.id === input.id)) return `A session with the id ${input.id} already exists.`;
+  const template = state.templates.find((t) => t.id === input.templateId);
+  if (!template) return "Choose the experience to schedule.";
+  if (template.status !== "active") return `“${template.name}” is not active. Activate it in Catalog before scheduling.`;
+  if (input.categoryId !== template.categoryId) return "The session's category does not match the experience.";
+  const venue = state.venues.find((v) => v.id === input.venueId);
+  if (!venue) return "Choose a venue.";
+  if (venue.status !== "ready") return `${venue.name} is ${venue.status} and cannot take new sessions.`;
+  if (venue.territoryId !== input.territoryId) return "The venue is not in this session's territory.";
+  const area = state.playingAreas.find((p) => p.id === input.playingAreaId);
+  if (!area || area.venueId !== venue.id) return "Choose a playing area inside the selected venue.";
+  if (area.status !== "active") return `${area.name} is ${area.status} and cannot be booked.`;
+  if (!has(input.date)) return "Choose the session date.";
+  const start = minutesOf(input.startTime ?? "");
+  if (start === null) return "Enter a start time as HH:MM (24-hour).";
+  if (!Number.isFinite(input.duration) || input.duration < 15 || input.duration > 12 * 60) return "Duration must be between 15 minutes and 12 hours.";
+  if (!Number.isInteger(input.maxParticipants) || input.maxParticipants < 1) return "Capacity must be at least 1 participant.";
+  if (input.maxParticipants > area.maxCapacity) return `${area.name} holds at most ${area.maxCapacity} participants.`;
+  if (input.minParticipants < 0 || input.minParticipants > input.maxParticipants) return "The minimum cannot be more than the capacity.";
+  if (input.targetParticipants < input.minParticipants || input.targetParticipants > input.maxParticipants) return "The target must sit between the minimum and the capacity.";
+  if ((input.blockedSlots ?? 0) + (input.compSlots ?? 0) > input.maxParticipants) return "Blocked and free-pass seats cannot exceed the capacity.";
+  if (!Number.isFinite(input.finalPrice) || input.finalPrice < 0) return "Enter a price of ₹0 or more.";
+  const crewIds = new Set(state.crew.map((c) => c.id));
+  for (const [label, id] of [["lead coordinator", input.leadCoordinatorId], ["safety contact", input.safetyContactId]] as const) {
+    if (has(id) && !crewIds.has(id as string)) return `The ${label} is not on the staff list.`;
   }
-  return pushAudit(next, {
-    action: "Booking Created",
-    description: `Booking ${id} (${booking.alias}) created on session ${booking.sessionId} (${booking.status}).`,
-    sessionId: booking.sessionId,
-    operatorId
+  if (has(input.leadCoordinatorId) && input.leadCoordinatorId === input.safetyContactId) return "The lead coordinator and safety contact must be different people.";
+  const end = start + input.duration;
+  const clash = state.sessions.find((x) => {
+    if (x.playingAreaId !== input.playingAreaId || x.date !== input.date || CLOSED_SESSION.has(x.status)) return false;
+    const xs = minutesOf(x.startTime);
+    return xs !== null && xs < end && start < xs + x.duration;
   });
+  if (clash) return `${area.name} is already booked at that time (session ${clash.id} at ${clash.startTime}).`;
+  return undefined;
+}
+
+export function createSession(state: PrototypeState, input: SessionInput, operatorId?: string): { state: PrototypeState; error?: string; id?: string } {
+  const error = validateSessionInput(state, input);
+  if (error) return { state, error };
+  const id = input.id ?? nextId("s", state.sessions.map((x) => x.id));
+  const session: ScheduledSession = { ...input, id };
+  return {
+    id,
+    state: pushAudit(
+      { ...state, sessions: [...state.sessions, session] },
+      { action: "Session Created", description: `Session ${id} scheduled (${session.date}, ${session.startTime}).`, sessionId: id, operatorId }
+    ),
+  };
 }

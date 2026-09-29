@@ -9,7 +9,7 @@ export function StaffHelpPanel() {
     { icon: Ticket, title: "Participants", tone: "bg-emerald-50 text-emerald-600", lines: ["Customers who booked a session", "Shown by temporary identity until reveal", "Checked in by staff on arrival"] },
   ];
   return (
-    <section className="grid gap-4 rounded-panel border border-edge bg-white p-5 shadow-panel md:grid-cols-2">
+    <section className="grid grid-cols-1 gap-4 rounded-panel border border-edge bg-white p-5 shadow-panel md:grid-cols-2">
       {cols.map((c) => (
         <div key={c.title} className="flex gap-3">
           <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${c.tone}`}>

@@ -679,7 +679,7 @@ function EvidenceDialog({ open, onClose, incidentId }: { open: boolean; onClose:
       <p className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs leading-5 text-sky-800">
         File upload is not connected. Keep the original file or paper record in your evidence store and note its location below.
       </p>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Type">
           <Select value={type} onChange={(e) => setType(e.target.value as EvidenceType)}>
             {EVIDENCE_TYPES.map(([v, l]) => (
@@ -705,7 +705,7 @@ function EvidenceDialog({ open, onClose, incidentId }: { open: boolean; onClose:
       <Field label="Where the original is kept (optional)">
         <Input value={where} onChange={(e) => setWhere(e.target.value)} placeholder="File name, shared-drive link or physical location" />
       </Field>
-      <div className="grid gap-4 sm:grid-cols-[1fr_180px]">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_180px]">
         <label className="block">
           <span className="mb-1.5 block text-[13px] font-medium text-ink-sec">Description (optional)</span>
           <TextArea value={description} onChange={(e) => setDescription(e.target.value)} className="min-h-[72px]" />
@@ -812,7 +812,7 @@ function RefundExceptionDialog({ open, onClose, incidentId, sessionId }: { open:
         Finance reviews every exception. Nothing is refunded until they approve it; payouts are then recorded manually because the payment provider is not
         connected.
       </p>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Booking to refund">
           <Select
             value={bookingId}
@@ -907,7 +907,7 @@ export function OpenCaseDialog({
         })
       }
     >
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Field label="Participant (temporary ID)">
           {participants.length ? (
             <Select value={subject} onChange={(e) => setSubject(e.target.value)} required>

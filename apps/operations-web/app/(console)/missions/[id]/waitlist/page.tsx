@@ -80,13 +80,13 @@ export default function SessionWaitlistPage() {
         ) : undefined
       }
     >
-      <section className="grid gap-4 sm:grid-cols-3">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <MetricTile label="Waiting" value={waiting.length} detail="Hold no seat" tone="violet" />
         <MetricTile label="Seat offers open" value={offers.length} detail={`Expire after ${offerMins} minutes`} tone="amber" />
         <MetricTile label="Free seats" value={ledger.remainingSellableCapacity} detail={ledger.remainingSellableCapacity ? "Can be offered now" : "Session is full"} tone={ledger.remainingSellableCapacity ? "emerald" : "rose"} />
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <Section title="Queue" sub="In order of joining">
           {queue.length === 0 ? (
             <p className="py-6 text-center text-sm text-ink-mut">Nobody is waiting for this session.</p>

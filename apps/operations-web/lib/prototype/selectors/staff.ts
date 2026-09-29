@@ -383,9 +383,9 @@ export function selectStaffHealth(state: PrototypeState, territoryId?: string): 
 export function selectStaffNextAction(state: PrototypeState, territoryId?: string): { label: string; href: string; actionKey: string; detail: string } {
   const health = selectStaffHealth(state, territoryId);
   if (health.totalStaff === 0) return { actionKey: "add-staff", label: "Add your first staff member", href: "/people/staff/new", detail: "Staff must be on the list before they can be assigned to sessions." };
-  if (health.eventsMissingCoordinatorCount > 0) return { actionKey: "assign-coordinator", label: "Assign lead coordinators", href: "/staffing/assign", detail: health.label };
-  if (health.eventsMissingSafetyCount > 0) return { actionKey: "assign-safety", label: "Assign safety contacts", href: "/staffing/assign", detail: health.label };
-  if (health.doubleAssignedCount > 0) return { actionKey: "fix-overlaps", label: "Fix overlapping assignments", href: "/staffing/availability", detail: health.label };
+  if (health.eventsMissingCoordinatorCount > 0) return { actionKey: "assign-coordinator", label: "Assign lead coordinators", href: "/staffing/assign", detail: "A session cannot open for check-in until it has a lead coordinator." };
+  if (health.eventsMissingSafetyCount > 0) return { actionKey: "assign-safety", label: "Assign safety contacts", href: "/staffing/assign", detail: "These sessions' experiences require a named safety contact." };
+  if (health.doubleAssignedCount > 0) return { actionKey: "fix-overlaps", label: "Review overlapping assignments", href: "/staffing/health", detail: "One person cannot run two sessions at the same time." };
   if (health.assignedCount > 0) return { actionKey: "check-in-staff", label: "Check in arriving staff", href: "/staffing/check-in", detail: `${health.assignedCount} assigned, ${health.checkedInCount} checked in.` };
   return { actionKey: "add-staff", label: "Add a staff member", href: "/people/staff/new", detail: "Every upcoming session is staffed." };
 }

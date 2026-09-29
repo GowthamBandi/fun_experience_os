@@ -64,7 +64,7 @@ export default function CityDetailPage() {
         <Figure label="Open incidents" value={m.incidentCount} tone={m.incidentCount ? "warn" : undefined} />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Panel title="Venues" sub={plural(detail.venues.length, "venue")} icon={<Building2 className="h-4 w-4" />}>
           {detail.venues.length === 0 ? (
             <div className="py-6 text-center">

@@ -146,7 +146,7 @@ function ResultForm({ draft, setDraft, teams, disabled }: { draft: Draft; setDra
       </div>
 
       {(draft.type === "score" || draft.type === "draw") && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {teams.map((t) => (
             <Field key={t.id} label={t.name}>
               <Input

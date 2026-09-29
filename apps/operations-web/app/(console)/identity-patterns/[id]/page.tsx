@@ -51,7 +51,7 @@ export default function IdentityPatternDetailPage() {
         }
       />
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <WorkspaceCard title="Format">
           <dl className="grid grid-cols-2 gap-4 text-sm">
             <Item label="Prefix" value={<span className="font-mono">{pattern.prefix}</span>} />

@@ -90,7 +90,7 @@ function OverviewBody() {
         <MetricTile label="Starts" value={session.startTime} detail={`${session.date} · ${session.duration} min`} icon={<CalendarClock className="h-4 w-4" />} tone="sky" />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
         <WorkspaceCard title="Preparation" sub="Everything that must be true before the doors open.">
           <ul className="divide-y divide-edge">
             <CheckRow passed={joined >= session.minParticipants} warning={joined > 0} label="Minimum bookings reached" detail={`${joined} booked, ${session.minParticipants} needed.`} />

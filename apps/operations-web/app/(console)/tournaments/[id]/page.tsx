@@ -153,7 +153,7 @@ export default function TournamentDetailPage() {
           </div>
         )}
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <MetricTile
             label="Teams"
             value={t.teamIds.length}
@@ -337,7 +337,7 @@ export default function TournamentDetailPage() {
           {tab === "teams" && <TeamsPanel tournament={t} entrants={t.entrants} />}
 
           {tab === "safety" && (
-            <div className="grid gap-5 p-4 md:p-5 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-5 p-4 md:p-5 lg:grid-cols-2">
               <section>
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <h3 className="text-sm font-semibold text-ink-lum">Incidents ({incidents.length})</h3>
@@ -402,7 +402,7 @@ export default function TournamentDetailPage() {
           )}
         </div>
 
-        <div className="grid gap-4 text-sm text-ink-sec md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 text-sm text-ink-sec md:grid-cols-3">
           <p className="flex items-center gap-2">
             <MapPin className="h-4 w-4 text-ink-mut" /> {t.venueName}
           </p>

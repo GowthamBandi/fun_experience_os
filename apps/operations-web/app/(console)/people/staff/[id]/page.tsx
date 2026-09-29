@@ -54,7 +54,7 @@ export default function StaffMemberPage() {
         <Figure label="Territory" value={<span className="text-base">{member.territoryName}</span>} />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Panel title="Upcoming sessions" icon={<CalendarClock className="h-4 w-4" />}>
           <LinkRows empty="Not assigned to any upcoming session." rows={member.sessions.map((s) => ({ href: canAccess("/staffing") ? `/staffing/assign?sessionId=${s.sessionId}` : "/people/staff", title: `${s.title} · ${s.date} ${s.startTime}`, meta: s.slotLabels.join(", "), right: <StatusChip value={s.status} /> }))} />
         </Panel>
