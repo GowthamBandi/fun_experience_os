@@ -2,7 +2,7 @@
   "name": "operations-web",
   "version": "0.1.0",
   "private": true,
-  "description": "Experience OS — Operations Command Center (frontend-only prototype)",
+  "description": "Experience OS — Super Admin console (marketplace governance and operations)",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -10,7 +10,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "verify": "npm run typecheck && npm run build"
+    "verify": "npm run typecheck && npm run lint && npm run test && npm run build",
+    "test": "vitest run"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",
