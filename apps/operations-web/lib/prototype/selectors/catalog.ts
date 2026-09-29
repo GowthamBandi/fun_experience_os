@@ -45,6 +45,19 @@ const CAPABILITY_FIELDS: Record<string, (v: Venue) => boolean> = {
   outdoor: (v) => !v.isIndoor
 };
 
+const GENERIC = new Set(["box", "set", "kit", "and", "the", "of"]);
+const stem = (w: string) => w.toLowerCase().replace(/[^a-z0-9]/g, "").replace(/(es|s)$/, "");
+
+/** A venue has a required item when every significant word of it appears in one of the venue's items ("Net" ↔ "Netting"). */
+export function hasEquipment(v: Venue, required: string): boolean {
+  const words = required.split(/\s+/).map(stem).filter((w) => w.length > 1 && !GENERIC.has(w));
+  if (!words.length) return true;
+  return v.equipmentAvailable.some((item) => {
+    const hay = item.toLowerCase();
+    return words.every((w) => hay.includes(w));
+  });
+}
+
 export function categoryVenueCompatReasons(cat: ActivityCategory, v: Venue): string[] {
   const reasons: string[] = [];
   if (v.supportedActivities.length && !v.supportedActivities.includes(cat.id))
@@ -63,7 +76,7 @@ export function categoryVenueCompatReasons(cat: ActivityCategory, v: Venue): str
       if (check && !check(v)) reasons.push(`Capability missing: ${cap}`);
     }
     for (const eq of vc.requiredEquipment ?? []) {
-      if (!v.equipmentAvailable.includes(eq)) reasons.push(`Equipment missing: ${eq}`);
+      if (!hasEquipment(v, eq)) reasons.push(`Equipment missing: ${eq}`);
     }
   }
   return reasons;
@@ -84,7 +97,7 @@ export function templateVenueCompatReasons(state: PrototypeState, t: ExperienceT
     if (vc.spectatorNeeds && v.spectatorAllowance < vc.spectatorNeeds)
       reasons.push(`Spectator allowance ${v.spectatorAllowance} below required ${vc.spectatorNeeds}`);
     for (const eq of vc.requiredEquipment ?? []) {
-      if (!v.equipmentAvailable.includes(eq)) reasons.push(`Equipment missing: ${eq}`);
+      if (!hasEquipment(v, eq)) reasons.push(`Equipment missing: ${eq}`);
     }
   }
   return reasons;
@@ -664,8 +677,8 @@ export function selectExperienceReadiness(t: ExperienceTemplate, state: Prototyp
       id: "location",
       label: "Where it can run",
       category: "location",
-      status: "needs-attention",
-      missingText: "No venue with an active playing area meets this experience's requirements yet.",
+      status: "blocked",
+      missingText: "No venue meets this experience's requirements yet, so it cannot be scheduled anywhere.",
       actionLabel: "Review playing areas",
       actionHref: "/locations/playing-areas"
     });
@@ -686,6 +699,21 @@ export function selectExperienceReadiness(t: ExperienceTemplate, state: Prototyp
     category: "results",
     status: "complete"
   });
+
+  // Every blocking rule used for activation (templateReadiness) also appears here,
+  // so the checklist and the activate button always agree.
+  const strict = templateReadiness(state, t).issues.filter((i) => i.level === "error" && !["name", "category", "capacity", "venue"].includes(i.field));
+  const catOf: Record<string, CatalogReadinessItem["category"]> = { age: "basics", team: "group", timing: "time", pricing: "price", staffing: "staff" };
+  for (const issue of strict) {
+    items.push({
+      id: `rule-${issue.field}-${items.length}`,
+      label: issue.message,
+      category: catOf[issue.field] ?? "basics",
+      status: "blocked",
+      actionLabel: "Fix",
+      actionHref: `/catalog/experiences/${t.id}?edit=1`
+    });
+  }
 
   const hasBlocked = items.some((i) => i.status === "blocked");
   const hasWarn = items.some((i) => i.status === "needs-attention");

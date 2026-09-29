@@ -50,7 +50,10 @@ export function ReportIncidentDialog({
 
   const tournament = tournamentId ? state.tournaments.find((t) => t.id === tournamentId) : undefined;
   const sessions = useMemo(
-    () => state.sessions.filter((s) => !defaultTerritoryId || s.territoryId === defaultTerritoryId).filter((s) => !["cancelled", "archived"].includes(s.status as string)),
+    () =>
+      state.sessions
+        .filter((s) => !defaultTerritoryId || s.territoryId === defaultTerritoryId)
+        .filter((s) => !["cancelled", "archived"].includes(s.status as string)),
     [state.sessions, defaultTerritoryId],
   );
   const matches = tournament ? state.tournamentMatches.filter((m) => m.tournamentId === tournament.id && !m.isBye) : [];
@@ -75,7 +78,10 @@ export function ReportIncidentDialog({
           sessionId: tournament ? undefined : sessionId || undefined,
           tournamentId: tournament?.id,
           matchId: matchId || undefined,
-          participantTemporaryIds: participants.split(/[,\s]+/).map((p) => p.trim().toUpperCase()).filter(Boolean),
+          participantTemporaryIds: participants
+            .split(/[,\s]+/)
+            .map((p) => p.trim().toUpperCase())
+            .filter(Boolean),
           occurredAt: occurredAt ? new Date(occurredAt).toISOString() : undefined,
         })
       }
@@ -84,14 +90,18 @@ export function ReportIncidentDialog({
         <Field label="What kind of incident">
           <Select value={category} onChange={(e) => setCategory(e.target.value as IncidentCategory)}>
             {INCIDENT_CATEGORIES.map((c) => (
-              <option key={c} value={c}>{label(c)}</option>
+              <option key={c} value={c}>
+                {label(c)}
+              </option>
             ))}
           </Select>
         </Field>
         <Field label="Severity" hint={severity === "critical" ? "Critical: acknowledge within 15 minutes." : undefined}>
           <Select value={severity} onChange={(e) => setSeverity(e.target.value as IncidentSeverity)}>
             {INCIDENT_SEVERITIES.map((s) => (
-              <option key={s} value={s}>{label(s)}</option>
+              <option key={s} value={s}>
+                {label(s)}
+              </option>
             ))}
           </Select>
         </Field>
@@ -130,18 +140,34 @@ export function ReportIncidentDialog({
         <TextArea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Describe what happened, where, and who was affected." required />
       </label>
       <label className="block">
-        <span className="mb-1.5 block text-[13px] font-medium text-ink-sec">Immediate action taken {severity === "high" || severity === "critical" ? "(required)" : "(optional)"}</span>
+        <span className="mb-1.5 block text-[13px] font-medium text-ink-sec">
+          Immediate action taken {severity === "high" || severity === "critical" ? "(required)" : "(optional)"}
+        </span>
         <Input value={action} onChange={(e) => setAction(e.target.value)} placeholder="e.g. Play paused, first aid given" />
       </label>
       <label className="flex items-center gap-2 text-sm text-ink-sec">
-        <input type="checkbox" checked={medical} onChange={(e) => setMedical(e.target.checked)} className="h-4 w-4 rounded border-edge-strong accent-[#5b4cf5]" />
+        <input
+          type="checkbox"
+          checked={medical}
+          onChange={(e) => setMedical(e.target.checked)}
+          className="h-4 w-4 rounded border-edge-strong accent-[#5b4cf5]"
+        />
         Medical assistance was given or called
       </label>
     </CommandDialog>
   );
 }
 
-const DISPUTE_TYPES: DisputeType[] = ["match-result", "participant-conduct", "eligibility", "team-allocation", "staff-decision", "booking-refund", "venue-issue", "other"];
+const DISPUTE_TYPES: DisputeType[] = [
+  "match-result",
+  "participant-conduct",
+  "eligibility",
+  "team-allocation",
+  "staff-decision",
+  "booking-refund",
+  "venue-issue",
+  "other",
+];
 
 /** Log a dispute raised by a participant, customer or staff member. */
 export function LogDisputeDialog({
@@ -219,7 +245,9 @@ export function LogDisputeDialog({
         <Field label="Dispute type">
           <Select value={type} onChange={(e) => setType(e.target.value as DisputeType)}>
             {DISPUTE_TYPES.map((t) => (
-              <option key={t} value={t}>{label(t)}</option>
+              <option key={t} value={t}>
+                {label(t)}
+              </option>
             ))}
           </Select>
         </Field>
@@ -231,13 +259,20 @@ export function LogDisputeDialog({
         <Select value={link} onChange={(e) => setLink(e.target.value)} required>
           <option value="">Choose…</option>
           {options.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
           ))}
         </Select>
       </Field>
       <label className="block">
         <span className="mb-1.5 block text-[13px] font-medium text-ink-sec">What is disputed</span>
-        <TextArea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="What does the person say went wrong, and what outcome do they want?" required />
+        <TextArea
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="What does the person say went wrong, and what outcome do they want?"
+          required
+        />
       </label>
     </CommandDialog>
   );

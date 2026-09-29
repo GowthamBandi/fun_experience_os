@@ -30,7 +30,7 @@ export default function ExperiencePreviewPage() {
 
       <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
         <div>
-          <p className="overline mb-3">Session card (mobile)</p>
+          <p className="eyebrow mb-3">Session card (mobile)</p>
           <div className="mx-auto max-w-[340px] overflow-hidden rounded-[28px] border border-edge bg-white shadow-glass">
             <div className="relative h-32 bg-gradient-to-br from-[#5b4cf5] via-[#8b5cf6] to-[#ec4899]">
               <span className="absolute bottom-3 left-4 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-brand-ink">{preview.duration} min · {preview.minParticipants}–{preview.maxParticipants} people</span>

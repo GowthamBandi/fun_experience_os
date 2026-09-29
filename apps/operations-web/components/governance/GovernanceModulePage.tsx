@@ -112,7 +112,7 @@ export function GovernanceModulePage({
         <div className="flex items-start gap-4">
           {icon && <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-500 text-white shadow-brand">{icon}</span>}
           <div>
-            <p className="overline text-brand">{eyebrow}</p>
+            <p className="eyebrow text-brand">{eyebrow}</p>
             <h1 className="mt-1 font-display text-[28px] font-bold tracking-tight text-ink-lum">{title}</h1>
             <p className="mt-1.5 max-w-2xl text-sm leading-6 text-ink-mut">{description}</p>
           </div>

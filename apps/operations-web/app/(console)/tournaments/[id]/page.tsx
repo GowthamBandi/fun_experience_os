@@ -3,51 +3,19 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import {
-  ArrowLeft,
-  CalendarClock,
-  ClipboardCheck,
-  GitFork,
-  ListOrdered,
-  MapPin,
-  Radio,
-  ShieldAlert,
-  Trophy,
-  Users,
-} from "lucide-react";
+import { ArrowLeft, CalendarClock, ClipboardCheck, GitFork, ListOrdered, MapPin, Radio, ShieldAlert, Trophy, Users } from "lucide-react";
 import { useStore } from "@/lib/store";
-import {
-  tournamentDetail,
-  tournamentProgress,
-  tournamentCompletionReadiness,
-  tournamentPlacings,
-  matchTitle,
-} from "@/lib/prototype/selectors/tournament";
+import { tournamentDetail, tournamentProgress, tournamentCompletionReadiness, tournamentPlacings, matchTitle } from "@/lib/prototype/selectors/tournament";
 import { entrantName } from "@/lib/prototype/services/tournament";
 import { operatorName } from "@/lib/prototype/selectors/lookups";
 import { formatAgo, formatWhen } from "@/lib/safety/time";
 import { PageHeader } from "@/components/ui/PageHeader";
-import {
-  EmptyState,
-  MetricTile,
-  PermissionDenied,
-} from "@/components/ui/panels";
+import { EmptyState, MetricTile, PermissionDenied } from "@/components/ui/panels";
 import { Button, StatusChip } from "@/components/ui/primitives";
 import { useCommandFeedback } from "@/components/ui/toast";
 import { cn } from "@/lib/format";
-import {
-  CommandDialog,
-  GatedButton,
-  PermissionNote,
-  SeverityBadge,
-  TabBar,
-  useTournamentGate,
-  useSafetyGate,
-} from "@/components/safety/shared";
-import {
-  ReportIncidentDialog,
-  LogDisputeDialog,
-} from "@/components/safety/intake";
+import { CommandDialog, GatedButton, PermissionNote, SeverityBadge, TabBar, useTournamentGate, useSafetyGate } from "@/components/safety/shared";
+import { ReportIncidentDialog, LogDisputeDialog } from "@/components/safety/intake";
 import { Bracket } from "@/components/tournaments/Bracket";
 import { MatchDrawer } from "@/components/tournaments/MatchDrawer";
 import { TeamsPanel } from "@/components/tournaments/TeamsPanel";
@@ -57,33 +25,20 @@ type Tab = "bracket" | "matches" | "teams" | "safety";
 export default function TournamentDetailPage() {
   const params = useParams();
   const id = String(params.id);
-  const {
-    state,
-    canAccess,
-    hydrated,
-    generateSingleEliminationBracket,
-    publishTournament,
-    completeTournament,
-  } = useStore();
+  const { state, canAccess, hydrated, generateSingleEliminationBracket, publishTournament, completeTournament } = useStore();
   const gate = useTournamentGate();
   const safetyGate = useSafetyGate();
   const feedback = useCommandFeedback();
   const [tab, setTab] = useState<Tab>("bracket");
   const [matchId, setMatchId] = useState<string | null>(null);
-  const [dialog, setDialog] = useState<
-    null | "publish" | "complete" | "regenerate" | "incident" | "dispute"
-  >(null);
+  const [dialog, setDialog] = useState<null | "publish" | "complete" | "regenerate" | "incident" | "dispute">(null);
 
   const detail = useMemo(() => tournamentDetail(state, id), [state, id]);
   const progress = useMemo(() => tournamentProgress(state, id), [state, id]);
-  const completion = useMemo(
-    () => tournamentCompletionReadiness(state, id),
-    [state, id],
-  );
+  const completion = useMemo(() => tournamentCompletionReadiness(state, id), [state, id]);
   const placings = useMemo(() => tournamentPlacings(state, id), [state, id]);
 
-  if (!canAccess("/tournaments"))
-    return <PermissionDenied module="Tournaments" />;
+  if (!canAccess("/tournaments")) return <PermissionDenied module="Tournaments" />;
   if (!hydrated) return null;
   if (!detail) {
     return (
@@ -112,17 +67,10 @@ export default function TournamentDetailPage() {
   };
   const playable = t.matches.filter((m) => !m.isBye);
   const awaiting = playable.filter((m) => m.status === "awaiting-verification");
-  const live = playable.filter(
-    (m) => m.status === "live" || m.status === "paused",
-  );
+  const live = playable.filter((m) => m.status === "live" || m.status === "paused");
   const incidents = state.incidents.filter((i) => i.tournamentId === t.id);
   const disputes = state.disputes.filter((d) => d.tournamentId === t.id);
-  const canGenerate = [
-    "draft",
-    "registration-open",
-    "registration-closed",
-    "teams-ready",
-  ].includes(t.status);
+  const canGenerate = ["draft", "registration-open", "registration-closed", "teams-ready"].includes(t.status);
   const minTeams = Math.max(2, t.minimumTeams ?? 2);
   const championId = t.winnerTeamId;
 
@@ -139,13 +87,7 @@ export default function TournamentDetailPage() {
               }
             : g.bracket
         }
-        onClick={() =>
-          feedback(
-            generateSingleEliminationBracket(t.id),
-            "Bracket generated",
-            "Check the draw, then publish.",
-          )
-        }
+        onClick={() => feedback(generateSingleEliminationBracket(t.id), "Bracket generated", "Check the draw, then publish.")}
       >
         <GitFork className="h-4 w-4" /> Generate bracket
       </GatedButton>
@@ -153,11 +95,7 @@ export default function TournamentDetailPage() {
   } else if (t.status === "bracket-ready") {
     primary = (
       <>
-        <GatedButton
-          gate={g.bracket}
-          variant="secondary"
-          onClick={() => setDialog("regenerate")}
-        >
+        <GatedButton gate={g.bracket} variant="secondary" onClick={() => setDialog("regenerate")}>
           Redraw
         </GatedButton>
         <GatedButton gate={g.publish} onClick={() => setDialog("publish")}>
@@ -165,16 +103,10 @@ export default function TournamentDetailPage() {
         </GatedButton>
       </>
     );
-  } else if (
-    ["published", "live", "paused", "awaiting-verification"].includes(t.status)
-  ) {
+  } else if (["live", "paused", "awaiting-verification"].includes(t.status)) {
     primary = (
       <GatedButton
-        gate={
-          completion.canComplete
-            ? g.complete
-            : { allowed: false, reason: completion.reason }
-        }
+        gate={completion.canComplete ? g.complete : { allowed: false, reason: completion.reason }}
         variant="success"
         onClick={() => setDialog("complete")}
       >
@@ -186,10 +118,7 @@ export default function TournamentDetailPage() {
   return (
     <>
       <div className="mx-auto w-full max-w-[1440px] space-y-6 px-5 py-7 lg:px-8">
-        <Link
-          href="/tournaments"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-mut hover:text-ink-lum"
-        >
+        <Link href="/tournaments" className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-mut hover:text-ink-lum">
           <ArrowLeft className="h-4 w-4" /> Tournaments
         </Link>
         <PageHeader
@@ -211,25 +140,15 @@ export default function TournamentDetailPage() {
                 <Trophy className="h-7 w-7" />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="overline text-amber-700">Champion</p>
-                <p className="font-display text-2xl font-bold text-ink-lum">
-                  {entrantName(t, championId)}
-                </p>
+                <p className="eyebrow text-amber-700">Champion</p>
+                <p className="font-display text-2xl font-bold text-ink-lum">{entrantName(t, championId)}</p>
                 <p className="mt-1 text-sm text-ink-mut">
-                  {placings?.runnerUp && (
-                    <>Runner-up {entrantName(t, placings.runnerUp)}</>
-                  )}
-                  {placings?.semiFinalists.length
-                    ? ` · Semi-finalists ${placings.semiFinalists.map((x) => entrantName(t, x)).join(", ")}`
-                    : ""}
+                  {placings?.runnerUp && <>Runner-up {entrantName(t, placings.runnerUp)}</>}
+                  {placings?.semiFinalists.length ? ` · Semi-finalists ${placings.semiFinalists.map((x) => entrantName(t, x)).join(", ")}` : ""}
                   {t.endedAt ? ` · Completed ${formatWhen(t.endedAt)}` : ""}
                 </p>
               </div>
-              {t.prizePlaceholder && (
-                <p className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm text-ink-sec">
-                  Prize: {t.prizePlaceholder}
-                </p>
-              )}
+              {t.prizePlaceholder && <p className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm text-ink-sec">Prize: {t.prizePlaceholder}</p>}
             </div>
           </div>
         )}
@@ -246,11 +165,7 @@ export default function TournamentDetailPage() {
           <MetricTile
             label="Matches decided"
             value={`${progress.completed}/${progress.total}`}
-            detail={
-              progress.total
-                ? `${progress.progressPercent}% of the bracket`
-                : "bracket not generated"
-            }
+            detail={progress.total ? `${progress.progressPercent}% of the bracket` : "bracket not generated"}
             icon={<ListOrdered className="h-4 w-4" />}
             tone="emerald"
             onClick={() => setTab("matches")}
@@ -258,11 +173,7 @@ export default function TournamentDetailPage() {
           <MetricTile
             label="Live now"
             value={live.length}
-            detail={
-              live[0]
-                ? `${entrantName(t, live[0].teamAId)} v ${entrantName(t, live[0].teamBId)}`
-                : "no match in play"
-            }
+            detail={live[0] ? `${entrantName(t, live[0].teamAId)} v ${entrantName(t, live[0].teamBId)}` : "no match in play"}
             icon={<Radio className="h-4 w-4" />}
             tone="sky"
             onClick={() => setTab("matches")}
@@ -270,11 +181,7 @@ export default function TournamentDetailPage() {
           <MetricTile
             label="Awaiting verification"
             value={awaiting.length}
-            detail={
-              awaiting.length
-                ? "verify so winners advance"
-                : "nothing to verify"
-            }
+            detail={awaiting.length ? "verify so winners advance" : "nothing to verify"}
             icon={<ClipboardCheck className="h-4 w-4" />}
             tone={awaiting.length ? "amber" : "emerald"}
             onClick={() => awaiting[0] && setMatchId(awaiting[0].id)}
@@ -283,9 +190,7 @@ export default function TournamentDetailPage() {
 
         {awaiting.length > 0 && (
           <div className="rounded-panel border border-amber-200 bg-amber-50/60 p-4">
-            <p className="text-sm font-semibold text-amber-800">
-              Results waiting for verification
-            </p>
+            <p className="text-sm font-semibold text-amber-800">Results waiting for verification</p>
             <ul className="mt-2 flex flex-wrap gap-2">
               {awaiting.map((m) => (
                 <li key={m.id}>
@@ -294,16 +199,11 @@ export default function TournamentDetailPage() {
                     className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-left text-sm hover:border-amber-400"
                   >
                     <span className="font-semibold text-ink-lum">
-                      {entrantName(t, m.teamAId)} {m.scoreA}–{m.scoreB}{" "}
-                      {entrantName(t, m.teamBId)}
+                      {entrantName(t, m.teamAId)} {m.scoreA}–{m.scoreB} {entrantName(t, m.teamBId)}
                     </span>
                     <span className="block text-xs text-ink-mut">
-                      {matchTitle(m)} · recorded{" "}
-                      {formatAgo(m.resultRevisions?.at(-1)?.recordedAt)} by{" "}
-                      {operatorName(
-                        state,
-                        m.resultRevisions?.at(-1)?.recordedBy,
-                      )}
+                      {matchTitle(m)} · recorded {formatAgo(m.resultRevisions?.at(-1)?.recordedAt)} by{" "}
+                      {operatorName(state, m.resultRevisions?.at(-1)?.recordedBy)}
                     </span>
                   </button>
                 </li>
@@ -351,10 +251,7 @@ export default function TournamentDetailPage() {
                   }
                   action={
                     canGenerate ? (
-                      <Button
-                        variant="secondary"
-                        onClick={() => setTab("teams")}
-                      >
+                      <Button variant="secondary" onClick={() => setTab("teams")}>
                         Manage teams
                       </Button>
                     ) : undefined
@@ -362,16 +259,8 @@ export default function TournamentDetailPage() {
                 />
               ) : (
                 <>
-                  <Bracket
-                    tournament={t}
-                    rounds={t.rounds}
-                    onSelect={(m) => setMatchId(m.id)}
-                    selectedId={matchId ?? undefined}
-                  />
-                  <p className="mt-3 text-xs text-ink-mut">
-                    Select a match to assign a referee, start it, record or
-                    verify the result.
-                  </p>
+                  <Bracket tournament={t} rounds={t.rounds} onSelect={(m) => setMatchId(m.id)} selectedId={matchId ?? undefined} />
+                  <p className="mt-3 text-xs text-ink-mut">Select a match to assign a referee, start it, record or verify the result.</p>
                   {t.status === "bracket-ready" && (
                     <div className="mt-3">
                       <PermissionNote reason="This bracket is a draft. Publish the tournament to lock teams and start match day." />
@@ -386,10 +275,7 @@ export default function TournamentDetailPage() {
             <div className="overflow-x-auto">
               {playable.length === 0 ? (
                 <div className="p-6">
-                  <EmptyState
-                    title="No matches yet"
-                    line="Matches appear once the bracket is generated."
-                  />
+                  <EmptyState title="No matches yet" line="Matches appear once the bracket is generated." />
                 </div>
               ) : (
                 <table className="w-full min-w-[760px] text-left text-sm">
@@ -422,40 +308,20 @@ export default function TournamentDetailPage() {
                           </button>
                         </td>
                         <td className="px-5 py-3">
-                          <span
-                            className={cn(
-                              m.winnerTeamId === m.teamAId &&
-                                m.status !== "awaiting-verification" &&
-                                "font-semibold text-ink-lum",
-                            )}
-                          >
+                          <span className={cn(m.winnerTeamId === m.teamAId && m.status !== "awaiting-verification" && "font-semibold text-ink-lum")}>
                             {entrantName(t, m.teamAId)}
                           </span>
                           <span className="px-1.5 text-ink-mut">v</span>
-                          <span
-                            className={cn(
-                              m.winnerTeamId === m.teamBId &&
-                                m.status !== "awaiting-verification" &&
-                                "font-semibold text-ink-lum",
-                            )}
-                          >
+                          <span className={cn(m.winnerTeamId === m.teamBId && m.status !== "awaiting-verification" && "font-semibold text-ink-lum")}>
                             {entrantName(t, m.teamBId)}
                           </span>
                         </td>
                         <td className="px-5 py-3 font-display tabular text-ink-lum">
-                          {m.scoreA !== undefined && m.scoreB !== undefined
-                            ? `${m.scoreA}–${m.scoreB}`
-                            : "—"}
+                          {m.scoreA !== undefined && m.scoreB !== undefined ? `${m.scoreA}–${m.scoreB}` : "—"}
                         </td>
+                        <td className="px-5 py-3 text-ink-sec">{formatWhen(m.scheduledAt)}</td>
                         <td className="px-5 py-3 text-ink-sec">
-                          {formatWhen(m.scheduledAt)}
-                        </td>
-                        <td className="px-5 py-3 text-ink-sec">
-                          {m.refereeId ? (
-                            operatorName(state, m.refereeId)
-                          ) : (
-                            <span className="text-amber-700">Not assigned</span>
-                          )}
+                          {m.refereeId ? operatorName(state, m.refereeId) : <span className="text-amber-700">Not assigned</span>}
                         </td>
                         <td className="px-5 py-3">
                           <StatusChip value={m.status} />
@@ -468,23 +334,14 @@ export default function TournamentDetailPage() {
             </div>
           )}
 
-          {tab === "teams" && (
-            <TeamsPanel tournament={t} entrants={t.entrants} />
-          )}
+          {tab === "teams" && <TeamsPanel tournament={t} entrants={t.entrants} />}
 
           {tab === "safety" && (
             <div className="grid gap-5 p-4 md:p-5 lg:grid-cols-2">
               <section>
                 <div className="mb-3 flex items-center justify-between gap-2">
-                  <h3 className="text-sm font-semibold text-ink-lum">
-                    Incidents ({incidents.length})
-                  </h3>
-                  <GatedButton
-                    gate={safetyGate("incident.report", terr)}
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => setDialog("incident")}
-                  >
+                  <h3 className="text-sm font-semibold text-ink-lum">Incidents ({incidents.length})</h3>
+                  <GatedButton gate={safetyGate("incident.report", terr)} size="sm" variant="secondary" onClick={() => setDialog("incident")}>
                     Report incident
                   </GatedButton>
                 </div>
@@ -495,22 +352,14 @@ export default function TournamentDetailPage() {
                 ) : (
                   <ul className="space-y-2">
                     {incidents.map((i) => (
-                      <li
-                        key={i.id}
-                        className="rounded-xl border border-edge p-3"
-                      >
+                      <li key={i.id} className="rounded-xl border border-edge p-3">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-mono text-xs font-semibold text-ink-sec">
-                            {i.incidentCode ?? i.id}
-                          </span>
+                          <span className="font-mono text-xs font-semibold text-ink-sec">{i.incidentCode ?? i.id}</span>
                           <SeverityBadge severity={i.severity ?? "medium"} />
                           <StatusChip value={i.status ?? "reported"} />
                         </div>
                         <p className="mt-1 text-sm text-ink-lum">{i.notes}</p>
-                        <p className="mt-1 text-xs text-ink-mut">
-                          {formatWhen(i.reportedAt)} · handled on the Safety
-                          page
-                        </p>
+                        <p className="mt-1 text-xs text-ink-mut">{formatWhen(i.reportedAt)} · handled on the Safety page</p>
                       </li>
                     ))}
                   </ul>
@@ -518,15 +367,8 @@ export default function TournamentDetailPage() {
               </section>
               <section>
                 <div className="mb-3 flex items-center justify-between gap-2">
-                  <h3 className="text-sm font-semibold text-ink-lum">
-                    Disputes ({disputes.length})
-                  </h3>
-                  <GatedButton
-                    gate={safetyGate("dispute.submit", terr)}
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => setDialog("dispute")}
-                  >
+                  <h3 className="text-sm font-semibold text-ink-lum">Disputes ({disputes.length})</h3>
+                  <GatedButton gate={safetyGate("dispute.submit", terr)} size="sm" variant="secondary" onClick={() => setDialog("dispute")}>
                     Log dispute
                   </GatedButton>
                 </div>
@@ -537,30 +379,21 @@ export default function TournamentDetailPage() {
                 ) : (
                   <ul className="space-y-2">
                     {disputes.map((d) => (
-                      <li
-                        key={d.id}
-                        className="rounded-xl border border-edge p-3"
-                      >
+                      <li key={d.id} className="rounded-xl border border-edge p-3">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-mono text-xs font-semibold text-ink-sec">
-                            {d.id}
-                          </span>
+                          <span className="font-mono text-xs font-semibold text-ink-sec">{d.id}</span>
                           <StatusChip value={d.status} />
                         </div>
                         <p className="mt-1 text-sm text-ink-lum">{d.reason}</p>
                         <p className="mt-1 text-xs text-ink-mut">
-                          Raised by {d.submittedBy} ·{" "}
-                          {formatWhen(d.submittedAt)}
+                          Raised by {d.submittedBy} · {formatWhen(d.submittedAt)}
                         </p>
                       </li>
                     ))}
                   </ul>
                 )}
                 {canAccess("/safety") && (
-                  <Link
-                    href="/safety"
-                    className="mt-3 inline-block text-sm font-semibold text-brand-ink hover:underline"
-                  >
+                  <Link href="/safety" className="mt-3 inline-block text-sm font-semibold text-brand-ink hover:underline">
                     Open Safety & disputes →
                   </Link>
                 )}
@@ -574,21 +407,15 @@ export default function TournamentDetailPage() {
             <MapPin className="h-4 w-4 text-ink-mut" /> {t.venueName}
           </p>
           <p className="flex items-center gap-2">
-            <CalendarClock className="h-4 w-4 text-ink-mut" /> {t.matchDuration}{" "}
-            min matches · {t.breakDuration} min breaks
+            <CalendarClock className="h-4 w-4 text-ink-mut" /> {t.matchDuration} min matches · {t.breakDuration} min breaks
           </p>
           <p className="flex items-center gap-2">
-            <Trophy className="h-4 w-4 text-ink-mut" />{" "}
-            {t.prizePlaceholder || "No prize recorded"}
+            <Trophy className="h-4 w-4 text-ink-mut" /> {t.prizePlaceholder || "No prize recorded"}
           </p>
         </div>
       </div>
 
-      <MatchDrawer
-        tournament={t}
-        matchId={matchId}
-        onClose={() => setMatchId(null)}
-      />
+      <MatchDrawer tournament={t} matchId={matchId} onClose={() => setMatchId(null)} />
 
       <CommandDialog
         open={dialog === "publish"}
@@ -599,8 +426,7 @@ export default function TournamentDetailPage() {
         onSubmit={() => publishTournament(t.id)}
       >
         <p className="text-sm leading-6 text-ink-sec">
-          Publishing locks the {t.teamIds.length} teams and the draw. After
-          this, teams can only leave by walkover or disqualification.
+          Publishing locks the {t.teamIds.length} teams and the draw. After this, teams can only leave by walkover or disqualification.
         </p>
       </CommandDialog>
       <CommandDialog
@@ -612,10 +438,7 @@ export default function TournamentDetailPage() {
         success="Bracket redrawn"
         onSubmit={() => generateSingleEliminationBracket(t.id)}
       >
-        <p className="text-sm leading-6 text-ink-sec">
-          The current draft draw and any referee assignments are replaced with a
-          new draw.
-        </p>
+        <p className="text-sm leading-6 text-ink-sec">The current draft draw and any referee assignments are replaced with a new draw.</p>
       </CommandDialog>
       <CommandDialog
         open={dialog === "complete"}
@@ -623,32 +446,20 @@ export default function TournamentDetailPage() {
         title="Complete tournament?"
         confirmLabel="Complete and crown champion"
         variant="success"
-        success={() =>
-          `Tournament complete — champion ${entrantName(t, completion.championId)}`
-        }
+        success={() => `Tournament complete — champion ${entrantName(t, completion.championId)}`}
         onSubmit={() => completeTournament(t.id)}
       >
         <p className="text-sm leading-6 text-ink-sec">
           {completion.championId ? (
             <>
-              The final&apos;s winner,{" "}
-              <strong>{entrantName(t, completion.championId)}</strong>, is
-              recorded as champion.
+              The final&apos;s winner, <strong>{entrantName(t, completion.championId)}</strong>, is recorded as champion.
             </>
           ) : null}{" "}
           Results can no longer be corrected afterwards.
         </p>
       </CommandDialog>
-      <ReportIncidentDialog
-        open={dialog === "incident"}
-        onClose={() => setDialog(null)}
-        tournamentId={t.id}
-      />
-      <LogDisputeDialog
-        open={dialog === "dispute"}
-        onClose={() => setDialog(null)}
-        tournamentId={t.id}
-      />
+      <ReportIncidentDialog open={dialog === "incident"} onClose={() => setDialog(null)} tournamentId={t.id} />
+      <LogDisputeDialog open={dialog === "dispute"} onClose={() => setDialog(null)} tournamentId={t.id} />
     </>
   );
 }

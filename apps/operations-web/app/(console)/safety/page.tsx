@@ -1,22 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import {
-  AlertTriangle,
-  IndianRupee,
-  Plus,
-  Scale,
-  ShieldAlert,
-  Timer,
-  UserCheck,
-} from "lucide-react";
+import { AlertTriangle, IndianRupee, Plus, Scale, ShieldAlert, Timer, UserCheck } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { safetyCommandMetrics } from "@/lib/prototype/selectors/safety";
 import { openDisputeCount } from "@/lib/prototype/selectors/disputes";
-import {
-  moderationCaseRows,
-  refundExceptionRows,
-} from "@/lib/prototype/selectors/moderation";
+import { moderationCaseRows, refundExceptionRows } from "@/lib/prototype/selectors/moderation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { MetricTile, PermissionDenied } from "@/components/ui/panels";
 import { cn } from "@/lib/format";
@@ -25,10 +14,7 @@ import { IncidentsTab } from "@/components/safety/IncidentsTab";
 import { DisputesTab } from "@/components/safety/DisputesTab";
 import { ModerationTab } from "@/components/safety/ModerationTab";
 import { RefundExceptionsTab } from "@/components/safety/RefundExceptionsTab";
-import {
-  ReportIncidentDialog,
-  LogDisputeDialog,
-} from "@/components/safety/intake";
+import { ReportIncidentDialog, LogDisputeDialog } from "@/components/safety/intake";
 
 type Tab = "incidents" | "disputes" | "moderation" | "refunds";
 
@@ -41,28 +27,15 @@ export default function SafetyPage() {
   const [logging, setLogging] = useState(false);
 
   const territoryId = scope === "territory" ? territory.id : undefined;
-  const metrics = useMemo(
-    () => safetyCommandMetrics(state, territoryId),
-    [state, territoryId],
-  );
-  const disputes = useMemo(
-    () => openDisputeCount(state, territoryId),
-    [state, territoryId],
-  );
-  const cases = useMemo(
-    () => moderationCaseRows(state).filter((c) => c.pending).length,
-    [state],
-  );
+  const metrics = useMemo(() => safetyCommandMetrics(state, territoryId), [state, territoryId]);
+  const disputes = useMemo(() => openDisputeCount(state, territoryId), [state, territoryId]);
+  const cases = useMemo(() => moderationCaseRows(state).filter((c) => c.pending).length, [state]);
   const refunds = useMemo(
-    () =>
-      refundExceptionRows(state, territoryId).filter(
-        (r) => r.status === "recommended" || r.status === "under-review",
-      ).length,
+    () => refundExceptionRows(state, territoryId).filter((r) => r.status === "recommended" || r.status === "under-review").length,
     [state, territoryId],
   );
 
-  if (!canAccess("/safety"))
-    return <PermissionDenied module="Safety & Disputes" />;
+  if (!canAccess("/safety")) return <PermissionDenied module="Safety & Disputes" />;
 
   return (
     <>
@@ -73,18 +46,10 @@ export default function SafetyPage() {
           sub="Respond to incidents within their deadlines, review disputes, decide moderation actions and route refund exceptions to Finance."
           right={
             <>
-              <GatedButton
-                gate={gate("dispute.submit")}
-                variant="secondary"
-                onClick={() => setLogging(true)}
-              >
+              <GatedButton gate={gate("dispute.submit")} variant="secondary" onClick={() => setLogging(true)}>
                 <Scale className="h-4 w-4" /> Log dispute
               </GatedButton>
-              <GatedButton
-                gate={gate("incident.report")}
-                variant="danger"
-                onClick={() => setReporting(true)}
-              >
+              <GatedButton gate={gate("incident.report")} variant="danger" onClick={() => setReporting(true)}>
                 <Plus className="h-4 w-4" /> Report incident
               </GatedButton>
             </>
@@ -103,11 +68,7 @@ export default function SafetyPage() {
           <MetricTile
             label="Past response deadline"
             value={metrics.slaBreaches}
-            detail={
-              metrics.slaBreaches
-                ? "acknowledge or resolve now"
-                : "all within target"
-            }
+            detail={metrics.slaBreaches ? "acknowledge or resolve now" : "all within target"}
             icon={<Timer className="h-4 w-4" />}
             tone={metrics.slaBreaches ? "rose" : "emerald"}
             onClick={() => setTab("incidents")}
@@ -126,9 +87,7 @@ export default function SafetyPage() {
             detail={`${disputes} dispute${disputes === 1 ? "" : "s"} · ${cases} moderation · ${refunds} refund${refunds === 1 ? "" : "s"}`}
             icon={<Scale className="h-4 w-4" />}
             tone="sky"
-            onClick={() =>
-              setTab(disputes ? "disputes" : cases ? "moderation" : "refunds")
-            }
+            onClick={() => setTab(disputes ? "disputes" : cases ? "moderation" : "refunds")}
           />
         </div>
 
@@ -178,9 +137,7 @@ export default function SafetyPage() {
                     onClick={() => setScope(s)}
                     className={cn(
                       "rounded-lg px-3 py-1.5 text-xs font-semibold",
-                      scope === s
-                        ? "bg-white text-brand-ink shadow-lift ring-1 ring-edge"
-                        : "text-ink-mut hover:text-ink-lum",
+                      scope === s ? "bg-white text-brand-ink shadow-lift ring-1 ring-edge" : "text-ink-mut hover:text-ink-lum",
                     )}
                   >
                     {s === "territory" ? territory.name : "All territories"}
@@ -192,22 +149,12 @@ export default function SafetyPage() {
           {tab === "incidents" && <IncidentsTab territoryId={territoryId} />}
           {tab === "disputes" && <DisputesTab territoryId={territoryId} />}
           {tab === "moderation" && <ModerationTab />}
-          {tab === "refunds" && (
-            <RefundExceptionsTab territoryId={territoryId} />
-          )}
+          {tab === "refunds" && <RefundExceptionsTab territoryId={territoryId} />}
         </div>
       </div>
 
-      <ReportIncidentDialog
-        open={reporting}
-        onClose={() => setReporting(false)}
-        defaultTerritoryId={territoryId}
-      />
-      <LogDisputeDialog
-        open={logging}
-        onClose={() => setLogging(false)}
-        defaultTerritoryId={territoryId}
-      />
+      <ReportIncidentDialog open={reporting} onClose={() => setReporting(false)} defaultTerritoryId={territoryId} />
+      <LogDisputeDialog open={logging} onClose={() => setLogging(false)} defaultTerritoryId={territoryId} />
     </>
   );
 }

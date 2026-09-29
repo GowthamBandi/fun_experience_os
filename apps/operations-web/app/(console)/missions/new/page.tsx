@@ -247,7 +247,7 @@ function ScheduleForm() {
           </div>
 
           <aside className="space-y-4 rounded-panel border border-edge bg-white p-6 shadow-panel lg:sticky lg:top-6 lg:self-start">
-            <p className="overline">Summary</p>
+            <p className="eyebrow">Summary</p>
             <p className="font-display text-xl font-bold text-ink-lum">{t?.name ?? "Choose an experience"}</p>
             <dl className="space-y-2 text-sm">
               <Row k="When" v={`${date} at ${time}`} />

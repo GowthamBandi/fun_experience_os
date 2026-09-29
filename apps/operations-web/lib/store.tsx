@@ -98,7 +98,6 @@ import {
   completeSession as completeSessionRepo,
   cancelSession,
   updateSessionStatus,
-  updateMatchScore,
   strikeBooking as strikeBookingCommand,
   createBookingReservation,
   confirmBookingPayment,
@@ -349,7 +348,6 @@ interface StoreValue {
   /** Cancels every booking and creates a refund request for every paid booking. */
   cancelSession: (sessionId: string, reason: string) => CommandOutcome & { refundCount?: number };
   updateSessionStatus: (id: string, status: SessionStatus) => void;
-  updateMatchScore: (tournamentId: string, matchId: string, scoreA: number, scoreB: number, winner: string, status: "scheduled" | "live" | "completed" | "walkover" | "abandoned") => void;
   strikeBooking: (id: string) => CommandOutcome;
 
   // Bookings, holds, waitlist and money. Every command returns its outcome.
@@ -750,11 +748,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const completeSessionCb = useCallback((sessionId: string) => runResult((prev) => completeSessionRepo(prev, sessionId, operatorId)), [runResult, operatorId]);
   const cancelSessionCb = useCallback((sessionId: string, reason: string) => runResult((prev) => cancelSession(prev, sessionId, reason, operatorId)), [runResult, operatorId]);
   const updateSessionStatusCb = useCallback((id: string, status: SessionStatus) => commit((prev) => updateSessionStatus(prev, id, status, operatorId)), [commit, operatorId]);
-  const updateMatchScoreCb = useCallback(
-    (tournamentId: string, matchId: string, scoreA: number, scoreB: number, winner: string, status: "scheduled" | "live" | "completed" | "walkover" | "abandoned") =>
-      commit((prev) => updateMatchScore(prev, tournamentId, matchId, scoreA, scoreB, winner, status, operatorId)),
-    [commit, operatorId]
-  );
   const strikeBookingCb = useCallback((id: string) => runResult((prev) => strikeBookingCommand(prev, id, operatorId)), [runResult, operatorId]);
 
   /* ------------------- bookings, holds, waitlist and money ------------------- */
@@ -1209,7 +1202,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       completeSession: completeSessionCb,
       cancelSession: cancelSessionCb,
       updateSessionStatus: updateSessionStatusCb,
-      updateMatchScore: updateMatchScoreCb,
       strikeBooking: strikeBookingCb,
       createBookingReservation: createBookingReservationCb,
       confirmBookingPayment: confirmBookingPaymentCb,
@@ -1396,7 +1388,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     completeSessionCb,
     cancelSessionCb,
     updateSessionStatusCb,
-    updateMatchScoreCb,
     strikeBookingCb,
     createBookingReservationCb,
     confirmBookingPaymentCb,

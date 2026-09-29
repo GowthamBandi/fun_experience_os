@@ -14,7 +14,14 @@ import { useToast } from "@/components/ui/toast";
 import { PermissionNote, useTournamentGate } from "@/components/safety/shared";
 
 const suggestCode = (name: string) => {
-  const letters = name.split(/\s+/).filter(Boolean).map((w) => w[0]).join("").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+  const letters = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 4);
   return letters.length >= 2 ? `${letters}-${new Date().getFullYear()}` : "";
 };
 
@@ -91,7 +98,11 @@ export default function NewTournamentPage() {
       <Link href="/tournaments" className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-mut hover:text-ink-lum">
         <ArrowLeft className="h-4 w-4" /> Tournaments
       </Link>
-      <PageHeader overline={`New tournament · ${territory.name}`} title="Create a knockout tournament" sub="Set up the event. Teams are entered on the next screen, then you draw the bracket and publish." />
+      <PageHeader
+        overline={`New tournament · ${territory.name}`}
+        title="Create a knockout tournament"
+        sub="Set up the event. Teams are entered on the next screen, then you draw the bracket and publish."
+      />
       <PermissionNote reason={createGate.reason} />
 
       <form onSubmit={submit} className="space-y-5">
@@ -99,10 +110,28 @@ export default function NewTournamentPage() {
           <h2 className="text-[15px] font-semibold text-ink-lum">Details</h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <Field label="Tournament name">
-              <Input value={name} onChange={(e) => { setName(e.target.value); if (!codeTouched) setCode(suggestCode(e.target.value)); }} placeholder="e.g. Monsoon Table Tennis Open" required minLength={3} />
+              <Input
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  if (!codeTouched) setCode(suggestCode(e.target.value));
+                }}
+                placeholder="e.g. Monsoon Table Tennis Open"
+                required
+                minLength={3}
+              />
             </Field>
             <Field label="Short code" hint="3–16 capital letters, digits or dashes. Must be unique.">
-              <Input value={code} onChange={(e) => { setCode(e.target.value.toUpperCase()); setCodeTouched(true); }} placeholder="MTTO-2026" required className="font-mono" />
+              <Input
+                value={code}
+                onChange={(e) => {
+                  setCode(e.target.value.toUpperCase());
+                  setCodeTouched(true);
+                }}
+                placeholder="MTTO-2026"
+                required
+                className="font-mono"
+              />
             </Field>
             <Field label="Prize (optional)">
               <Input value={prize} onChange={(e) => setPrize(e.target.value)} placeholder="e.g. Trophy + ₹2,000 voucher" />
@@ -111,7 +140,9 @@ export default function NewTournamentPage() {
               <Select className="h-11" value={templateId} onChange={(e) => setTemplateId(e.target.value)}>
                 <option value="">No linked experience</option>
                 {templates.map((t) => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
                 ))}
               </Select>
             </Field>
@@ -122,10 +153,20 @@ export default function NewTournamentPage() {
           <h2 className="text-[15px] font-semibold text-ink-lum">Venue & format</h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <Field label="Venue" hint={venues.length ? undefined : `No venues in ${territory.name}. Add one in Setup first.`}>
-              <Select className="h-11" value={venueId} onChange={(e) => { setVenueId(e.target.value); setAreas([]); }} required>
+              <Select
+                className="h-11"
+                value={venueId}
+                onChange={(e) => {
+                  setVenueId(e.target.value);
+                  setAreas([]);
+                }}
+                required
+              >
                 <option value="">Choose a venue…</option>
                 {venues.map((v) => (
-                  <option key={v.id} value={v.id}>{v.name}</option>
+                  <option key={v.id} value={v.id}>
+                    {v.name}
+                  </option>
                 ))}
               </Select>
             </Field>
@@ -138,8 +179,16 @@ export default function NewTournamentPage() {
               <legend className="mb-2 text-[13px] font-medium text-ink-sec">Playing areas (matches in the same round run in parallel)</legend>
               <div className="flex flex-wrap gap-2">
                 {venueAreas.map((p) => (
-                  <label key={p.id} className="inline-flex items-center gap-2 rounded-xl border border-edge px-3 py-2 text-sm text-ink-sec has-[:checked]:border-brand has-[:checked]:bg-brand-subtle has-[:checked]:text-brand-ink">
-                    <input type="checkbox" className="accent-[#5b4cf5]" checked={areas.includes(p.id)} onChange={(e) => setAreas(e.target.checked ? [...areas, p.id] : areas.filter((x) => x !== p.id))} />
+                  <label
+                    key={p.id}
+                    className="inline-flex items-center gap-2 rounded-xl border border-edge px-3 py-2 text-sm text-ink-sec has-[:checked]:border-brand has-[:checked]:bg-brand-subtle has-[:checked]:text-brand-ink"
+                  >
+                    <input
+                      type="checkbox"
+                      className="accent-[#5b4cf5]"
+                      checked={areas.includes(p.id)}
+                      onChange={(e) => setAreas(e.target.checked ? [...areas, p.id] : areas.filter((x) => x !== p.id))}
+                    />
                     {p.name}
                   </label>
                 ))}
@@ -192,8 +241,15 @@ export default function NewTournamentPage() {
           </p>
         )}
         <div className="flex flex-wrap justify-end gap-2">
-          <Link href="/tournaments" className="inline-flex h-10 items-center rounded-xl border border-edge-strong bg-white px-4 text-sm font-semibold text-ink-lum shadow-lift hover:bg-bg-sunken">Cancel</Link>
-          <Button type="submit" disabled={!createGate.allowed || name.trim().length < 3 || !venueId}>Create tournament</Button>
+          <Link
+            href="/tournaments"
+            className="inline-flex h-10 items-center rounded-xl border border-edge-strong bg-white px-4 text-sm font-semibold text-ink-lum shadow-lift hover:bg-bg-sunken"
+          >
+            Cancel
+          </Link>
+          <Button type="submit" disabled={!createGate.allowed || name.trim().length < 3 || !venueId}>
+            Create tournament
+          </Button>
         </div>
       </form>
     </div>

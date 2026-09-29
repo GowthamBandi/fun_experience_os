@@ -305,7 +305,7 @@ export function SchemaWizard({
     >
       <div className="space-y-5">
         <div>
-          <p className="overline text-brand">
+          <p className="eyebrow text-brand">
             Step {step + 1} of {all.length}
           </p>
           <h2 className="mt-1 font-display text-lg font-bold text-ink-lum">{current.label}</h2>

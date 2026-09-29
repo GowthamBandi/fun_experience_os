@@ -37,7 +37,7 @@ export default function SetupPage() {
       <section className="relative overflow-hidden rounded-panel border border-brand/20 bg-gradient-to-br from-white via-white to-brand-subtle p-5 shadow-panel sm:p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="min-w-0">
-            <p className="overline text-brand">{firstRun ? "Get started" : `Next step · ${next.stepNumber} of ${journey.length}`}</p>
+            <p className="eyebrow text-brand">{firstRun ? "Get started" : `Next step · ${next.stepNumber} of ${journey.length}`}</p>
             <h2 className="mt-1.5 font-display text-xl font-bold text-ink-lum">{firstRun ? "Set up your first operating area" : next.label}</h2>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-ink-mut">
               {firstRun

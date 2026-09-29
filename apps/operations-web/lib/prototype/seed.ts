@@ -267,7 +267,7 @@ export const SEED_VENUES: Venue[] = [
     safetyCapacity: 140,
     staffCapacity: 8,
     spectatorAllowance: 60,
-    equipmentAvailable: ["Cricket Bats", "Tennis Balls", "Shuttles"],
+    equipmentAvailable: ["Cricket Bats", "Tennis Balls", "Shuttles", "Badminton Nets", "Rackets"],
     accessibility: true,
     parking: true,
     washrooms: true,

@@ -72,7 +72,7 @@ function OverviewBody() {
     <div className="space-y-6">
       <section className="flex flex-wrap items-center justify-between gap-4 rounded-panel border border-brand/20 bg-gradient-to-r from-brand-subtle to-white p-5 shadow-panel">
         <div className="min-w-0">
-          <p className="overline text-brand">Next step</p>
+          <p className="eyebrow text-brand">Next step</p>
           <p className="mt-1 font-display text-xl font-bold text-ink-lum">{next.title}</p>
           <p className="mt-1 text-sm text-ink-sec">{next.line}</p>
         </div>

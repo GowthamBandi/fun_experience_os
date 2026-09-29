@@ -219,8 +219,8 @@ textarea::placeholder {
   font-feature-settings: "tnum";
 }
 
-/* overline voice */
-.overline {
+/* eyebrow label (small uppercase line above titles) */
+.eyebrow {
   font-size: 11px;
   line-height: 16px;
   font-weight: 600;

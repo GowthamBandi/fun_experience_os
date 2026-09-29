@@ -8,7 +8,7 @@ export default function NotFound() {
         <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-subtle text-brand">
           <SearchX className="h-6 w-6" />
         </span>
-        <p className="mt-5 overline text-brand">Error 404</p>
+        <p className="mt-5 eyebrow text-brand">Error 404</p>
         <h1 className="mt-1 font-display text-2xl font-bold text-ink-lum">Page not found</h1>
         <p className="mt-2 text-sm leading-6 text-ink-mut">The address may be mistyped, or the page has moved. Nothing in your workspace was changed.</p>
         <div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row">

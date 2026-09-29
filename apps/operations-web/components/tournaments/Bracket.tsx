@@ -24,7 +24,17 @@ const STATUS_STYLE: Record<string, { label: string; className: string }> = {
 };
 
 /** Visual single-elimination bracket: one column per round, connectors between pairs. */
-export function Bracket({ tournament, rounds, onSelect, selectedId }: { tournament: Tournament; rounds: BracketRound[]; onSelect?: (m: TournamentMatch) => void; selectedId?: string }) {
+export function Bracket({
+  tournament,
+  rounds,
+  onSelect,
+  selectedId,
+}: {
+  tournament: Tournament;
+  rounds: BracketRound[];
+  onSelect?: (m: TournamentMatch) => void;
+  selectedId?: string;
+}) {
   if (!rounds.length) return null;
   const height = Math.max(1, rounds[0].matches.length) * SLOT;
   return (
@@ -36,7 +46,7 @@ export function Bracket({ tournament, rounds, onSelect, selectedId }: { tourname
           const last = ri === rounds.length - 1;
           return (
             <div key={round.roundNumber} className="w-[236px] shrink-0">
-              <p className="overline mb-2 text-center">{round.label}</p>
+              <p className="eyebrow mb-2 text-center">{round.label}</p>
               <div className="flex flex-col" style={{ height }}>
                 {pairs.map((pair, pi) => (
                   <div key={pi} className="relative flex flex-1 flex-col">
@@ -46,7 +56,9 @@ export function Bracket({ tournament, rounds, onSelect, selectedId }: { tourname
                         <BracketMatch tournament={tournament} match={m} onSelect={onSelect} selected={selectedId === m.id} />
                       </div>
                     ))}
-                    {!last && pair.length === 2 && <span className="absolute -right-6 bottom-1/4 top-1/4 w-6 rounded-r-xl border-y-2 border-r-2 border-edge-strong" aria-hidden />}
+                    {!last && pair.length === 2 && (
+                      <span className="absolute -right-6 bottom-1/4 top-1/4 w-6 rounded-r-xl border-y-2 border-r-2 border-edge-strong" aria-hidden />
+                    )}
                   </div>
                 ))}
               </div>
@@ -58,7 +70,17 @@ export function Bracket({ tournament, rounds, onSelect, selectedId }: { tourname
   );
 }
 
-function BracketMatch({ tournament, match: m, onSelect, selected }: { tournament: Tournament; match: TournamentMatch; onSelect?: (m: TournamentMatch) => void; selected?: boolean }) {
+function BracketMatch({
+  tournament,
+  match: m,
+  onSelect,
+  selected,
+}: {
+  tournament: Tournament;
+  match: TournamentMatch;
+  onSelect?: (m: TournamentMatch) => void;
+  selected?: boolean;
+}) {
   const decided = !!m.winnerTeamId && ["verified", "completed", "walkover", "disqualified"].includes(m.status);
   const style = STATUS_STYLE[m.status] ?? STATUS_STYLE.scheduled;
   if (m.isBye) {
@@ -79,12 +101,33 @@ function BracketMatch({ tournament, match: m, onSelect, selected }: { tournament
       )}
       aria-label={`${m.roundLabel} match ${m.matchNumber}: ${entrantName(tournament, m.teamAId)} versus ${entrantName(tournament, m.teamBId)}, ${style.label}`}
     >
-      <TeamLine tournament={tournament} teamId={m.teamAId} score={m.scoreA} winner={decided && m.winnerTeamId === m.teamAId} loser={decided && !!m.teamAId && m.winnerTeamId !== m.teamAId} />
+      <TeamLine
+        tournament={tournament}
+        teamId={m.teamAId}
+        score={m.scoreA}
+        winner={decided && m.winnerTeamId === m.teamAId}
+        loser={decided && !!m.teamAId && m.winnerTeamId !== m.teamAId}
+      />
       <div className="mx-3 border-t border-slate-100" />
-      <TeamLine tournament={tournament} teamId={m.teamBId} score={m.scoreB} winner={decided && m.winnerTeamId === m.teamBId} loser={decided && !!m.teamBId && m.winnerTeamId !== m.teamBId} />
-      <div className={cn("flex items-center justify-between gap-2 rounded-b-2xl border-t border-slate-100 bg-bg-sunken/70 px-3 py-1.5 text-[11px] font-semibold", style.className)}>
+      <TeamLine
+        tournament={tournament}
+        teamId={m.teamBId}
+        score={m.scoreB}
+        winner={decided && m.winnerTeamId === m.teamBId}
+        loser={decided && !!m.teamBId && m.winnerTeamId !== m.teamBId}
+      />
+      <div
+        className={cn(
+          "flex items-center justify-between gap-2 rounded-b-2xl border-t border-slate-100 bg-bg-sunken/70 px-3 py-1.5 text-[11px] font-semibold",
+          style.className,
+        )}
+      >
         <span className="inline-flex items-center gap-1">
-          {live ? <Radio className={cn("h-3 w-3", m.status === "live" && "animate-pulse")} /> : m.status === "awaiting-verification" ? <Clock className="h-3 w-3" /> : null}
+          {live ? (
+            <Radio className={cn("h-3 w-3", m.status === "live" && "animate-pulse")} />
+          ) : m.status === "awaiting-verification" ? (
+            <Clock className="h-3 w-3" />
+          ) : null}
           {style.label}
         </span>
         <span className="font-medium text-ink-mut">{m.scheduledAt && !decided && !live ? formatWhen(m.scheduledAt) : `Match ${m.matchNumber}`}</span>
@@ -97,7 +140,12 @@ function TeamLine({ tournament, teamId, score, winner, loser }: { tournament: To
   const dq = tournament.entrants?.find((e) => e.id === teamId)?.status === "disqualified";
   return (
     <div className="flex items-center justify-between gap-2 px-3 py-2">
-      <span className={cn("flex min-w-0 items-center gap-1.5 text-sm", winner ? "font-semibold text-ink-lum" : loser ? "text-ink-mut" : teamId ? "text-ink-sec" : "italic text-ink-mut")}>
+      <span
+        className={cn(
+          "flex min-w-0 items-center gap-1.5 text-sm",
+          winner ? "font-semibold text-ink-lum" : loser ? "text-ink-mut" : teamId ? "text-ink-sec" : "italic text-ink-mut",
+        )}
+      >
         {winner && <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600" />}
         <span className={cn("truncate", dq && "line-through")}>{teamId ? entrantName(tournament, teamId) : "To be decided"}</span>
       </span>

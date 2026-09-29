@@ -7,7 +7,7 @@ export function PageHeader({ overline, title, sub, right }: { overline: string; 
   return (
     <Fade className="flex flex-wrap items-end justify-between gap-4">
       <div className="min-w-0">
-        <p className="overline text-brand">{overline}</p>
+        <p className="eyebrow text-brand">{overline}</p>
         <h1 className="mt-1.5 font-display text-[28px] font-bold leading-tight tracking-tight text-ink-lum">{title}</h1>
         {sub && <p className="mt-1.5 max-w-2xl text-sm leading-6 text-ink-mut">{sub}</p>}
       </div>

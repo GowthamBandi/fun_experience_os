@@ -19,8 +19,7 @@ export type Gate = { allowed: boolean; reason?: string };
 export function useSafetyGate() {
   const { role, operator } = useStore();
   return useCallback(
-    (action: SafetyAction, recordTerritoryId?: string): Gate =>
-      safetyGate(role.id, action, { operatorTerritoryId: operator?.territoryId, recordTerritoryId }),
+    (action: SafetyAction, recordTerritoryId?: string): Gate => safetyGate(role.id, action, { operatorTerritoryId: operator?.territoryId, recordTerritoryId }),
     [role.id, operator?.territoryId],
   );
 }
@@ -35,13 +34,13 @@ export function useTournamentGate() {
 }
 
 /** A button that is disabled with an explanation when the operator's role can't take the action. */
-export function GatedButton({
-  gate,
-  children,
-  className,
-  ...rest
-}: { gate: Gate; children: ReactNode } & React.ComponentProps<typeof Button>) {
-  if (gate.allowed) return <Button className={className} {...rest}>{children}</Button>;
+export function GatedButton({ gate, children, className, ...rest }: { gate: Gate; children: ReactNode } & React.ComponentProps<typeof Button>) {
+  if (gate.allowed)
+    return (
+      <Button className={className} {...rest}>
+        {children}
+      </Button>
+    );
   return (
     <span title={gate.reason} className="inline-flex cursor-not-allowed">
       <Button {...rest} className={className} disabled aria-disabled="true" aria-describedby={undefined}>
@@ -91,7 +90,11 @@ export const SEVERITY_BAR: Record<string, string> = {
 
 export function SlaChip({ sla }: { sla: IncidentSlaState }) {
   if (sla.phase === "unknown") return <span className="text-xs text-ink-mut">—</span>;
-  const tone = sla.overdue ? "border-red-200 bg-red-50 text-red-700" : sla.phase === "met" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-sky-200 bg-sky-50 text-sky-700";
+  const tone = sla.overdue
+    ? "border-red-200 bg-red-50 text-red-700"
+    : sla.phase === "met"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : "border-sky-200 bg-sky-50 text-sky-700";
   return (
     <Badge className={cn("border whitespace-nowrap", tone)}>
       <Clock className="h-3 w-3" />
@@ -113,7 +116,7 @@ export function DrawerSection({ title, children, right }: { title: string; child
   return (
     <section className="border-t border-edge pt-4 first:border-0 first:pt-0">
       <div className="mb-2 flex items-center justify-between gap-3">
-        <h3 className="overline">{title}</h3>
+        <h3 className="eyebrow">{title}</h3>
         {right}
       </div>
       {children}
@@ -122,7 +125,12 @@ export function DrawerSection({ title, children, right }: { title: string; child
 }
 
 export function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea {...props} className={cn("field min-h-[92px] w-full rounded-xl px-3.5 py-2.5 text-sm text-ink-lum placeholder:text-slate-400", props.className)} />;
+  return (
+    <textarea
+      {...props}
+      className={cn("field min-h-[92px] w-full rounded-xl px-3.5 py-2.5 text-sm text-ink-lum placeholder:text-slate-400", props.className)}
+    />
+  );
 }
 
 /* -------------------------------- dialogs -------------------------------- */
@@ -180,8 +188,12 @@ export function CommandDialog({
           </p>
         )}
         <div className="flex flex-wrap justify-end gap-2 pt-1">
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button type="submit" variant={variant} disabled={!canSubmit}>{confirmLabel}</Button>
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" variant={variant} disabled={!canSubmit}>
+            {confirmLabel}
+          </Button>
         </div>
       </form>
     </Dialog>
@@ -220,7 +232,16 @@ export function ReasonDialog({
   }, [open]);
   const short = reason.trim().length < minLength;
   return (
-    <CommandDialog open={open} onClose={onClose} title={title} confirmLabel={confirmLabel} variant={variant} canSubmit={!short} success={success} onSubmit={() => onSubmit(reason.trim())}>
+    <CommandDialog
+      open={open}
+      onClose={onClose}
+      title={title}
+      confirmLabel={confirmLabel}
+      variant={variant}
+      canSubmit={!short}
+      success={success}
+      onSubmit={() => onSubmit(reason.trim())}
+    >
       {consequence && <div className="text-sm leading-6 text-ink-sec">{consequence}</div>}
       <label className="block">
         <span className="mb-1.5 block text-[13px] font-medium text-ink-sec">{label}</span>
@@ -234,7 +255,15 @@ export function ReasonDialog({
 }
 
 /** Segmented tab bar used by the Safety and Tournament pages. */
-export function TabBar<T extends string>({ tabs, value, onChange }: { tabs: Array<{ id: T; label: string; icon?: React.ComponentType<{ className?: string }>; count?: number }>; value: T; onChange: (v: T) => void }) {
+export function TabBar<T extends string>({
+  tabs,
+  value,
+  onChange,
+}: {
+  tabs: Array<{ id: T; label: string; icon?: React.ComponentType<{ className?: string }>; count?: number }>;
+  value: T;
+  onChange: (v: T) => void;
+}) {
   return (
     <div className="flex gap-1 overflow-x-auto border-b border-edge p-2" role="tablist">
       {tabs.map((t) => (
@@ -251,7 +280,11 @@ export function TabBar<T extends string>({ tabs, value, onChange }: { tabs: Arra
           {t.icon && <t.icon className="h-4 w-4" />}
           {t.label}
           {typeof t.count === "number" && t.count > 0 && (
-            <span className={cn("rounded-full px-1.5 py-0.5 text-[11px] leading-none", value === t.id ? "bg-white text-brand-ink" : "bg-slate-100 text-ink-sec")}>{t.count}</span>
+            <span
+              className={cn("rounded-full px-1.5 py-0.5 text-[11px] leading-none", value === t.id ? "bg-white text-brand-ink" : "bg-slate-100 text-ink-sec")}
+            >
+              {t.count}
+            </span>
           )}
         </button>
       ))}

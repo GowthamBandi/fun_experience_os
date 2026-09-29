@@ -168,7 +168,7 @@ function RecordReviewDrawer({ record, config, onClose }: { record: LiveGovernanc
         <header className="border-b border-edge bg-gradient-to-br from-brand-subtle/70 via-white to-white p-6">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <p className="overline text-brand">
+              <p className="eyebrow text-brand">
                 {isCase ? CASE_KIND_LABEL[caseKind ?? ""] ?? "Case" : config.title} · <span className="font-mono normal-case tracking-normal">{record.id}</span>
               </p>
               <h2 className="mt-1 font-display text-xl font-bold text-ink-lum">{record.primary}</h2>

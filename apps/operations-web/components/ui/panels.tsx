@@ -46,7 +46,7 @@ export function Stat({
   const accent = STAT_ACCENT[tone];
   return (
     <div className="relative">
-      <div className="overline">{label}</div>
+      <div className="eyebrow">{label}</div>
       <div className={cn("mt-2 font-display text-[26px] leading-none font-bold tabular tracking-tight", accent.text)}>{value}</div>
       {delta && <div className="mt-2 text-xs text-ink-mut">{delta}</div>}
     </div>
@@ -110,7 +110,7 @@ export function EmptyState({ title, line, action }: { title: string; line: strin
 }
 
 export function SectionLabel({ children }: { children: ReactNode }) {
-  return <div className="overline mb-3">{children}</div>;
+  return <div className="eyebrow mb-3">{children}</div>;
 }
 
 /** Shown when the signed-in operator's role does not include this module. */

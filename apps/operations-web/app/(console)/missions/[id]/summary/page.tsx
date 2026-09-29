@@ -78,7 +78,7 @@ function ReportBody() {
       <style>{PRINT_CSS}</style>
       <header className="flex flex-wrap items-start justify-between gap-4 border-b border-edge px-6 py-5">
         <div>
-          <p className="overline text-brand">Session report</p>
+          <p className="eyebrow text-brand">Session report</p>
           <h2 className="mt-1 font-display text-2xl font-bold text-ink-lum">{sessionTitle(state, sessionId)}</h2>
           <p className="mt-1 text-sm text-ink-sec">
             {session.date} at {session.startTime} · {venueName(state, session.venueId)} · session {sessionId}

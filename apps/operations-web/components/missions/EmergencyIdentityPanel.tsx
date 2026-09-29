@@ -99,7 +99,7 @@ export function EmergencyIdentityPanel({ bookingId, sessionId }: { bookingId: st
 
       {history.length > 0 && (
         <div>
-          <p className="overline mb-2">Access history</p>
+          <p className="eyebrow mb-2">Access history</p>
           <ul className="divide-y divide-edge rounded-2xl border border-edge bg-white">
             {history.map((h) => (
               <li key={h.id} className="flex flex-wrap items-start justify-between gap-2 px-4 py-2.5">

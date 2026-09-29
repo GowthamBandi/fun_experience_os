@@ -38,37 +38,60 @@ export function DisputesTab({ territoryId }: { territoryId?: string }) {
       <div className="flex flex-col gap-3 border-b border-edge p-4 lg:flex-row lg:items-center">
         <div className="inline-flex rounded-xl border border-edge bg-bg-sunken p-1" role="group" aria-label="Filter disputes">
           {(["open", "decided", "all"] as Filter[]).map((f) => (
-            <button key={f} onClick={() => setFilter(f)} className={cn("rounded-lg px-3 py-1.5 text-xs font-semibold capitalize", filter === f ? "bg-white text-brand-ink shadow-lift ring-1 ring-edge" : "text-ink-mut hover:text-ink-lum")}>
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={cn(
+                "rounded-lg px-3 py-1.5 text-xs font-semibold capitalize",
+                filter === f ? "bg-white text-brand-ink shadow-lift ring-1 ring-edge" : "text-ink-mut hover:text-ink-lum",
+              )}
+            >
               {f === "decided" ? "Decided & closed" : f}
             </button>
           ))}
         </div>
         <label className="relative lg:ml-auto lg:w-72">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mut" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search disputes…" aria-label="Search disputes" className="field h-10 w-full rounded-xl pl-9 pr-3 text-sm" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search disputes…"
+            aria-label="Search disputes"
+            className="field h-10 w-full rounded-xl pl-9 pr-3 text-sm"
+          />
         </label>
       </div>
       {filtered.length === 0 ? (
         <div className="p-6">
-          <EmptyState title={rows.length ? "No disputes match this filter" : "No disputes logged"} line={rows.length ? "Switch the filter to see decided disputes." : "Disputes raised by teams, customers or staff appear here for review."} />
+          <EmptyState
+            title={rows.length ? "No disputes match this filter" : "No disputes logged"}
+            line={rows.length ? "Switch the filter to see decided disputes." : "Disputes raised by teams, customers or staff appear here for review."}
+          />
         </div>
       ) : (
         <ul className="divide-y divide-slate-100">
           {filtered.map((r) => (
             <li key={r.id}>
-              <button onClick={() => setSelected(r.id)} className="flex w-full flex-col gap-2 px-5 py-4 text-left transition-colors hover:bg-brand-subtle/30 focus:outline-none focus-visible:bg-brand-subtle/40 md:flex-row md:items-center md:gap-4">
+              <button
+                onClick={() => setSelected(r.id)}
+                className="flex w-full flex-col gap-2 px-5 py-4 text-left transition-colors hover:bg-brand-subtle/30 focus:outline-none focus-visible:bg-brand-subtle/40 md:flex-row md:items-center md:gap-4"
+              >
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-mono text-xs font-semibold text-ink-sec">{r.id}</span>
                     <Badge className="border border-slate-200 bg-slate-50 text-ink-sec">{label(r.type)}</Badge>
                   </div>
                   <p className="mt-1 line-clamp-1 text-sm text-ink-lum">{r.reason}</p>
-                  <p className="mt-1 text-xs text-ink-mut">{r.contextLabel} · raised by {r.submittedBy}</p>
+                  <p className="mt-1 text-xs text-ink-mut">
+                    {r.contextLabel} · raised by {r.submittedBy}
+                  </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 md:w-[300px] md:justify-end">
                   <StatusChip value={r.status} />
                   <span className="text-xs text-ink-mut">{r.reviewerName ? `Reviewer: ${r.reviewerName}` : "No reviewer"}</span>
-                  <span className="text-xs text-ink-mut" title={formatWhen(r.submittedAt)}>{formatAgo(r.submittedAt)}</span>
+                  <span className="text-xs text-ink-mut" title={formatWhen(r.submittedAt)}>
+                    {formatAgo(r.submittedAt)}
+                  </span>
                 </div>
               </button>
             </li>
@@ -88,7 +111,12 @@ function DisputeDrawer({ id, onClose }: { id: string | null; onClose: () => void
   const feedback = useCommandFeedback();
   const [dialog, setDialog] = useState<DialogKind>(null);
   const d = useMemo(() => (id ? disputeDetail(state, id) : undefined), [state, id]);
-  if (!id) return <Drawer open={false} onClose={onClose} title="">{null}</Drawer>;
+  if (!id)
+    return (
+      <Drawer open={false} onClose={onClose} title="">
+        {null}
+      </Drawer>
+    );
   if (!d) {
     return (
       <Drawer open onClose={onClose} title="Dispute not found">
@@ -119,16 +147,45 @@ function DisputeDrawer({ id, onClose }: { id: string | null; onClose: () => void
           <DrawerSection title="Next step">
             <div className="flex flex-wrap gap-2">
               {isOpen && canSelfAssign && (
-                <GatedButton gate={g.assign} size="sm" variant={d.reviewerId ? "secondary" : "primary"} onClick={() => feedback(assignDisputeReviewer(d.id, operator!.id), "Dispute assigned to you")}>
+                <GatedButton
+                  gate={g.assign}
+                  size="sm"
+                  variant={d.reviewerId ? "secondary" : "primary"}
+                  onClick={() => feedback(assignDisputeReviewer(d.id, operator!.id), "Dispute assigned to you")}
+                >
                   Assign to me
                 </GatedButton>
               )}
-              {isOpen && <GatedButton gate={g.assign} size="sm" variant="secondary" onClick={() => setDialog("assign")}>{d.reviewerId ? "Change reviewer" : "Assign reviewer"}</GatedButton>}
-              {isOpen && d.reviewerId && <GatedButton gate={g.evidence} size="sm" variant="secondary" onClick={() => setDialog("evidence")}>Request evidence</GatedButton>}
-              {isOpen && <GatedButton gate={g.decide} size="sm" onClick={() => setDialog("decide")} disabled={!d.reviewerId} title={!d.reviewerId ? "Assign a reviewer first" : undefined}>Record decision</GatedButton>}
-              {DECIDED.includes(d.status) && <GatedButton gate={g.close} size="sm" onClick={() => setDialog("close")}>Close dispute</GatedButton>}
+              {isOpen && (
+                <GatedButton gate={g.assign} size="sm" variant="secondary" onClick={() => setDialog("assign")}>
+                  {d.reviewerId ? "Change reviewer" : "Assign reviewer"}
+                </GatedButton>
+              )}
+              {isOpen && d.reviewerId && (
+                <GatedButton gate={g.evidence} size="sm" variant="secondary" onClick={() => setDialog("evidence")}>
+                  Request evidence
+                </GatedButton>
+              )}
+              {isOpen && (
+                <GatedButton
+                  gate={g.decide}
+                  size="sm"
+                  onClick={() => setDialog("decide")}
+                  disabled={!d.reviewerId}
+                  title={!d.reviewerId ? "Assign a reviewer first" : undefined}
+                >
+                  Record decision
+                </GatedButton>
+              )}
+              {DECIDED.includes(d.status) && (
+                <GatedButton gate={g.close} size="sm" onClick={() => setDialog("close")}>
+                  Close dispute
+                </GatedButton>
+              )}
             </div>
-            <div className="mt-3"><PermissionNote reason={denied?.reason} /></div>
+            <div className="mt-3">
+              <PermissionNote reason={denied?.reason} />
+            </div>
           </DrawerSection>
         )}
 
@@ -136,7 +193,10 @@ function DisputeDrawer({ id, onClose }: { id: string | null; onClose: () => void
           <p className="text-sm leading-6 text-ink-lum">{d.reason}</p>
           <dl className="mt-2 divide-y divide-slate-100">
             <DetailRow label="Raised by">{d.submittedBy}</DetailRow>
-            <DetailRow label="Logged">{formatWhen(d.submittedAt)}{d.recordedByName ? ` by ${d.recordedByName}` : ""}</DetailRow>
+            <DetailRow label="Logged">
+              {formatWhen(d.submittedAt)}
+              {d.recordedByName ? ` by ${d.recordedByName}` : ""}
+            </DetailRow>
             <DetailRow label="Concerns">{d.contextLabel}</DetailRow>
             <DetailRow label="Reviewer">{d.reviewerName ?? "Not assigned"}</DetailRow>
             {d.evidenceRequestedAt && <DetailRow label="Evidence asked">{formatWhen(d.evidenceRequestedAt)}</DetailRow>}
@@ -147,10 +207,15 @@ function DisputeDrawer({ id, onClose }: { id: string | null; onClose: () => void
         {d.decision && (
           <DrawerSection title="Decision">
             <dl className="divide-y divide-slate-100">
-              <DetailRow label="Outcome"><StatusChip value={d.status === "closed" ? "closed" : d.status} /></DetailRow>
+              <DetailRow label="Outcome">
+                <StatusChip value={d.status === "closed" ? "closed" : d.status} />
+              </DetailRow>
               <DetailRow label="Decision">{d.decision}</DetailRow>
               <DetailRow label="Reasoning">{d.decisionReason}</DetailRow>
-              <DetailRow label="Decided">{formatWhen(d.decidedAt)}{d.decidedByName ? ` by ${d.decidedByName}` : ""}</DetailRow>
+              <DetailRow label="Decided">
+                {formatWhen(d.decidedAt)}
+                {d.decidedByName ? ` by ${d.decidedByName}` : ""}
+              </DetailRow>
             </dl>
           </DrawerSection>
         )}
@@ -182,23 +247,55 @@ function DisputeDrawer({ id, onClose }: { id: string | null; onClose: () => void
         onSubmit={(r) => requestDisputeEvidence(d.id, r)}
       />
       <DecisionDialog open={dialog === "decide"} onClose={() => setDialog(null)} disputeId={d.id} />
-      <CommandDialog open={dialog === "close"} onClose={() => setDialog(null)} title="Close dispute" confirmLabel="Close dispute" success="Dispute closed" onSubmit={() => closeDispute(d.id)}>
-        <p className="text-sm leading-6 text-ink-sec">Closing confirms the decision has been communicated to the person who raised it. The dispute becomes read-only.</p>
+      <CommandDialog
+        open={dialog === "close"}
+        onClose={() => setDialog(null)}
+        title="Close dispute"
+        confirmLabel="Close dispute"
+        success="Dispute closed"
+        onSubmit={() => closeDispute(d.id)}
+      >
+        <p className="text-sm leading-6 text-ink-sec">
+          Closing confirms the decision has been communicated to the person who raised it. The dispute becomes read-only.
+        </p>
       </CommandDialog>
     </Drawer>
   );
 }
 
-function ReviewerDialog({ open, onClose, reviewers, onSubmit }: { open: boolean; onClose: () => void; reviewers: Array<{ id: string; name: string; title: string }>; onSubmit: (id: string) => { error?: string } }) {
+function ReviewerDialog({
+  open,
+  onClose,
+  reviewers,
+  onSubmit,
+}: {
+  open: boolean;
+  onClose: () => void;
+  reviewers: Array<{ id: string; name: string; title: string }>;
+  onSubmit: (id: string) => { error?: string };
+}) {
   const [value, setValue] = useState("");
   return (
-    <CommandDialog open={open} onClose={() => { setValue(""); onClose(); }} title="Assign reviewer" confirmLabel="Assign" canSubmit={!!value} success="Reviewer assigned" onSubmit={() => onSubmit(value)}>
+    <CommandDialog
+      open={open}
+      onClose={() => {
+        setValue("");
+        onClose();
+      }}
+      title="Assign reviewer"
+      confirmLabel="Assign"
+      canSubmit={!!value}
+      success="Reviewer assigned"
+      onSubmit={() => onSubmit(value)}
+    >
       <p className="text-sm text-ink-mut">Reviewers decide disputes: Safety & Moderation Officers, Super Admins or Platform Owners.</p>
       <Field label="Reviewer">
         <Select value={value} onChange={(e) => setValue(e.target.value)} required>
           <option value="">Choose…</option>
           {reviewers.map((o) => (
-            <option key={o.id} value={o.id}>{o.name} — {o.title}</option>
+            <option key={o.id} value={o.id}>
+              {o.name} — {o.title}
+            </option>
           ))}
         </Select>
       </Field>
@@ -217,11 +314,18 @@ function DecisionDialog({ open, onClose, disputeId }: { open: boolean; onClose: 
   const [outcome, setOutcome] = useState<DisputeOutcome | "">("");
   const [decision, setDecision] = useState("");
   const [reason, setReason] = useState("");
-  const reset = () => { setOutcome(""); setDecision(""); setReason(""); };
+  const reset = () => {
+    setOutcome("");
+    setDecision("");
+    setReason("");
+  };
   return (
     <CommandDialog
       open={open}
-      onClose={() => { reset(); onClose(); }}
+      onClose={() => {
+        reset();
+        onClose();
+      }}
       wide
       title="Record decision"
       confirmLabel="Record decision"
@@ -233,7 +337,10 @@ function DecisionDialog({ open, onClose, disputeId }: { open: boolean; onClose: 
         <legend className="mb-2 text-[13px] font-medium text-ink-sec">Outcome</legend>
         <div className="grid gap-2 sm:grid-cols-3">
           {OUTCOMES.map((o) => (
-            <label key={o.id} className={cn("cursor-pointer rounded-xl border p-3 text-sm transition-colors", outcome === o.id ? o.tone : "border-edge hover:bg-bg-sunken")}>
+            <label
+              key={o.id}
+              className={cn("cursor-pointer rounded-xl border p-3 text-sm transition-colors", outcome === o.id ? o.tone : "border-edge hover:bg-bg-sunken")}
+            >
               <input type="radio" name="outcome" value={o.id} checked={outcome === o.id} onChange={() => setOutcome(o.id)} className="sr-only" />
               <span className="block font-semibold text-ink-lum">{o.title}</span>
               <span className="mt-0.5 block text-xs text-ink-mut">{o.line}</span>

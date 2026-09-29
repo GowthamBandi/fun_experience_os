@@ -111,7 +111,7 @@ export default function NewIdentityPatternPage() {
         </form>
 
         <aside className="space-y-4 rounded-panel border border-edge bg-white p-6 shadow-panel lg:sticky lg:top-6 lg:self-start" aria-live="polite">
-          <p className="overline">Live preview</p>
+          <p className="eyebrow">Live preview</p>
           <div className="rounded-2xl border border-brand/20 bg-brand-subtle p-5 text-center">
             <p className="text-xs font-medium text-brand-ink">A participant sees</p>
             <p className="mt-1 font-mono text-4xl font-bold tracking-wide text-ink-lum">{samples[0]}</p>
