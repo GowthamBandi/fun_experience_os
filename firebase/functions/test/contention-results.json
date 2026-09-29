@@ -1,0 +1,62 @@
+[
+  {
+    "label": "A) single hot counter doc      (maxAttempts=5)",
+    "capacity": 1,
+    "clients": 2,
+    "by": {
+      "sold-out": 1,
+      "booked": 1
+    },
+    "bookingDocs": 1,
+    "elapsedMs": 3176,
+    "p50": 3176,
+    "p95": 3176,
+    "oversold": false,
+    "booked": 1
+  },
+  {
+    "label": "A) single hot counter doc      (maxAttempts=5)",
+    "capacity": 10,
+    "clients": 40,
+    "by": {
+      "sold-out": 30,
+      "booked": 10
+    },
+    "bookingDocs": 10,
+    "elapsedMs": 12928,
+    "p50": 10689,
+    "p95": 12849,
+    "oversold": false,
+    "booked": 10
+  },
+  {
+    "label": "B) per-seat documents          (maxAttempts=5)",
+    "capacity": 10,
+    "clients": 40,
+    "by": {
+      "booked": 10,
+      "sold-out": 30
+    },
+    "bookingDocs": 10,
+    "elapsedMs": 7473,
+    "p50": 6357,
+    "p95": 7405,
+    "oversold": false,
+    "booked": 10
+  },
+  {
+    "label": "B) per-seat documents          (maxAttempts=5)",
+    "capacity": 50,
+    "clients": 120,
+    "by": {
+      "sold-out": 70,
+      "booked": 50
+    },
+    "bookingDocs": 50,
+    "elapsedMs": 44202,
+    "p50": 38470,
+    "p95": 43038,
+    "oversold": false,
+    "booked": 50
+  }
+]

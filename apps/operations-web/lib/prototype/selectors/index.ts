@@ -11,3 +11,4 @@ export * from "./tournament";
 export * from "./safety";
 export * from "./disputes";
 export * from "./moderation";
+export * from "./staff";

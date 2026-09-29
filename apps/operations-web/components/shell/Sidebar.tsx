@@ -4,24 +4,20 @@ import { AnimatePresence, motion } from "framer-motion";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
-  BarChart3,
-  BookOpen,
-  Building2,
-  CalendarRange,
+  BadgeIndianRupee,
+  HandCoins,
+  Building,
   ChevronLeft,
-  Compass,
-  CreditCard,
-  Globe,
-  Group,
-  Landmark,
-  Layers,
-  MapPin,
-  Megaphone,
+  CircleGauge,
+  ClipboardCheck,
+  FileClock,
+  ReceiptIndianRupee,
+  Scale,
+  SearchCheck,
   ShieldCheck,
-  Store,
-  Trophy,
+  Tickets,
+  TriangleAlert,
   Users,
-  Wallet,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { navFor } from "@/lib/nav";
@@ -30,23 +26,19 @@ import { useIsMobile } from "@/lib/hooks";
 import { TerritorySwitcher } from "@/components/shell/TerritorySwitcher";
 import { Avatar } from "@/components/ui/primitives";
 
-const ICONS: Record<string, typeof Compass> = {
-  "/": Compass,
-  "/setup": Layers,
-  "/missions": CalendarRange,
-  "/bookings": BookOpen,
-  "/people": Users,
-  "/money": Wallet,
-  "/tournaments": Trophy,
-  "/franchises": Landmark,
-  "/territories": Globe,
-  "/cities": Building2,
-  "/locations": MapPin,
-  "/catalog": Store,
-  "/staffing": Group,
-  "/notifications": Megaphone,
-  "/analytics": BarChart3,
-  "/access": ShieldCheck,
+const ICONS: Record<string, typeof CircleGauge> = {
+  "/": CircleGauge,
+  "/approvals": ClipboardCheck,
+  "/partners": Users,
+  "/arenas": Building,
+  "/events": Tickets,
+  "/customers": SearchCheck,
+  "/risk": TriangleAlert,
+  "/refunds": ReceiptIndianRupee,
+  "/settlements": HandCoins,
+  "/commercials": BadgeIndianRupee,
+  "/policies": Scale,
+  "/audit": FileClock,
 };
 
 const LIGHT = [0.19, 1, 0.22, 1] as const;
@@ -71,7 +63,7 @@ export function Sidebar() {
         {!collapsed && (
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold tracking-tight text-ink-lum">Experience OS</p>
-            <p className="overline">Command Center</p>
+            <p className="overline">Governance Console</p>
           </div>
         )}
       </div>
@@ -84,7 +76,9 @@ export function Sidebar() {
       {/* navigation */}
       <nav className="mt-4 flex-1 space-y-0.5 overflow-y-auto px-3 pb-4" aria-label="Modules">
         {items.map((item, i) => {
-          const Icon = ICONS[item.href] ?? Compass;
+          const Icon = ICONS[item.href] ?? ShieldCheck;
+          const previous = items[i - 1];
+          const showGroup = !collapsed && item.group !== previous?.group;
           const active = pathname === item.href || (item.href.length > 1 && pathname.startsWith(item.href + "/"));
           return (
             <motion.div
@@ -93,6 +87,11 @@ export function Sidebar() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.32, delay: 0.04 * i, ease: LIGHT }}
             >
+              {showGroup && (
+                <p className={cn("overline px-3 pb-1.5", i > 0 && "mt-5 border-t border-white/6 pt-4")}>
+                  {item.group}
+                </p>
+              )}
               <Link
                 href={item.href}
                 title={collapsed ? item.label : undefined}

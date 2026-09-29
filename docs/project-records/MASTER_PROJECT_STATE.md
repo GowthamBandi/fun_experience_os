@@ -1,5 +1,7 @@
 # MASTER PROJECT STATE
 
+> **Superseded operating-model notice (2026-09-29):** The company-operated-event assumption in this historical consolidation is no longer canonical. Organizers/event managers conduct events; the Super Admin verifies, approves, governs risk and controls marketplace money. See `docs/product/06-super-admin-marketplace-governance.md`.
+
 > **Status:** Live master document — single source of truth (SA-0D).
 > **Document type:** Master project state / CTO consolidation.
 > **Last updated:** 2026-08-04 (SA-0D — CTO consolidation & architecture review).

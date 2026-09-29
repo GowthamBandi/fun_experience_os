@@ -15,7 +15,18 @@
  * DO NOT add any implementation to this file until the App Check phase is approved.
  */
 
-export const APP_CHECK_INITIALIZED = false;
+import type { FirebaseApp } from "firebase/app";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider, type AppCheck } from "firebase/app-check";
 
-// Future integration point — do not implement yet.
-// export function initializeFirebaseAppCheck(app: FirebaseApp): AppCheck { ... }
+let instance: AppCheck | null = null;
+
+export function initializeFirebaseAppCheck(app: FirebaseApp): AppCheck {
+  if (instance) return instance;
+  const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_ENTERPRISE_SITE_KEY;
+  if (!siteKey) throw new Error("[Firebase] NEXT_PUBLIC_RECAPTCHA_ENTERPRISE_SITE_KEY is required in live mode.");
+  instance = initializeAppCheck(app, {
+    provider: new ReCaptchaEnterpriseProvider(siteKey),
+    isTokenAutoRefreshEnabled: true,
+  });
+  return instance;
+}

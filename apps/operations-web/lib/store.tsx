@@ -21,7 +21,8 @@ import type {
   Territory as PrototypeTerritory,
   City as PrototypeCity,
   Venue as PrototypeVenue,
-  PlayingArea as PrototypePlayingArea
+  PlayingArea as PrototypePlayingArea,
+  CrewMember
 } from "./prototype/entities";
 import {
   getInitialState,
@@ -249,6 +250,9 @@ interface StoreValue {
   addCatalogNote: (entity: string, name: string, note: string) => void;
   createSession: (input: SessionInput) => void;
   createBooking: (input: BookingInput) => void;
+  createCrewMember: (input: Partial<CrewMember> & { name: string; role: RoleId; territoryId: string; venueId: string }) => void;
+  updateCrewMember: (id: string, patch: Partial<CrewMember>) => void;
+  assignCrewToSession: (params: { sessionId: string; crewId: string; role?: string; assignmentTitle?: string }) => void;
 
   // Geography update/status commands (services)
   updateFranchise: (id: string, patch: Partial<PrototypeFranchise>) => void;
@@ -752,6 +756,66 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [commit, operatorId]
   );
 
+  const createCrewMemberCb = useCallback(
+    (input: any) =>
+      commit((prev) => {
+        const id = input.id || `c-${Date.now()}`;
+        const newCrew: CrewMember = {
+          id,
+          territoryId: input.territoryId || "hvd-central",
+          venueId: input.venueId || "v-1",
+          name: input.name || "New Staff Member",
+          role: input.role || "staff",
+          status: input.status || "available",
+          assignment: input.assignment || "General Floor Support",
+        };
+        return { ...prev, crew: [...(prev.crew || []), newCrew] };
+      }),
+    [commit]
+  );
+
+  const updateCrewMemberCb = useCallback(
+    (id: string, patch: Partial<CrewMember>) =>
+      commit((prev) => ({
+        ...prev,
+        crew: (prev.crew || []).map((c) => (c.id === id ? { ...c, ...patch } : c)),
+      })),
+    [commit]
+  );
+
+  const assignCrewToSessionCb = useCallback(
+    (params: { sessionId: string; crewId: string; role?: string; assignmentTitle?: string }) =>
+      commit((prev) => {
+        const session = (prev.sessions || []).find((s) => s.id === params.sessionId);
+        const crewMember = (prev.crew || []).find((c) => c.id === params.crewId);
+        if (!session || !crewMember) return prev;
+
+        const isLead = params.role === "coordinator" || params.role === "Lead Coordinator";
+        const isSafety = params.role === "safety" || params.role === "Safety Officer";
+
+        const updatedSessions = (prev.sessions || []).map((s) => {
+          if (s.id !== params.sessionId) return s;
+          return {
+            ...s,
+            ...(isLead ? { leadCoordinatorId: params.crewId } : {}),
+            ...(isSafety ? { safetyContactId: params.crewId } : {}),
+          };
+        });
+
+        const updatedCrew = (prev.crew || []).map((c) => {
+          if (c.id !== params.crewId) return c;
+          return {
+            ...c,
+            status: "assigned" as const,
+            assignment: params.assignmentTitle || `Assigned to Event ${params.sessionId}`,
+          };
+        });
+
+        return { ...prev, sessions: updatedSessions, crew: updatedCrew };
+      }),
+    [commit]
+  );
+
   const requestEmergencyIdentityAccessCb = useCallback(
     (params: any) => {
       let res: any;
@@ -1198,6 +1262,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       createCheckInRecords: createCheckInRecordsCb,
       updateCheckInStatus: updateCheckInStatusCb,
       checkInStaff: checkInStaffCb,
+      createCrewMember: createCrewMemberCb,
+      updateCrewMember: updateCrewMemberCb,
+      assignCrewToSession: assignCrewToSessionCb,
       requestEmergencyIdentityAccess: requestEmergencyIdentityAccessCb,
       closeEmergencyIdentityAccess: closeEmergencyIdentityAccessCb,
       openSession: openSessionCb,

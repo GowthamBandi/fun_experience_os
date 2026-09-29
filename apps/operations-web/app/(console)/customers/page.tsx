@@ -1,0 +1,2 @@
+import { GovernanceRoutePage } from "@/components/governance/GovernanceRoutePage";
+export default function Page(){return <GovernanceRoutePage config={{collection:"customers",readOnly:true,eyebrow:"Marketplace",title:"Customers",description:"Monitor customer participation, refund impact and trust signals. Sensitive identity data remains outside this operational view.",metricLabel:"Customer records",primaryAction:"Inspect"}}/>}

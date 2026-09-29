@@ -1,0 +1,2 @@
+import { GovernanceRoutePage } from "@/components/governance/GovernanceRoutePage";
+export default function Page(){return <GovernanceRoutePage config={{collection:"policyVersions",readOnly:true,eyebrow:"Control",title:"Policies",description:"Inspect the versioned rules used by automated checks and human approval decisions across the marketplace.",metricLabel:"Policy versions",primaryAction:"Open policy"}}/>}

@@ -1,10 +1,42 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Deny ALL reads and writes — no exceptions in this baseline.
-    // Auth, domain data, and role-based rules will be added in later phases.
-    match /{document=**} {
-      allow read, write: if false;
+    function signedIn() { return request.auth != null; }
+    function verified() { return signedIn() && request.auth.token.email_verified == true; }
+    function enabled() { return verified() && request.auth.token.disabled != true; }
+    function role() { return request.auth.token.roleId; }
+    function isAdmin() { return enabled() && role() in ['platform-owner', 'super-admin']; }
+    function isAuditor() { return enabled() && role() == 'auditor'; }
+
+    // Clients have no authoritative write path. Cloud Functions use the Admin
+    // SDK after enforcing claims, validation, idempotency and audit logging.
+    match /users/{uid} {
+      allow get: if enabled() && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin();
+      allow create, update, delete: if false;
     }
+
+    match /governanceCases/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /{collection}/{id} {
+      allow read: if isAdmin() && collection in [
+        'organizers', 'arenas', 'events', 'commercialAgreements',
+        'riskAlerts', 'refundCases', 'settlementControls', 'policyVersions',
+        'franchises', 'territories', 'cities', 'venues', 'playingAreas',
+        'activityCategories', 'experienceTemplates', 'scheduledSessions', 'bookings', 'customers'
+      ];
+      allow write: if false;
+    }
+
+    match /auditEvents/{id} {
+      allow read: if isAdmin() || isAuditor();
+      allow write: if false;
+    }
+
+    match /commandReceipts/{id} { allow read, write: if false; }
+    match /{document=**} { allow read, write: if false; }
   }
 }

@@ -1,268 +1,33 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, CalendarRange, ScanLine } from "lucide-react";
-import { useStore } from "@/lib/store";
-import { sessionViews, LIVE_STATUSES } from "@/lib/prototype/repositories";
-import { fillRate, inr } from "@/lib/format";
-import { Stagger, Item, Fade } from "@/components/motion/Motion";
-import { Card, PanelHeader, Stat } from "@/components/ui/panels";
-import { StatusChip, FillMeter } from "@/components/ui/primitives";
-import { LineChart, Bars, Donut } from "@/components/ui/charts";
+import { ArrowRight, Building2, CircleAlert, Clock3, HandCoins, ReceiptIndianRupee, ShieldCheck, Users } from "lucide-react";
+import { useGovernanceCollection } from "@/lib/use-governance";
 
-import { selectSetupHealth } from "@/lib/prototype/selectors/setup";
-import { selectCatalogHealth } from "@/lib/prototype/selectors/catalog";
-import { SetupStatusBadge } from "@/components/setup/shared";
-import { ExperienceStatusBadge } from "@/components/catalog";
-import Link from "next/link";
-import { Button } from "@/components/ui/primitives";
-
-export default function CommandPage() {
-  const { operator, territory, state } = useStore();
+export default function GovernanceOverview() {
   const router = useRouter();
-  const [struck, setStruck] = useState<string | null>(null);
+  const cases = useGovernanceCollection("governanceCases");
+  const organizers = useGovernanceCollection("organizers");
+  const arenas = useGovernanceCollection("arenas");
+  const events = useGovernanceCollection("events");
+  const risks = useGovernanceCollection("riskAlerts");
+  const refunds = useGovernanceCollection("refundCases");
+  const settlements = useGovernanceCollection("settlementControls");
+  const audit = useGovernanceCollection("auditEvents");
+  const loading = [cases, organizers, arenas, events, risks, refunds, settlements, audit].some((source) => source.loading);
+  const error = [cases, organizers, arenas, events, risks, refunds, settlements, audit].find((source) => source.error)?.error;
+  const openCases = cases.records.filter((record) => !["Approved", "Blocked"].includes(record.status));
 
-  const setupHealth = selectSetupHealth(state);
-  const catalogHealth = selectCatalogHealth(state);
-
-  const sessions = sessionViews(state, territory.id);
-  const analytics = state.analytics;
-  const signals = state.signals;
-
-  const tonight = sessions.filter((s) => s.date === "Today");
-  const live = sessions.filter((s) => LIVE_STATUSES.has(s.status));
-  const take = tonight.reduce((a, s) => a + s.price * s.booked, 0);
-  const booked = tonight.reduce((a, s) => a + s.booked, 0);
-  const avgFill = tonight.length
-    ? Math.round(tonight.reduce((a, s) => a + fillRate(s.booked, s.capacity), 0) / tonight.length)
-    : 0;
-
-  return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8">
-      <Fade>
-        <p className="overline">Command · {territory.name}</p>
-        <h1 className="mt-2 text-[28px] font-semibold leading-tight tracking-tight text-ink-lum">
-          Good evening, {operator?.name.split(" ")[0]}. The night is on.
-        </h1>
-      </Fade>
-
-      {/* Setup & Experiences Health Banners */}
-      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Setup Health Banner */}
-        <div className="glass p-4 rounded-2xl border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <SetupStatusBadge status={setupHealth.status} />
-            <div>
-              <p className="text-xs font-semibold text-ink-lum">Setup Health: {setupHealth.label}</p>
-              <p className="text-[11px] text-ink-mut">
-                {setupHealth.franchiseCount} Franchises · {setupHealth.territoryCount} Territories · {setupHealth.cityCount} Cities · {setupHealth.venueCount} Venues
-              </p>
-            </div>
-          </div>
-          <Link href="/setup">
-            <Button variant="lamp" className="h-8 text-xs font-bold px-3 shrink-0">
-              Continue Setup <ArrowRight className="w-3.5 h-3.5 ml-1" />
-            </Button>
-          </Link>
-        </div>
-
-        {/* Experiences Health Panel */}
-        <div className="glass p-4 rounded-2xl border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <ExperienceStatusBadge status={catalogHealth.status} />
-            <div>
-              <p className="text-xs font-semibold text-ink-lum">Experiences Health</p>
-              <p className="text-[11px] text-ink-mut">
-                {catalogHealth.categoryCount} Categories · {catalogHealth.readyToScheduleCount} Ready to Schedule · {catalogHealth.draftCount} Drafts · {catalogHealth.blockedCount} Blocked
-              </p>
-            </div>
-          </div>
-          <Link href="/catalog">
-            <Button variant="secondary" className="h-8 text-xs font-bold px-3 shrink-0">
-              Manage Experiences <ArrowRight className="w-3.5 h-3.5 ml-1" />
-            </Button>
-          </Link>
-        </div>
-      </div>
-
-      {/* KPI row */}
-      <Stagger className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Item>
-          <Card>
-            <Stat label="Tonight's take" value={inr(take)} delta={`${tonight.length} missions on the floor`} tone="warm" />
-          </Card>
-        </Item>
-        <Item>
-          <Card>
-            <Stat label="Bookings tonight" value={String(booked)} delta="sold, seated, on the way" />
-          </Card>
-        </Item>
-        <Item>
-          <Card>
-            <Stat label="Average fill" value={`${avgFill}%`} delta={avgFill >= 80 ? "the floor is nearly full" : "still room tonight"} tone={avgFill >= 80 ? "ok" : "default"} />
-          </Card>
-        </Item>
-        <Item>
-          <Card>
-            <Stat label="Live now" value={String(live.length)} delta={live.length ? "missions running" : "floor is quiet"} tone={live.length ? "warm" : "default"} />
-          </Card>
-        </Item>
-      </Stagger>
-
-      {/* charts */}
-      <Stagger className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
-        <Item className="lg:col-span-2">
-          <Card>
-            <PanelHeader title="The week's take" sub="Revenue, last seven nights" />
-            <div className="mt-4">
-              <LineChart labels={analytics.map((d) => d.label)} series={analytics.map((d) => d.revenue)} />
-            </div>
-          </Card>
-        </Item>
-        <Item>
-          <Card>
-            <PanelHeader title="Tonight's fill" sub="across all missions" />
-            <div className="mt-6">
-              <Donut value={avgFill} label={`${avgFill}%`} sub="of seats are lit tonight" />
-            </div>
-          </Card>
-        </Item>
-        <Item className="lg:col-span-3">
-          <Card>
-            <PanelHeader title="Bookings rhythm" sub="joiners per night, last seven" />
-            <div className="mt-4">
-              <Bars labels={analytics.map((d) => d.label)} values={analytics.map((d) => d.bookings)} />
-            </div>
-          </Card>
-        </Item>
-      </Stagger>
-
-      {/* live missions + signals */}
-      <Stagger className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
-        <Item className="lg:col-span-2">
-          <Card>
-            <PanelHeader
-              title="Live missions"
-              sub={`${live.length} running in ${territory.name}`}
-              right={
-                <button onClick={() => router.push("/missions")} className="inline-flex items-center gap-1 text-xs text-ink-mut transition-colors hover:text-ink-lum">
-                  All missions <ArrowRight className="h-3.5 w-3.5" />
-                </button>
-              }
-            />
-            <div className="mt-4 space-y-1">
-              {live.map((s) => {
-                const fill = fillRate(s.booked, s.capacity);
-                return (
-                  <div
-                    key={s.id}
-                    onClick={() => router.push("/missions")}
-                    className="group flex w-full cursor-pointer items-center gap-4 rounded-xl px-3 py-3 text-left transition-colors hover:bg-white/4"
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-center gap-2">
-                        <span className="truncate text-sm font-medium text-ink-lum">{s.title}</span>
-                        <StatusChip value={s.status} />
-                      </span>
-                      <span className="mt-1.5 block">
-                        <FillMeter value={fill} />
-                      </span>
-                      <span className="mt-1.5 block text-[11px] text-ink-mut">
-                        {s.time} · {s.booked}/{s.capacity} seated{s.waitlist > 0 ? ` · ${s.waitlist} waiting` : ""}
-                      </span>
-                    </span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setStruck(s.id);
-                        setTimeout(() => setStruck(null), 1400);
-                      }}
-                      className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[#f7b955]/30 bg-[#f7b955]/10 px-2.5 py-1.5 text-[11px] font-medium text-[#ffd28a] transition-all hover:bg-[#f7b955]/20"
-                    >
-                      {struck === s.id ? (
-                        <>
-                          <ScanLine className="h-3.5 w-3.5" /> Struck
-                        </>
-                      ) : (
-                        <>
-                          <ScanLine className="h-3.5 w-3.5" /> Strike
-                        </>
-                      )}
-                    </button>
-                  </div>
-                );
-              })}
-              {live.length === 0 && <p className="px-3 py-6 text-sm text-ink-mut">The floor is quiet. The night hasn&apos;t started here yet.</p>}
-            </div>
-          </Card>
-        </Item>
-
-        <Item>
-          <Card>
-            <PanelHeader
-              title="The night's signals"
-              sub="recent"
-              right={
-                <button onClick={() => router.push("/notifications")} className="inline-flex items-center gap-1 text-xs text-ink-mut transition-colors hover:text-ink-lum">
-                  All <ArrowRight className="h-3.5 w-3.5" />
-                </button>
-              }
-            />
-            <div className="mt-4 space-y-2">
-              {signals.slice(0, 4).map((s) => (
-                <div key={s.id} className="flex items-start gap-2.5 rounded-xl px-2 py-2 transition-colors hover:bg-white/4">
-                  <StatusChip value={s.kind} dot={false} />
-                  <div className="min-w-0">
-                    <p className="text-xs leading-snug text-ink-sec">{s.message}</p>
-                    <p className="mt-0.5 text-[11px] text-ink-mut">{s.at}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </Item>
-      </Stagger>
-
-      {/* quick actions */}
-      <Stagger className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Item>
-          <button
-            onClick={() => router.push("/bookings")}
-            className="group flex w-full items-center justify-between rounded-panel glass p-5 text-left transition-all hover:bg-white/8"
-          >
-            <div>
-              <p className="text-sm font-medium text-ink-lum">Check-in at the door</p>
-              <p className="mt-0.5 text-xs text-ink-mut">Turn confirmed into seated</p>
-            </div>
-            <CalendarRange className="h-5 w-5 text-ink-mut transition-transform group-hover:translate-x-0.5" />
-          </button>
-        </Item>
-        <Item>
-          <button
-            onClick={() => router.push("/tournaments")}
-            className="group flex w-full items-center justify-between rounded-panel glass p-5 text-left transition-all hover:bg-white/8"
-          >
-            <div>
-              <p className="text-sm font-medium text-ink-lum">Check the bracket</p>
-              <p className="mt-0.5 text-xs text-ink-mut">The knockout is live</p>
-            </div>
-            <ArrowRight className="h-5 w-5 text-ink-mut transition-transform group-hover:translate-x-0.5" />
-          </button>
-        </Item>
-        <Item>
-          <button
-            onClick={() => router.push("/money")}
-            className="group flex w-full items-center justify-between rounded-panel glass p-5 text-left transition-all hover:bg-white/8"
-          >
-            <div>
-              <p className="text-sm font-medium text-ink-lum">Count the take</p>
-              <p className="mt-0.5 text-xs text-ink-mut">Settled, pending, the night&apos;s sum</p>
-            </div>
-            <ArrowRight className="h-5 w-5 text-ink-mut transition-transform group-hover:translate-x-0.5" />
-          </button>
-        </Item>
-      </Stagger>
+  return <div className="mx-auto w-full max-w-[1440px] px-5 py-7 lg:px-8">
+    <header className="flex flex-col gap-4 border-b border-white/8 pb-6 lg:flex-row lg:items-end lg:justify-between"><div><p className="overline">Governance overview</p><h1 className="mt-1 text-3xl font-semibold tracking-[-0.035em] text-white">Marketplace control center</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Approve access, protect customers, control marketplace risk and preserve an accountable record—without operating organizer events.</p></div><button onClick={() => router.push("/approvals")} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-indigo-500 px-4 text-sm font-semibold text-white hover:bg-indigo-400">Review approvals <ArrowRight className="h-4 w-4"/></button></header>
+    {error && <div role="alert" className="mt-5 rounded-xl border border-red-400/20 bg-red-400/5 p-4 text-sm text-red-200">Live governance data could not be loaded: {error}</div>}
+    <section className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric icon={Users} label="Organizers" value={organizers.records.length} detail="governed accounts"/><Metric icon={Building2} label="Arenas" value={arenas.records.length} detail="submitted facilities"/><Metric icon={ShieldCheck} label="Events" value={events.records.length} detail="marketplace events"/><Metric icon={CircleAlert} label="Open risk alerts" value={risks.records.filter((record) => record.status !== "Approved").length} detail="require investigation"/></section>
+    <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]"><section className="overflow-hidden rounded-2xl border border-white/8 bg-[#101823]"><div className="flex items-center justify-between border-b border-white/8 p-5"><div><h2 className="text-base font-semibold text-white">Decision queue</h2><p className="mt-1 text-xs text-slate-500">{loading ? "Loading…" : `${openCases.length} cases awaiting action`}</p></div><button onClick={() => router.push("/approvals")} className="text-xs font-medium text-indigo-300 hover:text-indigo-200">Open queue</button></div><div className="divide-y divide-white/8">{openCases.slice(0, 8).map((record) => <button key={record.id} onClick={() => router.push("/approvals")} className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-4 p-5 text-left hover:bg-white/[0.025]"><div><p className="text-sm font-medium text-slate-100">{record.primary}</p><p className="mt-1 text-xs text-slate-500">{record.secondary} · {record.meta}</p></div><span className="self-center rounded-full border border-amber-400/20 bg-amber-400/5 px-2.5 py-1 text-xs text-amber-300">{record.status}</span></button>)}{!loading && !error && openCases.length === 0 && <div className="p-12 text-center text-sm text-slate-500">No open decisions.</div>}</div></section>
+      <aside className="space-y-5"><section className="rounded-2xl border border-white/8 bg-[#111925] p-5"><h2 className="text-base font-semibold text-white">Financial controls</h2><ControlRow icon={ReceiptIndianRupee} label="Refund cases" value={refunds.records.length} href="/refunds"/><ControlRow icon={HandCoins} label="Settlement controls" value={settlements.records.length} href="/settlements"/><ControlRow icon={CircleAlert} label="Risk alerts" value={risks.records.length} href="/risk"/></section><section className="rounded-2xl border border-white/8 bg-[#111925] p-5"><div className="flex items-center justify-between"><h2 className="text-base font-semibold text-white">Recent audit</h2><button onClick={() => router.push("/audit")} className="text-xs text-indigo-300">View all</button></div><div className="mt-3 divide-y divide-white/8">{audit.records.slice(0, 6).map((record) => <div key={record.id} className="flex gap-3 py-3"><Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-slate-500"/><div><p className="text-xs font-medium text-slate-200">{record.primary}</p><p className="mt-1 text-[11px] text-slate-500">{record.meta}</p></div></div>)}</div></section></aside>
     </div>
-  );
+  </div>;
+
+  function ControlRow({ icon: Icon, label, value, href }: { icon: typeof HandCoins; label: string; value: number; href: string }) { return <button onClick={() => router.push(href)} className="mt-3 flex w-full items-center gap-3 rounded-xl border border-white/8 bg-[#0d1520] p-3 text-left hover:border-indigo-400/25"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-400/8 text-indigo-300"><Icon className="h-4 w-4"/></span><span className="flex-1 text-xs text-slate-400">{label}</span><span className="text-base font-semibold text-white">{value}</span></button>; }
 }
+
+function Metric({ icon: Icon, label, value, detail }: { icon: typeof Users; label: string; value: number; detail: string }) { return <div className="rounded-2xl border border-white/8 bg-[#111925] p-4"><div className="flex items-center justify-between"><span className="text-xs text-slate-500">{label}</span><Icon className="h-4 w-4 text-indigo-300"/></div><p className="mt-3 text-2xl font-semibold text-white">{value}</p><p className="mt-1 text-xs text-slate-600">{detail}</p></div>; }

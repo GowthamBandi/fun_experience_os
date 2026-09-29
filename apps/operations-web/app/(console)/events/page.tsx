@@ -1,0 +1,2 @@
+import { GovernanceRoutePage } from "@/components/governance/GovernanceRoutePage";
+export default function Page(){return <GovernanceRoutePage config={{collection:"events",entityType:"event",eyebrow:"Marketplace",title:"Events",description:"Review organizer proposals for arena readiness, customer terms, pricing, capacity, policy and risk before publishing.",metricLabel:"Event records",primaryAction:"Review event"}}/>}

@@ -11,13 +11,15 @@ import { sessionTitle } from "@/lib/prototype/selectors/lookups";
 import { selectLiveSessionState } from "@/lib/prototype/selectors/liveSession";
 import { selectCompletionChecklist } from "@/lib/prototype/selectors/completion";
 import { selectSessionSegmentResults } from "@/lib/prototype/selectors/results";
+import { selectEventStaffingSummary } from "@/lib/prototype/selectors/staff";
+import { StaffStatusBadge } from "@/components/staff";
 import {
   MissionWorkspaceHeader,
   MissionStageNavigation,
   MissionMetricsSummary,
   getOperationalStatusLabel,
 } from "@/components/missions/shared";
-import { Play, ClipboardCheck, LockKeyhole, ArrowLeft, HeartPulse } from "lucide-react";
+import { Play, ClipboardCheck, LockKeyhole, ArrowLeft, HeartPulse, UserCheck, ShieldCheck, ArrowRight } from "lucide-react";
 
 export default function SessionOverviewPage() {
   const params = useParams();
@@ -30,12 +32,14 @@ export default function SessionOverviewPage() {
   const results = useMemo(() => (state.activitySegments ?? []).filter((s) => s.sessionId === sessionId), [state, sessionId]);
   const segmentResults = useMemo(() => selectSessionSegmentResults(state, sessionId), [state, sessionId]);
 
+  const staffingSummary = useMemo(() => selectEventStaffingSummary(state, sessionId), [state, sessionId]);
+
   const confirmedCount = useMemo(() => {
     return segmentResults.filter((r) => r.status === "Confirmed" || r.status === "Corrected").length;
   }, [segmentResults]);
 
   if (!session) {
-    return <div className="p-8 text-xs font-mono text-slate-400">Session not found.</div>;
+    return <div className="p-8 text-center text-xs text-ink-mut">Session not found</div>;
   }
 
   const hasStarted = (lss.status as string) !== "Ready" && (lss.status as string) !== "scheduled" && (lss.status as string) !== "draft";

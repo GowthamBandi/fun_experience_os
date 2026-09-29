@@ -34,10 +34,11 @@ import { getFirestore, type Firestore } from "firebase/firestore";
 import { getFunctions, type Functions } from "firebase/functions";
 import { getFirebaseConfig } from "./config";
 import { connectToEmulators } from "./emulator";
+import { initializeFirebaseAppCheck } from "./app-check";
 
-type DataMode = "prototype" | "firebase-emulator" | "firebase-live";
+export type DataMode = "prototype" | "firebase-emulator" | "firebase-live";
 
-function resolveDataMode(): DataMode {
+export function resolveDataMode(): DataMode {
   const raw = process.env.NEXT_PUBLIC_DATA_MODE;
   if (raw === "firebase-emulator") return "firebase-emulator";
   if (raw === "firebase-live") return "firebase-live";
@@ -56,7 +57,7 @@ let _client: FirebaseClient | null = null;
 
 /**
  * Returns the initialized Firebase client.
- * Throws if called in prototype or firebase-live mode.
+ * Throws if called in prototype mode.
  *
  * Only call this function when NEXT_PUBLIC_DATA_MODE=firebase-emulator.
  */
@@ -70,14 +71,7 @@ export function getFirebaseClient(): FirebaseClient {
     );
   }
 
-  if (mode === "firebase-live") {
-    throw new Error(
-      "[Firebase] Firebase live mode is not approved in PR-0B. " +
-        "Do not set NEXT_PUBLIC_DATA_MODE=firebase-live until production approval."
-    );
-  }
-
-  // firebase-emulator mode — initialize once
+  // Firebase mode — initialize once.
   if (_client) return _client;
 
   const config = getFirebaseConfig();
@@ -92,8 +86,11 @@ export function getFirebaseClient(): FirebaseClient {
   const firestore = getFirestore(app);
   const functions = getFunctions(app, "us-central1");
 
-  // Connect all three SDKs to local emulators — fail closed if project is wrong
-  connectToEmulators(auth, firestore, functions, config.projectId);
+  if (mode === "firebase-emulator") {
+    connectToEmulators(auth, firestore, functions, config.projectId);
+  } else {
+    initializeFirebaseAppCheck(app);
+  }
 
   _client = { app, auth, firestore, functions };
   return _client;
