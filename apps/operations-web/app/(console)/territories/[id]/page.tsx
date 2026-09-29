@@ -1,150 +1,155 @@
 "use client";
 
-import { useMemo } from "react";
-import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
+import { useParams } from "next/navigation";
+import { Building2, CalendarClock, MapPin, Pencil, Plus, RefreshCw } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { territoryDetail } from "@/lib/prototype/repositories";
-import { selectTerritorySetupHealth } from "@/lib/prototype/selectors/setup";
-import { PageFrame } from "@/components/geo/layout";
+import { geoCan } from "@/lib/geo/access";
+import { inr } from "@/lib/format";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Card, PanelHeader, PermissionDenied } from "@/components/ui/panels";
-import { Button } from "@/components/ui/primitives";
-import { Tide } from "@/components/motion/Motion";
-import { ArrowLeft, Building2 } from "lucide-react";
-import { SetupBackNavigation, SetupStatusBadge, SetupPrimaryAction, SetupEmptyState } from "@/components/setup/shared";
+import { PermissionDenied } from "@/components/ui/panels";
+import { Button, StatusChip } from "@/components/ui/primitives";
+import { useCommandFeedback } from "@/components/ui/toast";
+import { Crumbs, DetailList, Figure, LinkButton, LinkRows, NotFoundCard, Notice, PageShell, Panel, StatusDialog, plural } from "@/components/setup/kit";
+import { EditDrawer } from "@/components/setup/form";
+import { RecordActivity } from "@/components/setup/shared";
+import { TERRITORY_STATUS, territoryFromValues, territorySteps } from "@/components/setup/schemas";
 
 export default function TerritoryDetailPage() {
-  const router = useRouter();
   const { id } = useParams<{ id: string }>();
-  const { state, canAccess, hydrated } = useStore();
-
+  const { state, canAccess, role, updateTerritory, changeTerritoryStatus } = useStore();
+  const feedback = useCommandFeedback();
   const detail = useMemo(() => territoryDetail(state, id), [state, id]);
+  const [editing, setEditing] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(false);
 
-  if (!hydrated) return <PageFrame><Tide /></PageFrame>;
-  if (!canAccess("/territories")) return <PageFrame><PermissionDenied module="Territories" /></PageFrame>;
+  if (!canAccess("/territories")) return <PermissionDenied module="Territories" />;
+  if (!detail) return <PageShell><NotFoundCard what="territory" backHref="/territories" backLabel="All territories" /></PageShell>;
 
-  if (!detail) {
-    return (
-      <PageFrame>
-        <div className="solid rounded-panel p-10 text-center">
-          <p className="text-sm font-medium text-ink-lum">Territory not found</p>
-          <Button variant="secondary" className="mt-5" onClick={() => router.push("/territories")}>
-            <ArrowLeft className="h-4 w-4" />
-            Back to Territories
-          </Button>
-        </div>
-      </PageFrame>
-    );
-  }
-
-  const health = selectTerritorySetupHealth(state, detail.id);
+  const canManage = geoCan(role.id, "manage-territory");
+  const canAddCity = geoCan(role.id, "create-city") && detail.status !== "disabled";
+  const m = detail.metrics;
+  const fields = territorySteps(state, true).flatMap((s) => s.fields).filter((f) => f.key !== "franchiseId");
+  const upcoming = detail.sessions.filter((s) => (s.date === "Today" || s.date === "Tomorrow") && !["cancelled", "completed", "archived"].includes(s.status));
 
   return (
-    <PageFrame>
-      <div className="mb-6 space-y-4">
-        <SetupBackNavigation 
-          label="Back to Territories" 
-          href="/territories"
-          breadcrumbs={[
-            { label: "Franchises", href: "/franchises" },
-            { label: detail.franchise.name, href: `/franchises/${detail.franchise.id}` }
-          ]} 
-        />
-        <PageHeader
-          overline={`Setup · Territory`}
-          title={detail.name}
-          sub={`Territory under ${detail.franchise.name}`}
-          right={
-            <SetupPrimaryAction 
-              label="Add City" 
-              href={`/cities/new?territoryId=${detail.id}`} 
-              allowedRoles={["platform-owner", "super-admin", "regional-partner", "city-manager"]} 
-            />
-          }
-        />
+    <PageShell>
+      <Crumbs items={[{ label: "Setup", href: "/setup" }, { label: detail.franchise.name, href: `/franchises/${detail.franchise.id}` }, { label: detail.name }]} />
+      <PageHeader
+        overline={`Territory · ${detail.state}${detail.region ? ` · ${detail.region}` : ""}`}
+        title={detail.name}
+        sub={`Managed by ${detail.managerName} · ${detail.timezone} · ${detail.currency}`}
+        right={
+          <>
+            <StatusChip value={detail.status} />
+            {canManage && (
+              <>
+                <Button variant="secondary" onClick={() => setEditing(true)}>
+                  <Pencil className="h-4 w-4" /> Edit
+                </Button>
+                <Button variant="secondary" onClick={() => setStatusOpen(true)}>
+                  <RefreshCw className="h-4 w-4" /> Change status
+                </Button>
+              </>
+            )}
+            {canAddCity && (
+              <LinkButton href={`/cities/new?territoryId=${detail.id}`}>
+                <Plus className="h-4 w-4" /> Add city
+              </LinkButton>
+            )}
+          </>
+        }
+      />
+
+      {detail.warnings.map((w) => (
+        <Notice key={w} tone="warn">{w}</Notice>
+      ))}
+      {detail.cities.length === 0 && (
+        <Notice tone="info" title="No cities yet" action={canAddCity ? <LinkButton href={`/cities/new?territoryId=${detail.id}`} size="sm">Add city</LinkButton> : undefined}>
+          Add a city to start adding venues in this territory.
+        </Notice>
+      )}
+
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <Figure label="Cities" value={m.cityCount} />
+        <Figure label="Venues" value={m.venueCount} hint={plural(m.playingAreaCount, "playing area")} />
+        <Figure label="Upcoming sessions" value={m.upcomingSessions} hint={m.upcomingSessions ? `${m.fillRate}% average fill` : undefined} />
+        <Figure label="Staff available" value={`${m.staffingHealth}%`} tone={m.staffingHealth <= 50 ? "danger" : m.staffingHealth <= 75 ? "warn" : "ok"} />
+        <Figure label="Settled revenue" value={inr(m.revenue)} />
+        <Figure label="Safety signals" value={m.safetySignals} tone={m.safetySignals ? "warn" : undefined} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <PanelHeader title="Cities in this Territory" />
-            <div className="mt-4 space-y-3">
-              {detail.cities.length === 0 ? (
-                <SetupEmptyState
-                  title="No cities added yet"
-                  message="Add a city to this territory to start defining venues."
-                  actionLabel="Add City"
-                  actionHref={`/cities/new?territoryId=${detail.id}`}
-                />
-              ) : (
-                detail.cities.map((c) => (
-                  <div key={c.id} className="solid rounded-xl p-4 flex items-center justify-between">
-                    <div>
-                      <h4 className="font-bold text-ink-lum">{c.name}</h4>
-                      <p className="text-xs text-ink-mut">{c.venues} venues</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Link href={`/cities/${c.id}`}>
-                        <Button variant="secondary" className="text-xs h-7 px-3">View City</Button>
-                      </Link>
-                      <Link href={`/locations/venues/new?cityId=${c.id}`}>
-                        <Button variant="primary" className="text-xs h-7 px-3">Create Venue</Button>
-                      </Link>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </Card>
-        </div>
-
-        <div className="space-y-6">
-          <Card>
-            <PanelHeader title="Overview" />
-            <div className="mt-4 space-y-3 text-sm">
-              <div className="flex justify-between border-b border-slate-200 pb-2">
-                <span className="text-ink-mut">Parent Franchise</span>
-                <Link href={`/franchises/${detail.franchise.id}`} className="text-brand hover:underline font-medium">
-                  {detail.franchise.name}
-                </Link>
-              </div>
-              <div className="flex justify-between border-b border-slate-200 pb-2">
-                <span className="text-ink-mut">Operating Manager</span>
-                <span className="text-ink-lum">{detail.managerName}</span>
-              </div>
-              <div className="flex justify-between border-b border-slate-200 pb-2">
-                <span className="text-ink-mut">Cities Count</span>
-                <span className="text-ink-lum">{detail.cities.length}</span>
-              </div>
-              <div className="flex justify-between pb-2">
-                <span className="text-ink-mut">Venues Count</span>
-                <span className="text-ink-lum">{detail.venues.length}</span>
-              </div>
-            </div>
-          </Card>
-
-          <Card>
-            <PanelHeader title="Setup Health" />
-            <div className="mt-4 space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-ink-mut">Current Status</span>
-                <SetupStatusBadge status={health.status} />
-              </div>
-              {health.missingItems.length > 0 && (
-                <div className="bg-amber-100 border border-amber-300 rounded-lg p-3">
-                  <p className="text-xs font-semibold text-amber-600 mb-2">Missing Setup Items:</p>
-                  <ul className="text-xs text-amber-200/80 list-disc pl-4 space-y-1">
-                    {health.missingItems.map((item, i) => (
-                      <li key={i}>{item}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          </Card>
-        </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Panel title="Cities" sub={plural(detail.cities.length, "city", "cities")} icon={<MapPin className="h-4 w-4" />}>
+          <LinkRows
+            empty="No cities yet."
+            rows={detail.cities.map((c) => ({ href: `/cities/${c.id}`, title: c.name, meta: `${plural(c.venues, "venue")} · ${plural(c.playingAreas, "playing area")} · Manager: ${c.managerName}`, right: <StatusChip value={c.status} /> }))}
+          />
+        </Panel>
+        <Panel title="Venues" sub={plural(detail.venues.length, "venue")} icon={<Building2 className="h-4 w-4" />}>
+          <LinkRows
+            empty="No venues yet."
+            rows={detail.venues.map((v) => ({ href: `/locations/venues/${v.id}`, title: v.name, meta: `${v.cityName} · ${plural(v.playingAreas, "playing area")} · safe capacity ${v.safetyCapacity}`, right: <StatusChip value={v.status} /> }))}
+          />
+        </Panel>
       </div>
-    </PageFrame>
+
+      <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
+        <Panel title="Details">
+          <DetailList
+            rows={[
+              { label: "Franchise", value: detail.franchise.name },
+              { label: "Type", value: <span className="capitalize">{detail.type}</span> },
+              { label: "State", value: detail.state },
+              { label: "Region", value: detail.region },
+              { label: "Manager", value: detail.managerName },
+              { label: "Time zone", value: detail.timezone },
+              { label: "Currency", value: detail.currency },
+              { label: "Operations contact", value: detail.contactInfo },
+              { label: "Notes", value: detail.notes },
+            ]}
+          />
+        </Panel>
+        <Panel title="Upcoming sessions" sub="Today and tomorrow" icon={<CalendarClock className="h-4 w-4" />}>
+          <LinkRows
+            empty="No sessions today or tomorrow."
+            rows={upcoming.slice(0, 8).map((s) => ({ href: `/missions/${s.id}`, title: s.title, meta: `${s.date} ${s.time} · ${s.venueName} · ${s.booked}/${s.capacity} booked`, right: <StatusChip value={s.status} /> }))}
+          />
+        </Panel>
+      </div>
+
+      <Panel title="Recent changes" sub="From the audit log">
+        <RecordActivity state={state} match={[detail.name]} />
+      </Panel>
+
+      <EditDrawer
+        open={editing}
+        onClose={() => setEditing(false)}
+        title={`Edit ${detail.name}`}
+        fields={fields}
+        initial={{ ...detail }}
+        onSave={(v) => {
+          const { status: _s, franchiseId: _f, ...patch } = territoryFromValues({ ...v, franchiseId: detail.franchiseId });
+          void _s;
+          void _f;
+          const out = updateTerritory(detail.id, patch);
+          feedback(out, "Territory updated");
+          return out;
+        }}
+      />
+      <StatusDialog
+        open={statusOpen}
+        onClose={() => setStatusOpen(false)}
+        title={`Change status — ${detail.name}`}
+        current={detail.status}
+        options={TERRITORY_STATUS}
+        onConfirm={(s, reason) => {
+          const out = changeTerritoryStatus(detail.id, s, reason);
+          feedback(out, `Territory set to ${s}`);
+          return out;
+        }}
+      />
+    </PageShell>
   );
 }

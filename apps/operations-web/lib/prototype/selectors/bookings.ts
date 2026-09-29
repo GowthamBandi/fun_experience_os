@@ -1,6 +1,6 @@
 import type { PrototypeState } from "../scenarios/state";
 import type { Booking } from "../entities";
-import { sessionCapacityLedger } from "./capacity";
+import { canonicalBookingStatus, seatClass } from "./status";
 
 export interface BookingFilters {
   search?: string;
@@ -43,7 +43,7 @@ export function selectBookingList(state: PrototypeState, filters: BookingFilters
   }
 
   if (filters.bookingStatus) {
-    list = list.filter((b) => b.status === filters.bookingStatus);
+    list = list.filter((b) => canonicalBookingStatus(b.status) === filters.bookingStatus);
   }
 
   if (filters.paymentStatus) {
@@ -75,31 +75,14 @@ export function selectBookingById(state: PrototypeState, id: string): Booking | 
   return state.bookings.find((b) => b.id === id);
 }
 
+/** The session's waitlist queue in order: people waiting and people holding an offer. */
 export function selectSessionWaitlistQueue(state: PrototypeState, sessionId: string): Booking[] {
   return state.bookings
-    .filter((b) => b.sessionId === sessionId && (b.status === "waitlisted" || b.status === "waitlist-offered"))
-    .sort((a, b) => (a.waitlistOrder ?? 999) - (b.waitlistOrder ?? 999));
+    .filter((b) => b.sessionId === sessionId && (seatClass(b) === "waitlist" || seatClass(b) === "offer"))
+    .sort((a, b) => (a.waitlistOrder ?? Number.MAX_SAFE_INTEGER) - (b.waitlistOrder ?? Number.MAX_SAFE_INTEGER));
 }
 
+/** The first person in the queue who has not been offered a seat yet. */
 export function selectNextEligibleWaitlistEntry(state: PrototypeState, sessionId: string): Booking | undefined {
-  const queue = selectSessionWaitlistQueue(state, sessionId);
-  return queue.find((b) => b.status === "waitlisted" && b.reservationStatus !== "offer-hold");
-}
-
-export function selectReservationOperationalMetrics(state: PrototypeState) {
-  const all = state.bookings;
-  const activeReservations = all.filter((b) => b.reservationStatus === "active" || b.status === "reserved" || b.status === "payment-pending").length;
-  const confirmed = all.filter((b) => b.status === "confirmed" || b.paymentStatus === "confirmed").length;
-  const waitlisted = all.filter((b) => b.status === "waitlisted" || b.status === "waitlist-offered").length;
-  const paymentFailed = all.filter((b) => b.status === "payment-failed" || b.paymentStatus === "failed").length;
-  const expired = all.filter((b) => b.status === "reservation-expired").length;
-
-  return {
-    totalBookings: all.length,
-    activeReservations,
-    confirmed,
-    waitlisted,
-    paymentFailed,
-    expired,
-  };
+  return selectSessionWaitlistQueue(state, sessionId).find((b) => seatClass(b) === "waitlist");
 }

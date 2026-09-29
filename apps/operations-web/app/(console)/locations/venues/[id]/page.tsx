@@ -1,212 +1,210 @@
 "use client";
 
-import { use } from "react";
-import Link from "next/link";
+import { useMemo, useState } from "react";
+import { useParams } from "next/navigation";
+import { CalendarClock, LayoutGrid, NotebookPen, Pencil, Plus, RefreshCw, ShieldCheck, Users } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { selectVenueSetupHealth } from "@/lib/prototype/selectors/setup";
+import { venueDetail } from "@/lib/prototype/repositories";
+import { geoCan } from "@/lib/geo/access";
+import { inr } from "@/lib/format";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { SetupBackNavigation, SetupStatusBadge, SetupEmptyState } from "@/components/setup/shared";
+import { PermissionDenied } from "@/components/ui/panels";
 import { Button, StatusChip } from "@/components/ui/primitives";
-import { Building2, MapPin, Plus, Clock, Users, ShieldCheck, ArrowRight } from "lucide-react";
+import { useCommandFeedback } from "@/components/ui/toast";
+import { ConfirmDialog, Crumbs, DetailList, Figure, LinkButton, LinkRows, NotFoundCard, Notice, PageShell, Panel, StatusDialog, plural } from "@/components/setup/kit";
+import { EditDrawer } from "@/components/setup/form";
+import { RecordActivity } from "@/components/setup/shared";
+import { VENUE_STATUS, venueFromValues, venueSteps } from "@/components/setup/schemas";
+import { formatStaffRole } from "@/lib/prototype/selectors/staff";
 
-export default function VenueDetailsPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id: venueId } = use(params);
-  const { state, territory } = useStore();
+const yes = (b: boolean) => (b ? "Yes" : "No");
 
-  const venues = state.venues ?? [];
-  const cities = state.cities ?? [];
-  const territories = state.territories ?? [];
-  const playingAreas = state.playingAreas ?? [];
-  const sessions = state.sessions ?? [];
+export default function VenueDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const { state, canAccess, role, updateVenue, changeVenueStatus, addVenueSafetyNote } = useStore();
+  const feedback = useCommandFeedback();
+  const detail = useMemo(() => venueDetail(state, id), [state, id]);
+  const [editing, setEditing] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(false);
+  const [verifyOpen, setVerifyOpen] = useState<null | "verified" | "failed">(null);
+  const [noteOpen, setNoteOpen] = useState(false);
 
-  const venue = venues.find((v) => v.id === venueId);
+  if (!canAccess("/locations")) return <PermissionDenied module="Venues" />;
+  if (!detail) return <PageShell><NotFoundCard what="venue" backHref="/locations/venues" backLabel="All venues" /></PageShell>;
 
-  if (!venue) {
-    return (
-      <div className="mx-auto w-full max-w-7xl px-4 py-12 text-center space-y-4">
-        <h2 className="text-xl font-bold text-ink-lum">Venue Not Found</h2>
-        <p className="text-xs text-ink-sec">The requested venue location does not exist in the prototype state.</p>
-        <Link href="/locations/venues">
-          <Button variant="primary">Return to Venues</Button>
-        </Link>
-      </div>
-    );
-  }
-
-  const city = cities.find((c) => c.id === venue.cityId);
-  const t = territories.find((tr) => tr.id === venue.territoryId || tr.id === city?.territoryId);
-  const vAreas = playingAreas.filter((pa) => pa.venueId === venue.id);
-  const vSessions = sessions.filter((s) => s.venueId === venue.id);
-  const health = selectVenueSetupHealth(state, venue.id);
-  const combinedCapacity = vAreas.length > 0
-    ? vAreas.reduce((sum, pa) => sum + (pa.maxCapacity || 0), 0)
-    : venue.safetyCapacity || 0;
+  const canManage = geoCan(role.id, "manage-venue");
+  const canAddArea = geoCan(role.id, "create-playing-area") && detail.status !== "closed";
+  const m = detail.metrics;
+  const fields = venueSteps(state).flatMap((s) => s.fields).filter((f) => f.key !== "cityId");
+  const catName = (cid: string) => state.categories.find((c) => c.id === cid)?.name ?? cid;
+  const upcoming = detail.sessions.filter((s) => !["cancelled", "completed", "archived"].includes(s.status));
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6">
-      <SetupBackNavigation
-        label="Back to Venues"
-        href="/locations/venues"
-        breadcrumbs={[
-          { label: "Setup", href: "/setup" },
-          { label: "Venues", href: "/locations/venues" },
-          { label: venue.name, href: `/locations/venues/${venue.id}` },
-        ]}
-      />
-
+    <PageShell>
+      <Crumbs items={[{ label: "Setup", href: "/setup" }, { label: detail.cityName, href: `/cities/${detail.cityId}` }, { label: detail.name }]} />
       <PageHeader
-        overline={`Venue Details · ${city?.name || "City"}`}
-        title={venue.name}
-        sub={`Located in ${city?.name || "City"}, ${t?.name || "Territory"}. Physical location for events.`}
+        overline={`Venue · ${detail.cityName} · ${detail.territoryName}`}
+        title={detail.name}
+        sub={detail.address}
         right={
-          <div className="flex items-center gap-3">
-            <SetupStatusBadge status={health.status} />
-            <Link href={`/locations/playing-areas/new?venueId=${venue.id}`}>
-              <Button variant="primary" className="font-bold">
-                <Plus className="w-4 h-4 mr-1" />
-                Add Playing Area
-              </Button>
-            </Link>
-          </div>
+          <>
+            <StatusChip value={detail.status === "ready" ? "open" : detail.status} />
+            {canManage && (
+              <>
+                <Button variant="secondary" onClick={() => setEditing(true)}><Pencil className="h-4 w-4" /> Edit</Button>
+                <Button variant="secondary" onClick={() => setStatusOpen(true)}><RefreshCw className="h-4 w-4" /> Change status</Button>
+              </>
+            )}
+            {canAddArea && <LinkButton href={`/locations/venues/${detail.id}/playing-areas/new`}><Plus className="h-4 w-4" /> Add playing area</LinkButton>}
+          </>
         }
       />
 
-      {/* Parent Hierarchy Card */}
-      <div className="p-4 rounded-xl glass border border-slate-200 text-xs flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-2 text-ink-sec">
-          <Building2 className="w-4 h-4 text-purple-600" />
-          <span>Parent City:</span>
-          {city ? (
-            <Link href={`/cities/${city.id}`} className="text-brand font-semibold hover:underline">
-              {city.name}
-            </Link>
-          ) : (
-            <span className="text-ink-mut">Not assigned</span>
-          )}
-          <span className="text-ink-mut">|</span>
-          <span>Territory:</span>
-          {t ? (
-            <Link href={`/territories/${t.id}`} className="text-brand font-semibold hover:underline">
-              {t.name}
-            </Link>
-          ) : (
-            <span className="text-ink-mut">Not assigned</span>
-          )}
-        </div>
-        <StatusChip value={venue.status} />
-      </div>
-
-      {/* Top Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div className="glass p-4 rounded-xl border border-slate-200 space-y-1">
-          <p className="text-[10px] text-ink-mut uppercase font-semibold">Playing Areas</p>
-          <p className="text-2xl font-bold text-ink-lum">{vAreas.length}</p>
-          <p className="text-[11px] text-ink-sec">Courts, fields, or rooms</p>
-        </div>
-
-        <div className="glass p-4 rounded-xl border border-slate-200 space-y-1">
-          <p className="text-[10px] text-ink-mut uppercase font-semibold">Max Combined Capacity</p>
-          <p className="text-2xl font-bold text-ink-lum">{combinedCapacity}</p>
-          <p className="text-[11px] text-ink-sec">Maximum headcount</p>
-        </div>
-
-        <div className="glass p-4 rounded-xl border border-slate-200 space-y-1">
-          <p className="text-[10px] text-ink-mut uppercase font-semibold">Scheduled Events</p>
-          <p className="text-2xl font-bold text-ink-lum">{vSessions.length}</p>
-          <p className="text-[11px] text-ink-sec">Events assigned to venue</p>
-        </div>
-
-        <div className="glass p-4 rounded-xl border border-slate-200 space-y-1">
-          <p className="text-[10px] text-ink-mut uppercase font-semibold">Setup Readiness</p>
-          <div className="mt-1">
-            <SetupStatusBadge status={health.status} />
-          </div>
-          <p className="text-[11px] text-ink-sec mt-1">
-            {health.playingAreaCount > 0 ? "Ready for scheduling" : "Needs playing area"}
-          </p>
-        </div>
-      </div>
-
-      {/* Playing Areas List Section */}
-      <div className="glass p-6 rounded-2xl border border-slate-200 space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-          <div>
-            <h3 className="text-base font-bold text-ink-lum">Playing Areas inside {venue.name}</h3>
-            <p className="text-xs text-ink-sec">The exact courts, fields, rooms, or halls available for events.</p>
-          </div>
-          <Link href={`/locations/playing-areas/new?venueId=${venue.id}`}>
-            <Button variant="primary" className="font-bold text-xs">
-              <Plus className="w-3.5 h-3.5 mr-1" />
-              Add Playing Area
-            </Button>
-          </Link>
-        </div>
-
-        {vAreas.length === 0 ? (
-          <SetupEmptyState
-            title="No Playing Areas Created"
-            message="This venue currently has no court, room, field, or activity space registered. Events cannot be scheduled here until at least one playing area is added."
-            actionLabel="Add Playing Area"
-            actionHref={`/locations/playing-areas/new?venueId=${venue.id}`}
-          />
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {vAreas.map((pa) => (
-              <div key={pa.id} className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h4 className="font-bold text-sm text-ink-lum">{pa.name}</h4>
-                    <span className="text-[10px] text-emerald-600 font-medium uppercase tracking-wider">{pa.activityCompatibility.join(", ") || "General Purpose"}</span>
-                  </div>
-                  <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-200 text-emerald-700 border border-emerald-300">
-                    {pa.status}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-xs text-ink-sec border-t border-slate-200 pt-2">
-                  <div>Capacity: <strong className="text-ink-lum">{pa.maxCapacity} pax</strong></div>
-                  <div>Staff: <strong className="text-ink-lum">{pa.staffCapacity || 1} staff</strong></div>
-                </div>
-
-                <div className="flex justify-end pt-1">
-                  <Link href={`/locations/playing-areas/${pa.id}`}>
-                    <Button variant="secondary" className="h-7 text-xs px-2.5">
-                      Manage Space <ArrowRight className="w-3 h-3 ml-1" />
-                    </Button>
-                  </Link>
-                </div>
+      {detail.playingAreas.length === 0 && (
+        <Notice tone="warn" title="No playing areas" action={canAddArea ? <LinkButton href={`/locations/venues/${detail.id}/playing-areas/new`} size="sm">Add playing area</LinkButton> : undefined}>
+          Sessions cannot be scheduled here until the venue has at least one playing area.
+        </Notice>
+      )}
+      {detail.status !== "ready" && <Notice tone="warn">This venue is {detail.status} and cannot take new sessions.</Notice>}
+      {detail.verificationStatus !== "verified" && (
+        <Notice
+          tone={detail.verificationStatus === "failed" ? "danger" : "info"}
+          title={detail.verificationStatus === "failed" ? "Safety check failed" : "Safety check pending"}
+          action={
+            canManage ? (
+              <div className="flex gap-2">
+                <Button size="sm" variant="success" onClick={() => setVerifyOpen("verified")}><ShieldCheck className="h-3.5 w-3.5" /> Mark verified</Button>
+                {detail.verificationStatus !== "failed" && <Button size="sm" variant="secondary" onClick={() => setVerifyOpen("failed")}>Mark failed</Button>}
               </div>
-            ))}
-          </div>
-        )}
+            ) : undefined
+          }
+        >
+          Record the outcome of the on-site safety inspection (exits, first aid, lighting, capacity signage).
+        </Notice>
+      )}
+
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <Figure label="Safe capacity" value={detail.safetyCapacity} hint={`${detail.staffCapacity} staff · ${detail.spectatorAllowance} spectators`} />
+        <Figure label="Playing areas" value={m.playingAreaCount} />
+        <Figure label="Upcoming sessions" value={m.upcomingSessions} hint={m.upcomingSessions ? `${m.fillRate}% average fill` : undefined} />
+        <Figure label="Cost per slot" value={detail.costPerSlot ? inr(detail.costPerSlot) : "—"} hint={detail.revenueModel} />
+        <Figure label="Settled revenue" value={inr(m.revenue)} />
+        <Figure label="Open incidents" value={m.incidentCount} tone={m.incidentCount ? "warn" : undefined} />
       </div>
 
-      {/* Safety & Location Details */}
-      <div className="glass p-6 rounded-2xl border border-slate-200 space-y-4">
-        <h3 className="text-sm font-semibold text-ink-lum flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4 text-emerald-600" />
-          <span>Safety & Operating Details</span>
-        </h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-ink-sec">
-          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
-            <span className="text-ink-mut block">Address:</span>
-            <span className="text-ink-lum font-medium">{venue.address || "Address not provided"}</span>
-          </div>
-          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
-            <span className="text-ink-mut block">Operating Hours:</span>
-            <span className="text-ink-lum font-medium">{venue.operatingHours || "06:00 AM - 10:00 PM"}</span>
-          </div>
-          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
-            <span className="text-ink-mut block">Contact Person & Phone:</span>
-            <span className="text-ink-lum font-medium">{venue.contactPerson} ({venue.contactNumber})</span>
-          </div>
-          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
-            <span className="text-ink-mut block">Emergency Exits & First Aid:</span>
-            <span className="text-ink-lum font-medium">{venue.emergencyExits} · {venue.firstAid ? "First Aid Kit Verified" : "No kit logged"}</span>
-          </div>
-        </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Panel title="Playing areas" sub={plural(detail.playingAreas.length, "area")} icon={<LayoutGrid className="h-4 w-4" />}>
+          <LinkRows
+            empty="No playing areas yet."
+            rows={detail.playingAreas.map((p) => ({ href: `/locations/playing-areas/${p.id}`, title: p.name, meta: `${p.capacity} people · ${p.activities.map(catName).join(", ") || "no activities"} · ${p.sessionsToday} upcoming`, right: <StatusChip value={p.status} /> }))}
+          />
+        </Panel>
+        <Panel title="Upcoming sessions" icon={<CalendarClock className="h-4 w-4" />}>
+          <LinkRows empty="No upcoming sessions here." rows={upcoming.slice(0, 8).map((s) => ({ href: `/missions/${s.id}`, title: s.title, meta: `${s.date} ${s.time} · ${s.playingAreaName} · ${s.booked}/${s.capacity} booked`, right: <StatusChip value={s.status} /> }))} />
+        </Panel>
       </div>
-    </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Panel title="Venue details">
+          <DetailList
+            rows={[
+              { label: "Type", value: <span className="capitalize">{detail.type}</span> },
+              { label: "Operating hours", value: detail.operatingHours },
+              { label: "Contact person", value: detail.contactPerson },
+              { label: "Contact number", value: detail.contactNumber },
+              { label: "Activities", value: detail.supportedActivities.length ? detail.supportedActivities.map(catName).join(", ") : "Any compatible activity" },
+              { label: "Equipment", value: detail.equipmentAvailable.join(", ") },
+              { label: "Cancellation terms", value: detail.cancellationTerms },
+            ]}
+          />
+        </Panel>
+        <Panel title="Facilities">
+          <DetailList
+            rows={[
+              { label: "Indoor", value: yes(detail.isIndoor) },
+              { label: "Weather dependent", value: yes(detail.weatherDependent) },
+              { label: "Lighting", value: yes(detail.lighting) },
+              { label: "Washrooms", value: yes(detail.washrooms) },
+              { label: "Parking", value: yes(detail.parking) },
+              { label: "Step-free access", value: yes(detail.accessibility) },
+            ]}
+          />
+        </Panel>
+        <Panel title="Safety" right={canManage && <Button size="sm" variant="secondary" onClick={() => setNoteOpen(true)}><NotebookPen className="h-3.5 w-3.5" /> Safety note</Button>}>
+          <DetailList
+            rows={[
+              { label: "Safety check", value: <StatusChip value={detail.verificationStatus} /> },
+              { label: "Emergency exits", value: detail.emergencyExits },
+              { label: "First aid on site", value: yes(detail.firstAid) },
+              { label: "Safety contact", value: detail.safetyContact },
+              { label: "Safety notes", value: detail.incidentNotes },
+            ]}
+          />
+        </Panel>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Panel title="Staff based here" icon={<Users className="h-4 w-4" />}>
+          <LinkRows empty="No staff are based at this venue." rows={detail.crew.map((c) => ({ href: `/people/staff/${c.id}`, title: c.name, meta: `${formatStaffRole(c.role)} · ${c.assignment}`, right: <StatusChip value={c.status} /> }))} />
+        </Panel>
+        <Panel title="Recent changes" sub="From the audit log">
+          <RecordActivity state={state} match={[detail.name]} />
+        </Panel>
+      </div>
+
+      <EditDrawer
+        open={editing}
+        onClose={() => setEditing(false)}
+        title={`Edit ${detail.name}`}
+        fields={fields}
+        initial={{ ...detail }}
+        onSave={(v) => {
+          const { status: _s, cityId: _c, territoryId: _t, verificationStatus: _v, ...patch } = venueFromValues(state, { ...v, cityId: detail.cityId });
+          void _s; void _c; void _t; void _v;
+          const out = updateVenue(detail.id, patch);
+          feedback(out, "Venue updated");
+          return out;
+        }}
+      />
+      <StatusDialog
+        open={statusOpen}
+        onClose={() => setStatusOpen(false)}
+        title={`Change status — ${detail.name}`}
+        current={detail.status}
+        options={VENUE_STATUS}
+        onConfirm={(s, reason) => {
+          const out = changeVenueStatus(detail.id, s, reason);
+          feedback(out, `Venue set to ${s === "ready" ? "open" : s}`);
+          return out;
+        }}
+      />
+      <ConfirmDialog
+        open={verifyOpen !== null}
+        onClose={() => setVerifyOpen(null)}
+        title={verifyOpen === "verified" ? "Mark safety check verified" : "Mark safety check failed"}
+        body={verifyOpen === "verified" ? "Confirm the on-site inspection passed: exits, first aid, lighting and capacity signage were checked." : "Record that the inspection failed. The venue stays on the list but is flagged on every page that uses it."}
+        confirmLabel={verifyOpen === "verified" ? "Mark verified" : "Mark failed"}
+        tone={verifyOpen === "failed" ? "danger" : "primary"}
+        reasonLabel="Inspection notes (required)"
+        onConfirm={(reason) => {
+          const out = updateVenue(detail.id, { verificationStatus: verifyOpen!, incidentNotes: reason });
+          feedback(out, verifyOpen === "verified" ? "Safety check verified" : "Safety check recorded as failed");
+          return out;
+        }}
+      />
+      <ConfirmDialog
+        open={noteOpen}
+        onClose={() => setNoteOpen(false)}
+        title="Add a safety note"
+        body="The note replaces the venue's current safety note and is kept in the audit log."
+        confirmLabel="Save note"
+        reasonLabel="Safety note"
+        onConfirm={(note) => {
+          const out = addVenueSafetyNote(detail.id, note);
+          feedback(out, "Safety note saved");
+          return out;
+        }}
+      />
+    </PageShell>
   );
 }

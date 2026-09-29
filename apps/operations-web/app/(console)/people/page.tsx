@@ -1,150 +1,56 @@
 "use client";
 
-import Link from "next/link";
+import { useMemo } from "react";
+import { ArrowRight, CalendarClock, Ticket, UserCheck, UserPlus, Users } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { selectStaffHealth, selectParticipantDirectory } from "@/lib/prototype/selectors/staff";
+import { selectParticipantDirectory, selectStaffHealth } from "@/lib/prototype/selectors/staff";
+import { geoCan } from "@/lib/geo/access";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { PermissionDenied } from "@/components/ui/panels";
-import { Button } from "@/components/ui/primitives";
+import { MetricTile, PermissionDenied } from "@/components/ui/panels";
+import { LinkButton, PageShell } from "@/components/setup/kit";
 import { StaffHelpPanel } from "@/components/staff";
-import { Users, UserCheck, Ticket, ArrowRight, ShieldCheck, UserPlus } from "lucide-react";
 
-export default function PeopleLandingPage() {
-  const { state, territory, canAccess } = useStore();
+export default function PeoplePage() {
+  const { state, canAccess, role } = useStore();
+  const health = useMemo(() => selectStaffHealth(state), [state]);
+  const participants = useMemo(() => selectParticipantDirectory(state), [state]);
+  if (!canAccess("/people")) return <PermissionDenied module="People" />;
+  const canManage = geoCan(role.id, "manage-staff");
 
-  if (!canAccess("/people")) {
-    return (
-      <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8">
-        <PermissionDenied module="People" />
-      </div>
-    );
-  }
-
-  const staffHealth = selectStaffHealth(state);
-  const participants = selectParticipantDirectory(state);
-  const checkedInParticipants = participants.filter((p) => p.isCheckedIn);
+  const cards = [
+    { href: "/people/staff", title: "Staff", line: "Coordinators, safety officers and floor staff: contact details, home venue and upcoming sessions.", icon: Users, count: health.totalStaff },
+    { href: "/people/participants", title: "Participants", line: "Customers who booked sessions, shown by temporary identity until reveal.", icon: Ticket, count: participants.length },
+  ].filter((c) => canAccess(c.href));
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-8">
+    <PageShell>
       <PageHeader
-        overline={`People Directory · ${territory.name}`}
+        overline="Operations"
         title="People"
-        sub="Manage the staff who run events and view participants who joined. Who is connected to our operations?"
-        right={
-          <Link href="/people/staff/new">
-            <Button variant="primary" className="font-bold">
-              <UserPlus className="w-4 h-4 mr-1" />
-              Add Staff Member
-            </Button>
-          </Link>
-        }
+        sub="The staff who run your sessions and the participants who book them."
+        right={canManage && <LinkButton href="/people/staff/new"><UserPlus className="h-4 w-4" /> Add staff</LinkButton>}
       />
-
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricTile label="Staff" value={health.totalStaff} detail={`${health.availableCount} available`} icon={<Users className="h-4 w-4" />} />
+        <MetricTile label="Working" value={health.workingToday} detail={`${health.checkedInCount} checked in`} icon={<UserCheck className="h-4 w-4" />} tone="emerald" />
+        <MetricTile label="Participants" value={participants.length} detail={`${participants.filter((p) => p.isCheckedIn).length} checked in`} icon={<Ticket className="h-4 w-4" />} tone="pink" />
+        <MetricTile label="Sessions short of staff" value={health.eventsMissingStaffCount} detail="missing a lead or safety contact" icon={<CalendarClock className="h-4 w-4" />} tone="amber" />
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        {cards.map((c) => (
+          <div key={c.href} className="flex flex-col justify-between gap-5 rounded-panel border border-edge bg-white p-6 shadow-panel">
+            <div className="flex items-start gap-4">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-subtle text-brand"><c.icon className="h-5 w-5" /></span>
+              <div>
+                <h2 className="font-display text-lg font-bold text-ink-lum">{c.title} <span className="ml-1 text-ink-mut tabular">{c.count}</span></h2>
+                <p className="mt-1 text-sm leading-6 text-ink-mut">{c.line}</p>
+              </div>
+            </div>
+            <div><LinkButton href={c.href} variant="secondary">Open {c.title.toLowerCase()} <ArrowRight className="h-4 w-4" /></LinkButton></div>
+          </div>
+        ))}
+      </div>
       <StaffHelpPanel />
-
-      {/* Summary KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="glass p-5 rounded-2xl border border-slate-200 space-y-1">
-          <span className="text-[10px] text-ink-mut uppercase font-semibold">Total Staff</span>
-          <p className="text-3xl font-bold text-ink-lum">{staffHealth.totalStaff}</p>
-          <p className="text-xs text-ink-sec">{staffHealth.workingToday} working today</p>
-        </div>
-
-        <div className="glass p-5 rounded-2xl border border-slate-200 space-y-1">
-          <span className="text-[10px] text-ink-mut uppercase font-semibold">Checked In Today</span>
-          <p className="text-3xl font-bold text-emerald-600">{staffHealth.checkedInCount}</p>
-          <p className="text-xs text-ink-sec">Staff members on floor</p>
-        </div>
-
-        <div className="glass p-5 rounded-2xl border border-slate-200 space-y-1">
-          <span className="text-[10px] text-ink-mut uppercase font-semibold">Active Participants</span>
-          <p className="text-3xl font-bold text-purple-700">{participants.length}</p>
-          <p className="text-xs text-ink-sec">{checkedInParticipants.length} checked-in customers</p>
-        </div>
-
-        <div className="glass p-5 rounded-2xl border border-slate-200 space-y-1">
-          <span className="text-[10px] text-ink-mut uppercase font-semibold">Needing Attention</span>
-          <p className="text-3xl font-bold text-amber-600">
-            {staffHealth.eventsMissingCoordinatorCount + staffHealth.eventsMissingSafetyCount}
-          </p>
-          <p className="text-xs text-ink-sec">Missing role assignments</p>
-        </div>
-      </div>
-
-      {/* Two Large Operational Cards: Staff vs Participants */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Card 1: Staff */}
-        <div className="glass p-6 rounded-2xl border border-slate-200 hover:border-brand/40 transition-all flex flex-col justify-between space-y-6">
-          <div className="space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-brand/10 border border-brand/20 flex items-center justify-center text-brand">
-              <UserCheck className="w-6 h-6" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-ink-lum">Staff Roster</h2>
-              <p className="text-xs text-ink-sec mt-1">
-                People who organize, coordinate, support, referee, and keep events safe.
-              </p>
-            </div>
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
-              <div className="flex justify-between">
-                <span className="text-ink-mut">Working Today:</span>
-                <span className="font-bold text-ink-lum">{staffHealth.workingToday} staff</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-ink-mut">Available:</span>
-                <span className="font-bold text-emerald-600">{staffHealth.availableCount} staff</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-ink-mut">Safety Staff:</span>
-                <span className="font-bold text-purple-700">{staffHealth.safetyStaffCount} staff</span>
-              </div>
-            </div>
-          </div>
-
-          <Link href="/people/staff">
-            <Button variant="primary" className="w-full font-bold">
-              View Staff Directory
-              <ArrowRight className="w-4 h-4 ml-1" />
-            </Button>
-          </Link>
-        </div>
-
-        {/* Card 2: Participants */}
-        <div className="glass p-6 rounded-2xl border border-slate-200 hover:border-purple-300 transition-all flex flex-col justify-between space-y-6">
-          <div className="space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-600">
-              <Ticket className="w-6 h-6" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-ink-lum">Participants Directory</h2>
-              <p className="text-xs text-ink-sec mt-1">
-                People who joined booked events using privacy-safe operational identities.
-              </p>
-            </div>
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
-              <div className="flex justify-between">
-                <span className="text-ink-mut">Total Booked:</span>
-                <span className="font-bold text-ink-lum">{participants.length} participants</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-ink-mut">Checked In:</span>
-                <span className="font-bold text-emerald-600">{checkedInParticipants.length} checked-in</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-ink-mut">Privacy Mode:</span>
-                <span className="font-bold text-blue-600">Masked Phone & Alias</span>
-              </div>
-            </div>
-          </div>
-
-          <Link href="/people/participants">
-            <Button variant="secondary" className="w-full font-bold">
-              View Participants Directory
-              <ArrowRight className="w-4 h-4 ml-1" />
-            </Button>
-          </Link>
-        </div>
-      </div>
-    </div>
+    </PageShell>
   );
 }

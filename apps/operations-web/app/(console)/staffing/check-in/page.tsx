@@ -1,129 +1,110 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
+import { CheckCircle2, RotateCcw, UserX, Users } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { selectTodayStaffRoster } from "@/lib/prototype/selectors/staff";
+import { geoCan } from "@/lib/geo/access";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { StaffBackNavigation, StaffStatusBadge } from "@/components/staff";
-import { Button } from "@/components/ui/primitives";
-import { SearchInput } from "@/components/ui/fields";
-import { CheckCircle2, QrCode, Clock, XCircle, ArrowRight } from "lucide-react";
+import { PermissionDenied } from "@/components/ui/panels";
+import { Button, StatusChip } from "@/components/ui/primitives";
+import { FilterRail, SearchInput } from "@/components/ui/fields";
+import { useCommandFeedback } from "@/components/ui/toast";
+import { ConfirmDialog, EmptyPanel, Notice, PageShell, Panel } from "@/components/setup/kit";
+import { StaffingNav, useStaffScope } from "@/components/staff/StaffingNav";
+
+const FILTERS = ["assigned", "checked-in", "available", "off"] as const;
 
 export default function StaffCheckInPage() {
-  const { state, territory, updateCrewMember } = useStore();
-  const [searchQuery, setSearchQuery] = useState("");
+  const { state, canAccess, role, recordStaffAttendance } = useStore();
+  const feedback = useCommandFeedback();
+  const scope = useStaffScope();
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<(typeof FILTERS)[number] | "all">("all");
+  const [absent, setAbsent] = useState<string | null>(null);
+  const roster = useMemo(() => selectTodayStaffRoster(state, scope.territoryId), [state, scope.territoryId]);
+  const rows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return roster.filter((r) => (filter === "all" || r.status === filter) && (!q || `${r.name} ${r.roleLabel} ${r.venueName}`.toLowerCase().includes(q)));
+  }, [roster, query, filter]);
 
-  const roster = selectTodayStaffRoster(state);
-
-  const filtered = useMemo(() => {
-    const q = searchQuery.toLowerCase().trim();
-    if (!q) return roster;
-    return roster.filter(
-      (s) =>
-        s.name.toLowerCase().includes(q) ||
-        s.roleLabel.toLowerCase().includes(q) ||
-        s.venueName.toLowerCase().includes(q)
-    );
-  }, [roster, searchQuery]);
-
-  const handleCheckIn = (id: string) => {
-    updateCrewMember(id, { status: "checked-in" });
-  };
-
-  const handleMarkLate = (id: string) => {
-    updateCrewMember(id, { status: "assigned", assignment: "Marked Late for Shift" });
-  };
-
-  const handleMarkAbsent = (id: string) => {
-    updateCrewMember(id, { status: "off", assignment: "Absent for Shift" });
-  };
+  if (!canAccess("/staffing")) return <PermissionDenied module="Staffing" />;
+  const canCheckIn = geoCan(role.id, "check-in-staff");
+  const person = roster.find((r) => r.id === absent);
+  const expected = roster.filter((r) => r.status === "assigned").length;
+  const arrived = roster.filter((r) => r.status === "checked-in").length;
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6">
-      <StaffBackNavigation label="Back to Staff Schedule" href="/staffing" />
+    <PageShell>
+      <PageHeader overline={`Staffing · ${scope.label}`} title="Staff check-in" sub="Record arrivals for today's shifts. Marking someone absent removes them from today's sessions so the gaps show up for reassignment." />
+      <StaffingNav />
+      <Notice tone="info">QR badge scanning is not connected. Check staff in from this list as they arrive.</Notice>
 
-      <PageHeader
-        overline={`Staff Operations · ${territory.name}`}
-        title="Staff Check-In"
-        sub="Mark staff as arrived, late, or absent. Who has arrived at venue floor?"
-      />
-
-      <div className="glass p-6 rounded-2xl border border-slate-200 space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="w-full sm:w-80">
-            <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search staff name or role..." />
-          </div>
-
-          <Button variant="secondary" className="font-bold text-xs shrink-0" onClick={() => alert("QR Scanner active in prototype mode.")}>
-            <QrCode className="w-4 h-4 mr-1 text-brand" />
-            Simulate QR Code Check-In
-          </Button>
-        </div>
-
-        {/* Staff Check-In Rows */}
-        <div className="space-y-3">
-          {filtered.map((s) => {
-            const isCheckedIn = s.status === "checked-in";
-
-            return (
-              <div
-                key={s.id}
-                className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs ${
-                  isCheckedIn
-                    ? "bg-emerald-100 border-emerald-300"
-                    : s.status === "late"
-                    ? "bg-amber-100 border-amber-300"
-                    : "bg-slate-50 border-slate-200"
-                }`}
-              >
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-ink-lum text-sm">{s.name}</span>
-                    <StaffStatusBadge status={s.status} size="sm" />
+      {roster.length === 0 ? (
+        <EmptyPanel icon={<Users className="h-5 w-5" />} title="No staff in this territory" line="Add staff and assign them to sessions; they will appear here for check-in." actionHref="/people/staff/new" actionLabel="Add staff" />
+      ) : (
+        <Panel
+          title={`${arrived} of ${arrived + expected} arrived`}
+          sub={expected ? `${expected} still expected` : "Everyone assigned has arrived"}
+          right={<div className="w-full sm:w-72"><SearchInput value={query} onChange={setQuery} placeholder="Search name, role or venue" /></div>}
+        >
+          <div className="mb-4"><FilterRail options={FILTERS} value={filter} onChange={setFilter} /></div>
+          {rows.length === 0 ? (
+            <p className="py-8 text-center text-sm text-ink-mut">No one matches.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {rows.map((r) => (
+                <li key={r.id} className="flex flex-col gap-3 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-ink-lum">{r.name} <StatusChip value={r.status} /></p>
+                    <p className="text-[13px] text-ink-mut">{r.roleLabel} · {r.venueName}{r.shiftFrom ? ` · shift ${r.shiftFrom}–${r.shiftTo}` : ""}</p>
+                    {r.sessions.length > 0 && <p className="text-xs text-ink-sec">{r.sessions.map((s) => `${s.slotLabels.join(" & ")} — ${s.title} ${s.date} ${s.startTime}`).join(" · ")}</p>}
                   </div>
-                  <p className="text-purple-700 font-semibold">{s.roleLabel} · {s.venueName}</p>
-                  <p className="text-ink-mut text-[11px] font-mono">Expected: {s.shiftFrom} - {s.shiftTo} | Assignment: {s.assignment}</p>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  {!isCheckedIn ? (
-                    <>
-                      <Button
-                        variant="primary"
-                        className="h-8 text-xs font-bold bg-emerald-500 text-slate-950 px-3"
-                        onClick={() => handleCheckIn(s.id)}
-                      >
-                        <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                        Check In
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        className="h-8 text-xs text-amber-700 border-amber-300 px-2.5"
-                        onClick={() => handleMarkLate(s.id)}
-                      >
-                        Mark Late
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        className="h-8 text-xs text-rose-600 hover:text-rose-700 px-2"
-                        onClick={() => handleMarkAbsent(s.id)}
-                      >
-                        Mark Absent
-                      </Button>
-                    </>
-                  ) : (
-                    <span className="text-emerald-600 font-bold flex items-center gap-1">
-                      <CheckCircle2 className="w-4 h-4" />
-                      Arrived & On Floor
-                    </span>
+                  {canCheckIn && (
+                    <div className="flex shrink-0 flex-wrap gap-2">
+                      {r.status === "assigned" && (
+                        <>
+                          <Button size="sm" variant="success" onClick={() => feedback(recordStaffAttendance({ crewId: r.id, action: "check-in" }), `${r.name} checked in`)}>
+                            <CheckCircle2 className="h-3.5 w-3.5" /> Check in
+                          </Button>
+                          <Button size="sm" variant="secondary" onClick={() => setAbsent(r.id)}>
+                            <UserX className="h-3.5 w-3.5" /> Absent
+                          </Button>
+                        </>
+                      )}
+                      {r.status === "checked-in" && (
+                        <Button size="sm" variant="ghost" onClick={() => feedback(recordStaffAttendance({ crewId: r.id, action: "undo-check-in" }), `Check-in reversed for ${r.name}`)}>
+                          <RotateCcw className="h-3.5 w-3.5" /> Undo
+                        </Button>
+                      )}
+                      {r.status === "available" && <span className="text-xs text-ink-mut">Not assigned today</span>}
+                    </div>
                   )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+      )}
+
+      <ConfirmDialog
+        open={!!person}
+        onClose={() => setAbsent(null)}
+        title={`Mark ${person?.name ?? ""} absent`}
+        body={
+          <>
+            {person?.name} is marked off for today{person && person.sessions.length ? <> and removed from: <strong>{person.sessions.map((s) => `${s.slotLabels.join(" & ")} on ${s.title}`).join("; ")}</strong>. Reassign those roles on the Assign page.</> : "."}
+          </>
+        }
+        confirmLabel="Mark absent"
+        tone="danger"
+        reasonLabel="Reason (required)"
+        onConfirm={(reason) => {
+          const out = recordStaffAttendance({ crewId: absent!, action: "absent", reason });
+          feedback(out, `${person?.name} marked absent`, "Their roles today are now open.");
+          return out;
+        }}
+      />
+    </PageShell>
   );
 }

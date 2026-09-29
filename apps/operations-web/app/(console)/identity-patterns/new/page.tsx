@@ -1,149 +1,150 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Check, ShieldCheck } from "lucide-react";
 import { useStore } from "@/lib/store";
+import { formatIdentityCode } from "@/lib/prototype/selectors/identity";
+import { IDENTITY_SEPARATORS, patternCapacity, validatePatternSafety } from "@/lib/prototype/validators/identityValidation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/primitives";
+import { PermissionDenied } from "@/components/ui/panels";
+import { Field, Input, Select } from "@/components/ui/fields";
+import { useToast } from "@/components/ui/toast";
+
+const SEPARATOR_LABEL: Record<string, string> = { "-": "Hyphen (CR-07)", "#": "Hash (CR#07)", ".": "Dot (CR.07)", "": "None (CR07)" };
 
 export default function NewIdentityPatternPage() {
   const router = useRouter();
-  const { createIdentityPattern, role } = useStore();
+  const toast = useToast();
+  const { state, canAccess, createIdentityPattern } = useStore();
 
   const [name, setName] = useState("");
   const [prefix, setPrefix] = useState("");
   const [separator, setSeparator] = useState("-");
-  const [numberLength, setNumberLength] = useState<number>(2);
-  const [aliasStyle, setAliasStyle] = useState("Standard");
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [numberLength, setNumberLength] = useState(2);
+  const [error, setError] = useState<string | null>(null);
+  const [touched, setTouched] = useState(false);
 
-  const example = `${prefix.toUpperCase() || "CODE"}${separator}${String(1).padStart(numberLength, "0")}`;
+  const upper = prefix.trim().toUpperCase();
+  const safety = validatePatternSafety({ prefix: upper, separator, numberLength });
+  const clash = useMemo(
+    () => (state.identityPatterns ?? []).find((p) => p.status !== "deprecated" && p.prefix.toUpperCase() === upper && p.separator === separator),
+    [state.identityPatterns, upper, separator],
+  );
+  const samples = [1, 2, 3, 12].map((n) => formatIdentityCode({ prefix: upper || "AB", separator, numberLength }, n));
 
-  const handleSubmit = (e: React.FormEvent) => {
+  if (!canAccess("/identity-patterns")) return <PermissionDenied module="Identity patterns" />;
+
+  const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMsg(null);
-
-    if (!name.trim() || !prefix.trim()) {
-      setErrorMsg("Pattern name and code prefix are required.");
+    setTouched(true);
+    const res = createIdentityPattern({ name, prefix, separator, numberLength });
+    if (res.error) {
+      setError(res.error);
       return;
     }
-
-    const res = createIdentityPattern({
-      name: name.trim(),
-      prefix: prefix.trim(),
-      separator,
-      numberLength,
-      aliasStyle,
-    }, role.id);
-
-    if (res.error) {
-      setErrorMsg(res.error);
-    } else {
-      router.push("/identity-patterns");
-    }
+    toast.success("Pattern created", `${res.pattern?.name} · ${res.pattern?.example}`);
+    router.push(`/identity-patterns/${res.pattern?.id}`);
   };
 
+  const prefixProblem = touched || prefix ? (!safety.safe ? safety.reason : clash ? `Already used by “${clash.name}”.` : undefined) : undefined;
+
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-8 md:px-8 space-y-6 font-mono text-xs">
-      <PageHeader
-        overline="Identity Configuration"
-        title="Create Identity Pattern"
-        sub="Define non-identifying temporary identity pattern rules and preview generated format."
-        right={
-          <Link href="/identity-patterns">
-            <Button variant="ghost" className="h-8 px-3 text-xs font-mono">
-              ← Cancel
-            </Button>
-          </Link>
-        }
-      />
+    <div className="mx-auto w-full max-w-[1100px] space-y-6 px-5 py-7 lg:px-8">
+      <Link href="/identity-patterns" className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-mut hover:text-ink-lum">
+        <ArrowLeft className="h-4 w-4" /> Identity patterns
+      </Link>
+      <PageHeader overline="Identity patterns" title="New identity pattern" sub="Participants see this code instead of their name until the session ends." />
 
-      <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-lg p-6 space-y-6">
-        <div className="space-y-4">
-          <div>
-            <label className="text-slate-500 block mb-1 font-bold uppercase">
-              Pattern Name *:
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. Cyber Padel League, Urban Cricket"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-slate-800"
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="text-slate-500 block mb-1 font-bold uppercase">
-                Code Prefix *:
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. CR, MX, NIGHT"
+      <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
+        <form onSubmit={submit} className="space-y-5 rounded-panel border border-edge bg-white p-6 shadow-panel" noValidate>
+          <Field label="Pattern name" hint="Shown to operators when generating codes.">
+            <Input value={name} onChange={(e) => { setName(e.target.value); setError(null); }} placeholder="e.g. Padel League" maxLength={60} required />
+          </Field>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Field label="Prefix" hint="2–8 letters.">
+              <Input
                 value={prefix}
-                onChange={(e) => setPrefix(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-slate-800 font-bold"
+                onChange={(e) => { setPrefix(e.target.value.replace(/\s/g, "")); setError(null); }}
+                placeholder="PDL"
+                maxLength={8}
+                className="font-mono uppercase"
+                aria-invalid={!!prefixProblem}
                 required
               />
-            </div>
-
-            <div>
-              <label className="text-slate-500 block mb-1 font-bold uppercase">
-                Separator:
-              </label>
-              <select
-                value={separator}
-                onChange={(e) => setSeparator(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-slate-800 font-bold"
-              >
-                <option value="-">Hyphen (-)</option>
-                <option value="#">Hash (#)</option>
-                <option value=".">Dot (.)</option>
-                <option value="">None</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="text-slate-500 block mb-1 font-bold uppercase">
-                Number Digits:
-              </label>
-              <select
-                value={numberLength}
-                onChange={(e) => setNumberLength(parseInt(e.target.value, 10))}
-                className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-slate-800 font-bold"
-              >
-                <option value={2}>2 Digits (01 - 99)</option>
-                <option value={3}>3 Digits (001 - 999)</option>
-                <option value={4}>4 Digits (0001 - 9999)</option>
-              </select>
-            </div>
+            </Field>
+            <Field label="Separator">
+              <Select value={separator} onChange={(e) => setSeparator(e.target.value)}>
+                {IDENTITY_SEPARATORS.map((s) => (
+                  <option key={s || "none"} value={s}>
+                    {SEPARATOR_LABEL[s]}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Digits">
+              <Select value={numberLength} onChange={(e) => setNumberLength(Number(e.target.value))}>
+                {[2, 3, 4].map((n) => (
+                  <option key={n} value={n}>
+                    {n} (up to {patternCapacity(n).toLocaleString("en-IN")})
+                  </option>
+                ))}
+              </Select>
+            </Field>
           </div>
-
-          {/* Example Format Card */}
-          <div className="bg-slate-50 border border-slate-200 p-4 rounded text-center space-y-1">
-            <span className="text-[10px] text-slate-500 uppercase">Generated Code Preview:</span>
-            <div className="text-2xl font-bold text-amber-600 font-mono tracking-widest">
-              {example}
-            </div>
-          </div>
-        </div>
-
-        {errorMsg && <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded">{errorMsg}</div>}
-
-        <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
-          <Link href="/identity-patterns">
-            <Button variant="ghost" className="h-9 px-4 text-xs font-mono">
-              Cancel
+          {prefixProblem && <p className="text-sm text-amber-700">{prefixProblem}</p>}
+          {error && (
+            <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error}
+            </p>
+          )}
+          <div className="flex flex-wrap justify-end gap-2 border-t border-edge pt-5">
+            <Link href="/identity-patterns">
+              <Button variant="ghost">Cancel</Button>
+            </Link>
+            <Button type="submit" disabled={name.trim().length < 3 || !safety.safe || !!clash}>
+              Create pattern
             </Button>
-          </Link>
-          <Button type="submit" variant="lamp" className="h-9 px-6 text-xs font-mono font-bold">
-            Create Identity Pattern
-          </Button>
-        </div>
-      </form>
+          </div>
+        </form>
+
+        <aside className="space-y-4 rounded-panel border border-edge bg-white p-6 shadow-panel lg:sticky lg:top-6 lg:self-start" aria-live="polite">
+          <p className="overline">Live preview</p>
+          <div className="rounded-2xl border border-brand/20 bg-brand-subtle p-5 text-center">
+            <p className="text-xs font-medium text-brand-ink">A participant sees</p>
+            <p className="mt-1 font-mono text-4xl font-bold tracking-wide text-ink-lum">{samples[0]}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {samples.slice(1).map((s) => (
+              <span key={s} className="rounded-lg border border-edge bg-bg-sunken px-2.5 py-1 font-mono text-sm text-ink-sec">
+                {s}
+              </span>
+            ))}
+            <span className="px-1 py-1 text-sm text-ink-mut">…</span>
+          </div>
+          <ul className="space-y-2 text-sm">
+            <Rule ok={safety.safe} text="Letters-only prefix — no phone, date or name fragments" />
+            <Rule ok={!clash} text="Prefix not used by another active pattern" />
+            <Rule ok text={`Room for ${patternCapacity(numberLength).toLocaleString("en-IN")} participants per session`} />
+          </ul>
+          <p className="flex items-start gap-2 text-xs text-ink-mut">
+            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" /> Codes are numbered in booking order and locked before the reveal.
+          </p>
+        </aside>
+      </div>
     </div>
+  );
+}
+
+function Rule({ ok, text }: { ok: boolean; text: string }) {
+  return (
+    <li className="flex items-start gap-2">
+      <span className={ok ? "mt-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-100 text-emerald-700" : "mt-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-100 text-amber-700"}>
+        {ok ? <Check className="h-3 w-3" /> : <span className="text-[10px] font-bold">!</span>}
+      </span>
+      <span className={ok ? "text-ink-sec" : "text-amber-800"}>{text}</span>
+    </li>
   );
 }

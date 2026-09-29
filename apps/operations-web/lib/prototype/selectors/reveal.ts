@@ -3,6 +3,7 @@ import { selectSessionParticipantPool } from "./identity";
 import { selectSessionTeams, selectUnassignedParticipants } from "./teams";
 import { sessionCapacityLedger } from "./capacity";
 import { sessionTitle } from "./lookups";
+import { resolveSessionPerson } from "./checkIn";
 
 export interface ParticipantReadinessStatus {
   bookingId: string;
@@ -16,108 +17,142 @@ export interface ParticipantReadinessStatus {
   blockedReason?: string;
 }
 
+export interface RevealCheck {
+  key: string;
+  label: string;
+  passed: boolean;
+  /** Blocking checks stop the reveal unless an audited override reason is given. */
+  blocking: boolean;
+  detail: string;
+}
+
 export interface RevealReadinessReport {
   isReadyToReveal: boolean;
+  checks: RevealCheck[];
   criticalBlockers: string[];
   warnings: string[];
   participantStatuses: ParticipantReadinessStatus[];
 }
 
-export function calculateRevealReadiness(
-  state: PrototypeState,
-  sessionId: string
-): RevealReadinessReport {
+const REVEALED = new Set(["revealed", "check-in-open", "live", "completed"]);
+
+export function calculateRevealReadiness(state: PrototypeState, sessionId: string): RevealReadinessReport {
   const session = state.sessions.find((s) => s.id === sessionId);
-  const criticalBlockers: string[] = [];
-  const warnings: string[] = [];
-
   if (!session) {
-    return {
-      isReadyToReveal: false,
-      criticalBlockers: ["Session does not exist."],
-      warnings: [],
-      participantStatuses: [],
-    };
+    return { isReadyToReveal: false, checks: [], criticalBlockers: ["Session does not exist."], warnings: [], participantStatuses: [] };
   }
 
-  // 1. Session is not cancelled or completed
-  if (session.status === "cancelled" || session.status === "archived") {
-    criticalBlockers.push("Session is cancelled or archived.");
-  }
-  if (session.status === "completed") {
-    criticalBlockers.push("Session is already completed.");
-  }
-
-  // 2. Booking window closed or override
-  // In prototype, we permit booking-closed or explicit override
-  if (session.status !== "booking-closed" && session.status !== "reveal-pending" && session.status !== "full") {
-    warnings.push(`Booking window status is '${session.status}' (expected 'booking-closed' or 'full').`);
-  }
-
-  // 3. Pool finalized
   const pool = selectSessionParticipantPool(state, sessionId);
   const eligible = pool.filter((p) => p.isEligible);
-  if (eligible.length === 0) {
-    criticalBlockers.push("No confirmed eligible participants in session pool.");
-  }
-
-  // 4. Temporary identities generated and locked
-  const missingIdentities = eligible.filter((p) => !p.temporaryIdentity || p.temporaryIdentity.status === "not-generated");
-  if (missingIdentities.length > 0) {
-    criticalBlockers.push(`${missingIdentities.length} participants missing temporary identities.`);
-  }
-
-  const unlockedIdentities = eligible.filter((p) => p.temporaryIdentity && p.temporaryIdentity.status !== "locked");
-  if (unlockedIdentities.length > 0) {
-    criticalBlockers.push(`${unlockedIdentities.length} temporary identities are not locked.`);
-  }
-
-  // 5. Teams generated and locked
-  const unassigned = selectUnassignedParticipants(state, sessionId);
-  if (unassigned.length > 0) {
-    criticalBlockers.push(`${unassigned.length} eligible participants are unassigned to teams.`);
-  }
-
   const teams = selectSessionTeams(state, sessionId);
-  const unlockedTeams = teams.filter((t) => t.team.status !== "locked");
-  if (unlockedTeams.length > 0 && teams.length > 0) {
-    criticalBlockers.push(`${unlockedTeams.length} teams are not locked.`);
-  }
-
-  // 6. Venue & Playing area confirmed
+  const unassigned = selectUnassignedParticipants(state, sessionId);
   const venue = state.venues.find((v) => v.id === session.venueId);
   const playingArea = state.playingAreas.find((pa) => pa.id === session.playingAreaId);
-  if (!venue || venue.status !== "ready") {
-    criticalBlockers.push("Venue is not ready or verified.");
-  }
-  if (!playingArea || playingArea.status !== "active") {
-    criticalBlockers.push("Playing area is not active.");
-  }
+  const lead = resolveSessionPerson(state, session.leadCoordinatorId);
+  const safety = resolveSessionPerson(state, session.safetyContactId);
 
-  // 7. Required staff assigned
-  if (!session.leadCoordinatorId) {
-    criticalBlockers.push("Lead Coordinator is not assigned.");
-  }
+  const hasCode = (p: (typeof pool)[number]) => !!p.temporaryIdentity && p.temporaryIdentity.status !== "not-generated" && p.temporaryIdentity.status !== "revoked";
+  const withoutCode = eligible.filter((p) => !hasCode(p));
+  const unlockedCodes = eligible.filter((p) => hasCode(p) && p.temporaryIdentity!.status === "generated");
+  const unlockedTeams = teams.filter((t) => t.team.status !== "locked" && t.team.status !== "revealed");
+  const closedStatuses = ["cancelled", "archived", "completed"];
+  const bookingClosed = ["booking-closed", "reveal-pending", "full"].includes(session.status);
 
-  // 8. Safety contact assigned
-  if (!session.safetyContactId) {
-    criticalBlockers.push("Safety Contact is not assigned.");
-  }
+  const checks: RevealCheck[] = [
+    {
+      key: "session-open",
+      label: "Session is active",
+      passed: !closedStatuses.includes(session.status),
+      blocking: true,
+      detail: closedStatuses.includes(session.status) ? `The session is ${session.status}.` : "Not cancelled or completed.",
+    },
+    {
+      key: "not-revealed",
+      label: "Not revealed yet",
+      passed: !REVEALED.has(session.status),
+      blocking: true,
+      detail: REVEALED.has(session.status) ? "The reveal has already happened." : `Scheduled for ${session.revealAt}.`,
+    },
+    {
+      key: "bookings-closed",
+      label: "Bookings closed",
+      passed: bookingClosed || REVEALED.has(session.status),
+      blocking: false,
+      detail: bookingClosed ? "No new participants will join." : REVEALED.has(session.status) ? "The reveal has been sent." : `Bookings are ${session.status.replace(/-/g, " ")} — anyone who joins later needs a code and a team.`,
+    },
+    {
+      key: "participants",
+      label: "Confirmed participants",
+      passed: eligible.length > 0,
+      blocking: true,
+      detail: `${eligible.length} confirmed place(s).`,
+    },
+    {
+      key: "codes",
+      label: "Everyone has a code",
+      passed: eligible.length > 0 && withoutCode.length === 0,
+      blocking: true,
+      detail: withoutCode.length ? `${withoutCode.length} participant(s) without a code.` : "All codes generated.",
+    },
+    {
+      key: "codes-locked",
+      label: "Codes locked",
+      passed: eligible.length > 0 && withoutCode.length === 0 && unlockedCodes.length === 0,
+      blocking: true,
+      detail: unlockedCodes.length ? `${unlockedCodes.length} code(s) not locked.` : withoutCode.length ? "Generate codes first." : "All codes locked.",
+    },
+    {
+      key: "teams",
+      label: "Everyone has a team",
+      passed: teams.length > 0 && unassigned.length === 0,
+      blocking: true,
+      detail: teams.length === 0 ? "No teams yet." : unassigned.length ? `${unassigned.length} participant(s) without a team.` : `${teams.length} teams.`,
+    },
+    {
+      key: "teams-locked",
+      label: "Teams locked",
+      passed: teams.length > 0 && unlockedTeams.length === 0,
+      blocking: true,
+      detail: teams.length === 0 ? "No teams yet." : unlockedTeams.length ? `${unlockedTeams.length} team(s) not locked.` : "All teams locked.",
+    },
+    {
+      key: "venue",
+      label: "Venue and playing area ready",
+      passed: venue?.status === "ready" && playingArea?.status === "active",
+      blocking: true,
+      detail: `${venue?.name ?? "Venue missing"} (${venue?.status ?? "—"}) · ${playingArea?.name ?? "Area missing"} (${playingArea?.status ?? "—"})`,
+    },
+    {
+      key: "lead",
+      label: "Lead coordinator assigned",
+      passed: !!lead,
+      blocking: true,
+      detail: lead ? lead.name : "Assign one in Staffing.",
+    },
+    {
+      key: "safety",
+      label: "Safety contact assigned",
+      passed: !!safety,
+      blocking: true,
+      detail: safety ? safety.name : "Assign one in Staffing.",
+    },
+  ];
 
-  // Per-participant readiness status (Correction 6)
+  const criticalBlockers = checks.filter((c) => !c.passed && c.blocking).map((c) => `${c.label}: ${c.detail}`);
+  const warnings = checks.filter((c) => !c.passed && !c.blocking).map((c) => `${c.label}: ${c.detail}`);
+
   const participantStatuses: ParticipantReadinessStatus[] = pool.map((p) => {
-    const hasTemp = !!p.temporaryIdentity && p.temporaryIdentity.status !== "not-generated";
-    const isTempLocked = p.temporaryIdentity?.status === "locked";
+    const hasTemp = hasCode(p);
+    const isTempLocked = p.temporaryIdentity?.status === "locked" || p.temporaryIdentity?.status === "revealed";
     const hasTeam = !!p.teamId;
-    const isTeamLocked = teams.some((t) => t.team.id === p.teamId && t.team.status === "locked");
-
+    const isTeamLocked = teams.some((t) => t.team.id === p.teamId && (t.team.status === "locked" || t.team.status === "revealed"));
     const isRevealEligible = p.isEligible && hasTemp && isTempLocked && hasTeam && isTeamLocked;
 
     let blockedReason: string | undefined;
-    if (!p.isEligible) blockedReason = p.blockedReason || "Ineligible booking";
-    else if (!hasTemp) blockedReason = "Missing temporary identity";
-    else if (!isTempLocked) blockedReason = "Temporary identity not locked";
-    else if (!hasTeam) blockedReason = "Unassigned to team";
+    if (!p.isEligible) blockedReason = p.blockedReason || "Not confirmed";
+    else if (!hasTemp) blockedReason = "No code";
+    else if (!isTempLocked) blockedReason = "Code not locked";
+    else if (!hasTeam) blockedReason = "No team";
     else if (!isTeamLocked) blockedReason = "Team not locked";
 
     return {
@@ -133,62 +168,49 @@ export function calculateRevealReadiness(
     };
   });
 
-  return {
-    isReadyToReveal: criticalBlockers.length === 0,
-    criticalBlockers,
-    warnings,
-    participantStatuses,
-  };
+  return { isReadyToReveal: criticalBlockers.length === 0, checks, criticalBlockers, warnings, participantStatuses };
 }
 
-/** Pre-Reveal Preview Payload: Zero private identity fields! */
+/** What a participant sees before the reveal: no teams, codes or teammates. */
 export function selectPreRevealPreview(state: PrototypeState, sessionId: string) {
   const session = state.sessions.find((s) => s.id === sessionId);
   const ledger = sessionCapacityLedger(state, sessionId);
 
   return {
     sessionTitle: sessionTitle(state, sessionId),
-    status: session?.status ?? "draft",
-    joinedCount: ledger.confirmedPaidBookings,
+    date: session?.date ?? "",
+    startTime: session?.startTime ?? "",
+    joinedCount: ledger.confirmedPaidBookings + ledger.confirmedComplimentaryBookings,
     maxCapacity: ledger.sellableCapacity,
-    revealTime: session?.revealAt ?? "T-60 mins",
-    checklist: [
-      "Registration confirmed",
-      "Playing area assigned & pre-inspected",
-      "Lead coordinator assigned",
-      "Equipments verified",
-    ],
-    // Explicit privacy assertion: NO legal name, phone, email, or team identities!
+    revealTime: session?.revealAt ?? "",
   };
 }
 
-/** Post-Reveal Preview Payload: Anonymized participant perspective! */
+/** What one participant sees after the reveal: their code, team and teammates' codes — never names or contact details. */
 export function selectPostRevealPreview(state: PrototypeState, sessionId: string, bookingId: string) {
   const session = state.sessions.find((s) => s.id === sessionId);
   const pool = selectSessionParticipantPool(state, sessionId);
   const participant = pool.find((p) => p.booking.id === bookingId);
-  const venue = state.venues.find((v) => v.id === session?.venueId);
-  const playingArea = state.playingAreas.find((pa) => pa.id === session?.playingAreaId);
+  if (!session || !participant) return null;
+  const venue = state.venues.find((v) => v.id === session.venueId);
+  const playingArea = state.playingAreas.find((pa) => pa.id === session.playingAreaId);
 
-  // Teammates: return ONLY temporary aliases and temporary codes! NO LEGAL NAMES/PHONES!
-  const teammates = pool
-    .filter((p) => p.teamId === participant?.teamId && p.booking.id !== bookingId)
-    .map((p) => ({
-      temporaryCode: p.temporaryIdentity?.temporaryCode ?? "CR-??",
-      alias: p.booking.alias,
-    }));
+  const teammates = participant.teamId
+    ? pool
+        .filter((p) => p.teamId === participant.teamId && p.booking.id !== bookingId)
+        .map((p) => ({ temporaryCode: p.temporaryIdentity?.temporaryCode ?? "", alias: p.booking.alias }))
+    : [];
 
   return {
-    temporaryCode: participant?.temporaryIdentity?.temporaryCode ?? "CR-07",
-    alias: participant?.booking.alias ?? "Participant",
-    teamName: participant?.teamName ?? "Unassigned",
+    temporaryCode: participant.temporaryIdentity?.temporaryCode ?? "",
+    alias: participant.booking.alias,
+    teamName: participant.teamName ?? "",
     teammates,
-    venueName: venue?.name ?? "Venue TBD",
-    venueAddress: venue?.address ?? "Address TBD",
-    playingAreaName: playingArea?.name ?? "Court 1",
-    reportingTime: session?.checkInOpensAt ?? "18:30",
-    startTime: session?.startTime ?? "19:00",
-    checkInInstructions: "Arrive 15 mins early. Show your Temporary ID code or QR scan at the entrance desk.",
-    equipmentChecklist: session?.equipmentChecklist ?? ["Non-marking sports shoes", "Comfortable sportswear"],
+    venueName: venue?.name ?? "",
+    venueAddress: venue?.address ?? "",
+    playingAreaName: playingArea?.name ?? "",
+    reportingTime: session.checkInOpensAt,
+    startTime: session.startTime,
+    equipmentChecklist: session.equipmentChecklist ?? [],
   };
 }

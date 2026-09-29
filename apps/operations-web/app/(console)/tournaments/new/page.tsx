@@ -1,280 +1,201 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { AlertTriangle, ArrowLeft } from "lucide-react";
 import { useStore } from "@/lib/store";
+import { toLocalInput } from "@/lib/safety/time";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Card, PanelHeader, PermissionDenied } from "@/components/ui/panels";
+import { PermissionDenied } from "@/components/ui/panels";
 import { Button } from "@/components/ui/primitives";
 import { Field, Input, Select } from "@/components/ui/fields";
-import { Tide } from "@/components/motion/Motion";
-import { ArrowLeft, ArrowRight, X } from "lucide-react";
-import Link from "next/link";
+import { useToast } from "@/components/ui/toast";
+import { PermissionNote, useTournamentGate } from "@/components/safety/shared";
 
-const STEPS = [
-  { label: "Basic Info", sub: "Name, code and template" },
-  { label: "Location & Setup", sub: "Venue and seeding" },
-  { label: "Rules & Schedule", sub: "Durations and times" },
-  { label: "Review & Create", sub: "Verify details" }
-];
+const suggestCode = (name: string) => {
+  const letters = name.split(/\s+/).filter(Boolean).map((w) => w[0]).join("").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+  return letters.length >= 2 ? `${letters}-${new Date().getFullYear()}` : "";
+};
 
 export default function NewTournamentPage() {
   const router = useRouter();
-  const { state, territory, canAccess, hydrated, createTournament } = useStore();
+  const toast = useToast();
+  const { state, territory, canAccess, createTournament } = useStore();
+  const gate = useTournamentGate();
 
-  const [step, setStep] = useState(0);
+  const tomorrow = new Date(Date.now() + 86400000);
+  tomorrow.setHours(18, 0, 0, 0);
+  const regClose = new Date(tomorrow.getTime() - 2 * 3600000);
 
-  // Form State
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
+  const [codeTouched, setCodeTouched] = useState(false);
+  const [prize, setPrize] = useState("");
   const [templateId, setTemplateId] = useState("");
   const [venueId, setVenueId] = useState("");
-  const [format, setFormat] = useState("single-elimination");
-  const [seedingMethod, setSeedingMethod] = useState("random");
+  const [areas, setAreas] = useState<string[]>([]);
+  const [seeding, setSeeding] = useState<"seeded" | "random">("seeded");
+  const [minTeams, setMinTeams] = useState("4");
+  const [maxTeams, setMaxTeams] = useState("8");
   const [matchDuration, setMatchDuration] = useState("30");
   const [breakDuration, setBreakDuration] = useState("10");
-  const [scheduledStart, setScheduledStart] = useState("Today, 18:00");
-  const [registrationClosesAt, setRegistrationClosesAt] = useState("Today, 17:00");
-  const [prizePlaceholder, setPrizePlaceholder] = useState("");
-  const [verificationRequirement, setVerificationRequirement] = useState("referee");
+  const [start, setStart] = useState(toLocalInput(tomorrow));
+  const [closes, setCloses] = useState(toLocalInput(regClose));
+  const [verification, setVerification] = useState<"referee" | "dual">("referee");
+  const [error, setError] = useState<string | undefined>();
 
-  if (!hydrated) return <div className="p-8 text-center"><Tide /></div>;
-  if (!canAccess("/tournaments")) return <div className="p-8 text-center"><PermissionDenied module="Tournaments" /></div>;
+  const venues = useMemo(() => state.venues.filter((v) => v.territoryId === territory.id), [state.venues, territory.id]);
+  const venueAreas = state.playingAreas.filter((p) => p.venueId === venueId);
+  const templates = state.templates.filter((t) => (t as { status?: string }).status !== "archived");
+  const createGate = gate("tournament.create", territory.id);
 
-  const templates = state.templates ?? [];
-  const venues = state.venues.filter((v) => v.territoryId === territory.id);
+  if (!canAccess("/tournaments")) return <PermissionDenied module="Tournaments" />;
 
-  const handleCreate = () => {
-    createTournament({
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const startIso = start ? new Date(start).toISOString() : undefined;
+    const closesIso = closes ? new Date(closes).toISOString() : undefined;
+    if (startIso && closesIso && closesIso > startIso) {
+      setError("Registration must close before the tournament starts.");
+      return;
+    }
+    const r = createTournament({
       name,
-      code,
+      code: code.trim().toUpperCase(),
       experienceTemplateId: templateId || undefined,
       territoryId: territory.id,
-      venueId: venueId || venues[0]?.id || "",
-      format,
-      matchDuration: parseInt(matchDuration, 10) || 30,
-      breakDuration: parseInt(breakDuration, 10) || 10,
-      seedingMethod,
-      verificationRequirement,
-      prizePlaceholder,
-      scheduledStart,
-      registrationClosesAt
+      venueId,
+      playingAreaIds: areas,
+      format: "single-elimination",
+      minimumTeams: Number(minTeams),
+      maximumTeams: Number(maxTeams),
+      matchDuration: Number(matchDuration),
+      breakDuration: Number(breakDuration),
+      seedingMethod: seeding,
+      verificationRequirement: verification,
+      prizePlaceholder: prize,
+      scheduledStart: startIso,
+      registrationClosesAt: closesIso,
     });
-
-    router.push("/tournaments");
-  };
-
-  const next = () => {
-    if (step < 3) setStep(step + 1);
-  };
-
-  const back = () => {
-    if (step > 0) setStep(step - 1);
-  };
+    if (r.error) {
+      setError(r.error);
+      return;
+    }
+    toast.success("Tournament created", "Enter the teams next, then draw the bracket.");
+    router.push(`/tournaments/${r.id}`);
+  }
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-8 md:px-8">
-      <div className="flex items-center justify-between">
-        <PageHeader
-          overline={`New Tournament · ${territory.name}`}
-          title="Create Tournament"
-          sub="Initialize a new knockout tournament bracket."
-        />
-        <Link href="/tournaments">
-          <IconButton label="Cancel">
-            <X className="h-4 w-4" />
-          </IconButton>
-        </Link>
-      </div>
+    <div className="mx-auto w-full max-w-[920px] space-y-6 px-5 py-7 lg:px-8">
+      <Link href="/tournaments" className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-mut hover:text-ink-lum">
+        <ArrowLeft className="h-4 w-4" /> Tournaments
+      </Link>
+      <PageHeader overline={`New tournament · ${territory.name}`} title="Create a knockout tournament" sub="Set up the event. Teams are entered on the next screen, then you draw the bracket and publish." />
+      <PermissionNote reason={createGate.reason} />
 
-      {/* Progress Spine */}
-      <div className="mt-8 grid grid-cols-4 gap-2">
-        {STEPS.map((s, idx) => (
-          <div key={s.label} className="space-y-2">
-            <div
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                idx <= step ? "bg-brand" : "bg-slate-100"
-              }`}
-            />
-            <span className={`block text-[10px] font-semibold ${idx === step ? "text-ink-lum" : "text-ink-mut"}`}>
-              {s.label}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      <Card className="mt-6 p-6">
-        {step === 0 && (
-          <div className="space-y-4">
-            <PanelHeader title="Basic Information" sub="Identify your tournament" />
-            <Field label="Tournament Name" hint="e.g. Monsoon Table Tennis Open">
-              <Input
-                placeholder="Enter tournament title"
-                value={name}
-                onChange={(e) => {
-                  setName(e.target.value);
-                  if (!code && e.target.value) {
-                    setCode(e.target.value.substring(0, 3).toUpperCase() + "-" + Math.floor(100 + Math.random() * 900));
-                  }
-                }}
-              />
+      <form onSubmit={submit} className="space-y-5">
+        <section className="rounded-panel border border-edge bg-white p-5 shadow-panel">
+          <h2 className="text-[15px] font-semibold text-ink-lum">Details</h2>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <Field label="Tournament name">
+              <Input value={name} onChange={(e) => { setName(e.target.value); if (!codeTouched) setCode(suggestCode(e.target.value)); }} placeholder="e.g. Monsoon Table Tennis Open" required minLength={3} />
             </Field>
-
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Short Code / ID" hint="Unique bracket code">
-                <Input placeholder="e.g. MTT-2026" value={code} onChange={(e) => setCode(e.target.value)} />
-              </Field>
-
-              <Field label="Prize Placeholder" hint="Rewards description">
-                <Input placeholder="e.g. Gold medals + ₹2,000 voucher" value={prizePlaceholder} onChange={(e) => setPrizePlaceholder(e.target.value)} />
-              </Field>
-            </div>
-
-            <Field label="Linked Experience Template" hint="Optional template defaults">
-              <Select value={templateId} onChange={(e) => setTemplateId(e.target.value)}>
-                <option value="">Select a template...</option>
+            <Field label="Short code" hint="3–16 capital letters, digits or dashes. Must be unique.">
+              <Input value={code} onChange={(e) => { setCode(e.target.value.toUpperCase()); setCodeTouched(true); }} placeholder="MTTO-2026" required className="font-mono" />
+            </Field>
+            <Field label="Prize (optional)">
+              <Input value={prize} onChange={(e) => setPrize(e.target.value)} placeholder="e.g. Trophy + ₹2,000 voucher" />
+            </Field>
+            <Field label="Experience (optional)">
+              <Select className="h-11" value={templateId} onChange={(e) => setTemplateId(e.target.value)}>
+                <option value="">No linked experience</option>
                 {templates.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name} ({t.id})
-                  </option>
+                  <option key={t.id} value={t.id}>{t.name}</option>
                 ))}
               </Select>
             </Field>
           </div>
-        )}
+        </section>
 
-        {step === 1 && (
-          <div className="space-y-4">
-            <PanelHeader title="Location & Format" sub="Where and how the tournament runs" />
-            <Field label="Target Venue" hint="Must belong to Hyderabad Central">
-              <Select value={venueId} onChange={(e) => setVenueId(e.target.value)}>
-                <option value="">Select a venue...</option>
+        <section className="rounded-panel border border-edge bg-white p-5 shadow-panel">
+          <h2 className="text-[15px] font-semibold text-ink-lum">Venue & format</h2>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <Field label="Venue" hint={venues.length ? undefined : `No venues in ${territory.name}. Add one in Setup first.`}>
+              <Select className="h-11" value={venueId} onChange={(e) => { setVenueId(e.target.value); setAreas([]); }} required>
+                <option value="">Choose a venue…</option>
                 {venues.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.name}
-                  </option>
+                  <option key={v.id} value={v.id}>{v.name}</option>
                 ))}
               </Select>
             </Field>
-
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Bracket Format">
-                <Select value={format} onChange={(e) => setFormat(e.target.value)}>
-                  <option value="single-elimination">Single Elimination</option>
-                  <option value="round-robin">Round Robin</option>
-                </Select>
-              </Field>
-
-              <Field label="Seeding Method">
-                <Select value={seedingMethod} onChange={(e) => setSeedingMethod(e.target.value)}>
-                  <option value="random">Random Seeding</option>
-                  <option value="seeded">Seeded Bracket Placement</option>
-                </Select>
-              </Field>
-            </div>
-          </div>
-        )}
-
-        {step === 2 && (
-          <div className="space-y-4">
-            <PanelHeader title="Rules & Schedule" sub="Timings and match configurations" />
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Match Duration (mins)">
-                <Input type="number" value={matchDuration} onChange={(e) => setMatchDuration(e.target.value)} />
-              </Field>
-              <Field label="Break Duration (mins)">
-                <Input type="number" value={breakDuration} onChange={(e) => setBreakDuration(e.target.value)} />
-              </Field>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Registration Closes At">
-                <Input value={registrationClosesAt} onChange={(e) => setRegistrationClosesAt(e.target.value)} />
-              </Field>
-              <Field label="Scheduled Start Time">
-                <Input value={scheduledStart} onChange={(e) => setScheduledStart(e.target.value)} />
-              </Field>
-            </div>
-
-            <Field label="Verification Requirement">
-              <Select value={verificationRequirement} onChange={(e) => setVerificationRequirement(e.target.value)}>
-                <option value="referee">Single Referee Submission</option>
-                <option value="dual">Dual Sign-off (Referee + Lead Coordinator)</option>
-                <option value="self">Self-reported by participants</option>
-              </Select>
+            <Field label="Format" hint="Round-robin and group stages are not available yet.">
+              <Input value="Single elimination (knockout)" readOnly aria-readonly className="bg-bg-sunken" />
             </Field>
           </div>
-        )}
-
-        {step === 3 && (
-          <div className="space-y-4">
-            <PanelHeader title="Review Details" sub="Ensure everything is correct" />
-            <div className="solid rounded-xl p-4 space-y-3 text-sm">
-              <div className="flex justify-between border-b border-slate-200 pb-2">
-                <span className="text-ink-mut">Name:</span>
-                <span className="font-semibold text-ink-lum">{name || "—"}</span>
+          {venueAreas.length > 0 && (
+            <fieldset className="mt-4">
+              <legend className="mb-2 text-[13px] font-medium text-ink-sec">Playing areas (matches in the same round run in parallel)</legend>
+              <div className="flex flex-wrap gap-2">
+                {venueAreas.map((p) => (
+                  <label key={p.id} className="inline-flex items-center gap-2 rounded-xl border border-edge px-3 py-2 text-sm text-ink-sec has-[:checked]:border-brand has-[:checked]:bg-brand-subtle has-[:checked]:text-brand-ink">
+                    <input type="checkbox" className="accent-[#5b4cf5]" checked={areas.includes(p.id)} onChange={(e) => setAreas(e.target.checked ? [...areas, p.id] : areas.filter((x) => x !== p.id))} />
+                    {p.name}
+                  </label>
+                ))}
               </div>
-              <div className="flex justify-between border-b border-slate-200 pb-2">
-                <span className="text-ink-mut">Code:</span>
-                <span className="font-semibold text-ink-lum">{code || "—"}</span>
-              </div>
-              <div className="flex justify-between border-b border-slate-200 pb-2">
-                <span className="text-ink-mut">Format:</span>
-                <span className="text-ink-sec">{format}</span>
-              </div>
-              <div className="flex justify-between border-b border-slate-200 pb-2">
-                <span className="text-ink-mut">Venue:</span>
-                <span className="text-ink-sec">{venues.find((v) => v.id === venueId)?.name || "Select venue..."}</span>
-              </div>
-              <div className="flex justify-between border-b border-slate-200 pb-2">
-                <span className="text-ink-mut">Match duration:</span>
-                <span className="text-ink-sec">{matchDuration} mins</span>
-              </div>
-              <div className="flex justify-between border-b border-slate-200 pb-2">
-                <span className="text-ink-mut">Start time:</span>
-                <span className="text-ink-sec">{scheduledStart}</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="mt-8 flex justify-between gap-4 border-t border-slate-200 pt-4">
-          <Button variant="secondary" onClick={back} disabled={step === 0} className="gap-1.5">
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Button>
-
-          {step < 3 ? (
-            <Button onClick={next} disabled={!name} className="gap-1.5">
-              Continue
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          ) : (
-            <Button onClick={handleCreate} disabled={!name} className="bg-brand hover:bg-brand-hover shadow-lift">
-              Create Tournament
-            </Button>
+            </fieldset>
           )}
-        </div>
-      </Card>
-    </div>
-  );
-}
+          <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            <Field label="Seeding">
+              <Select className="h-11" value={seeding} onChange={(e) => setSeeding(e.target.value as "seeded" | "random")}>
+                <option value="seeded">Seeded (you set the order)</option>
+                <option value="random">Random draw</option>
+              </Select>
+            </Field>
+            <Field label="Minimum teams">
+              <Input type="number" min={2} max={64} value={minTeams} onChange={(e) => setMinTeams(e.target.value)} required />
+            </Field>
+            <Field label="Maximum teams">
+              <Input type="number" min={2} max={64} value={maxTeams} onChange={(e) => setMaxTeams(e.target.value)} required />
+            </Field>
+          </div>
+        </section>
 
-function IconButton({
-  label,
-  children,
-  ...rest
-}: {
-  label: string;
-  children: React.ReactNode;
-} & React.ButtonHTMLAttributes<HTMLButtonElement>) {
-  return (
-    <button
-      className="inline-flex h-10 w-10 items-center justify-center rounded-xl glass hover:bg-slate-50 border border-slate-200 text-ink-sec hover:text-ink-lum transition-all duration-200"
-      title={label}
-      {...rest}
-    >
-      {children}
-    </button>
+        <section className="rounded-panel border border-edge bg-white p-5 shadow-panel">
+          <h2 className="text-[15px] font-semibold text-ink-lum">Schedule & results</h2>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <Field label="Registration closes">
+              <Input type="datetime-local" value={closes} onChange={(e) => setCloses(e.target.value)} />
+            </Field>
+            <Field label="First match starts">
+              <Input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} />
+            </Field>
+            <Field label="Match length (minutes)">
+              <Input type="number" min={5} max={240} value={matchDuration} onChange={(e) => setMatchDuration(e.target.value)} required />
+            </Field>
+            <Field label="Break between matches (minutes)">
+              <Input type="number" min={0} max={120} value={breakDuration} onChange={(e) => setBreakDuration(e.target.value)} required />
+            </Field>
+          </div>
+          <Field label="Result verification">
+            <Select className="h-11" value={verification} onChange={(e) => setVerification(e.target.value as "referee" | "dual")}>
+              <option value="referee">Verified by a coordinator or manager (can be the scorer)</option>
+              <option value="dual">Two-person check (verifier must differ from the scorer)</option>
+            </Select>
+          </Field>
+        </section>
+
+        {error && (
+          <p role="alert" className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> {error}
+          </p>
+        )}
+        <div className="flex flex-wrap justify-end gap-2">
+          <Link href="/tournaments" className="inline-flex h-10 items-center rounded-xl border border-edge-strong bg-white px-4 text-sm font-semibold text-ink-lum shadow-lift hover:bg-bg-sunken">Cancel</Link>
+          <Button type="submit" disabled={!createGate.allowed || name.trim().length < 3 || !venueId}>Create tournament</Button>
+        </div>
+      </form>
+    </div>
   );
 }

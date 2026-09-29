@@ -1,9 +1,13 @@
 import type { RoleId } from "@/lib/types";
+import { NAV } from "@/lib/nav";
 
 /**
- * Role simulation matrix (Part 15) — every geo action is gated through this
- * single table so the demo behaves consistently across all 14 pages.
- * Frontend prototype only; never a production authorization layer.
+ * Action-level permissions for Setup, Catalog and Staffing.
+ *
+ * Page access comes from lib/nav.ts (`canAccess`). This table narrows what a
+ * role may DO once on the page. Every action is bound to the route whose page
+ * exposes it, and its roles are always a subset of that route's roles, so an
+ * action can never be granted to a role that cannot open the page.
  */
 export type GeoAction =
   | "create-franchise"
@@ -17,50 +21,52 @@ export type GeoAction =
   | "create-playing-area"
   | "manage-playing-area"
   | "manage-catalog"
-  | "activate-template"
-  | "change-template-status"
-  | "change-category-status"
-  | "catalog-pricing"
-  | "catalog-safety"
-  | "catalog-preview"
+  | "change-catalog-status"
   | "catalog-versions"
-  | "see-commercial"
-  | "see-safety"
-  | "see-contacts"
-  | "annotate"
-  | "reset-demo";
+  | "catalog-preview"
+  | "manage-staff"
+  | "assign-staff"
+  | "check-in-staff";
 
-const ALLOW: Record<GeoAction, RoleId[]> = {
+const owners: RoleId[] = ["platform-owner", "super-admin"];
+
+export const GEO_ACTIONS: Record<GeoAction, { route: string; roles: RoleId[] }> = {
   // Franchise — only platform owners and super admins shape the platform
-  "create-franchise": ["platform-owner", "super-admin"],
-  "manage-franchise": ["platform-owner", "super-admin"],
+  "create-franchise": { route: "/franchises", roles: owners },
+  "manage-franchise": { route: "/franchises", roles: owners },
   // Territory — regional partners shape the regions they are assigned to
-  "create-territory": ["platform-owner", "super-admin", "regional-partner"],
-  "manage-territory": ["platform-owner", "super-admin", "regional-partner"],
+  "create-territory": { route: "/territories", roles: [...owners, "regional-partner"] },
+  "manage-territory": { route: "/territories", roles: [...owners, "regional-partner"] },
   // City — city managers run the cities they are assigned to
-  "create-city": ["platform-owner", "super-admin", "regional-partner", "city-manager"],
-  "manage-city": ["platform-owner", "super-admin", "regional-partner", "city-manager"],
-  // Venue — city managers and ops managers run venues day to day
-  "create-venue": ["platform-owner", "super-admin", "regional-partner", "city-manager"],
-  "manage-venue": ["platform-owner", "super-admin", "regional-partner", "city-manager", "ops-manager"],
+  "create-city": { route: "/cities", roles: [...owners, "regional-partner", "city-manager"] },
+  "manage-city": { route: "/cities", roles: [...owners, "regional-partner", "city-manager"] },
+  // Venue — city managers create venues; operations managers run them day to day
+  "create-venue": { route: "/locations", roles: [...owners, "regional-partner", "city-manager"] },
+  "manage-venue": { route: "/locations", roles: [...owners, "regional-partner", "city-manager", "ops-manager"] },
   // Playing area — venue managers own the floors of their venue
-  "create-playing-area": ["platform-owner", "super-admin", "regional-partner", "city-manager", "ops-manager", "venue-manager"],
-  "manage-playing-area": ["platform-owner", "super-admin", "regional-partner", "city-manager", "ops-manager", "venue-manager"],
-  // Catalog (Part 14) — platform shapes the catalog; regions only view their compatibility
-  "manage-catalog": ["platform-owner", "super-admin"],
-  "activate-template": ["platform-owner", "super-admin"],
-  "change-template-status": ["platform-owner", "super-admin"],
-  "change-category-status": ["platform-owner", "super-admin"],
-  "catalog-pricing": ["platform-owner", "super-admin", "regional-partner", "city-manager", "ops-manager", "venue-manager", "finance", "analyst"],
-  "catalog-safety": ["platform-owner", "super-admin", "regional-partner", "city-manager", "ops-manager", "venue-manager", "safety", "analyst"],
-  "catalog-preview": ["platform-owner", "super-admin", "regional-partner", "city-manager", "ops-manager", "venue-manager", "marketing", "analyst"],
-  "catalog-versions": ["platform-owner", "super-admin", "regional-partner", "ops-manager", "analyst"],
-  // Visibility lanes — finance sees money, safety sees safety, nobody sees everything
-  "see-commercial": ["platform-owner", "super-admin", "regional-partner", "city-manager", "ops-manager", "venue-manager", "finance", "analyst"],
-  "see-safety": ["platform-owner", "super-admin", "regional-partner", "city-manager", "ops-manager", "venue-manager", "coordinator", "staff", "safety", "analyst"],
-  "see-contacts": ["platform-owner", "super-admin", "regional-partner", "city-manager", "ops-manager", "venue-manager", "coordinator", "staff", "safety", "finance", "analyst"],
-  annotate: ["platform-owner", "super-admin", "regional-partner", "city-manager", "ops-manager", "venue-manager", "safety"],
-  "reset-demo": ["platform-owner", "super-admin"],
+  "create-playing-area": { route: "/locations", roles: [...owners, "regional-partner", "city-manager", "ops-manager", "venue-manager"] },
+  "manage-playing-area": { route: "/locations", roles: [...owners, "regional-partner", "city-manager", "ops-manager", "venue-manager"] },
+  // Catalog — the platform shapes the catalog; city and operations managers can draft
+  "manage-catalog": { route: "/catalog", roles: [...owners, "city-manager", "ops-manager"] },
+  "change-catalog-status": { route: "/catalog", roles: owners },
+  "catalog-versions": { route: "/catalog", roles: [...owners, "city-manager", "ops-manager", "analyst"] },
+  "catalog-preview": { route: "/catalog", roles: [...owners, "city-manager", "ops-manager", "marketing", "analyst"] },
+  // Staff — managers maintain the staff list; coordinators staff and check in their sessions
+  "manage-staff": { route: "/people", roles: [...owners, "regional-partner", "city-manager", "ops-manager", "venue-manager"] },
+  "assign-staff": { route: "/staffing", roles: [...owners, "regional-partner", "city-manager", "ops-manager", "venue-manager", "coordinator"] },
+  "check-in-staff": { route: "/staffing", roles: [...owners, "regional-partner", "city-manager", "ops-manager", "venue-manager", "coordinator"] },
 };
 
-export const geoCan = (roleId: RoleId, action: GeoAction): boolean => ALLOW[action].includes(roleId);
+const routeRoles = (route: string): RoleId[] => {
+  const item = NAV.find((n) => n.href === route || (n.owns ?? []).includes(route));
+  return item?.roles ?? [];
+};
+
+/** True when the role may perform the action (and can open the page that exposes it). */
+export const geoCan = (roleId: RoleId, action: GeoAction): boolean => {
+  const def = GEO_ACTIONS[action];
+  return def.roles.includes(roleId) && routeRoles(def.route).includes(roleId);
+};
+
+/** Human-readable list of the roles allowed an action, for "why can't I" hints. */
+export const geoRolesFor = (action: GeoAction): RoleId[] => GEO_ACTIONS[action].roles.filter((r) => routeRoles(GEO_ACTIONS[action].route).includes(r));

@@ -1,18 +1,11 @@
-import type { Operator, Role, Territory, TerritoryId } from "@/lib/types";
+import type { Operator, Role } from "@/lib/types";
 
 /* ------------------------------------------------------------------
-   REFERENCE & AUTH TABLES (not entity data)
-   Entity data lives in the normalized prototype store
-   (lib/prototype/seed.ts + lib/prototype/repositories.ts).
-   This module only holds identity/reference tables: operators,
-   roles, and the legacy territory meta resolver used by the shell.
+   Reference tables for console identity.
+   ROLES is the role catalogue. OPERATORS is only the seed for the
+   workspace's operator accounts (see scenarios/initial.ts); at runtime,
+   operator names and roles come from `state.operators`.
 ------------------------------------------------------------------- */
-
-export const TERRITORIES: Territory[] = [
-  { id: "hvd-central", name: "Hyderabad Central", code: "HYD", time: "19:42", venues: 9, tonight: 14, fill: 82 },
-  { id: "blr-south", name: "Bengaluru South", code: "BLR", time: "19:42", venues: 7, tonight: 11, fill: 74 },
-  { id: "mum-west", name: "Mumbai West", code: "BOM", time: "19:42", venues: 6, tonight: 9, fill: 68 },
-];
 
 export const ROLES: Role[] = [
   { id: "platform-owner", name: "Platform Owner", kind: "chain", scope: "Platform" },
@@ -45,9 +38,3 @@ export const OPERATORS: Operator[] = [
   { id: "op-12", name: "Zara Ahmed", title: "Marketing Manager", role: "marketing", territoryId: "hvd-central", initials: "ZA" },
   { id: "op-13", name: "Vikram Joshi", title: "Analyst", role: "analyst", territoryId: "hvd-central", initials: "VJ" },
 ];
-
-export const territoryById = (id: TerritoryId): Territory =>
-  TERRITORIES.find((t) => t.id === id) ?? TERRITORIES[0];
-
-export const operatorName = (id: string): string =>
-  OPERATORS.find((o) => o.id === id)?.name ?? id;

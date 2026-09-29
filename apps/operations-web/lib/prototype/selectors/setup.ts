@@ -17,23 +17,28 @@ export interface SetupHealth {
   citiesWithoutVenuesCount: number;
 }
 
+export type SetupStepKey = "franchise" | "territory" | "city" | "venue" | "playing-area" | "category" | "experience" | "session";
+
 export interface SetupNextAction {
-  actionKey: "create-franchise" | "add-territory" | "add-city" | "create-venue" | "add-playing-area" | "create-template" | "schedule-event";
+  actionKey: "create-franchise" | "add-territory" | "add-city" | "create-venue" | "add-playing-area" | "add-category" | "create-template" | "schedule-event" | "done";
   label: string;
   subtitle: string;
   href: string;
-  stepNumber: 1 | 2 | 3 | 4 | 5 | 6;
+  /** 1-based position in the 8-step first-run journey. */
+  stepNumber: number;
 }
 
 export interface SetupStepStatus {
-  step: 1 | 2 | 3 | 4 | 5;
-  key: "franchise" | "territory" | "city" | "venue" | "playing-area";
+  step: number;
+  key: SetupStepKey;
   title: string;
   explanation: string;
   status: "not-started" | "in-progress" | "complete" | "needs-attention";
   count: number;
   actionLabel: string;
   actionHref: string;
+  /** Where to see the existing records once some exist. */
+  listHref: string;
 }
 
 /**
@@ -202,172 +207,80 @@ export function selectVenueSetupHealth(state: PrototypeState, venueId: VenueId) 
 }
 
 /**
- * Next Action Engine — derives the single recommended next action based on state
- */
-export function selectNextSetupAction(state: PrototypeState): SetupNextAction {
-  const franchises = state.franchises ?? [];
-  const territories = state.territories ?? [];
-  const cities = state.cities ?? [];
-  const venues = state.venues ?? [];
-  const playingAreas = state.playingAreas ?? [];
-  const templates = state.templates ?? [];
-
-  if (franchises.length === 0) {
-    return {
-      actionKey: "create-franchise",
-      label: "Create Franchise",
-      subtitle: "First step: Create the regional organization responsible for this operating area.",
-      href: "/franchises/new",
-      stepNumber: 1,
-    };
-  }
-
-  if (territories.length === 0) {
-    return {
-      actionKey: "add-territory",
-      label: "Add Territory",
-      subtitle: "Second step: Create a local operating territory under your franchise.",
-      href: "/territories/new",
-      stepNumber: 2,
-    };
-  }
-
-  if (cities.length === 0) {
-    return {
-      actionKey: "add-city",
-      label: "Add City",
-      subtitle: "Third step: Add a city where your company will run events.",
-      href: "/cities/new",
-      stepNumber: 3,
-    };
-  }
-
-  if (venues.length === 0) {
-    return {
-      actionKey: "create-venue",
-      label: "Create Venue",
-      subtitle: "Fourth step: Add a physical venue building or outdoor location.",
-      href: "/locations/venues/new",
-      stepNumber: 4,
-    };
-  }
-
-  if (playingAreas.length === 0) {
-    return {
-      actionKey: "add-playing-area",
-      label: "Add Playing Area",
-      subtitle: "Fifth step: Add the exact court, field, room, or hall inside your venue.",
-      href: "/locations/playing-areas/new",
-      stepNumber: 5,
-    };
-  }
-
-  if (templates.length === 0) {
-    return {
-      actionKey: "create-template",
-      label: "Create Experience",
-      subtitle: "Your operating structure is ready! Now define an experience template.",
-      href: "/catalog/experiences/new",
-      stepNumber: 6,
-    };
-  }
-
-  return {
-    actionKey: "schedule-event",
-    label: "Schedule Event",
-    subtitle: "Your operating area is completely set up! You can now schedule live events.",
-    href: "/missions",
-    stepNumber: 6,
-  };
-}
-
-/**
- * 5-Step Journey Status derivation
+ * The first-run journey: the eight things an operator creates, in order, to
+ * go from an empty workspace to a bookable session.
  */
 export function selectSetupJourney(state: PrototypeState): SetupStepStatus[] {
   const health = selectSetupHealth(state);
-  const franchises = state.franchises ?? [];
-  const territories = state.territories ?? [];
-  const cities = state.cities ?? [];
-  const venues = state.venues ?? [];
-  const playingAreas = state.playingAreas ?? [];
-
-  return [
-    {
-      step: 1,
-      key: "franchise",
-      title: "1. Franchise",
-      explanation: "The organization or regional operating head responsible for this area.",
-      status: franchises.length > 0 ? "complete" : "not-started",
-      count: franchises.length,
-      actionLabel: franchises.length > 0 ? "View Franchises" : "Create Franchise",
-      actionHref: franchises.length > 0 ? "/franchises" : "/franchises/new",
-    },
-    {
-      step: 2,
-      key: "territory",
-      title: "2. Territory",
-      explanation: "A smaller operating area managed by a local operating team.",
-      status:
-        territories.length > 0
-          ? "complete"
-          : franchises.length > 0
-          ? "needs-attention"
-          : "not-started",
-      count: territories.length,
-      actionLabel: territories.length > 0 ? "View Territories" : "Add Territory",
-      actionHref: territories.length > 0 ? "/territories" : "/territories/new",
-    },
-    {
-      step: 3,
-      key: "city",
-      title: "3. City",
-      explanation: "The city where events will be conducted.",
-      status:
-        cities.length > 0
-          ? health.territoriesWithoutCitiesCount > 0
-            ? "needs-attention"
-            : "complete"
-          : territories.length > 0
-          ? "needs-attention"
-          : "not-started",
-      count: cities.length,
-      actionLabel: cities.length > 0 ? "View Cities" : "Add City",
-      actionHref: cities.length > 0 ? "/cities" : "/cities/new",
-    },
-    {
-      step: 4,
-      key: "venue",
-      title: "4. Venue",
-      explanation: "The building or outdoor location where customers arrive.",
-      status:
-        venues.length > 0
-          ? health.citiesWithoutVenuesCount > 0
-            ? "needs-attention"
-            : "complete"
-          : cities.length > 0
-          ? "needs-attention"
-          : "not-started",
-      count: venues.length,
-      actionLabel: venues.length > 0 ? "View Venues" : "Create Venue",
-      actionHref: venues.length > 0 ? "/locations/venues" : "/locations/venues/new",
-    },
-    {
-      step: 5,
-      key: "playing-area",
-      title: "5. Playing Area",
-      explanation: "The exact court, field, room, hall, pool, track, or activity space.",
-      status:
-        playingAreas.length > 0
-          ? health.venuesWithoutPlayingAreasCount > 0
-            ? "needs-attention"
-            : "complete"
-          : venues.length > 0
-          ? "needs-attention"
-          : "not-started",
-      count: playingAreas.length,
-      actionLabel: playingAreas.length > 0 ? "View Playing Areas" : "Add Playing Area",
-      actionHref: playingAreas.length > 0 ? "/locations/playing-areas" : "/locations/playing-areas/new",
-    },
+  const count = {
+    franchise: (state.franchises ?? []).length,
+    territory: (state.territories ?? []).length,
+    city: (state.cities ?? []).length,
+    venue: (state.venues ?? []).length,
+    "playing-area": (state.playingAreas ?? []).length,
+    category: (state.categories ?? []).filter((c) => (c.status ?? "active") !== "archived").length,
+    experience: (state.templates ?? []).filter((t) => t.status !== "archived").length,
+    session: (state.sessions ?? []).filter((s) => !["cancelled", "archived"].includes(s.status)).length,
+  } as const;
+  const gaps: Partial<Record<SetupStepKey, number>> = {
+    city: health.territoriesWithoutCitiesCount,
+    venue: health.citiesWithoutVenuesCount,
+    "playing-area": health.venuesWithoutPlayingAreasCount,
+    experience: (state.templates ?? []).length > 0 && !(state.templates ?? []).some((t) => t.status === "active") ? 1 : 0,
+  };
+  const defs: Array<Omit<SetupStepStatus, "status" | "count" | "step">> = [
+    { key: "franchise", title: "Franchise", explanation: "The business that runs this operating area and signs its contracts.", actionLabel: "Create franchise", actionHref: "/franchises/new", listHref: "/franchises" },
+    { key: "territory", title: "Territory", explanation: "A region the franchise runs, with its own manager, time zone and currency.", actionLabel: "Add territory", actionHref: "/territories/new", listHref: "/territories" },
+    { key: "city", title: "City", explanation: "A city inside the territory where sessions will run.", actionLabel: "Add city", actionHref: "/cities/new", listHref: "/cities" },
+    { key: "venue", title: "Venue", explanation: "The building or ground customers arrive at, with its safety capacity.", actionLabel: "Add venue", actionHref: "/locations/venues/new", listHref: "/locations/venues" },
+    { key: "playing-area", title: "Playing area", explanation: "The exact court, pitch, table or room inside the venue.", actionLabel: "Add playing area", actionHref: "/locations/playing-areas/new", listHref: "/locations/playing-areas" },
+    { key: "category", title: "Activity category", explanation: "The kind of activity (badminton, board games…) and its defaults.", actionLabel: "Add category", actionHref: "/catalog/categories/new", listHref: "/catalog/categories" },
+    { key: "experience", title: "Experience", explanation: "A reusable plan: format, group size, price, staffing and reveal rules.", actionLabel: "Create experience", actionHref: "/catalog/experiences/new", listHref: "/catalog/experiences" },
+    { key: "session", title: "Scheduled session", explanation: "A dated session of an experience at a playing area, open for booking.", actionLabel: "Schedule session", actionHref: "/missions/new", listHref: "/missions" },
   ];
+  let blocked = false;
+  return defs.map((d, i) => {
+    const n = count[d.key];
+    let status: SetupStepStatus["status"];
+    if (n > 0) status = (gaps[d.key] ?? 0) > 0 ? "needs-attention" : "complete";
+    else status = blocked ? "not-started" : "in-progress";
+    if (n === 0) blocked = true;
+    return { ...d, step: i + 1, status, count: n };
+  });
+}
+
+/**
+ * Next Action Engine — the single recommended next step: the first journey
+ * step with nothing created yet, else the first step that needs attention.
+ */
+export function selectNextSetupAction(state: PrototypeState): SetupNextAction {
+  const journey = selectSetupJourney(state);
+  const keyFor: Record<SetupStepKey, SetupNextAction["actionKey"]> = {
+    franchise: "create-franchise",
+    territory: "add-territory",
+    city: "add-city",
+    venue: "create-venue",
+    "playing-area": "add-playing-area",
+    category: "add-category",
+    experience: "create-template",
+    session: "schedule-event",
+  };
+  const next = journey.find((s) => s.count === 0) ?? journey.find((s) => s.status === "needs-attention");
+  if (!next) {
+    return {
+      actionKey: "done",
+      label: "Schedule another session",
+      subtitle: "Setup is complete. Every territory has a city, every city a venue and every venue a playing area.",
+      href: "/missions/new",
+      stepNumber: journey.length,
+    };
+  }
+  const empty = next.count === 0;
+  return {
+    actionKey: keyFor[next.key],
+    label: next.actionLabel,
+    subtitle: empty ? `Step ${next.step} of ${journey.length}: ${next.explanation}` : `Some records need a ${next.title.toLowerCase()} before they can be used.`,
+    href: next.actionHref,
+    stepNumber: next.step,
+  };
 }

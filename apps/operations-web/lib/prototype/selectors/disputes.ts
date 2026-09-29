@@ -1,6 +1,9 @@
 import type { PrototypeState } from "../scenarios/state";
 import type { Dispute } from "../entities";
-import { sessionTitle } from "./lookups";
+import { sessionTitle, operatorName, territoryName } from "./lookups";
+import { disputeTerritory } from "../services/disputes";
+import { entrantName } from "../services/tournament";
+import { toMillis } from "@/lib/safety/time";
 
 export interface DisputeRow {
   id: string;
@@ -9,71 +12,60 @@ export interface DisputeRow {
   submittedBy: string;
   submittedAt: string;
   reason: string;
-  reviewerId?: string;
-  relatedEntityId: string;
-  relatedEntityType: string;
+  reviewerName?: string;
+  contextLabel: string;
+  territoryId?: string;
+  territoryName: string;
+}
+
+const OPEN_ORDER: Record<string, number> = { submitted: 0, "under-review": 1, "evidence-requested": 2, "decision-pending": 3, upheld: 4, "partially-upheld": 4, rejected: 4, closed: 5 };
+
+function contextOf(state: PrototypeState, d: Dispute): string {
+  if (d.matchId) {
+    const m = state.tournamentMatches.find((x) => x.id === d.matchId);
+    const t = state.tournaments.find((x) => x.id === (m?.tournamentId ?? d.tournamentId));
+    if (m && t) return `${t.name} · ${m.roundLabel ?? `Round ${m.roundNumber}`}: ${entrantName(t, m.teamAId)} v ${entrantName(t, m.teamBId)}`;
+  }
+  if (d.tournamentId) return state.tournaments.find((t) => t.id === d.tournamentId)?.name ?? d.tournamentId;
+  if (d.sessionId) return sessionTitle(state, d.sessionId);
+  if (d.bookingId) return `Booking ${d.bookingId}`;
+  return `${d.relatedEntityType} ${d.relatedEntityId}`;
 }
 
 export function disputeRows(state: PrototypeState, territoryId?: string): DisputeRow[] {
-  const list = state.disputes ?? [];
-  // Filter by territory if linked to session/tournament in that territory
-  const filtered = list.filter((d) => {
-    if (!territoryId) return true;
-    if (d.tournamentId) {
-      const t = state.tournaments.find((x) => x.id === d.tournamentId);
-      return t?.territoryId === territoryId;
-    }
-    if (d.sessionId) {
-      const s = state.sessions.find((x) => x.id === d.sessionId);
-      return s?.territoryId === territoryId;
-    }
-    return true;
-  });
-
-  return filtered.map((d) => ({
-    id: d.id,
-    type: d.type,
-    status: d.status,
-    submittedBy: d.submittedBy,
-    submittedAt: d.submittedAt,
-    reason: d.reason,
-    reviewerId: d.reviewerId,
-    relatedEntityId: d.relatedEntityId,
-    relatedEntityType: d.relatedEntityType
-  }));
+  return (state.disputes ?? [])
+    .map((d) => ({ d, terr: disputeTerritory(state, d) }))
+    .filter(({ terr }) => !territoryId || !terr || terr === territoryId)
+    .map(({ d, terr }) => ({
+      id: d.id,
+      type: d.type,
+      status: d.status,
+      submittedBy: d.submittedBy,
+      submittedAt: d.submittedAt,
+      reason: d.reason,
+      reviewerName: d.reviewerId ? operatorName(state, d.reviewerId) : undefined,
+      contextLabel: contextOf(state, d),
+      territoryId: terr,
+      territoryName: terr ? territoryName(state, terr) : "All territories",
+    }))
+    .sort((a, b) => (OPEN_ORDER[a.status] ?? 9) - (OPEN_ORDER[b.status] ?? 9) || (toMillis(b.submittedAt) || 0) - (toMillis(a.submittedAt) || 0));
 }
 
 export function disputeDetail(state: PrototypeState, id: string) {
   const d = state.disputes?.find((x) => x.id === id);
   if (!d) return undefined;
-  
-  const session = d.sessionId ? state.sessions.find((s) => s.id === d.sessionId) : undefined;
-  const tournament = d.tournamentId ? state.tournaments.find((t) => t.id === d.tournamentId) : undefined;
-  const match = d.matchId ? state.tournamentMatches.find((m) => m.id === d.matchId) : undefined;
-  const exceptions = (state.refundExceptions ?? []).filter((re) => re.disputeId === id);
-
+  const terr = disputeTerritory(state, d);
   return {
     ...d,
-    sessionName: session ? sessionTitle(state, session.id) : undefined,
-    tournamentName: tournament?.name,
-    matchLabel: match ? `${match.roundLabel} - Match ${match.matchNumber}` : undefined,
-    exceptions
+    contextLabel: contextOf(state, d),
+    territoryId: terr,
+    reviewerName: d.reviewerId ? operatorName(state, d.reviewerId) : undefined,
+    decidedByName: d.decidedBy ? operatorName(state, d.decidedBy) : undefined,
+    recordedByName: d.recordedBy ? operatorName(state, d.recordedBy) : undefined,
+    exceptions: (state.refundExceptions ?? []).filter((re) => re.disputeId === id),
   };
 }
 
-export function disputeQueue(state: PrototypeState, territoryId?: string): Dispute[] {
-  const list = state.disputes ?? [];
-  return list.filter((d) => {
-    if (d.status === "closed" || d.status === "upheld" || d.status === "rejected") return false;
-    if (!territoryId) return true;
-    if (d.tournamentId) {
-      const t = state.tournaments.find((x) => x.id === d.tournamentId);
-      return t?.territoryId === territoryId;
-    }
-    if (d.sessionId) {
-      const s = state.sessions.find((x) => x.id === d.sessionId);
-      return s?.territoryId === territoryId;
-    }
-    return true;
-  });
+export function openDisputeCount(state: PrototypeState, territoryId?: string): number {
+  return disputeRows(state, territoryId).filter((d) => !["upheld", "partially-upheld", "rejected", "closed"].includes(d.status)).length;
 }

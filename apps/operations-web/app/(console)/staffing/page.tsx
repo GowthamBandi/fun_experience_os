@@ -1,212 +1,94 @@
 "use client";
 
 import { useMemo } from "react";
-import Link from "next/link";
+import { ArrowRight, CalendarClock, ShieldAlert, UserCheck, UserPlus, Users, UserX } from "lucide-react";
 import { useStore } from "@/lib/store";
-import {
-  selectStaffHealth,
-  selectEventsMissingCoordinator,
-  selectEventsMissingSafety,
-  selectTodayStaffRoster,
-  selectAvailableStaff,
-} from "@/lib/prototype/selectors/staff";
+import { selectSessionsForStaffing, selectStaffHealth, selectStaffNextAction, selectTodayStaffRoster } from "@/lib/prototype/selectors/staff";
+import { geoCan } from "@/lib/geo/access";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { PermissionDenied } from "@/components/ui/panels";
-import { Button } from "@/components/ui/primitives";
-import { Stagger, Item } from "@/components/motion/Motion";
-import {
-  StaffBackNavigation,
-  StaffStatusBadge,
-  StaffHealthBanner,
-  StaffHelpPanel,
-} from "@/components/staff";
-import { UserCheck, AlertTriangle, ArrowRight, Calendar, Plus, Clock, MapPin } from "lucide-react";
+import { MetricTile, PermissionDenied } from "@/components/ui/panels";
+import { StatusChip } from "@/components/ui/primitives";
+import { EmptyPanel, LinkButton, LinkRows, Notice, PageShell, Panel } from "@/components/setup/kit";
+import { StaffingNav, useStaffScope } from "@/components/staff/StaffingNav";
 
-export default function StaffSchedulePage() {
-  const { state, territory, canAccess } = useStore();
+export default function StaffingPage() {
+  const { state, canAccess, role } = useStore();
+  const scope = useStaffScope();
+  const health = useMemo(() => selectStaffHealth(state, scope.territoryId), [state, scope.territoryId]);
+  const next = useMemo(() => selectStaffNextAction(state, scope.territoryId), [state, scope.territoryId]);
+  const sessions = useMemo(() => selectSessionsForStaffing(state, scope.territoryId), [state, scope.territoryId]);
+  const roster = useMemo(() => selectTodayStaffRoster(state, scope.territoryId), [state, scope.territoryId]);
 
-  if (!canAccess("/staffing")) {
-    return (
-      <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8">
-        <PermissionDenied module="Staff Schedule" />
-      </div>
-    );
-  }
-
-  const health = selectStaffHealth(state);
-  const missingCoordinators = selectEventsMissingCoordinator(state);
-  const missingSafety = selectEventsMissingSafety(state);
-  const roster = selectTodayStaffRoster(state);
-  const availableStaff = selectAvailableStaff(state);
-  const sessions = state.sessions ?? [];
+  if (!canAccess("/staffing")) return <PermissionDenied module="Staffing" />;
+  const canAssign = geoCan(role.id, "assign-staff");
+  const canManage = geoCan(role.id, "manage-staff");
+  const needing = sessions.filter((s) => !s.isFullyStaffed);
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6">
-      <StaffBackNavigation label="Back to People Directory" href="/people" />
-
+    <PageShell>
       <PageHeader
-        overline={`Staff Operations · ${territory.name}`}
-        title="Staff Schedule"
-        sub="See whether today’s events have the people they need. Are today’s events fully staffed?"
+        overline={`Operations · ${scope.label}`}
+        title="Staffing"
+        sub="Who is working which session. Every upcoming session needs a lead coordinator and, when its experience requires one, a safety contact."
         right={
-          <div className="flex items-center gap-3">
-            <StaffStatusBadge status={health.status} />
-            <Link href="/staffing/assign">
-              <Button variant="primary" className="font-bold">
-                <UserCheck className="w-4 h-4 mr-1" />
-                Assign Staff
-              </Button>
-            </Link>
-          </div>
+          <>
+            {canManage && <LinkButton href="/people/staff/new" variant="secondary"><UserPlus className="h-4 w-4" /> Add staff</LinkButton>}
+            {canAssign && <LinkButton href="/staffing/assign">Assign staff <ArrowRight className="h-4 w-4" /></LinkButton>}
+          </>
         }
       />
+      <StaffingNav />
 
-      {/* Staff Health Banner */}
-      <StaffHealthBanner
-        status={health.status}
-        label={health.label}
-        workingToday={health.workingToday}
-        assignedCount={health.assignedCount}
-        checkedInCount={health.checkedInCount}
-        lateCount={health.lateCount}
-        eventsMissingCoordinatorCount={health.eventsMissingCoordinatorCount}
-        eventsMissingSafetyCount={health.eventsMissingSafetyCount}
-        actionHref="/staffing/assign"
-        actionLabel="Assign Staff to Events"
-      />
+      {health.status === "empty" ? (
+        <EmptyPanel icon={<Users className="h-5 w-5" />} title="No staff yet" line="Add the coordinators, safety officers and floor staff who run your sessions. You can then assign them to sessions and check them in." actionHref={canManage ? "/people/staff/new" : undefined} actionLabel="Add the first staff member" />
+      ) : (
+        <>
+          <Notice
+            tone={health.status === "ready" ? "ok" : health.status === "blocked" ? "danger" : "warn"}
+            title={health.label}
+            action={<LinkButton href={next.href} size="sm" variant={health.status === "ready" ? "secondary" : "primary"}>{next.label}</LinkButton>}
+          >
+            {next.detail}
+          </Notice>
 
-      {/* Operational KPI Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-center text-xs">
-        <div className="glass p-4 rounded-xl border border-slate-200 space-y-1">
-          <span className="text-[10px] text-ink-mut uppercase block">Working Today</span>
-          <span className="font-bold text-blue-600 text-lg">{health.workingToday}</span>
-        </div>
-
-        <div className="glass p-4 rounded-xl border border-slate-200 space-y-1">
-          <span className="text-[10px] text-ink-mut uppercase block">Assigned</span>
-          <span className="font-bold text-ink-lum text-lg">{health.assignedCount}</span>
-        </div>
-
-        <div className="glass p-4 rounded-xl border border-slate-200 space-y-1">
-          <span className="text-[10px] text-ink-mut uppercase block">Need Assignment</span>
-          <span className="font-bold text-amber-600 text-lg">{health.unassignedCount}</span>
-        </div>
-
-        <div className="glass p-4 rounded-xl border border-slate-200 space-y-1">
-          <span className="text-[10px] text-ink-mut uppercase block">Checked In</span>
-          <span className="font-bold text-emerald-600 text-lg">{health.checkedInCount}</span>
-        </div>
-
-        <div className="glass p-4 rounded-xl border border-slate-200 space-y-1">
-          <span className="text-[10px] text-ink-mut uppercase block">Late Staff</span>
-          <span className="font-bold text-rose-600 text-lg">{health.lateCount}</span>
-        </div>
-
-        <div className="glass p-4 rounded-xl border border-slate-200 space-y-1">
-          <span className="text-[10px] text-ink-mut uppercase block">Missing Coordinator</span>
-          <span className="font-bold text-rose-600 text-lg">{health.eventsMissingCoordinatorCount}</span>
-        </div>
-
-        <div className="glass p-4 rounded-xl border border-slate-200 space-y-1">
-          <span className="text-[10px] text-ink-mut uppercase block">Missing Safety</span>
-          <span className="font-bold text-amber-600 text-lg">{health.eventsMissingSafetyCount}</span>
-        </div>
-      </div>
-
-      {/* Main Operational Sections */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Section 1: Events Needing Staff */}
-        <div className="glass p-5 rounded-2xl border border-slate-200 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-            <div>
-              <h3 className="font-bold text-ink-lum text-base flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-600" />
-                <span>1. Events Needing Staff</span>
-              </h3>
-              <p className="text-xs text-ink-sec">Events with missing coordinators or safety staff.</p>
-            </div>
-            <Link href="/staffing/assign">
-              <Button variant="secondary" className="h-7 text-xs font-bold px-2.5">
-                Assign Staff <ArrowRight className="w-3 h-3 ml-1" />
-              </Button>
-            </Link>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <MetricTile label="Staff" value={health.totalStaff} detail={`${health.availableCount} available · ${health.offCount} off`} icon={<Users className="h-4 w-4" />} />
+            <MetricTile label="Working" value={health.workingToday} detail={`${health.checkedInCount} checked in`} icon={<UserCheck className="h-4 w-4" />} tone="emerald" />
+            <MetricTile label="Sessions short of staff" value={needing.length} detail={`of ${sessions.length} upcoming`} icon={<CalendarClock className="h-4 w-4" />} tone={needing.length ? "amber" : "sky"} />
+            <MetricTile label="Overlapping assignments" value={health.doubleAssignedCount} detail="people on two sessions at once" icon={<ShieldAlert className="h-4 w-4" />} tone={health.doubleAssignedCount ? "rose" : "violet"} />
           </div>
 
-          {missingCoordinators.length === 0 && missingSafety.length === 0 ? (
-            <div className="p-6 text-center text-xs text-emerald-700 bg-emerald-100 rounded-xl border border-emerald-300">
-              ✓ All scheduled events have required lead coordinators and safety leads.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {missingCoordinators.map((s) => (
-                <div key={s.id} className="p-3 rounded-xl bg-rose-100 border border-rose-300 flex items-center justify-between text-xs">
-                  <div>
-                    <span className="font-bold text-rose-700 block">{s.date} @ {s.startTime}</span>
-                    <span className="text-ink-sec text-[11px]">Event #{s.id} · Missing Lead Coordinator</span>
-                  </div>
-                  <Link href={`/staffing/assign?sessionId=${s.id}`}>
-                    <Button variant="secondary" className="h-6 text-[11px] font-bold px-2">
-                      Assign Lead
-                    </Button>
-                  </Link>
-                </div>
-              ))}
-
-              {missingSafety.map((s) => (
-                <div key={s.id} className="p-3 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-between text-xs">
-                  <div>
-                    <span className="font-bold text-amber-700 block">{s.date} @ {s.startTime}</span>
-                    <span className="text-ink-sec text-[11px]">Event #{s.id} · Missing Safety Lead</span>
-                  </div>
-                  <Link href={`/staffing/assign?sessionId=${s.id}`}>
-                    <Button variant="secondary" className="h-6 text-[11px] font-bold px-2">
-                      Assign Safety
-                    </Button>
-                  </Link>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Section 2: Available Staff */}
-        <div className="glass p-5 rounded-2xl border border-slate-200 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-            <div>
-              <h3 className="font-bold text-ink-lum text-base flex items-center gap-2">
-                <UserCheck className="w-4 h-4 text-emerald-600" />
-                <span>2. Available Staff ({availableStaff.length})</span>
-              </h3>
-              <p className="text-xs text-ink-sec">Staff members ready for immediate assignment.</p>
-            </div>
-            <Link href="/staffing/availability">
-              <Button variant="secondary" className="h-7 text-xs font-bold px-2.5">
-                View Availability <ArrowRight className="w-3 h-3 ml-1" />
-              </Button>
-            </Link>
+          <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
+            <Panel title="Sessions that need staff" sub={needing.length ? "Assign the missing roles" : "Every upcoming session is staffed"} icon={<CalendarClock className="h-4 w-4" />}>
+              <LinkRows
+                empty="Nothing to do here."
+                rows={needing.slice(0, 10).map((s) => ({
+                  href: `/staffing/assign?sessionId=${s.sessionId}`,
+                  title: `${s.sessionTitle} · ${s.date} ${s.startTime}`,
+                  meta: `${s.venueName} · Missing: ${s.missingRoles.join(", ")}`,
+                  right: <StatusChip value={s.status === "missing" ? "no lead" : "incomplete"} tone={s.status === "missing" ? "danger" : "warn"} />,
+                }))}
+              />
+            </Panel>
+            <Panel title="People on shift" sub="Assigned or checked in" icon={<UserCheck className="h-4 w-4" />} right={<LinkButton href="/staffing/check-in" size="sm" variant="ghost">Check-in <ArrowRight className="h-3.5 w-3.5" /></LinkButton>}>
+              <LinkRows
+                empty="No one is assigned yet."
+                rows={roster
+                  .filter((r) => r.status === "assigned" || r.status === "checked-in")
+                  .slice(0, 10)
+                  .map((r) => ({ href: `/people/staff/${r.id}`, title: r.name, meta: `${r.roleLabel} · ${r.currentSessionTitle ?? r.assignment}`, right: <StatusChip value={r.status} /> }))}
+              />
+            </Panel>
           </div>
-
-          {availableStaff.length === 0 ? (
-            <div className="p-6 text-center text-xs text-ink-mut">No available staff members.</div>
-          ) : (
-            <div className="space-y-2">
-              {availableStaff.slice(0, 4).map((staff) => (
-                <div key={staff.id} className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
-                  <div>
-                    <span className="font-bold text-ink-lum block">{staff.name}</span>
-                    <span className="text-purple-700 text-[11px] font-semibold">{staff.roleLabel}</span>
-                  </div>
-                  <Link href={`/people/staff/${staff.id}`}>
-                    <Button variant="ghost" className="h-6 text-[11px] px-2 font-bold text-brand">
-                      View Profile <ArrowRight className="w-3 h-3 ml-1" />
-                    </Button>
-                  </Link>
-                </div>
-              ))}
-            </div>
+          {roster.some((r) => r.status === "off") && (
+            <Panel title="Off today" icon={<UserX className="h-4 w-4" />}>
+              <div className="flex flex-wrap gap-2">
+                {roster.filter((r) => r.status === "off").map((r) => <LinkButton key={r.id} href={`/people/staff/${r.id}`} variant="secondary" size="sm">{r.name}</LinkButton>)}
+              </div>
+            </Panel>
           )}
-        </div>
-      </div>
-    </div>
+        </>
+      )}
+    </PageShell>
   );
 }

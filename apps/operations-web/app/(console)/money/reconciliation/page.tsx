@@ -2,95 +2,130 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
+import { BadgeCheck, CircleCheck, Scale, TriangleAlert } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { inr } from "@/lib/format";
+import { cn, inr } from "@/lib/format";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/primitives";
-import { BookingBackNavigation } from "@/components/bookings/shared";
-import { Stagger, Item } from "@/components/motion/Motion";
+import { MetricTile, PermissionDenied } from "@/components/ui/panels";
+import { DataTable, type Column } from "@/components/ui/table";
+import { useToast } from "@/components/ui/toast";
+import type { Payment } from "@/lib/prototype/entities";
+import { sessionTitle } from "@/lib/prototype/selectors/lookups";
+import { paymentMethodLabel, selectReconciliationIssues } from "@/lib/prototype/selectors/money";
+import { Breadcrumbs, PageFrame, ProviderNotice, Section, formatWhen } from "@/components/bookings/shared";
 
 export default function ReconciliationPage() {
-  const { state, reconcilePayment } = useStore();
+  const toast = useToast();
+  const { state, territory, canAccess, reconcilePayment } = useStore();
 
-  const payments = useMemo(() => state.payments ?? [], [state]);
-  const bookings = useMemo(() => state.bookings, [state]);
+  const sessionIds = useMemo(() => new Set(state.sessions.filter((s) => s.territoryId === territory.id).map((s) => s.id)), [state.sessions, territory.id]);
+  const issues = useMemo(() => selectReconciliationIssues(state, sessionIds), [state, sessionIds]);
+  const payments = useMemo(() => (state.payments ?? []).filter((p) => sessionIds.has(p.sessionId)), [state.payments, sessionIds]);
+  const toVerify = payments.filter((p) => p.status === "confirmed");
+  const verified = payments.filter((p) => p.status === "reconciled");
+  const bookings = useMemo(() => new Map(state.bookings.map((b) => [b.id, b])), [state.bookings]);
 
-  const bookingIds = new Set(bookings.map((b) => b.id));
-  const unmatchedPayments = payments.filter((p) => !bookingIds.has(p.bookingId));
-  const unpaidConfirmedBookings = bookings.filter(
-    (b) =>
-      (b.status === "confirmed" || b.paymentStatus === "confirmed") &&
-      b.bookingType !== "complimentary" &&
-      !payments.some((p) => p.bookingId === b.id && (p.status === "confirmed" || p.status === "reconciled"))
-  );
+  if (!canAccess("/money/reconciliation")) return <PermissionDenied module="Money" />;
+
+  const received = toVerify.length + verified.length;
+  const verify = (p: Payment) => {
+    const out = reconcilePayment(p.id);
+    if (out.error) toast.error("Payment not verified", out.error);
+    else toast.success("Payment verified", `${inr(p.amount)} · ${p.providerReference}`);
+  };
+
+  const columns: Array<Column<Payment>> = [
+    {
+      key: "who",
+      header: "Booking",
+      render: (p) => {
+        const b = bookings.get(p.bookingId);
+        return (
+          <div>
+            {b ? (
+              <Link href={`/bookings/${b.id}`} className="font-semibold text-ink-lum hover:text-brand">
+                {b.alias}
+              </Link>
+            ) : (
+              <span className="text-ink-mut">Booking removed</span>
+            )}
+            <p className="max-w-[220px] truncate text-xs text-ink-mut">{sessionTitle(state, p.sessionId)}</p>
+          </div>
+        );
+      },
+    },
+    { key: "ref", header: "Reference", render: (p) => <span className="font-mono text-xs text-ink-sec">{p.providerReference ?? "—"}</span> },
+    { key: "method", header: "Method", render: (p) => <span className="text-ink-sec">{paymentMethodLabel(p.paymentMethod)}</span> },
+    { key: "when", header: "Received", render: (p) => <span className="whitespace-nowrap text-xs text-ink-sec">{formatWhen(p.confirmedAt)}</span> },
+    { key: "amount", header: "Amount", align: "right", render: (p) => <span className="font-semibold text-ink-lum">{inr(p.amount)}</span> },
+    {
+      key: "act",
+      header: "",
+      align: "right",
+      render: (p) => (
+        <Button size="sm" variant="secondary" onClick={() => verify(p)}>
+          <BadgeCheck className="h-3.5 w-3.5" /> Matches statement
+        </Button>
+      ),
+    },
+  ];
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6">
-      <BookingBackNavigation label="Back to Money" href="/money" />
-      
+    <PageFrame>
+      <Breadcrumbs items={[{ label: "Money", href: "/money" }, { label: "Reconciliation" }]} />
       <PageHeader
-        overline="Financial Operations"
-        title="Payment Check"
-        sub="Find bookings and payments that do not match."
+        overline={`Finance · ${territory.name}`}
+        title="Reconciliation"
+        sub="Check that every booking and payment agree, then match received payments against the bank or UPI statement by their reference."
       />
+      <ProviderNotice>Payment provider not connected — statements are not imported. Compare each reference with your bank or UPI statement, then mark it as matching.</ProviderNotice>
 
-      <div className="pt-4">
-        {unmatchedPayments.length === 0 && unpaidConfirmedBookings.length === 0 ? (
-          <div className="glass p-8 rounded-xl text-center text-ink-sec flex flex-col items-center justify-center gap-3">
-            <div className="text-4xl text-emerald-500">✓</div>
-            <p>All payments and bookings match. No problems found.</p>
-          </div>
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricTile label="Records that don't match" value={issues.length} detail={`${issues.filter((i) => i.severity === "high").length} need action today`} icon={<TriangleAlert className="h-4 w-4" />} tone="rose" />
+        <MetricTile label="To verify" value={toVerify.length} detail={inr(toVerify.reduce((a, p) => a + p.amount, 0))} icon={<Scale className="h-4 w-4" />} tone="amber" />
+        <MetricTile label="Verified" value={verified.length} detail={inr(verified.reduce((a, p) => a + p.amount, 0))} icon={<BadgeCheck className="h-4 w-4" />} tone="emerald" />
+        <MetricTile label="Verified share" value={received ? `${Math.round((verified.length / received) * 100)}%` : "—"} detail={`${verified.length} of ${received} received payments`} icon={<CircleCheck className="h-4 w-4" />} tone="sky" />
+      </section>
+
+      <Section title="Records that don't match" sub="Each item names what is wrong and what to do next">
+        {issues.length === 0 ? (
+          <p className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+            <CircleCheck className="h-4 w-4" aria-hidden /> Every booking and payment in {territory.name} agrees.
+          </p>
         ) : (
-          <Stagger className="space-y-4">
-            {unmatchedPayments.map((p) => (
-              <Item key={p.id}>
-                <div className="glass p-5 rounded-xl border border-warn/30">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
-                      <h4 className="text-ink-lum font-medium text-lg">Payment received but booking not confirmed</h4>
-                      <p className="text-ink-mut text-sm mt-1">
-                        Amount: <span className="font-mono text-ink-lum">{inr(p.amount)}</span> · Payment ID: {p.id}
-                      </p>
-                      <p className="text-ink-sec text-sm mt-3 bg-ink-sec/10 p-3 rounded-lg">
-                        <span className="font-medium text-ink-lum">Why it matters:</span> We took money but didn&apos;t confirm their spot. This will cause confusion at the door.
-                      </p>
-                    </div>
-                    <Button
-                      variant="primary"
-                      onClick={() => reconcilePayment(p.id)}
-                    >
-                      Resolve
+          <ul className="divide-y divide-slate-100">
+            {issues.map((i) => (
+              <li key={i.id} className="flex flex-col gap-3 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 gap-3">
+                  <span className={cn("mt-1 h-2.5 w-2.5 shrink-0 rounded-full", i.severity === "high" ? "bg-red-500" : "bg-amber-400")} aria-hidden />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-ink-lum">
+                      {i.title} <span className="font-normal text-ink-mut">· {inr(i.amount)}</span>
+                    </p>
+                    <p className="text-xs leading-5 text-ink-mut">{i.detail}</p>
+                  </div>
+                </div>
+                {i.bookingId && (
+                  <Link href={`/bookings/${i.bookingId}`} className="shrink-0">
+                    <Button size="sm" variant="secondary">
+                      Open booking
                     </Button>
-                  </div>
-                </div>
-              </Item>
+                  </Link>
+                )}
+              </li>
             ))}
-
-            {unpaidConfirmedBookings.map((b) => (
-              <Item key={b.id}>
-                <div className="glass p-5 rounded-xl border border-red-200">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
-                      <h4 className="text-ink-lum font-medium text-lg">Booking confirmed but payment missing</h4>
-                      <p className="text-ink-mut text-sm mt-1">
-                        Amount expected: <span className="font-mono text-ink-lum">{inr(b.amount)}</span> · Participant: {b.alias}
-                      </p>
-                      <p className="text-ink-sec text-sm mt-3 bg-ink-sec/10 p-3 rounded-lg">
-                        <span className="font-medium text-ink-lum">Why it matters:</span> The guest thinks they have a reservation, but they haven&apos;t paid. We are losing revenue.
-                      </p>
-                    </div>
-                    <Link href={`/bookings/${b.id}`}>
-                      <Button variant="secondary">
-                        Review Booking
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-              </Item>
-            ))}
-          </Stagger>
+          </ul>
         )}
-      </div>
-    </div>
+      </Section>
+
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-[15px] font-semibold text-ink-lum">Payments to verify</h2>
+          <p className="text-xs text-ink-mut">Received payments not yet matched against the statement</p>
+        </div>
+        <DataTable columns={columns} rows={toVerify} emptyTitle="Nothing to verify" emptyLine="Every received payment has been matched against the statement." />
+      </section>
+    </PageFrame>
   );
 }

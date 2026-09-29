@@ -1,7 +1,10 @@
-import type { SessionStatus } from "../entities";
+import type { Booking, SessionStatus } from "../entities";
 import type { PrototypeState } from "../scenarios";
-import { SEAT_STATUSES, type SeatStatus } from "../selectors";
+import { isConfirmedSeat, seatClass } from "../selectors/status";
+import { bookingRefundTotals, currentPaymentForBooking } from "../selectors/money";
 import { pushAudit, pushSignal } from "./helpers";
+import { newRecordId, type CommandResult } from "./bookings";
+import { syncLedger } from "./money";
 
 function tempIdNumber(existing: string[], format: string): number {
   const marker = format.indexOf("#");
@@ -26,7 +29,7 @@ export function generateTemporaryIds(state: PrototypeState, sessionId: string, o
   const template = state.templates.find((t) => t.id === session.templateId);
   const format = template?.tempIdFormat ?? "ID-##";
   const sessionBookings = state.bookings.filter((b) => b.sessionId === sessionId);
-  const missing = sessionBookings.filter((b) => !b.tempId && b.status !== "cancelled");
+  const missing = sessionBookings.filter((b) => !b.tempId && isConfirmedSeat(b));
   if (missing.length === 0) return state;
 
   let counter = tempIdNumber(
@@ -57,14 +60,12 @@ export function allocateTeams(state: PrototypeState, sessionId: string, operator
   const numTeams = template?.numTeams ?? Math.max(2, Math.ceil(session.maxParticipants / 6));
   const teams = Array.from({ length: numTeams }, (_, i) => `Team ${i + 1}`);
 
-  const roster = state.bookings.filter(
-    (b) => b.sessionId === sessionId && SEAT_STATUSES.has(b.status as SeatStatus)
-  );
+  const roster = state.bookings.filter((b) => b.sessionId === sessionId && isConfirmedSeat(b));
   if (roster.length === 0) return state;
 
   const next: PrototypeState = {
     ...state,
-    bookings: state.bookings.map((b, i) => {
+    bookings: state.bookings.map((b) => {
       const idx = roster.findIndex((r) => r.id === b.id);
       return idx >= 0 ? { ...b, team: teams[idx % numTeams] } : b;
     })
@@ -75,58 +76,141 @@ export function allocateTeams(state: PrototypeState, sessionId: string, operator
   );
 }
 
-/** Finish a session: settle pending transactions, close the status. */
-export function completeSession(state: PrototypeState, sessionId: string, operatorId?: string): PrototypeState {
+/**
+ * Finish a session: open payment holds and waitlist entries are closed (the
+ * session can no longer be attended) and the status becomes completed.
+ */
+export function completeSession(state: PrototypeState, sessionId: string, operatorId?: string, nowIso: string = new Date().toISOString()): CommandResult {
   const session = state.sessions.find((s) => s.id === sessionId);
-  if (!session) return state;
+  if (!session) return { state, error: "This session could not be found." };
+  if (session.status === "completed") return { state, error: "This session is already completed." };
+  if (session.status === "cancelled" || session.status === "archived") return { state, error: `A ${session.status} session can't be completed.` };
+
+  let closed = 0;
+  const bookings = state.bookings.map((b): Booking => {
+    if (b.sessionId !== sessionId) return b;
+    const cls = seatClass(b);
+    if (cls === "hold" || cls === "offer" || cls === "waitlist") {
+      closed++;
+      return { ...b, status: "reservation-expired", reservationStatus: "expired", reservationExpiresAt: undefined, waitlistOfferExpiresAt: undefined, updatedAt: nowIso };
+    }
+    return b;
+  });
+  const payments = (state.payments ?? []).map((p) =>
+    p.sessionId === sessionId && (p.status === "pending" || p.status === "initiated")
+      ? { ...p, status: "cancelled" as const, cancelledAt: nowIso, failureReason: "Session completed before payment", updatedAt: nowIso }
+      : p
+  );
   const next: PrototypeState = {
     ...state,
+    bookings,
+    payments,
     sessions: state.sessions.map((s) => (s.id === sessionId ? { ...s, status: "completed" as const } : s)),
-    transactions: state.transactions.map((t) =>
-      t.sessionId === sessionId && t.status === "pending" ? { ...t, status: "settled" as const } : t
-    )
   };
-  return pushAudit(
-    pushSignal(next, { kind: "close", message: `${sessionId} wrapped — attendance and revenue finalized.`, sessionId }),
-    { action: "Session Completed", description: `Session ${sessionId} completed; pending transactions settled.`, sessionId, operatorId }
-  );
+  return {
+    state: syncLedger(
+      pushAudit(pushSignal(next, { kind: "close", message: `Session ${sessionId} completed — attendance and revenue finalised.`, sessionId }), {
+        action: "Session Completed",
+        description: `Session ${sessionId} completed.${closed ? ` ${closed} unpaid hold${closed === 1 ? "" : "s"} or waitlist entr${closed === 1 ? "y" : "ies"} closed.` : ""}`,
+        sessionId,
+        operatorId,
+      })
+    ),
+  };
 }
 
-/** Cancel a session: cancel all bookings, queue refunds, log incident-worthy signal. */
-export function cancelSession(state: PrototypeState, sessionId: string, reason: string, operatorId?: string): PrototypeState {
+/**
+ * Cancel a session. Every booking is cancelled by the company; every paid
+ * booking gets a Refund request for everything that can still be refunded
+ * (cumulative guard respected); open payment holds are cancelled.
+ */
+export function cancelSession(
+  state: PrototypeState,
+  sessionId: string,
+  reason: string,
+  operatorId?: string,
+  nowIso: string = new Date().toISOString()
+): CommandResult<{ refundCount?: number }> {
   const session = state.sessions.find((s) => s.id === sessionId);
-  if (!session) return state;
+  if (!session) return { state, error: "This session could not be found." };
+  if (session.status === "cancelled") return { state, error: "This session is already cancelled." };
+  if (session.status === "completed" || session.status === "archived") return { state, error: `A ${session.status} session can't be cancelled.` };
+  const why = reason?.trim() ?? "";
+  if (why.length < 5) return { state, error: "Give a reason for cancelling the session (at least 5 characters)." };
+
+  let refunds = [...(state.refunds ?? [])];
+  let affected = 0;
+  let refundTotal = 0;
+  const bookings = state.bookings.map((b): Booking => {
+    if (b.sessionId !== sessionId || seatClass(b) === "none") return b;
+    affected++;
+    const totals = bookingRefundTotals({ payments: state.payments, refunds }, b.id);
+    if (totals.refundable > 0) {
+      const id = newRecordId("ref", refunds);
+      refunds = [
+        ...refunds,
+        {
+          id,
+          paymentId: currentPaymentForBooking(state, b.id)?.id,
+          bookingId: b.id,
+          sessionId,
+          type: "company-cancellation",
+          amount: totals.refundable,
+          reason: `Session cancelled: ${why}`,
+          status: "requested",
+          requestedAt: nowIso,
+          requestedBy: operatorId,
+          createdAt: nowIso,
+          updatedAt: nowIso,
+        },
+      ];
+      refundTotal += totals.refundable;
+    }
+    return {
+      ...b,
+      status: "cancelled-company",
+      reservationStatus: "released",
+      paymentStatus: totals.refundable > 0 ? "refund-pending" : totals.paid > 0 ? b.paymentStatus : "not-started",
+      reservationExpiresAt: undefined,
+      waitlistOfferExpiresAt: undefined,
+      cancelledAt: nowIso,
+      cancelledBy: operatorId,
+      cancellationReason: `Session cancelled: ${why}`,
+      updatedAt: nowIso,
+    };
+  });
+  const refundCount = refunds.length - (state.refunds ?? []).length;
+  const payments = (state.payments ?? []).map((p) =>
+    p.sessionId === sessionId && (p.status === "pending" || p.status === "initiated")
+      ? { ...p, status: "cancelled" as const, cancelledAt: nowIso, failureReason: "Session cancelled", updatedAt: nowIso }
+      : p
+  );
 
   const next: PrototypeState = {
     ...state,
     sessions: state.sessions.map((s) => (s.id === sessionId ? { ...s, status: "cancelled" as const } : s)),
-    bookings: state.bookings.map((b) =>
-      b.sessionId === sessionId && b.status !== "cancelled" ? { ...b, status: "cancelled" as const } : b
-    ),
-    transactions: [
-      ...state.transactions,
-      ...state.bookings
-        .filter((b) => b.sessionId === sessionId && b.amount > 0 && (b.status === "payment-confirmed" || b.status === "checked-in"))
-        .map(
-          (b) =>
-            ({
-              id: `t-scx-${Date.now()}-${b.id}`,
-              sessionId,
-              territoryId: session.territoryId,
-              bookingId: b.id,
-              kind: "refund",
-              amount: -b.amount,
-              method: "card",
-              status: "pending",
-              at: "Just now"
-            }) as const
-        )
-    ]
+    bookings,
+    payments,
+    refunds,
   };
-  return pushAudit(
-    pushSignal(next, { kind: "system", message: `Session ${sessionId} cancelled — ${reason}. Refunds queued.`, sessionId }),
-    { action: "Session Cancelled", description: `Session ${sessionId} cancelled (${reason}); ${next.bookings.filter((b) => b.sessionId === sessionId).length} bookings affected.`, sessionId, operatorId }
-  );
+  return {
+    refundCount,
+    state: syncLedger(
+      pushAudit(
+        pushSignal(next, {
+          kind: "alert",
+          message: `Session ${sessionId} cancelled — ${why}. ${refundCount} refund request${refundCount === 1 ? "" : "s"} created.`,
+          sessionId,
+        }),
+        {
+          action: "Session Cancelled",
+          description: `Session ${sessionId} cancelled (${why}); ${affected} booking${affected === 1 ? "" : "s"} cancelled, ${refundCount} refund request${refundCount === 1 ? "" : "s"} totalling ₹${refundTotal} created for Finance approval.`,
+          sessionId,
+          operatorId,
+        }
+      )
+    ),
+  };
 }
 
 export function updateSessionStatus(state: PrototypeState, sessionId: string, status: SessionStatus, operatorId?: string): PrototypeState {

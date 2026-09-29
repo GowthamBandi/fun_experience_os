@@ -1,157 +1,75 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Building2, Plus } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { selectVenueSetupHealth } from "@/lib/prototype/selectors/setup";
+import { venueRows, type VenueListRow } from "@/lib/prototype/repositories";
+import { geoCan } from "@/lib/geo/access";
+import { inr } from "@/lib/format";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PermissionDenied } from "@/components/ui/panels";
-import { Button, StatusChip } from "@/components/ui/primitives";
-import { SearchInput } from "@/components/ui/fields";
-import { Stagger, Item } from "@/components/motion/Motion";
-import {
-  SetupBackNavigation,
-  SetupPrimaryAction,
-  SetupStatusBadge,
-  SetupEmptyState,
-} from "@/components/setup/shared";
-import { Building2, MapPin, Layers, ArrowRight, Plus } from "lucide-react";
-import type { Venue } from "@/lib/prototype/entities";
+import { StatusChip } from "@/components/ui/primitives";
+import { FilterRail, SearchInput, Select } from "@/components/ui/fields";
+import { DataTable, type Column } from "@/components/ui/table";
+import { Crumbs, EmptyPanel, LinkButton, PageShell } from "@/components/setup/kit";
 
-export default function VenuesListPage() {
+const STATUSES = ["ready", "maintenance", "closed"] as const;
+
+export default function VenuesPage() {
   const router = useRouter();
-  const { state, territory, canAccess } = useStore();
-  const [searchQuery, setSearchQuery] = useState("");
+  const { state, canAccess, role } = useStore();
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState<(typeof STATUSES)[number] | "all">("all");
+  const [cityId, setCityId] = useState("all");
+  const rows = useMemo(() => venueRows(state), [state]);
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return rows.filter((r) => (status === "all" || r.status === status) && (cityId === "all" || r.cityId === cityId) && (!q || `${r.name} ${r.cityName} ${r.territoryName} ${r.type}`.toLowerCase().includes(q)));
+  }, [rows, query, status, cityId]);
 
-  const venues = state.venues ?? [];
-  const cities = state.cities ?? [];
-  const territories = state.territories ?? [];
-  const playingAreas = state.playingAreas ?? [];
-  const sessions = state.sessions ?? [];
+  if (!canAccess("/locations")) return <PermissionDenied module="Venues" />;
+  const canCreate = geoCan(role.id, "create-venue");
 
-  const filteredVenues = useMemo(() => {
-    const q = searchQuery.toLowerCase().trim();
-    if (!q) return venues;
-    return venues.filter(
-      (v) =>
-        v.name.toLowerCase().includes(q) ||
-        v.address.toLowerCase().includes(q) ||
-        (cities.find((c) => c.id === v.cityId)?.name ?? "").toLowerCase().includes(q)
-    );
-  }, [venues, cities, searchQuery]);
-
-  if (!canAccess("/locations")) {
-    return (
-      <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8">
-        <PermissionDenied module="Venues" />
-      </div>
-    );
-  }
+  const columns: Column<VenueListRow>[] = [
+    { key: "name", header: "Venue", render: (r) => <div><p className="font-semibold text-ink-lum">{r.name}</p><p className="text-xs capitalize text-ink-mut">{r.type} · {r.isIndoor ? "Indoor" : "Outdoor"}</p></div> },
+    { key: "city", header: "City", render: (r) => <div><p className="text-ink-sec">{r.cityName}</p><p className="text-xs text-ink-mut">{r.territoryName}</p></div> },
+    { key: "cap", header: "Safe capacity", align: "right", render: (r) => r.safetyCapacity },
+    { key: "areas", header: "Playing areas", align: "right", render: (r) => r.playingAreas },
+    { key: "upcoming", header: "Upcoming", align: "right", render: (r) => r.upcomingSessions },
+    { key: "cost", header: "Cost / slot", align: "right", render: (r) => (r.costPerSlot ? inr(r.costPerSlot) : "—") },
+    { key: "verified", header: "Safety check", render: (r) => <StatusChip value={r.verificationStatus} /> },
+    { key: "status", header: "Status", render: (r) => <StatusChip value={r.status === "ready" ? "open" : r.status} /> },
+  ];
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6">
-      <SetupBackNavigation label="Back to Setup" href="/setup" />
-
+    <PageShell>
+      <Crumbs items={[{ label: "Setup", href: "/setup" }, { label: "Locations", href: "/locations" }, { label: "Venues" }]} />
       <PageHeader
-        overline={`Setup · ${territory.name}`}
+        overline="Setup · Locations"
         title="Venues"
-        sub="Manage the places where customers arrive for events."
-        right={
-          <SetupPrimaryAction
-            label="Create Venue"
-            href="/locations/venues/new"
-            allowedRoles={["platform-owner", "super-admin", "regional-partner", "city-manager", "venue-manager"]}
-          />
-        }
+        sub="Buildings and grounds where sessions run. A venue needs at least one active playing area before sessions can be scheduled there."
+        right={canCreate && state.cities.length > 0 && <LinkButton href="/locations/venues/new"><Plus className="h-4 w-4" /> New venue</LinkButton>}
       />
-
-      <div className="glass p-5 rounded-2xl border border-slate-200 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h3 className="text-sm font-semibold text-ink-lum">Where will this event happen?</h3>
-            <p className="text-xs text-ink-mut">Filter and manage physical venue locations.</p>
-          </div>
-          <div className="w-full sm:w-72">
-            <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search venue, city, address..." />
-          </div>
-        </div>
-
-        {venues.length === 0 ? (
-          <SetupEmptyState
-            title="No event locations added"
-            message="No venues have been created in your operating area yet."
-            actionLabel="Create Venue"
-            actionHref="/locations/venues/new"
-          />
-        ) : filteredVenues.length === 0 ? (
-          <div className="p-8 text-center text-xs text-ink-mut">No venues match your search query.</div>
+      {rows.length === 0 ? (
+        state.cities.length === 0 ? (
+          <EmptyPanel icon={<Building2 className="h-5 w-5" />} title="Add a city first" line="Venues sit inside cities. Add a city, then its venues." actionHref="/cities/new" actionLabel="Add a city" />
         ) : (
-          <Stagger className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredVenues.map((v) => {
-              const city = cities.find((c) => c.id === v.cityId);
-              const t = territories.find((tr) => tr.id === v.territoryId || tr.id === city?.territoryId);
-              const vAreas = playingAreas.filter((pa) => pa.venueId === v.id);
-              const vEventsToday = sessions.filter((s) => s.venueId === v.id && s.date === "Today").length;
-              const health = selectVenueSetupHealth(state, v.id);
-              const combinedCapacity = vAreas.length > 0
-                ? vAreas.reduce((sum, pa) => sum + (pa.maxCapacity || 0), 0)
-                : v.safetyCapacity || 0;
-
-              return (
-                <Item key={v.id}>
-                  <div className="glass p-5 rounded-2xl border border-slate-200 hover:border-slate-200 transition-all flex flex-col justify-between space-y-4">
-                    <div className="space-y-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="space-y-1">
-                          <h4 className="font-bold text-base text-ink-lum flex items-center gap-2">
-                            <Building2 className="w-4 h-4 text-purple-600 shrink-0" />
-                            <Link href={`/locations/venues/${v.id}`} className="hover:text-brand transition-colors">
-                              {v.name}
-                            </Link>
-                          </h4>
-                          <p className="text-xs text-ink-mut flex items-center gap-1">
-                            <MapPin className="w-3 h-3 text-emerald-600 shrink-0" />
-                            <span>{city?.name || "City"} · {t?.name || "Territory"}</span>
-                          </p>
-                        </div>
-                        <SetupStatusBadge status={health.status} size="sm" />
-                      </div>
-
-                      <p className="text-xs text-ink-sec truncate">{v.address || "Address not specified"}</p>
-
-                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200 text-center text-xs">
-                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
-                          <span className="text-[10px] text-ink-mut block uppercase">Areas</span>
-                          <span className="font-bold text-ink-lum">{vAreas.length}</span>
-                        </div>
-                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
-                          <span className="text-[10px] text-ink-mut block uppercase">Capacity</span>
-                          <span className="font-bold text-ink-lum">{combinedCapacity}</span>
-                        </div>
-                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
-                          <span className="text-[10px] text-ink-mut block uppercase">Today</span>
-                          <span className="font-bold text-ink-lum">{vEventsToday}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
-                      <StatusChip value={v.status} />
-                      <Link href={vAreas.length === 0 ? `/locations/playing-areas/new?venueId=${v.id}` : `/locations/venues/${v.id}`}>
-                        <Button variant={vAreas.length === 0 ? "primary" : "secondary"} className="h-7 text-xs font-bold px-3">
-                          {vAreas.length === 0 ? "Add Playing Area" : "Review Venue"}
-                          <ArrowRight className="w-3 h-3 ml-1" />
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                </Item>
-              );
-            })}
-          </Stagger>
-        )}
-      </div>
-    </div>
+          <EmptyPanel icon={<Building2 className="h-5 w-5" />} title="No venues yet" line="Add the first venue where customers will arrive." actionHref={canCreate ? "/locations/venues/new" : undefined} actionLabel="Add a venue" />
+        )
+      ) : (
+        <>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="lg:w-72"><SearchInput value={query} onChange={setQuery} placeholder="Search venue, city or type" /></div>
+            <Select value={cityId} onChange={(e) => setCityId(e.target.value)} aria-label="Filter by city" className="lg:w-56">
+              <option value="all">All cities</option>
+              {state.cities.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </Select>
+            <FilterRail options={STATUSES} value={status} onChange={setStatus} />
+          </div>
+          <DataTable columns={columns} rows={filtered} onRowClick={(r) => router.push(`/locations/venues/${r.id}`)} emptyTitle="No venues match" emptyLine="Clear the search or filters." />
+        </>
+      )}
+    </PageShell>
   );
 }

@@ -1,164 +1,145 @@
 "use client";
 
-import { useMemo } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
+import { useParams } from "next/navigation";
+import { Globe2, Pencil, Plus, RefreshCw } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { franchiseDetail } from "@/lib/prototype/repositories";
-import { selectFranchiseSetupHealth } from "@/lib/prototype/selectors/setup";
-import { PageFrame } from "@/components/geo/layout";
-import { Tide } from "@/components/motion/Motion";
+import { geoCan } from "@/lib/geo/access";
+import { inr } from "@/lib/format";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { PermissionDenied } from "@/components/ui/panels";
-import { Button } from "@/components/ui/primitives";
-import { SetupBackNavigation, SetupStatusBadge } from "@/components/setup/shared";
+import { Button, StatusChip } from "@/components/ui/primitives";
+import { useCommandFeedback } from "@/components/ui/toast";
+import { plural, Crumbs, DetailList, Figure, LinkButton, LinkRows, NotFoundCard, Notice, PageShell, Panel, StatusDialog } from "@/components/setup/kit";
+import { EditDrawer, type FieldDef } from "@/components/setup/form";
+import { RecordActivity } from "@/components/setup/shared";
+import { FRANCHISE_STATUS, franchiseFromValues, franchiseSteps, franchiseValues } from "@/components/setup/schemas";
 
 export default function FranchiseDetailPage() {
-  const router = useRouter();
   const { id } = useParams<{ id: string }>();
-  const { state, canAccess, hydrated } = useStore();
-
+  const { state, canAccess, role, updateFranchise, changeFranchiseStatus } = useStore();
+  const feedback = useCommandFeedback();
   const detail = useMemo(() => franchiseDetail(state, id), [state, id]);
+  const [editing, setEditing] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(false);
 
-  if (!hydrated) return <PageFrame><Tide /></PageFrame>;
-  if (!canAccess("/franchises")) return <PageFrame><PermissionDenied module="Franchises" /></PageFrame>;
+  if (!canAccess("/franchises")) return <PermissionDenied module="Franchises" />;
+  if (!detail) return <PageShell><NotFoundCard what="franchise" backHref="/franchises" backLabel="All franchises" /></PageShell>;
 
-  if (!detail) {
-    return (
-      <PageFrame>
-        <div className="solid rounded-panel p-10 text-center">
-          <p className="text-sm font-medium text-ink-lum">Franchise not found</p>
-          <p className="mt-1 text-sm text-ink-mut">This franchise doesn&apos;t exist or was removed.</p>
-          <Button variant="secondary" className="mt-5" onClick={() => router.push("/franchises")}>
-            Back to franchises
-          </Button>
-        </div>
-      </PageFrame>
-    );
-  }
-
-  const health = selectFranchiseSetupHealth(state, detail.id);
-  
+  const canManage = geoCan(role.id, "manage-franchise");
+  const canAddTerritory = geoCan(role.id, "create-territory") && detail.status === "active";
   const m = detail.metrics;
-  const playingAreasCount = detail.venues.reduce((acc, v) => acc + (v.playingAreas || 0), 0);
-  
-  const getNextAction = () => {
-    if (detail.territories.length === 0) {
-      return { label: "Add First Territory", href: `/territories/new?franchiseId=${detail.id}` };
-    }
-    if (detail.cities.length === 0) {
-      return { label: "Add City", href: `/cities/new?franchiseId=${detail.id}` };
-    }
-    if (detail.venues.length === 0) {
-      return { label: "Create Venue", href: `/locations/venues/new?franchiseId=${detail.id}` };
-    }
-    if (playingAreasCount === 0) {
-      return { label: "Add Playing Area", href: `/locations/playing-areas/new` }; 
-    }
-    return { label: "View Operations", href: `/franchises/${detail.id}` };
-  };
-  
-  const nextAction = getNextAction();
+  const fields: FieldDef[] = franchiseSteps().flatMap((s) => s.fields);
+  const statusLabel = detail.status === "inactive" ? "paused" : detail.status;
 
   return (
-    <PageFrame>
-      <div className="max-w-7xl mx-auto space-y-6 pb-20">
-        <SetupBackNavigation 
-          breadcrumbs={[{ label: "Franchises", href: "/franchises" }]} 
-          label="Back to Franchises" 
-          href="/franchises" 
-        />
-        
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div className="space-y-2">
-            <h1 className="text-3xl font-semibold text-ink-lum">{detail.name}</h1>
-            <div className="text-sm text-ink-sec flex items-center gap-2">
-              <span>Operating Head: <span className="text-ink-lum">{detail.franchiseHead}</span></span>
-              <span>·</span>
-              <span className="capitalize">{detail.isInternal ? 'Internal' : 'External'} {detail.type}</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <SetupStatusBadge status={health.status} />
-            <Button variant="primary" className="font-bold text-xs" onClick={() => router.push(nextAction.href)}>
-              {nextAction.label}
-            </Button>
-          </div>
-        </div>
+    <PageShell>
+      <Crumbs items={[{ label: "Setup", href: "/setup" }, { label: "Franchises", href: "/franchises" }, { label: detail.name }]} />
+      <PageHeader
+        overline={`Franchise · ${detail.isInternal ? "Internal" : "External"} ${detail.type}`}
+        title={detail.name}
+        sub={`${detail.legalEntity} · Head: ${detail.franchiseHead} · Since ${detail.startDate}`}
+        right={
+          <>
+            <StatusChip value={statusLabel} />
+            {canManage && (
+              <>
+                <Button variant="secondary" onClick={() => setEditing(true)}>
+                  <Pencil className="h-4 w-4" /> Edit
+                </Button>
+                <Button variant="secondary" onClick={() => setStatusOpen(true)}>
+                  <RefreshCw className="h-4 w-4" /> Change status
+                </Button>
+              </>
+            )}
+            {canAddTerritory && (
+              <LinkButton href={`/territories/new?franchiseId=${detail.id}`}>
+                <Plus className="h-4 w-4" /> Add territory
+              </LinkButton>
+            )}
+          </>
+        }
+      />
 
-        {health.missingItems.length > 0 && (
-          <div className="solid rounded-xl p-5 border border-warning/20 bg-warning/5">
-            <h3 className="text-sm font-medium text-warning mb-2">Issues requiring attention</h3>
-            <ul className="list-disc pl-5 space-y-1">
-              {health.missingItems.map((issue, idx) => (
-                <li key={idx} className="text-sm text-warning/80">{issue}</li>
-              ))}
-            </ul>
-          </div>
-        )}
+      {detail.status !== "active" && (
+        <Notice tone="warn" title={`This franchise is ${statusLabel}`}>
+          Its territories are paused and no new territories can be added until it is active again.
+        </Notice>
+      )}
+      {detail.territories.length === 0 && detail.status === "active" && (
+        <Notice tone="info" title="No territories yet" action={canAddTerritory ? <LinkButton href={`/territories/new?franchiseId=${detail.id}`} size="sm">Add territory</LinkButton> : undefined}>
+          Add a territory to start adding cities and venues under this franchise.
+        </Notice>
+      )}
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          <div className="solid rounded-panel p-4 flex flex-col">
-            <span className="text-ink-mut text-xs uppercase tracking-wider">Territories</span>
-            <span className="text-2xl font-semibold text-ink-lum mt-1">{m.territoryCount}</span>
-          </div>
-          <div className="solid rounded-panel p-4 flex flex-col">
-            <span className="text-ink-mut text-xs uppercase tracking-wider">Cities</span>
-            <span className="text-2xl font-semibold text-ink-lum mt-1">{m.cityCount}</span>
-          </div>
-          <div className="solid rounded-panel p-4 flex flex-col">
-            <span className="text-ink-mut text-xs uppercase tracking-wider">Venues</span>
-            <span className="text-2xl font-semibold text-ink-lum mt-1">{m.venueCount}</span>
-          </div>
-          <div className="solid rounded-panel p-4 flex flex-col">
-            <span className="text-ink-mut text-xs uppercase tracking-wider">Playing Areas</span>
-            <span className="text-2xl font-semibold text-ink-lum mt-1">{playingAreasCount}</span>
-          </div>
-          <div className="solid rounded-panel p-4 flex flex-col">
-            <span className="text-ink-mut text-xs uppercase tracking-wider">Active Events</span>
-            <span className="text-2xl font-semibold text-ink-lum mt-1">{m.activeSessions}</span>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-medium text-ink-lum">Child Territories</h2>
-            <Button variant="secondary" onClick={() => router.push(`/territories/new?franchiseId=${detail.id}`)}>
-              Add Territory
-            </Button>
-          </div>
-          
-          {detail.territories.length === 0 ? (
-            <div className="solid rounded-panel p-8 flex flex-col items-center justify-center text-center">
-              <p className="text-sm font-medium text-ink-lum">No territories yet</p>
-              <p className="text-sm text-ink-mut mt-1">Add a territory to start organizing this franchise&apos;s operations.</p>
-              <Button variant="primary" className="mt-4" onClick={() => router.push(`/territories/new?franchiseId=${detail.id}`)}>
-                Add First Territory
-              </Button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {detail.territories.map((t) => (
-                <div key={t.id} className="solid rounded-panel p-5 flex flex-col gap-3">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-medium text-ink-lum">{t.name}</h3>
-                      <div className="text-xs text-ink-mut mt-0.5">
-                        {t.cities} cities · {t.venues} venues
-                      </div>
-                    </div>
-                    <SetupStatusBadge status={t.status === "active" ? "complete" : "needs-attention"} />
-                  </div>
-                  
-                  <div className="pt-3 border-t border-slate-200 flex justify-end">
-                    <Button variant="secondary" onClick={() => router.push(`/territories/${t.id}`)}>
-                      Manage Territory
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <Figure label="Territories" value={m.territoryCount} />
+        <Figure label="Cities" value={m.cityCount} />
+        <Figure label="Venues" value={m.venueCount} />
+        <Figure label="Upcoming sessions" value={m.activeSessions} hint={m.activeSessions ? `${m.fillRate}% average fill` : undefined} />
+        <Figure label="Settled revenue" value={inr(m.revenue)} hint={`${m.refundRate}% refunded`} />
+        <Figure label="Open incidents" value={m.incidentCount} tone={m.incidentCount ? "warn" : undefined} />
       </div>
-    </PageFrame>
+
+      <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
+        <Panel title="Details">
+          <DetailList
+            rows={[
+              { label: "Legal entity", value: detail.legalEntity },
+              { label: "Franchise head", value: detail.franchiseHead },
+              { label: "Contact", value: detail.contactDetails },
+              { label: "Platform revenue share", value: `${detail.revenueShare}%` },
+              { label: "Start date", value: detail.startDate },
+              { label: "Ownership", value: detail.isInternal ? "Platform-owned" : "External partner" },
+              { label: "Notes", value: detail.notes },
+            ]}
+          />
+        </Panel>
+        <Panel title="Territories" sub={`${detail.territories.length} under this franchise`} icon={<Globe2 className="h-4 w-4" />}>
+          <LinkRows
+            empty="No territories yet."
+            rows={detail.territories.map((t) => ({
+              href: `/territories/${t.id}`,
+              title: t.name,
+              meta: `${t.state} · ${plural(t.cities, "city", "cities")} · ${plural(t.venues, "venue")} · Manager: ${t.managerName}`,
+              right: <StatusChip value={t.status} />,
+            }))}
+          />
+        </Panel>
+      </div>
+
+      <Panel title="Recent changes" sub="From the audit log">
+        <RecordActivity state={state} match={[detail.name]} />
+      </Panel>
+
+      <EditDrawer
+        open={editing}
+        onClose={() => setEditing(false)}
+        title={`Edit ${detail.name}`}
+        fields={fields}
+        initial={franchiseValues(detail)}
+        onSave={(v) => {
+          const { status: _s, assignedTerritories: _a, ...patch } = franchiseFromValues(v);
+          void _s;
+          void _a;
+          const out = updateFranchise(detail.id, patch);
+          feedback(out, "Franchise updated");
+          return out;
+        }}
+      />
+      <StatusDialog
+        open={statusOpen}
+        onClose={() => setStatusOpen(false)}
+        title={`Change status — ${detail.name}`}
+        current={detail.status}
+        options={FRANCHISE_STATUS}
+        onConfirm={(s, reason) => {
+          const out = changeFranchiseStatus(detail.id, s, reason);
+          feedback(out, `Franchise set to ${s === "inactive" ? "paused" : s}`);
+          return out;
+        }}
+      />
+    </PageShell>
   );
 }

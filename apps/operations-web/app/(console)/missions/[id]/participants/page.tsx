@@ -1,188 +1,189 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useParams } from "next/navigation";
-import Link from "next/link";
+import { KeyRound, Lock, RefreshCw, ShieldAlert, Users, XCircle } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { selectSessionParticipantPool } from "@/lib/prototype/selectors/identity";
-import { selectSessionIdentitySummary } from "@/lib/prototype/selectors/identity";
-import { sessionTitle } from "@/lib/prototype/selectors/lookups";
-import { PageHeader } from "@/components/ui/PageHeader";
+import { selectSessionIdentitySummary, selectSessionParticipantPool, type ParticipantPoolItem } from "@/lib/prototype/selectors/identity";
+import { Button, StatusChip } from "@/components/ui/primitives";
+import { MetricTile } from "@/components/ui/panels";
+import { Select } from "@/components/ui/fields";
+import { Drawer } from "@/components/ui/overlays";
 import { DataTable, type Column } from "@/components/ui/table";
-import { StatusChip, Button } from "@/components/ui/primitives";
-import { EmergencyAccessModal } from "@/components/geo/EmergencyAccessModal";
-import type { ParticipantPoolItem } from "@/lib/prototype/selectors/identity";
+import { useToast } from "@/components/ui/toast";
+import { EmergencyIdentityPanel } from "@/components/missions/EmergencyIdentityPanel";
+import { ConfirmDialog, MissionShell, ReasonDialog, WorkspaceCard, useMissionId } from "@/components/missions/shared";
 
-export default function ParticipantPoolPage() {
-  const params = useParams();
-  const sessionId = params.id as string;
+export default function ParticipantCodesPage() {
+  return (
+    <MissionShell tab="participants" sub="Give every confirmed participant a temporary code, then lock the codes before building the reveal.">
+      <CodesBody />
+    </MissionShell>
+  );
+}
 
-  const {
-    state,
-    generateTemporaryIdentities,
-    lockTemporaryIdentities,
-    requestEmergencyIdentityAccess,
-    role,
-  } = useStore();
+function CodesBody() {
+  const sessionId = useMissionId();
+  const { state, generateTemporaryIdentities, lockTemporaryIdentities, revokeTemporaryIdentity } = useStore();
+  const toast = useToast();
 
-  const [selectedBookingForEmergency, setSelectedBookingForEmergency] = useState<any | null>(null);
-
-  const session = useMemo(() => state.sessions.find((s) => s.id === sessionId), [state, sessionId]);
   const pool = useMemo(() => selectSessionParticipantPool(state, sessionId), [state, sessionId]);
   const summary = useMemo(() => selectSessionIdentitySummary(state, sessionId), [state, sessionId]);
+  const patterns = (state.identityPatterns ?? []).filter((p) => p.status === "active");
+  const sessionPatternId = pool.find((p) => p.temporaryIdentity)?.temporaryIdentity?.patternId;
+  const [patternId, setPatternId] = useState<string>(sessionPatternId ?? patterns[0]?.id ?? "");
+  const [confirmGenerate, setConfirmGenerate] = useState(false);
+  const [confirmLock, setConfirmLock] = useState(false);
+  const [revoking, setRevoking] = useState<ParticipantPoolItem | null>(null);
+  const [unmasking, setUnmasking] = useState<ParticipantPoolItem | null>(null);
 
-  if (!session) {
-    return <div className="p-8 text-xs font-mono text-slate-500">Session not found.</div>;
-  }
+  const revealed = summary.revealedCount > 0;
+  const regenerating = summary.generatedCount > summary.lockedCount + summary.revealedCount;
 
   const columns: Column<ParticipantPoolItem>[] = [
     {
-      key: "tempId",
-      header: "Temporary ID",
-      render: (p) => (
-        <div>
-          <span className="font-mono font-bold text-amber-600 text-sm">
-            {p.temporaryIdentity?.temporaryCode || "—"}
-          </span>
-          <div className="text-[10px] text-slate-500 font-mono">
-            {p.temporaryIdentity?.status || "not-generated"}
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: "alias",
-      header: "Participant Alias",
-      render: (p) => (
-        <div>
-          <p className="font-medium text-slate-800">{p.booking.alias}</p>
-          <p className="text-[11px] text-slate-500 font-mono">{p.booking.phoneMask}</p>
-        </div>
-      ),
-    },
-    {
-      key: "type",
-      header: "Type",
-      render: (p) => <span className="font-mono text-slate-500 text-[10px]">{p.booking.bookingType || "individual"}</span>,
-    },
-    {
-      key: "eligibility",
-      header: "Eligibility",
+      key: "code",
+      header: "Code",
       render: (p) =>
-        p.isEligible ? (
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200">
-            ELIGIBLE
-          </span>
+        p.temporaryIdentity && p.temporaryIdentity.status !== "revoked" ? (
+          <span className="whitespace-nowrap font-mono text-sm font-semibold text-ink-lum">{p.temporaryIdentity.temporaryCode}</span>
         ) : (
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-50 text-red-600 border border-red-200">
-            {p.blockedReason || "INELIGIBLE"}
-          </span>
+          <span className="text-sm text-ink-mut">—</span>
         ),
     },
     {
-      key: "team",
-      header: "Assigned Team",
+      key: "alias",
+      header: "Participant",
       render: (p) => (
-        <span className="font-mono text-slate-700">
-          {p.teamName ? `${p.teamName}` : <span className="text-slate-500 italic">Unassigned</span>}
-        </span>
+        <div className="min-w-0">
+          <p className="font-medium text-ink-lum">{p.booking.alias}</p>
+          <p className="text-xs text-ink-mut">{p.booking.phoneMask}</p>
+        </div>
       ),
     },
     {
-      key: "checkIn",
-      header: "Check-In State",
-      render: (p) => <StatusChip value={p.checkInStatus} />,
+      key: "place",
+      header: "Place",
+      render: (p) => (p.isEligible ? <StatusChip value="confirmed" /> : <StatusChip value={p.blockedReason ?? "not confirmed"} tone="neutral" />),
     },
+    { key: "code-status", header: "Code status", render: (p) => <StatusChip value={p.temporaryIdentity?.status ?? "not-generated"} /> },
+    { key: "team", header: "Team", render: (p) => (p.teamName ? <span className="text-ink-sec">{p.teamName}</span> : <span className="text-ink-mut">No team</span>) },
+    { key: "door", header: "Door", render: (p) => <StatusChip value={p.checkInStatus} /> },
     {
-      key: "action",
-      header: "Emergency Audit",
+      key: "actions",
+      header: "",
       align: "right",
       render: (p) => (
-        <button
-          onClick={() => setSelectedBookingForEmergency(p.booking)}
-          className="px-2 py-1 bg-purple-50 hover:bg-purple-50 text-purple-700 border border-purple-200 rounded text-[10px] font-mono font-bold"
-        >
-          🛡️ Emergency Unmask
-        </button>
+        <div className="flex justify-end gap-1.5">
+          {p.temporaryIdentity && (p.temporaryIdentity.status === "generated" || p.temporaryIdentity.status === "locked") && (
+            <Button variant="ghost" size="sm" onClick={() => setRevoking(p)} aria-label={`Revoke code for ${p.booking.alias}`}>
+              <XCircle className="h-3.5 w-3.5" /> Revoke
+            </Button>
+          )}
+          <Button variant="secondary" size="sm" onClick={() => setUnmasking(p)} aria-label={`Emergency identity access for ${p.booking.alias}`}>
+            <ShieldAlert className="h-3.5 w-3.5 text-amber-600" /> Identity
+          </Button>
+        </div>
       ),
     },
   ];
 
+  const doGenerate = () => {
+    const res = generateTemporaryIdentities(sessionId, patternId || undefined);
+    if (res.error) return res;
+    toast.success("Codes generated", "Review them, then lock the codes.");
+    return true;
+  };
+
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6 font-mono text-xs">
-      <PageHeader
-        overline={`Participant Pool Workspace · ${session.id}`}
-        title={`Participant Roster: ${sessionTitle(state, session.id)}`}
-        sub="Anonymous participant pool, temporary identity generation, eligibility verification, and audit-logged emergency identity access."
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+        <MetricTile label="Confirmed participants" value={summary.eligibleCount} detail={`${summary.totalBookings} bookings in total`} icon={<Users className="h-4 w-4" />} tone="violet" />
+        <MetricTile label="Codes generated" value={summary.generatedCount} detail={summary.missingIdentityCount ? `${summary.missingIdentityCount} still need a code` : "Everyone has a code"} icon={<KeyRound className="h-4 w-4" />} tone="sky" />
+        <MetricTile label="Codes locked" value={summary.lockedCount + summary.revealedCount} detail={summary.isFullyLocked ? "Ready for teams and reveal" : "Lock before the reveal"} icon={<Lock className="h-4 w-4" />} tone={summary.isFullyLocked ? "emerald" : "amber"} />
+        <MetricTile label="Revoked" value={summary.revokedCount} detail="Withdrawn codes needing a replacement" icon={<XCircle className="h-4 w-4" />} tone={summary.revokedCount ? "rose" : "emerald"} />
+      </div>
+
+      <WorkspaceCard
+        title="Generate codes"
+        sub="Codes use an identity pattern (letters + number) and never contain names, phone numbers or dates."
         right={
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => generateTemporaryIdentities(sessionId)}
-              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold rounded"
-            >
-              Generate Temporary IDs ({summary.missingIdentityCount} Missing)
-            </button>
-            <button
-              onClick={() => lockTemporaryIdentities(sessionId)}
-              disabled={summary.generatedCount === 0 || summary.isFullyLocked}
-              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-slate-950 font-bold rounded"
-            >
-              Lock Identities ({summary.lockedCount}/{summary.eligibleCount})
-            </button>
-            <Link href={`/missions/${session.id}/teams`}>
-              <Button variant="ghost" className="h-8 px-3 text-xs">
-                Team Workspace →
-              </Button>
-            </Link>
-          </div>
+          <>
+            <label className="sr-only" htmlFor="pattern">
+              Identity pattern
+            </label>
+            <div className="w-56">
+              <Select id="pattern" value={patternId} onChange={(e) => setPatternId(e.target.value)} disabled={revealed || patterns.length === 0}>
+                {patterns.length === 0 && <option value="">No active patterns</option>}
+                {patterns.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} · {p.example}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <Button variant="secondary" disabled={revealed || summary.eligibleCount === 0 || patterns.length === 0} onClick={() => (regenerating ? setConfirmGenerate(true) : generateNow())}>
+              <RefreshCw className="h-4 w-4" /> {summary.generatedCount === 0 ? "Generate codes" : summary.missingIdentityCount > 0 ? "Generate missing codes" : "Regenerate unlocked"}
+            </Button>
+            <Button disabled={revealed || summary.isFullyLocked || summary.eligibleCount === 0} onClick={() => setConfirmLock(true)}>
+              <Lock className="h-4 w-4" /> Lock codes
+            </Button>
+          </>
         }
+      >
+        <p className="text-sm text-ink-mut">
+          {revealed
+            ? "Codes have been revealed to participants and can no longer change."
+            : summary.isFullyLocked
+              ? "All codes are locked. Revoke a single code if it must be replaced, then generate again."
+              : "Locked codes are kept when you generate again; only unlocked or revoked codes are replaced."}
+        </p>
+      </WorkspaceCard>
+
+      <DataTable columns={columns} rows={pool} emptyTitle="No bookings yet" emptyLine="Participants appear here once they book this session." />
+
+      <ConfirmDialog open={confirmGenerate} onClose={() => setConfirmGenerate(false)} title="Replace unlocked codes?" confirmLabel="Regenerate" onConfirm={doGenerate}>
+        Unlocked codes will be replaced with new numbers. Locked codes stay as they are. Participants have not seen any code yet.
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={confirmLock}
+        onClose={() => setConfirmLock(false)}
+        title="Lock all codes?"
+        confirmLabel="Lock codes"
+        onConfirm={() => {
+          const res = lockTemporaryIdentities(sessionId);
+          if (res.error) return res;
+          toast.success("Codes locked", "Next: build and lock teams.");
+          return true;
+        }}
+      >
+        Locked codes cannot be regenerated. To replace one later you will need to revoke it with a reason.
+      </ConfirmDialog>
+
+      <ReasonDialog
+        open={!!revoking}
+        onClose={() => setRevoking(null)}
+        title={`Revoke ${revoking?.temporaryIdentity?.temporaryCode ?? "code"}`}
+        tone="danger"
+        description={`${revoking?.booking.alias ?? "The participant"} will need a new code before the reveal.`}
+        placeholder="e.g. Code was posted in a public group chat."
+        confirmLabel="Revoke code"
+        onConfirm={(reason) => {
+          const res = revokeTemporaryIdentity(revoking!.temporaryIdentity!.id, reason);
+          if (res.error) return res;
+          toast.success("Code revoked", "Generate codes again to issue a replacement.");
+          return true;
+        }}
       />
 
-      {/* Identity Summary KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-          <div className="text-[10px] text-slate-500 uppercase">Eligible Roster</div>
-          <div className="text-xl font-bold text-slate-800">{summary.eligibleCount}</div>
-        </div>
-        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-          <div className="text-[10px] text-slate-500 uppercase">Temp IDs Generated</div>
-          <div className="text-xl font-bold text-emerald-600">{summary.generatedCount}</div>
-        </div>
-        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-          <div className="text-[10px] text-slate-500 uppercase">Identities Locked</div>
-          <div className="text-xl font-bold text-amber-600">{summary.lockedCount}</div>
-        </div>
-        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-          <div className="text-[10px] text-slate-500 uppercase">Missing Identities</div>
-          <div className="text-xl font-bold text-red-600">{summary.missingIdentityCount}</div>
-        </div>
-      </div>
-
-      {/* Roster Table */}
-      <div className="space-y-3">
-        <h3 className="font-bold text-slate-800 uppercase tracking-wider text-xs">
-          Participant Pool Roster ({pool.length})
-        </h3>
-        <DataTable columns={columns} rows={pool} emptyTitle="No participants in pool." emptyLine="Confirmed reservations will populate this workspace." />
-      </div>
-
-      {/* Emergency Unmask Modal */}
-      {selectedBookingForEmergency && (
-        <EmergencyAccessModal
-          booking={selectedBookingForEmergency}
-          operatorRole={role.id}
-          onConfirm={(reason) => {
-            requestEmergencyIdentityAccess({
-              sessionId,
-              bookingId: selectedBookingForEmergency.id,
-              operatorId: role.id,
-              operatorRole: role.id,
-              reason,
-            });
-          }}
-          onClose={() => setSelectedBookingForEmergency(null)}
-        />
-      )}
+      <Drawer open={!!unmasking} onClose={() => setUnmasking(null)} title={unmasking?.booking.alias ?? ""} sub={unmasking?.temporaryIdentity?.temporaryCode ? `Code ${unmasking.temporaryIdentity.temporaryCode}` : "No code yet"}>
+        {unmasking && <EmergencyIdentityPanel bookingId={unmasking.booking.id} sessionId={sessionId} />}
+      </Drawer>
     </div>
   );
+
+  function generateNow() {
+    const res = doGenerate();
+    if (res !== true) toast.error("Codes not generated", res.error);
+  }
 }

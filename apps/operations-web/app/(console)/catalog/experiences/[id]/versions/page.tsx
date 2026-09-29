@@ -1,147 +1,88 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { ArrowRight, CopyPlus } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { templateById, templateVersions, operatorName } from "@/lib/prototype/repositories";
+import { operatorName, templateVersions } from "@/lib/prototype/repositories";
 import { geoCan } from "@/lib/geo/access";
-import { cn, inr } from "@/lib/format";
-import { Breadcrumbs, PageFrame, PrototypeRoleNote } from "@/components/geo/layout";
+import { inr } from "@/lib/format";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Card, PanelHeader, PermissionDenied } from "@/components/ui/panels";
-import { Badge, Button, StatusChip } from "@/components/ui/primitives";
-import { Tide } from "@/components/motion/Motion";
-import { ArrowLeft, Copy } from "lucide-react";
+import { PermissionDenied } from "@/components/ui/panels";
+import { Button, StatusChip } from "@/components/ui/primitives";
+import { useCommandFeedback } from "@/components/ui/toast";
+import { ConfirmDialog, Crumbs, EmptyPanel, NotFoundCard, PageShell } from "@/components/setup/kit";
 
-export default function TemplateVersionsPage() {
-  const router = useRouter();
+const when = (ts: string) => {
+  const d = new Date(ts.includes("/") ? ts.replace(/\//g, "-") : ts);
+  return Number.isFinite(d.getTime()) ? d.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: ts.length > 10 ? "short" : undefined }) : ts;
+};
+
+export default function ExperienceVersionsPage() {
   const { id } = useParams<{ id: string }>();
-  const { state, role, canAccess, hydrated, duplicateTemplateVersion } = useStore();
-
-  const t = useMemo(() => templateById(state, id), [state, id]);
+  const router = useRouter();
+  const { state, canAccess, role, duplicateTemplateVersion } = useStore();
+  const feedback = useCommandFeedback();
+  const t = state.templates.find((x) => x.id === id);
   const versions = useMemo(() => templateVersions(state, id), [state, id]);
+  const [restore, setRestore] = useState<string | null>(null);
 
-  if (!hydrated) return <PageFrame><Tide /></PageFrame>;
-  if (!canAccess("/catalog")) return <PageFrame><PermissionDenied module="Catalog" /></PageFrame>;
-
-  if (!t) {
-    return (
-      <PageFrame>
-        <div className="solid rounded-panel p-10 text-center">
-          <p className="text-sm font-medium text-ink-lum">Template not found</p>
-          <Button variant="secondary" className="mt-5" onClick={() => router.push("/catalog/experiences")}>
-            <ArrowLeft className="h-4 w-4" /> Back to experiences
-          </Button>
-        </div>
-      </PageFrame>
-    );
-  }
-
-  const canVersions = geoCan(role.id, "catalog-versions");
+  if (!canAccess("/catalog")) return <PermissionDenied module="Catalog" />;
+  if (!t) return <PageShell><NotFoundCard what="experience" backHref="/catalog/experiences" backLabel="All experiences" /></PageShell>;
+  if (!geoCan(role.id, "catalog-versions")) return <PermissionDenied module="version history" />;
   const canManage = geoCan(role.id, "manage-catalog");
+  const target = versions.find((v) => v.id === restore);
 
   return (
-    <PageFrame>
-      <Breadcrumbs
-        items={[
-          { label: "Catalog", href: "/catalog" },
-          { label: "Experiences", href: "/catalog/experiences" },
-          { label: t.name, href: `/catalog/experiences/${t.id}` },
-          { label: "Versions" },
-        ]}
-      />
-
-      <PageHeader
-        overline="Catalog · Versions"
-        title="Version history"
-        sub="Every change snapshots the template. Drafts can be recreated from any version."
-        right={
-          <Button variant="secondary" onClick={() => router.push(`/catalog/experiences/${t.id}`)}>
-            <ArrowLeft className="h-4 w-4" /> Back to template
-          </Button>
-        }
-      />
-
-      {!canVersions ? (
-        <Card glass={false} className="mt-6">
-          <PanelHeader title="Version history is a review lane" sub="Ops and analytics can inspect change history." />
-          <p className="mt-3 text-sm text-ink-mut">
-            Your position cannot open version history. Switch position with the role simulator to try it.
-          </p>
-          <div className="mt-4 flex items-center gap-3">
-            <PrototypeRoleNote />
-          </div>
-        </Card>
+    <PageShell>
+      <Crumbs items={[{ label: "Catalog", href: "/catalog" }, { label: "Experiences", href: "/catalog/experiences" }, { label: t.name, href: `/catalog/experiences/${t.id}` }, { label: "Version history" }]} />
+      <PageHeader overline="Catalog · Version history" title={t.name} sub="Every change to this experience is saved as a version with who made it and why. Start a new draft from any version." right={<StatusChip value={t.status} />} />
+      {versions.length === 0 ? (
+        <EmptyPanel title="No versions recorded" line="Versions are recorded from the next change onwards." />
       ) : (
-        <div className="mt-6 space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-ink-mut">
-              <span className="font-medium text-ink-lum">{t.name}</span> · {versions.length} version{versions.length === 1 ? "" : "s"}
-            </p>
-            <Badge className="border border-slate-200 bg-slate-50 text-ink-sec">
-              current: <StatusChip value={t.status} />
-            </Badge>
-          </div>
-
-          {versions.length === 0 && (
-            <Card>
-              <p className="text-sm text-ink-mut">No version history recorded for this template.</p>
-            </Card>
-          )}
-
-          {versions.map((v) => {
-            const snap = v.snapshot;
-            return (
-              <Card key={v.id}>
-                <div className="flex flex-wrap items-start justify-between gap-3">
+        <ol className="relative space-y-3 border-l-2 border-edge pl-5">
+          {versions.map((v, i) => (
+            <li key={v.id} className="relative">
+              <span className={`absolute -left-[27px] top-5 h-3 w-3 rounded-full ring-4 ring-bg-deep ${i === 0 ? "bg-brand" : "bg-slate-300"}`} />
+              <div className="rounded-panel border border-edge bg-white p-4 shadow-panel sm:p-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Badge className="border border-indigo-200 bg-indigo-50 text-indigo-700">v{v.version}</Badge>
+                      <span className="rounded-full bg-brand-subtle px-2.5 py-0.5 text-xs font-bold text-brand-ink">Version {v.version}</span>
+                      {i === 0 && <span className="text-xs font-semibold text-emerald-700">Current</span>}
                       {v.previousStatus && v.newStatus && v.previousStatus !== v.newStatus && (
-                        <span className="flex items-center gap-1.5 text-[11px] text-ink-mut">
-                          <StatusChip value={v.previousStatus} dot={false} /> → <StatusChip value={v.newStatus} dot={false} />
-                        </span>
-                      )}
-                      {!v.previousStatus && v.newStatus && (
-                        <span className="text-[11px] text-ink-mut">created as <StatusChip value={v.newStatus} dot={false} /></span>
+                        <span className="flex items-center gap-1 text-xs text-ink-mut"><StatusChip value={v.previousStatus} dot={false} /> <ArrowRight className="h-3 w-3" /> <StatusChip value={v.newStatus} dot={false} /></span>
                       )}
                     </div>
-                    <p className="mt-2 text-sm font-medium text-ink-lum">{v.reason}</p>
-                    <p className="mt-1 text-[11px] text-ink-mut">
-                      {operatorName(state, v.changedBy)} · {v.timestamp}
-                    </p>
+                    <p className="mt-2 text-sm font-semibold text-ink-lum">{v.reason}</p>
+                    <p className="mt-0.5 text-xs text-ink-mut">{operatorName(state, v.changedBy)} · {when(v.timestamp)}</p>
+                    {v.changedFields.length > 0 && v.changedFields.length < 12 && <p className="mt-2 text-xs text-ink-sec">Changed: {v.changedFields.join(", ")}</p>}
+                    {v.changedFields.length >= 12 && <p className="mt-2 text-xs text-ink-sec">Full definition recorded ({v.changedFields.length} fields)</p>}
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {snap.basePrice != null && (
-                      <Badge className="border border-slate-200 bg-slate-50 text-ink-sec">{inr(snap.basePrice)}</Badge>
-                    )}
-                    {snap.maxParticipants != null && (
-                      <Badge className="border border-slate-200 bg-slate-50 text-ink-sec">max {snap.maxParticipants}</Badge>
-                    )}
-                    {canManage && (
-                      <Button
-                        variant="lamp"
-                        onClick={() => {
-                          duplicateTemplateVersion(v.id);
-                          router.push("/catalog/experiences");
-                        }}
-                      >
-                        <Copy className="h-4 w-4" /> Draft from v{v.version}
-                      </Button>
-                    )}
+                  <div className="flex shrink-0 flex-wrap items-center gap-2 text-xs text-ink-sec">
+                    {v.snapshot.basePrice != null && <span className="rounded-lg bg-bg-sunken px-2 py-1">{inr(v.snapshot.basePrice)}</span>}
+                    {v.snapshot.maxParticipants != null && <span className="rounded-lg bg-bg-sunken px-2 py-1">{v.snapshot.minParticipants}–{v.snapshot.maxParticipants} people</span>}
+                    {v.snapshot.duration != null && <span className="rounded-lg bg-bg-sunken px-2 py-1">{v.snapshot.duration} min</span>}
+                    {canManage && <Button size="sm" variant="secondary" onClick={() => setRestore(v.id)}><CopyPlus className="h-3.5 w-3.5" /> New draft from this</Button>}
                   </div>
                 </div>
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  <span className={cn("text-[10px] uppercase tracking-wide text-ink-mut")}>changed:</span>
-                  {v.changedFields.map((f) => (
-                    <Badge key={f} className="border border-slate-200 bg-slate-50 text-ink-mut">{f}</Badge>
-                  ))}
-                </div>
-              </Card>
-            );
-          })}
-        </div>
+              </div>
+            </li>
+          ))}
+        </ol>
       )}
-    </PageFrame>
+      <ConfirmDialog
+        open={!!target}
+        onClose={() => setRestore(null)}
+        title={`New draft from version ${target?.version ?? ""}`}
+        body={<>A new draft experience is created with the settings saved in version {target?.version}. <strong>{t.name}</strong> itself is not changed.</>}
+        confirmLabel="Create draft"
+        onConfirm={() => {
+          const out = duplicateTemplateVersion(restore!);
+          if (feedback(out, "Draft created from version", "Review it, then activate when ready.") && out.id) router.push(`/catalog/experiences/${out.id}`);
+          return out;
+        }}
+      />
+    </PageShell>
   );
 }

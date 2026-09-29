@@ -45,6 +45,7 @@ import type {
   PromoCode,
   SessionStatus
 } from "./entities";
+import { buildLedgerTransactions } from "./selectors/money";
 
 /* ------------------------------------------------------------------
    DETERMINISTIC NORMALIZED SEED DATA
@@ -908,7 +909,10 @@ interface SessionSeed {
   max: number;
   min: number;
   base: number;
+  /** Crew member id (c-*) of the lead coordinator; "" leaves the slot open. */
   lead: string;
+  /** Crew member id (c-*) of the safety contact; "" leaves the slot open. */
+  safety: string;
   opts?: Partial<ScheduledSession>;
 }
 
@@ -944,7 +948,7 @@ const S = (s: SessionSeed): ScheduledSession => ({
   leadCoordinatorId: s.lead,
   supportingCoordinatorId: "",
   refereeId: "",
-  safetyContactId: "op-9",
+  safetyContactId: s.safety,
   equipmentHandlerId: "",
   equipmentChecklist: [],
   weatherRisk: "low",
@@ -955,67 +959,67 @@ const S = (s: SessionSeed): ScheduledSession => ({
 export const SEED_SESSIONS: ScheduledSession[] = [
   S({
     id: "s-1", templateId: "et-1", categoryId: "cat-cricket", territoryId: "hvd-central", cityId: "c-hyd", venueId: "v-3", playingAreaId: "pa-4",
-    status: "live", date: "Today", startTime: "19:00", max: 12, min: 8, base: 499, lead: "op-7",
-    opts: { bookingOpensAt: "5 Days ago", bookingClosesAt: "Today, 17:00", revealAt: "Today, 18:00", checkInOpensAt: "Today, 18:45", refereeId: "op-5", weatherRisk: "low", equipmentChecklist: ["2 Bats", "6 Tennis balls", "Stumps set"] }
+    status: "live", date: "Today", startTime: "19:00", max: 12, min: 8, base: 499, lead: "c-1", safety: "c-9",
+    opts: { bookingOpensAt: "5 Days ago", bookingClosesAt: "Today, 17:00", revealAt: "Today, 18:00", checkInOpensAt: "Today, 18:45", refereeId: "c-10", weatherRisk: "low", equipmentChecklist: ["2 Bats", "6 Tennis balls", "Stumps set"] }
   }),
   S({
     id: "s-2", templateId: "et-2", categoryId: "cat-badminton", territoryId: "hvd-central", cityId: "c-hyd", venueId: "v-1", playingAreaId: "pa-1",
-    status: "almost-full", date: "Today", startTime: "20:00", max: 16, min: 10, base: 349, lead: "op-7",
+    status: "full", date: "Today", startTime: "20:00", max: 16, min: 10, base: 349, lead: "c-14", safety: "c-5",
     opts: { bookingOpensAt: "7 Days ago", bookingClosesAt: "Today, 19:00", revealAt: "Today, 18:00", checkInOpensAt: "Today, 19:50", compSlots: 1, equipmentChecklist: ["Shuttles", "Net"] }
   }),
   S({
     id: "s-3", templateId: "et-3", categoryId: "cat-badminton", territoryId: "hvd-central", cityId: "c-hyd", venueId: "v-1", playingAreaId: "pa-2",
-    status: "full", date: "Today", startTime: "21:00", max: 12, min: 8, base: 299, lead: "op-7",
-    opts: { safetyContactId: "op-9", equipmentChecklist: ["Shuttles", "Net"] }
+    status: "full", date: "Today", startTime: "21:00", max: 12, min: 8, base: 299, lead: "c-1", safety: "c-9",
+    opts: { equipmentChecklist: ["Shuttles", "Net"] }
   }),
   S({
     id: "s-4", templateId: "et-4", categoryId: "cat-tt", territoryId: "hvd-central", cityId: "c-hyd", venueId: "v-2", playingAreaId: "pa-3",
-    status: "scheduled", date: "Tomorrow", startTime: "17:00", max: 8, min: 6, base: 249, lead: "op-7",
+    status: "scheduled", date: "Tomorrow", startTime: "17:00", max: 8, min: 6, base: 249, lead: "c-1", safety: "c-9",
     opts: { duration: 90, equipmentChecklist: ["Paddles", "Balls"] }
   }),
   S({
     id: "s-5", templateId: "et-1", categoryId: "cat-cricket", territoryId: "hvd-central", cityId: "c-hyd", venueId: "v-3", playingAreaId: "pa-4",
-    status: "draft", date: "Tomorrow", startTime: "07:00", max: 12, min: 8, base: 549, lead: "op-7",
-    opts: { refereeId: "op-5" }
+    status: "draft", date: "Tomorrow", startTime: "07:00", max: 12, min: 8, base: 549, lead: "c-1", safety: "c-9",
+    opts: { refereeId: "c-10" }
   }),
   S({
     id: "s-6", templateId: "et-1", categoryId: "cat-cricket", territoryId: "blr-south", cityId: "c-blr", venueId: "v-4", playingAreaId: "pa-5",
-    status: "live", date: "Today", startTime: "19:30", max: 12, min: 8, base: 549, lead: "op-7",
-    opts: { refereeId: "op-5", weatherRisk: "medium" }
+    status: "live", date: "Today", startTime: "19:30", max: 12, min: 8, base: 549, lead: "c-4", safety: "c-12",
+    opts: { weatherRisk: "medium" }
   }),
   S({
     id: "s-7", templateId: "et-5", categoryId: "cat-board", territoryId: "blr-south", cityId: "c-blr", venueId: "v-5", playingAreaId: "pa-6",
-    status: "scheduled", date: "Today", startTime: "20:00", max: 10, min: 4, base: 199, lead: "op-7",
+    status: "scheduled", date: "Today", startTime: "20:00", max: 10, min: 4, base: 199, lead: "", safety: "",
     opts: { duration: 180 }
   }),
   S({
     id: "s-8", templateId: "et-1", categoryId: "cat-cricket", territoryId: "mum-west", cityId: "c-mum", venueId: "v-6", playingAreaId: "pa-7",
-    status: "booking-open", date: "Today", startTime: "19:00", max: 14, min: 10, base: 599, lead: "op-7",
-    opts: { refereeId: "op-5" }
+    status: "booking-open", date: "Today", startTime: "19:00", max: 14, min: 10, base: 599, lead: "c-15", safety: "c-13",
+    
   }),
   S({
     id: "s-9", templateId: "et-3", categoryId: "cat-badminton", territoryId: "mum-west", cityId: "c-mum", venueId: "v-6", playingAreaId: "pa-7",
-    status: "check-in-open", date: "Today", startTime: "18:00", max: 12, min: 8, base: 299, lead: "op-7",
+    status: "check-in-open", date: "Today", startTime: "18:00", max: 12, min: 8, base: 299, lead: "c-11", safety: "c-7",
     opts: { checkInOpensAt: "Today, 17:45" }
   }),
   S({
     id: "s-10", templateId: "et-1", categoryId: "cat-cricket", territoryId: "hvd-central", cityId: "c-hyd", venueId: "v-3", playingAreaId: "pa-4",
-    status: "completed", date: "Yesterday", startTime: "19:00", max: 12, min: 8, base: 499, lead: "op-7",
-    opts: { refereeId: "op-5" }
+    status: "completed", date: "Yesterday", startTime: "19:00", max: 12, min: 8, base: 499, lead: "c-1", safety: "c-9",
+    opts: { refereeId: "c-10" }
   }),
   S({
     id: "s-11", templateId: "et-4", categoryId: "cat-tt", territoryId: "hvd-central", cityId: "c-hyd", venueId: "v-2", playingAreaId: "pa-3",
-    status: "cancelled", date: "Yesterday", startTime: "20:00", max: 8, min: 6, base: 249, lead: "op-7",
+    status: "cancelled", date: "Yesterday", startTime: "20:00", max: 8, min: 6, base: 249, lead: "c-1", safety: "c-9",
     opts: { duration: 90 }
   }),
   S({
     id: "s-12", templateId: "et-5", categoryId: "cat-board", territoryId: "blr-south", cityId: "c-blr", venueId: "v-5", playingAreaId: "pa-6",
-    status: "booking-closed", date: "Tomorrow", startTime: "18:00", max: 10, min: 4, base: 199, lead: "op-7",
+    status: "booking-closed", date: "Tomorrow", startTime: "18:00", max: 10, min: 4, base: 199, lead: "c-4", safety: "c-12",
     opts: { duration: 180, bookingClosesAt: "Tomorrow, 16:00" }
   }),
   S({
     id: "s-13", templateId: "et-5", categoryId: "cat-board", territoryId: "blr-south", cityId: "c-blr", venueId: "v-5", playingAreaId: "pa-6",
-    status: "booking-open", date: "Today", startTime: "21:00", max: 10, min: 4, base: 199, lead: "op-7",
+    status: "booking-open", date: "Today", startTime: "21:00", max: 10, min: 4, base: 199, lead: "c-16", safety: "",
     opts: { duration: 180, bookingOpensAt: "2 Days ago", bookingClosesAt: "Today, 20:00" }
   })
 ];
@@ -1032,7 +1036,8 @@ const B = (
   createdAt: string,
   method: string = "card",
   phoneMask: string = "•••• 12",
-  waitlistOrder?: number
+  waitlistOrder?: number,
+  opts: Partial<Booking> = {}
 ): Booking => {
   let status: BookingStatus = "confirmed";
   let reservationStatus: ReservationStatus = "converted";
@@ -1067,11 +1072,15 @@ const B = (
   } else if (rawStatus === "complimentary") {
     status = "confirmed";
     reservationStatus = "converted";
-    paymentStatus = "confirmed";
+    paymentStatus = "none";
     bookingType = "complimentary";
-    source = "admin";
-  } else if (rawStatus === "cancelled") {
-    status = "cancelled-user";
+    source = "complimentary";
+  } else if (rawStatus === "no-show") {
+    status = "no-show";
+    reservationStatus = "converted";
+    paymentStatus = "confirmed";
+  } else if (rawStatus === "cancelled" || rawStatus === "cancelled-company") {
+    status = rawStatus === "cancelled" ? "cancelled-user" : "cancelled-company";
     reservationStatus = "released";
     paymentStatus = "refunded";
   }
@@ -1096,18 +1105,33 @@ const B = (
     tax: Math.round(amount * 0.18),
     platformFee: Math.round(amount * 0.05),
     finalAmount: amount,
-    method,
+    method: bookingType === "complimentary" ? "complimentary" : method,
+    paymentReference: paymentStatus === "confirmed" || paymentStatus === "refunded" ? seedPaymentReference(id, method) : undefined,
     reservedAt: createdAt,
-    confirmedAt: status === "confirmed" ? createdAt : undefined,
+    confirmedAt: status === "confirmed" || status === "no-show" ? createdAt : undefined,
+    cancellationReason: status === "cancelled-company" ? "Session cancelled: venue power outage" : status === "cancelled-user" ? "Customer schedule conflict" : undefined,
     waitlistOrder,
     waitlistPosition: waitlistOrder,
     checkedIn: rawStatus === "checked-in",
-    noShow: false,
+    noShow: rawStatus === "no-show",
     createdAt,
     updatedAt: createdAt,
-    createdBy: source === "admin" ? "OP-SYS" : `usr-${alias.toLowerCase()}`
+    createdBy: source === "customer-app" ? "customer" : "op-5",
+    ...opts
   };
 };
+
+/** Deterministic manual payment reference (payment provider not connected). */
+function seedPaymentReference(id: string, method: string): string {
+  const n = [...id].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 1_000_000, 7);
+  return method === "upi" ? `UTR${String(40_000_000 + n * 37).padStart(12, "4")}` : `POS-${String(n).padStart(6, "0")}`;
+}
+
+/** A hold created shortly before the workspace was seeded, so its countdown is live. */
+const SEED_HOLD_START = new Date(Date.now() - 3 * 60_000).toISOString();
+const SEED_HOLD_EXPIRY = new Date(Date.now() + 12 * 60_000).toISOString();
+const SEED_OFFER_EXPIRY_1 = new Date(Date.now() + 9 * 60_000).toISOString();
+const SEED_OFFER_EXPIRY_2 = new Date(Date.now() + 14 * 60_000).toISOString();
 
 export const SEED_BOOKINGS: Booking[] = [
   // s-1 — Evening Box Cricket (live)
@@ -1133,10 +1157,10 @@ export const SEED_BOOKINGS: Booking[] = [
   B("b-19", "s-2", "Backline", "BM-10", 349, "payment-confirmed", "Today, 11:44", "upi", "•••• 30"),
   B("b-20", "s-2", "FeatherTrappers", "BM-11", 349, "payment-confirmed", "Today, 12:10", "card", "•••• 29"),
   B("b-21", "s-2", "HalfSmashers", "BM-12", 349, "payment-confirmed", "Today, 12:31", "upi", "•••• 28"),
-  B("b-22", "s-2", "CrossCourt", "BM-13", 349, "payment-pending", "Today, 12:55", "card", "•••• 27"),
+  B("b-22", "s-2", "CrossCourt", "", 349, "payment-pending", "Today, 12:55", "card", "•••• 27", undefined, { method: undefined, reservedAt: SEED_HOLD_START, reservationExpiresAt: SEED_HOLD_EXPIRY }),
   B("b-23", "s-2", "CourtMovers", "BM-14", 0, "complimentary", "Today, 13:02", "internal", "•••• 26"),
-  B("b-w2", "s-2", "TheBaseline", "", 349, "waitlist-joined", "Today, 13:20", "card", "•••• 25", 1),
-  B("b-w3", "s-2", "OverheadOnly", "", 349, "waitlist-joined", "Today, 13:28", "card", "•••• 24", 2),
+  B("b-w2", "s-2", "TheBaseline", "", 349, "waitlist-offered", "Today, 13:20", "card", "•••• 25", 1, { method: undefined, waitlistOfferedAt: SEED_HOLD_START, waitlistOfferExpiresAt: SEED_OFFER_EXPIRY_1 }),
+  B("b-w3", "s-2", "OverheadOnly", "", 349, "waitlist-offered", "Today, 13:28", "card", "•••• 24", 2, { method: undefined, waitlistOfferedAt: SEED_HOLD_START, waitlistOfferExpiresAt: SEED_OFFER_EXPIRY_2 }),
   // s-3 — Women's Social Badminton (full)
   B("b-30", "s-3", "AriaServ", "WBM-01", 299, "payment-confirmed", "Today, 08:10", "upi", "•••• 41"),
   B("b-31", "s-3", "SanaSmash", "WBM-02", 299, "payment-confirmed", "Today, 08:22", "card", "•••• 40"),
@@ -1168,7 +1192,7 @@ export const SEED_BOOKINGS: Booking[] = [
   B("b-53", "s-8", "NetRunner", "MCR-03", 599, "payment-confirmed", "Today, 10:40", "card", "•••• 49"),
   B("b-54", "s-8", "SquareTurn", "MCR-04", 599, "payment-confirmed", "Today, 10:55", "upi", "•••• 48"),
   B("b-55", "s-8", "LateCut", "MCR-05", 599, "payment-confirmed", "Today, 11:12", "card", "•••• 47"),
-  B("b-w8", "s-8", "BlazerFox", "", 599, "waitlist-joined", "Today, 11:30", "card", "•••• 46", 1),
+  B("b-w8", "s-8", "BlazerFox", "", 599, "reservation-expired", "Today, 11:30", "card", "•••• 46", undefined, { method: undefined }),
   B("b-80", "s-8", "FullToss", "", 599, "payment-failed", "Today, 16:40", "upi", "•••• 20"),
   // s-9 — Women's Social Badminton (mum, check-in-open)
   B("b-56", "s-9", "FeatherStorm", "WBM-21", 299, "checked-in", "Today, 13:00", "upi", "•••• 45"),
@@ -1189,10 +1213,10 @@ export const SEED_BOOKINGS: Booking[] = [
   B("b-70", "s-10", "SquareTurn", "CR-39", 499, "no-show", "Yesterday, 11:44", "card", "•••• 31"),
   B("b-71", "s-10", "SpinDoctor", "CR-40", 499, "cancelled", "Yesterday, 12:00", "upi", "•••• 30"),
   // s-11 — cancelled TT (hvd, yesterday)
-  B("b-72", "s-11", "PaddlePace", "TT-11", 249, "cancelled", "Yesterday, 09:00", "card", "•••• 29"),
-  B("b-73", "s-11", "SpinDoctor", "TT-12", 249, "cancelled", "Yesterday, 09:15", "upi", "•••• 28"),
-  B("b-74", "s-11", "NetRunner", "TT-13", 249, "cancelled", "Yesterday, 09:30", "card", "•••• 27"),
-  B("b-75", "s-11", "DeejayDuo", "TT-14", 249, "cancelled", "Yesterday, 09:44", "card", "•••• 26"),
+  B("b-72", "s-11", "PaddlePace", "TT-11", 249, "cancelled-company", "Yesterday, 09:00", "card", "•••• 29"),
+  B("b-73", "s-11", "SpinDoctor", "TT-12", 249, "cancelled-company", "Yesterday, 09:15", "upi", "•••• 28"),
+  B("b-74", "s-11", "NetRunner", "TT-13", 249, "cancelled-company", "Yesterday, 09:30", "card", "•••• 27", undefined, { paymentStatus: "refund-pending" }),
+  B("b-75", "s-11", "DeejayDuo", "TT-14", 249, "cancelled-company", "Yesterday, 09:44", "card", "•••• 26", undefined, { paymentStatus: "refund-pending" }),
   // s-12 — board games (blr, booking-closed)
   B("b-76", "s-12", "CardShark", "BG-11", 199, "payment-confirmed", "Yesterday, 16:00", "card", "•••• 25"),
   B("b-77", "s-12", "DiceRoller", "BG-12", 199, "payment-confirmed", "Yesterday, 16:20", "upi", "•••• 24"),
@@ -1205,10 +1229,18 @@ export const SEED_CREW: CrewMember[] = [
   { id: "c-2", territoryId: "hvd-central", venueId: "v-3", name: "Rohit Nair", role: "staff", status: "checked-in", assignment: "Referee — Evening Box Cricket" },
   { id: "c-3", territoryId: "hvd-central", venueId: "v-3", name: "Tanvi Iyer", role: "staff", status: "checked-in", assignment: "Check-in — Evening Box Cricket" },
   { id: "c-4", territoryId: "blr-south", venueId: "v-4", name: "Sahil Batra", role: "coordinator", status: "assigned", assignment: "Lead — Turf Cricket Night" },
-  { id: "c-5", territoryId: "hvd-central", venueId: "v-1", name: "Divya Reddy", role: "staff", status: "available", assignment: "Safety contact — Night League" },
+  { id: "c-5", territoryId: "hvd-central", venueId: "v-1", name: "Divya Reddy", role: "staff", status: "assigned", assignment: "Safety contact — Badminton doubles" },
   { id: "c-6", territoryId: "hvd-central", venueId: "v-2", name: "Arjun Mehta", role: "venue-manager", status: "checked-in", assignment: "Venue Manager — Indoor Club" },
   { id: "c-7", territoryId: "mum-west", venueId: "v-6", name: "Sana Sheikh", role: "staff", status: "assigned", assignment: "Equipment — Turf Cricket" },
-  { id: "c-8", territoryId: "mum-west", venueId: "v-6", name: "Kabir Rao", role: "staff", status: "available", assignment: "Floor support — Mumbai" }
+  { id: "c-8", territoryId: "mum-west", venueId: "v-6", name: "Kabir Rao", role: "staff", status: "available", assignment: "Floor support — Mumbai" },
+  { id: "c-9", territoryId: "hvd-central", venueId: "v-1", name: "Priya Menon", role: "safety", status: "checked-in", assignment: "Safety contact — Hyderabad Central" },
+  { id: "c-10", territoryId: "hvd-central", venueId: "v-3", name: "Ravi Teja", role: "ops-manager", status: "assigned", assignment: "Referee — Evening Box Cricket" },
+  { id: "c-11", territoryId: "mum-west", venueId: "v-6", name: "Neha Kulkarni", role: "coordinator", status: "assigned", assignment: "Lead — Mumbai badminton" },
+  { id: "c-12", territoryId: "blr-south", venueId: "v-4", name: "Farhan Ali", role: "safety", status: "assigned", assignment: "Safety contact — Bengaluru South" },
+  { id: "c-13", territoryId: "mum-west", venueId: "v-6", name: "Meghna Das", role: "safety", status: "assigned", assignment: "Safety contact — Mumbai West" },
+  { id: "c-14", territoryId: "hvd-central", venueId: "v-1", name: "Rahul Varma", role: "coordinator", status: "assigned", assignment: "Lead — Badminton doubles" },
+  { id: "c-15", territoryId: "mum-west", venueId: "v-6", name: "Imran Qureshi", role: "coordinator", status: "assigned", assignment: "Lead — Turf cricket" },
+  { id: "c-16", territoryId: "blr-south", venueId: "v-5", name: "Lakshmi Iyer", role: "coordinator", status: "assigned", assignment: "Lead — Board game night" }
 ];
 
 export const SEED_SHIFTS: Shift[] = [
@@ -1221,6 +1253,9 @@ export const SEED_SHIFTS: Shift[] = [
   { id: "sh-7", crewId: "c-7", venueId: "v-6", zone: "Equipment", from: "18:00", to: "22:00" }
 ];
 
+/** ISO timestamp `minutes` from now (negative = in the past). Keeps seeded safety and tournament times current. */
+const seedAt = (minutes: number): string => new Date(Date.now() + minutes * 60_000).toISOString();
+
 export const SEED_TOURNAMENTS: Tournament[] = [
   {
     id: "tr-1",
@@ -1228,30 +1263,31 @@ export const SEED_TOURNAMENTS: Tournament[] = [
     code: "SCK-2026",
     experienceTemplateId: "et-1",
     territoryId: "hvd-central",
-    cityId: "city-hvd",
+    cityId: "c-hyd",
     venueId: "v-3",
-    playingAreaIds: ["pa-5"],
+    playingAreaIds: ["pa-4"],
     sessionIds: ["s-10"],
     format: "single-elimination",
     status: "published",
-    teamIds: ["Ravi's XI", "Midnight Drive", "Net Runners", "Smash Order"],
+    teamIds: ["tr-1-team-1", "tr-1-team-2", "tr-1-team-3", "tr-1-team-4"],
+    entrants: [
+      { id: "tr-1-team-1", name: "Ravi's XI", seed: 1, status: "active" },
+      { id: "tr-1-team-2", name: "Midnight Drive", seed: 2, status: "active" },
+      { id: "tr-1-team-3", name: "Net Runners", seed: 3, status: "active" },
+      { id: "tr-1-team-4", name: "Smash Order", seed: 4, status: "active" }
+    ],
     minimumTeams: 4,
     maximumTeams: 8,
     matchDuration: 30,
     breakDuration: 10,
-    seedingMethod: "random",
+    seedingMethod: "seeded",
     verificationRequirement: "referee",
     prizePlaceholder: "Winner trophy + ₹5,000 voucher",
-    registrationClosesAt: "Tomorrow, 14:00",
-    scheduledStart: "Tomorrow, 16:00",
-    createdBy: "op-4",
-    createdAt: "Yesterday, 10:00",
-    updatedAt: "Today, 09:00",
-    /* deprecated compat */
-    linkedSessionId: "s-10",
-    teams: ["Ravi's XI", "Midnight Drive", "Net Runners", "Smash Order"],
-    teamCount: 4,
-    date: "Tomorrow"
+    registrationClosesAt: seedAt(20 * 60),
+    scheduledStart: seedAt(26 * 60),
+    createdBy: "op-5",
+    createdAt: seedAt(-2 * 24 * 60),
+    updatedAt: seedAt(-5 * 60)
   },
   {
     id: "tr-2",
@@ -1259,75 +1295,84 @@ export const SEED_TOURNAMENTS: Tournament[] = [
     code: "BMC-2026",
     experienceTemplateId: "et-3",
     territoryId: "blr-south",
-    cityId: "city-blr",
+    cityId: "c-blr",
     venueId: "v-4",
-    playingAreaIds: ["pa-7", "pa-8"],
-    sessionIds: ["s-6"],
+    playingAreaIds: ["pa-5"],
+    sessionIds: [],
     format: "single-elimination",
     status: "live",
-    teamIds: ["Smash Order", "Net Kings", "Featherstorm", "Backline"],
+    teamIds: ["tr-2-team-1", "tr-2-team-2", "tr-2-team-3", "tr-2-team-4"],
+    entrants: [
+      { id: "tr-2-team-1", name: "Smash Order", seed: 1, status: "active" },
+      { id: "tr-2-team-2", name: "Net Kings", seed: 4, status: "active" },
+      { id: "tr-2-team-3", name: "Featherstorm", seed: 2, status: "active" },
+      { id: "tr-2-team-4", name: "Backline", seed: 3, status: "active" }
+    ],
     minimumTeams: 4,
     maximumTeams: 8,
     matchDuration: 20,
     breakDuration: 5,
     seedingMethod: "seeded",
-    verificationRequirement: "referee",
+    verificationRequirement: "dual",
     prizePlaceholder: "Champion medals + venue credits",
-    registrationClosesAt: "Today, 10:00",
-    scheduledStart: "Today, 14:00",
-    actualStart: "Today, 14:05",
-    createdBy: "op-7",
-    createdAt: "Last week",
-    updatedAt: "Today, 14:05",
-    /* deprecated compat */
-    linkedSessionId: "s-6",
-    teams: ["Smash Order", "Net Kings", "Featherstorm", "Backline"],
-    teamCount: 4,
-    date: "Today"
+    registrationClosesAt: seedAt(-5 * 60),
+    scheduledStart: seedAt(-60),
+    actualStart: seedAt(-55),
+    createdBy: "op-2",
+    createdAt: seedAt(-7 * 24 * 60),
+    updatedAt: seedAt(-10)
   },
   {
     id: "tr-3",
     name: "Weekend Futsal Championship",
     code: "WFC-2026",
     territoryId: "hvd-central",
-    cityId: "city-hvd",
+    cityId: "c-hyd",
     venueId: "v-1",
-    format: "round-robin",
+    playingAreaIds: ["pa-1", "pa-2"],
+    sessionIds: [],
+    format: "single-elimination",
     status: "draft",
-    teamIds: [],
-    minimumTeams: 6,
-    maximumTeams: 12,
+    teamIds: ["tr-3-team-1", "tr-3-team-2", "tr-3-team-3", "tr-3-team-4", "tr-3-team-5"],
+    entrants: [
+      { id: "tr-3-team-1", name: "Gully Boyz", seed: 1, status: "active" },
+      { id: "tr-3-team-2", name: "Court Pirates", seed: 2, status: "active" },
+      { id: "tr-3-team-3", name: "Super Strikers", seed: 3, status: "active" },
+      { id: "tr-3-team-4", name: "Apex Smashers", seed: 4, status: "active" },
+      { id: "tr-3-team-5", name: "Spin Kings", seed: 5, status: "active" }
+    ],
+    minimumTeams: 4,
+    maximumTeams: 8,
     matchDuration: 25,
     breakDuration: 10,
     seedingMethod: "random",
     verificationRequirement: "dual",
-    prizePlaceholder: "TBD",
+    prizePlaceholder: "Trophy for the winning team",
+    registrationClosesAt: seedAt(4 * 24 * 60),
+    scheduledStart: seedAt(5 * 24 * 60),
     createdBy: "op-1",
-    createdAt: "Today, 08:00",
-    updatedAt: "Today, 08:00"
+    createdAt: seedAt(-6 * 60),
+    updatedAt: seedAt(-6 * 60)
   }
 ];
 
 export const SEED_TOURNAMENT_MATCHES: TournamentMatch[] = [
-  /* tr-1: Sunday Cricket Knockout — published, matches scheduled */
+  /* tr-1: Sunday Cricket Knockout — published, semi-finals scheduled for tomorrow */
   {
     id: "m-1",
     tournamentId: "tr-1",
     roundNumber: 1,
     matchNumber: 1,
     roundLabel: "Semi-finals",
-    teamAId: "Ravi's XI",
-    teamBId: "Midnight Drive",
-    refereeId: "op-5",
+    teamAId: "tr-1-team-1",
+    teamBId: "tr-1-team-4",
+    playingAreaId: "pa-4",
+    refereeId: "c-2",
     status: "scheduled",
-    scheduledAt: "Tomorrow, 16:00",
+    scheduledAt: seedAt(26 * 60),
     nextMatchId: "m-5",
-    createdAt: "Yesterday, 10:00",
-    updatedAt: "Yesterday, 10:00",
-    /* deprecated compat */
-    teamA: "Ravi's XI",
-    teamB: "Midnight Drive",
-    round: "Semi-finals"
+    createdAt: seedAt(-2 * 24 * 60),
+    updatedAt: seedAt(-2 * 24 * 60)
   },
   {
     id: "m-2",
@@ -1335,18 +1380,14 @@ export const SEED_TOURNAMENT_MATCHES: TournamentMatch[] = [
     roundNumber: 1,
     matchNumber: 2,
     roundLabel: "Semi-finals",
-    teamAId: "Net Runners",
-    teamBId: "Smash Order",
-    refereeId: "op-5",
+    teamAId: "tr-1-team-2",
+    teamBId: "tr-1-team-3",
+    playingAreaId: "pa-4",
     status: "scheduled",
-    scheduledAt: "Tomorrow, 16:35",
+    scheduledAt: seedAt(26 * 60 + 40),
     nextMatchId: "m-5",
-    createdAt: "Yesterday, 10:00",
-    updatedAt: "Yesterday, 10:00",
-    /* deprecated compat */
-    teamA: "Net Runners",
-    teamB: "Smash Order",
-    round: "Semi-finals"
+    createdAt: seedAt(-2 * 24 * 60),
+    updatedAt: seedAt(-2 * 24 * 60)
   },
   {
     id: "m-5",
@@ -1354,42 +1395,40 @@ export const SEED_TOURNAMENT_MATCHES: TournamentMatch[] = [
     roundNumber: 2,
     matchNumber: 1,
     roundLabel: "Final",
-    refereeId: "op-5",
+    playingAreaId: "pa-4",
+    refereeId: "c-2",
     status: "scheduled",
-    scheduledAt: "Tomorrow, 17:20",
-    createdAt: "Yesterday, 10:00",
-    updatedAt: "Yesterday, 10:00",
-    /* deprecated compat */
-    round: "Final"
+    scheduledAt: seedAt(26 * 60 + 80),
+    createdAt: seedAt(-2 * 24 * 60),
+    updatedAt: seedAt(-2 * 24 * 60)
   },
-  /* tr-2: Badminton Masters Cup — live, some matches completed */
+  /* tr-2: Badminton Masters Cup — live; first semi verified, second semi in play */
   {
     id: "m-3",
     tournamentId: "tr-2",
     roundNumber: 1,
     matchNumber: 1,
     roundLabel: "Semi-finals",
-    teamAId: "Smash Order",
-    teamBId: "Net Kings",
-    refereeId: "op-7",
-    status: "completed",
+    teamAId: "tr-2-team-1",
+    teamBId: "tr-2-team-2",
+    playingAreaId: "pa-5",
+    refereeId: "c-4",
+    status: "verified",
     scoreA: 21,
     scoreB: 14,
-    winnerTeamId: "Smash Order",
+    winnerTeamId: "tr-2-team-1",
     resultType: "score",
-    startedAt: "Today, 14:05",
-    endedAt: "Today, 14:30",
-    verifiedAt: "Today, 14:32",
-    verifiedBy: "op-7",
-    scheduledAt: "Today, 14:00",
+    resultRevisions: [
+      { revisionNumber: 1, scoreA: 21, scoreB: 14, winnerTeamId: "tr-2-team-1", resultType: "score", recordedBy: "op-7", recordedAt: seedAt(-28), verifiedBy: "op-5", verifiedAt: seedAt(-26) }
+    ],
+    startedAt: seedAt(-55),
+    endedAt: seedAt(-28),
+    verifiedAt: seedAt(-26),
+    verifiedBy: "op-5",
+    scheduledAt: seedAt(-60),
     nextMatchId: "m-6",
-    createdAt: "Last week",
-    updatedAt: "Today, 14:32",
-    /* deprecated compat */
-    teamA: "Smash Order",
-    teamB: "Net Kings",
-    winner: "Smash Order",
-    round: "Semi-finals"
+    createdAt: seedAt(-7 * 24 * 60),
+    updatedAt: seedAt(-26)
   },
   {
     id: "m-4",
@@ -1397,19 +1436,16 @@ export const SEED_TOURNAMENT_MATCHES: TournamentMatch[] = [
     roundNumber: 1,
     matchNumber: 2,
     roundLabel: "Semi-finals",
-    teamAId: "Featherstorm",
-    teamBId: "Backline",
-    refereeId: "op-7",
+    teamAId: "tr-2-team-3",
+    teamBId: "tr-2-team-4",
+    playingAreaId: "pa-5",
+    refereeId: "c-4",
     status: "live",
-    startedAt: "Today, 14:35",
-    scheduledAt: "Today, 14:30",
+    startedAt: seedAt(-20),
+    scheduledAt: seedAt(-25),
     nextMatchId: "m-6",
-    createdAt: "Last week",
-    updatedAt: "Today, 14:35",
-    /* deprecated compat */
-    teamA: "Featherstorm",
-    teamB: "Backline",
-    round: "Semi-finals"
+    createdAt: seedAt(-7 * 24 * 60),
+    updatedAt: seedAt(-20)
   },
   {
     id: "m-6",
@@ -1417,29 +1453,20 @@ export const SEED_TOURNAMENT_MATCHES: TournamentMatch[] = [
     roundNumber: 2,
     matchNumber: 1,
     roundLabel: "Final",
-    refereeId: "op-7",
+    teamAId: "tr-2-team-1",
+    playingAreaId: "pa-5",
+    refereeId: "c-4",
     status: "scheduled",
-    scheduledAt: "Today, 15:00",
-    createdAt: "Last week",
-    updatedAt: "Last week",
-    /* deprecated compat */
-    round: "Final"
+    scheduledAt: seedAt(15),
+    createdAt: seedAt(-7 * 24 * 60),
+    updatedAt: seedAt(-26)
   }
 ];
 
-export const SEED_TRANSACTIONS: Transaction[] = [
-  { id: "t-1", sessionId: "s-1", territoryId: "hvd-central", bookingId: "b-1", kind: "payment", amount: 499, method: "card", status: "settled", at: "18:12" },
-  { id: "t-2", sessionId: "s-1", territoryId: "hvd-central", bookingId: "b-5", kind: "payment", amount: 499, method: "upi", status: "settled", at: "18:20" },
-  { id: "t-3", sessionId: "s-2", territoryId: "hvd-central", bookingId: "b-10", kind: "payment", amount: 349, method: "upi", status: "settled", at: "18:41" },
-  { id: "t-4", sessionId: "s-11", territoryId: "hvd-central", bookingId: "b-72", kind: "refund", amount: -249, method: "card", status: "settled", at: "17:05" },
-  { id: "t-5", sessionId: "s-2", territoryId: "hvd-central", bookingId: "b-12", kind: "promo", amount: -90, method: "promo", status: "pending", at: "19:01" },
-  { id: "t-6", sessionId: "s-8", territoryId: "mum-west", bookingId: "b-51", kind: "payment", amount: 599, method: "card", status: "settled", at: "18:55" },
-  { id: "t-7", sessionId: "s-3", territoryId: "hvd-central", bookingId: "b-30", kind: "adjustment", amount: -25, method: "adjustment", status: "pending", at: "19:10" },
-  { id: "t-8", sessionId: "s-10", territoryId: "hvd-central", bookingId: "b-62", kind: "payment", amount: 499, method: "upi", status: "settled", at: "18:02" },
-  { id: "t-9", sessionId: "s-7", territoryId: "blr-south", bookingId: "b-48", kind: "payment", amount: 199, method: "card", status: "pending", at: "18:47" },
-  { id: "t-10", sessionId: "s-1", territoryId: "hvd-central", bookingId: "b-6", kind: "payment", amount: 499, method: "card", status: "settled", at: "18:30" },
-  { id: "t-11", sessionId: "s-9", territoryId: "mum-west", bookingId: "b-56", kind: "payment", amount: 299, method: "upi", status: "settled", at: "17:55" },
-  { id: "t-12", sessionId: "s-10", territoryId: "hvd-central", bookingId: "b-70", kind: "refund", amount: -499, method: "card", status: "failed", at: "18:20" }
+/** Manual ledger entries (promotions and adjustments). Payment and refund rows are derived — see SEED_TRANSACTIONS. */
+const SEED_MANUAL_TRANSACTIONS: Transaction[] = [
+  { id: "t-5", sessionId: "s-2", territoryId: "hvd-central", bookingId: "b-12", kind: "promo", amount: -90, method: "promo", status: "pending", at: "Today, 19:01" },
+  { id: "t-7", sessionId: "s-3", territoryId: "hvd-central", bookingId: "b-30", kind: "adjustment", amount: -25, method: "adjustment", status: "pending", at: "Today, 19:10" }
 ];
 
 export const SEED_INCIDENTS: Incident[] = [
@@ -1448,195 +1475,187 @@ export const SEED_INCIDENTS: Incident[] = [
     incidentCode: "INC-HVD-001",
     sessionId: "s-1",
     territoryId: "hvd-central",
-    cityId: "city-hvd",
-    venueId: "v-1",
+    cityId: "c-hyd",
+    venueId: "v-3",
     category: "equipment",
     severity: "medium",
-    status: "active",
+    status: "acknowledged",
     reportedBy: "op-7",
-    reportedAt: "Today, 19:24",
-    occurredAt: "Today, 19:20",
+    reportedAt: seedAt(-42),
+    occurredAt: seedAt(-45),
+    acknowledgedAt: seedAt(-38),
+    acknowledgedBy: "op-5",
     participantTemporaryIds: ["CR-01"],
     staffIds: ["op-7"],
-    immediateAction: "Replaced cricket bat",
+    immediateAction: "Replaced cricket bat with a spare from the kit",
     medicalAssistance: false,
     venueEscalated: false,
-    followUpOwnerId: "op-4",
-    evidenceItemIds: ["ev-1"],
-    notes: "Broken cricket handle during standard cover drive shot.",
-    createdAt: "Today, 19:24",
-    updatedAt: "Today, 19:24",
-    /* deprecated compat */
-    reporterId: "op-7",
-    type: "Equipment issue",
-    time: "19:24",
-    peopleInvolved: ["CR-01"],
-    escalatedToVenue: false,
-    ownerId: "op-4"
+    evidenceItemIds: ["ev-1", "ev-2"],
+    notes: "Bat handle broke during a cover drive. No one was hurt; play resumed after the swap.",
+    createdAt: seedAt(-42),
+    updatedAt: seedAt(-38)
   },
   {
     id: "i-2",
     incidentCode: "INC-MUM-001",
     sessionId: "s-8",
     territoryId: "mum-west",
-    cityId: "city-mum",
-    venueId: "v-5",
+    cityId: "c-mum",
+    venueId: "v-6",
     category: "crowd",
     severity: "low",
     status: "triaged",
     reportedBy: "op-7",
-    reportedAt: "Today, 18:50",
-    occurredAt: "Today, 18:45",
+    reportedAt: seedAt(-75),
+    occurredAt: seedAt(-80),
+    acknowledgedAt: seedAt(-72),
+    acknowledgedBy: "op-9",
+    triagedAt: seedAt(-70),
+    triagedBy: "op-9",
     participantTemporaryIds: [],
     staffIds: ["op-7"],
-    immediateAction: "Kept observing",
+    immediateAction: "Opened a second check-in lane",
     medicalAssistance: false,
     venueEscalated: false,
     followUpOwnerId: "op-3",
-    notes: "Slight crowding near the check-in desk.",
-    triageSeverityReview: "Low — no safety risk, cosmetic queue issue",
-    triageImmediateRisk: "None",
+    followUpDueAt: seedAt(24 * 60),
+    notes: "Crowding near the check-in desk before the session started.",
+    triageSeverityReview: "Severity confirmed as low",
+    triageImmediateRisk: "None — queue only",
     triageVenueImpact: "Minimal",
-    triageRecommendation: "Monitor during next 30 min",
-    createdAt: "Today, 18:50",
-    updatedAt: "Today, 18:55",
-    /* deprecated compat */
-    reporterId: "op-7",
-    type: "Crowd concern",
-    time: "18:50",
-    peopleInvolved: [],
-    escalatedToVenue: false,
-    ownerId: "op-3"
+    triageRecommendation: "Add a second check-in lane for sessions above 20 participants.",
+    createdAt: seedAt(-75),
+    updatedAt: seedAt(-70)
   },
   {
     id: "i-3",
     incidentCode: "INC-HVD-002",
     sessionId: "s-11",
     territoryId: "hvd-central",
-    cityId: "city-hvd",
+    cityId: "c-hyd",
     venueId: "v-2",
     category: "weather",
     severity: "high",
     status: "closed",
     reportedBy: "op-4",
-    reportedAt: "Yesterday, 16:30",
-    occurredAt: "Yesterday, 16:00",
+    reportedAt: seedAt(-26 * 60),
+    occurredAt: seedAt(-26 * 60 - 30),
+    acknowledgedAt: seedAt(-26 * 60 + 5),
+    acknowledgedBy: "op-4",
+    triagedAt: seedAt(-26 * 60 + 10),
+    triagedBy: "op-9",
     participantTemporaryIds: [],
     staffIds: ["op-4"],
-    immediateAction: "Cancelled session, refunds queued",
+    immediateAction: "Cancelled the session and queued refunds",
     medicalAssistance: false,
     venueEscalated: true,
-    followUpOwnerId: "op-4",
-    resolution: "Session cancelled, all bookings refunded via standard refund flow.",
-    closedAt: "Yesterday, 18:00",
-    closedBy: "op-4",
+    investigatorId: "op-9",
+    resolution: "Session cancelled under the weather policy; every booking refunded through the standard refund flow.",
+    resolvedAt: seedAt(-25 * 60),
+    resolvedBy: "op-9",
+    closedAt: seedAt(-24 * 60),
+    closedBy: "op-9",
     evidenceItemIds: ["ev-3"],
-    notes: "Rooftop TT cancelled due to rain and lightning.",
-    createdAt: "Yesterday, 16:30",
-    updatedAt: "Yesterday, 18:00",
-    /* deprecated compat */
-    reporterId: "op-4",
-    type: "Weather — cancelled",
-    time: "Yesterday",
-    peopleInvolved: [],
-    escalatedToVenue: true,
-    ownerId: "op-4"
+    notes: "Rooftop table tennis cancelled due to rain and lightning.",
+    triageSeverityReview: "Severity confirmed as high",
+    triageImmediateRisk: "Lightning risk on the rooftop",
+    triageRecommendation: "Cancel the session and refund every booking under the weather policy.",
+    createdAt: seedAt(-26 * 60),
+    updatedAt: seedAt(-24 * 60)
   },
   {
     id: "i-4",
     incidentCode: "INC-HVD-003",
     sessionId: "s-10",
     territoryId: "hvd-central",
-    cityId: "city-hvd",
+    cityId: "c-hyd",
     venueId: "v-3",
     category: "injury",
     severity: "medium",
     status: "resolved",
     reportedBy: "op-7",
-    reportedAt: "Yesterday, 20:40",
-    occurredAt: "Yesterday, 20:35",
+    reportedAt: seedAt(-17 * 60),
+    occurredAt: seedAt(-17 * 60 - 5),
+    acknowledgedAt: seedAt(-17 * 60 + 5),
+    acknowledgedBy: "op-7",
+    triagedAt: seedAt(-17 * 60 + 10),
+    triagedBy: "op-5",
     participantTemporaryIds: ["CR-35"],
     staffIds: ["op-7", "op-4"],
-    immediateAction: "Applied ice pack, monitored",
+    immediateAction: "Applied an ice pack and monitored the participant",
     medicalAssistance: false,
     venueEscalated: false,
-    followUpOwnerId: "op-4",
-    resolution: "Participant recovered on-site. Walked out unassisted. No follow-up required.",
+    investigatorId: "op-9",
+    resolution: "Participant recovered on site and walked out unassisted. No further action needed.",
+    resolvedAt: seedAt(-16 * 60),
+    resolvedBy: "op-9",
     evidenceItemIds: ["ev-4"],
-    notes: "Minor ankle twist during final over. Participant walked out on own.",
-    createdAt: "Yesterday, 20:40",
-    updatedAt: "Yesterday, 21:00",
-    /* deprecated compat */
-    reporterId: "op-7",
-    type: "Participant injury",
-    time: "Yesterday, 20:40",
-    peopleInvolved: ["CR-35"],
-    escalatedToVenue: false,
-    ownerId: "op-4"
+    notes: "Minor ankle twist during the final over.",
+    triageSeverityReview: "Severity confirmed as medium",
+    triageImmediateRisk: "Low — participant alert and weight-bearing",
+    triageRecommendation: "Monitor for 30 minutes and record the first-aid assessment.",
+    createdAt: seedAt(-17 * 60),
+    updatedAt: seedAt(-16 * 60)
   },
   {
     id: "i-5",
     incidentCode: "INC-BLR-001",
-    sessionId: "s-6",
     tournamentId: "tr-2",
     matchId: "m-3",
     territoryId: "blr-south",
-    cityId: "city-blr",
+    cityId: "c-blr",
     venueId: "v-4",
     category: "misconduct",
     severity: "high",
     status: "investigating",
     reportedBy: "op-7",
-    reportedAt: "Today, 14:28",
-    occurredAt: "Today, 14:25",
+    reportedAt: seedAt(-40),
+    occurredAt: seedAt(-42),
+    acknowledgedAt: seedAt(-38),
+    acknowledgedBy: "op-9",
+    triagedAt: seedAt(-35),
+    triagedBy: "op-9",
     participantTemporaryIds: ["BD-12"],
     staffIds: ["op-7"],
-    immediateAction: "Verbal warning issued, match paused briefly",
+    immediateAction: "Verbal warning issued and the match paused briefly",
     medicalAssistance: false,
     venueEscalated: false,
-    investigatorId: "op-7",
-    followUpOwnerId: "op-7",
+    investigatorId: "op-9",
     evidenceItemIds: ["ev-5", "ev-6"],
-    notes: "Player BD-12 argued aggressively with referee after disputed line call during semi-final. Required brief match pause.",
-    createdAt: "Today, 14:28",
-    updatedAt: "Today, 14:35"
+    notes: "Player BD-12 argued aggressively with the referee after a disputed line call in the semi-final.",
+    triageSeverityReview: "Severity confirmed as high",
+    triageImmediateRisk: "Repeat confrontation possible if BD-12 plays again today",
+    triageRecommendation: "Open a moderation case and consider a formal warning before the final.",
+    createdAt: seedAt(-40),
+    updatedAt: seedAt(-30)
   },
   {
     id: "i-6",
     incidentCode: "INC-HVD-004",
     sessionId: "s-1",
     territoryId: "hvd-central",
-    cityId: "city-hvd",
-    venueId: "v-1",
+    cityId: "c-hyd",
+    venueId: "v-3",
     category: "injury",
     severity: "critical",
-    status: "escalated",
+    status: "reported",
     reportedBy: "op-5",
-    reportedAt: "Today, 19:45",
-    occurredAt: "Today, 19:42",
+    reportedAt: seedAt(-22),
+    occurredAt: seedAt(-24),
     participantTemporaryIds: ["CR-08"],
     staffIds: ["op-5", "op-4"],
-    immediateAction: "Session paused. First aid administered. Venue medical team called.",
+    immediateAction: "Session paused. First aid given and the venue medical team called.",
     medicalAssistance: true,
-    emergencyServicesPlaceholder: "[SIMULATED] Ambulance dispatch placeholder — not real",
-    venueEscalated: true,
-    followUpOwnerId: "op-4",
+    venueEscalated: false,
     evidenceItemIds: ["ev-7", "ev-8"],
-    notes: "Participant CR-08 took a sharp blow to the head from a cricket bat during play. Conscious but dizzy. Session paused immediately.",
-    triageSeverityReview: "Critical — head injury with potential concussion",
-    triageImmediateRisk: "High — requires medical assessment",
-    triageVenueImpact: "Session paused, remaining participants waiting",
-    triageSessionImpact: "Session likely to be cancelled",
-    triageProtectionActions: "Area cordoned off, first aid applied, venue medical informed",
-    triageFollowUp: "Follow up with venue medical team within 30 minutes",
-    triageRecommendation: "Escalate to venue management, consider session cancellation",
-    createdAt: "Today, 19:45",
-    updatedAt: "Today, 19:50"
+    notes: "Participant CR-08 was struck on the head by a bat during play. Conscious but dizzy; session paused immediately.",
+    createdAt: seedAt(-22),
+    updatedAt: seedAt(-22)
   }
 ];
 
 /* ------------------------------------------------------------------
- * SA-P2H: Evidence Items (placeholders — no real uploads)
+ * SA-P2H: Evidence register (metadata only — files are kept outside the console)
  * ------------------------------------------------------------------ */
 
 export const SEED_EVIDENCE_ITEMS: EvidenceItem[] = [
@@ -1645,14 +1664,14 @@ export const SEED_EVIDENCE_ITEMS: EvidenceItem[] = [
     incidentId: "i-1",
     type: "image-placeholder",
     label: "Broken bat handle photo",
-    description: "Close-up of cracked bat handle showing the break point.",
+    description: "Close-up of the cracked handle showing the break point.",
     placeholderFileName: "bat_handle_damage.jpg",
     capturedBy: "op-7",
-    capturedAt: "Today, 19:25",
+    capturedAt: seedAt(-41),
     sensitivity: "low",
     status: "collected",
-    createdAt: "Today, 19:25",
-    updatedAt: "Today, 19:25"
+    createdAt: seedAt(-41),
+    updatedAt: seedAt(-41)
   },
   {
     id: "ev-2",
@@ -1661,11 +1680,11 @@ export const SEED_EVIDENCE_ITEMS: EvidenceItem[] = [
     label: "Equipment inspection note",
     description: "Bat was regulation-approved. Handle failure was material fatigue, not misuse.",
     capturedBy: "op-7",
-    capturedAt: "Today, 19:30",
+    capturedAt: seedAt(-39),
     sensitivity: "low",
     status: "reviewed",
-    createdAt: "Today, 19:30",
-    updatedAt: "Today, 19:35"
+    createdAt: seedAt(-39),
+    updatedAt: seedAt(-35)
   },
   {
     id: "ev-3",
@@ -1674,76 +1693,78 @@ export const SEED_EVIDENCE_ITEMS: EvidenceItem[] = [
     label: "Weather cancellation report",
     description: "Venue management report confirming unsafe rooftop conditions due to lightning.",
     capturedBy: "op-4",
-    capturedAt: "Yesterday, 16:35",
+    capturedAt: seedAt(-26 * 60 + 5),
     sensitivity: "low",
     status: "archived",
-    createdAt: "Yesterday, 16:35",
-    updatedAt: "Yesterday, 18:00"
+    createdAt: seedAt(-26 * 60 + 5),
+    updatedAt: seedAt(-24 * 60)
   },
   {
     id: "ev-4",
     incidentId: "i-4",
     type: "medical-placeholder",
-    label: "Ankle injury assessment",
-    description: "[SIMULATED] First-aid assessment record for CR-35 ankle twist.",
+    label: "Ankle injury first-aid record",
+    description: "First-aid assessment for CR-35. Kept in the venue first-aid log book.",
+    placeholderFileName: "Venue first-aid log, page 14",
     capturedBy: "op-7",
-    capturedAt: "Yesterday, 20:45",
+    capturedAt: seedAt(-17 * 60 + 5),
     sensitivity: "high",
     status: "collected",
-    createdAt: "Yesterday, 20:45",
-    updatedAt: "Yesterday, 21:00"
+    createdAt: seedAt(-17 * 60 + 5),
+    updatedAt: seedAt(-16 * 60)
   },
   {
     id: "ev-5",
     incidentId: "i-5",
     type: "witness-statement",
-    label: "Referee statement — misconduct",
-    description: "Referee op-7 statement: BD-12 approached aggressively after line call, raised voice, used inappropriate language.",
+    label: "Referee statement",
+    description: "BD-12 approached aggressively after the line call, raised their voice and used inappropriate language.",
     capturedBy: "op-7",
-    capturedAt: "Today, 14:30",
+    capturedAt: seedAt(-38),
     sensitivity: "medium",
     status: "collected",
-    createdAt: "Today, 14:30",
-    updatedAt: "Today, 14:30"
+    createdAt: seedAt(-38),
+    updatedAt: seedAt(-38)
   },
   {
     id: "ev-6",
     incidentId: "i-5",
     type: "witness-statement",
-    label: "Nearby player statement",
-    description: "Player from opposing team confirms BD-12 was aggressive but did not make physical contact.",
+    label: "Opposing player statement",
+    description: "Confirms BD-12 was aggressive but made no physical contact.",
     capturedBy: "op-7",
-    capturedAt: "Today, 14:32",
+    capturedAt: seedAt(-36),
     sensitivity: "medium",
     status: "collected",
-    createdAt: "Today, 14:32",
-    updatedAt: "Today, 14:32"
+    createdAt: seedAt(-36),
+    updatedAt: seedAt(-36)
   },
   {
     id: "ev-7",
     incidentId: "i-6",
     type: "medical-placeholder",
     label: "Head injury first-aid log",
-    description: "[SIMULATED] First-responder notes for CR-08 head trauma. Patient conscious, GCS 14.",
+    description: "First-responder notes for CR-08. Held by the venue medical team.",
     capturedBy: "op-5",
-    capturedAt: "Today, 19:46",
+    capturedAt: seedAt(-21),
     sensitivity: "restricted",
     status: "pending",
-    createdAt: "Today, 19:46",
-    updatedAt: "Today, 19:46"
+    createdAt: seedAt(-21),
+    updatedAt: seedAt(-21)
   },
   {
     id: "ev-8",
     incidentId: "i-6",
     type: "image-placeholder",
-    label: "Scene photo — playing area",
-    description: "Photo of the playing area where the incident occurred showing bat position.",
+    label: "Playing area photo",
+    description: "Photo of the pitch where the incident happened.",
+    placeholderFileName: "pitch1_scene.jpg",
     capturedBy: "op-5",
-    capturedAt: "Today, 19:47",
+    capturedAt: seedAt(-20),
     sensitivity: "medium",
     status: "pending",
-    createdAt: "Today, 19:47",
-    updatedAt: "Today, 19:47"
+    createdAt: seedAt(-20),
+    updatedAt: seedAt(-20)
   }
 ];
 
@@ -1756,59 +1777,63 @@ export const SEED_DISPUTES: Dispute[] = [
     id: "disp-1",
     type: "match-result",
     status: "under-review",
-    reason: "Team claims the final score was miscounted. Referee counted a wide ball that was actually a no-ball.",
+    reason: "Net Kings say the semi-final score was miscounted: a serve called out in the second game was in.",
     relatedEntityType: "tournament-match",
     relatedEntityId: "m-3",
     tournamentId: "tr-2",
     matchId: "m-3",
     submittedBy: "Net Kings (captain)",
-    submittedAt: "Today, 14:35",
-    reviewerId: "op-7",
-    assignedAt: "Today, 14:40",
-    notes: "Reviewing referee match notes and scorecard.",
-    createdAt: "Today, 14:35",
-    updatedAt: "Today, 14:40"
+    submittedAt: seedAt(-24),
+    recordedBy: "op-7",
+    reviewerId: "op-9",
+    assignedAt: seedAt(-20),
+    notes: "Reviewing the referee's scorecard.",
+    createdAt: seedAt(-24),
+    updatedAt: seedAt(-20)
   },
   {
     id: "disp-2",
     type: "booking-refund",
-    status: "upheld",
-    reason: "Session s-11 was cancelled due to weather. Customer requests full refund not yet processed.",
+    status: "closed",
+    reason: "Session s-11 was cancelled due to weather. Customer asks why the refund has not arrived.",
     relatedEntityType: "session",
     relatedEntityId: "s-11",
     sessionId: "s-11",
-    submittedBy: "Customer (b-72)",
-    submittedAt: "Yesterday, 18:00",
-    reviewerId: "op-4",
-    assignedAt: "Yesterday, 18:05",
-    decision: "Full refund approved — session was cancelled by operator due to weather.",
-    decisionReason: "Weather cancellation policy applies. Customer eligible for full refund.",
-    decidedBy: "op-4",
-    decidedAt: "Yesterday, 18:30",
+    bookingId: "b-72",
+    submittedBy: "Customer (booking b-72)",
+    submittedAt: seedAt(-25 * 60),
+    recordedBy: "op-8",
+    reviewerId: "op-9",
+    assignedAt: seedAt(-25 * 60 + 5),
+    decision: "Full refund approved — the session was cancelled by us due to weather.",
+    decisionReason: "Weather cancellation policy applies; the customer is eligible for a full refund.",
+    decidedBy: "op-9",
+    decidedAt: seedAt(-24 * 60 - 30),
     correctionCreated: true,
     correctionId: "rex-1",
-    closedAt: "Yesterday, 18:30",
-    closedBy: "op-4",
-    createdAt: "Yesterday, 18:00",
-    updatedAt: "Yesterday, 18:30"
+    closedAt: seedAt(-24 * 60),
+    closedBy: "op-9",
+    createdAt: seedAt(-25 * 60),
+    updatedAt: seedAt(-24 * 60)
   },
   {
     id: "disp-3",
     type: "participant-conduct",
     status: "evidence-requested",
-    reason: "Team Backline alleges unsportsmanlike behavior from a Featherstorm player during warm-up.",
+    reason: "Backline allege unsportsmanlike behaviour from a Featherstorm player during warm-up.",
     relatedEntityType: "tournament",
     relatedEntityId: "tr-2",
     tournamentId: "tr-2",
     submittedBy: "Backline (captain)",
-    submittedAt: "Today, 14:00",
-    reviewerId: "op-7",
-    assignedAt: "Today, 14:05",
+    submittedAt: seedAt(-65),
+    recordedBy: "op-7",
+    reviewerId: "op-9",
+    assignedAt: seedAt(-60),
     evidenceRequested: true,
-    evidenceRequestedAt: "Today, 14:10",
-    notes: "Requesting witness statements from nearby staff.",
-    createdAt: "Today, 14:00",
-    updatedAt: "Today, 14:10"
+    evidenceRequestedAt: seedAt(-55),
+    notes: "Evidence requested: witness statements from court-side staff.",
+    createdAt: seedAt(-65),
+    updatedAt: seedAt(-55)
   }
 ];
 
@@ -1824,15 +1849,15 @@ export const SEED_MODERATION_CASES: ModerationCase[] = [
     relatedTournamentIds: ["tr-2"],
     category: "misconduct",
     severity: "high",
-    status: "reviewing",
-    assignedReviewerId: "op-7",
+    status: "action-proposed",
+    assignedReviewerId: "op-9",
     evidencePlaceholderIds: ["ev-5", "ev-6"],
     recommendedAction: "formal-warning",
     originType: "incident",
     originId: "i-5",
-    notes: "Player argued aggressively with referee. First recorded offense for this participant.",
-    createdAt: "Today, 14:35",
-    updatedAt: "Today, 14:40"
+    notes: "Argued aggressively with the referee. First recorded offence for this participant.",
+    createdAt: seedAt(-32),
+    updatedAt: seedAt(-30)
   },
   {
     id: "mod-case-2",
@@ -1842,15 +1867,33 @@ export const SEED_MODERATION_CASES: ModerationCase[] = [
     category: "repeated-misconduct",
     severity: "medium",
     status: "action-proposed",
-    assignedReviewerId: "op-4",
+    assignedReviewerId: "op-9",
     previousActionIds: ["mod-act-3"],
     recommendedAction: "temporary-suspension",
-    decision: "Propose 7-day suspension from all cricket sessions in Hyderabad Central.",
     originType: "staff-report",
     originId: "staff-report-001",
-    notes: "Third incident of disruptive behavior across two sessions. Previous informal note had no effect.",
-    createdAt: "Today, 10:00",
-    updatedAt: "Today, 11:00"
+    notes: "Third disruptive incident across two sessions. The earlier informal note had no effect.",
+    createdAt: seedAt(-8 * 60),
+    updatedAt: seedAt(-7 * 60)
+  },
+  {
+    id: "mod-case-3",
+    subjectTemporaryId: "CR-17",
+    relatedIncidentIds: [],
+    relatedSessionIds: ["s-5"],
+    category: "safety-violation",
+    severity: "medium",
+    status: "approved",
+    assignedReviewerId: "op-9",
+    previousActionIds: ["mod-act-4"],
+    decision: "Approved temporary suspension",
+    decidedBy: "op-2",
+    decidedAt: seedAt(-20 * 24 * 60),
+    originType: "staff-report",
+    originId: "staff-report-000",
+    notes: "Played with metal studs after two reminders. Suspension has since expired.",
+    createdAt: seedAt(-21 * 24 * 60),
+    updatedAt: seedAt(-20 * 24 * 60)
   }
 ];
 
@@ -1864,46 +1907,62 @@ export const SEED_MODERATION_ACTIONS: ModerationAction[] = [
     caseId: "mod-case-1",
     type: "formal-warning",
     subjectTemporaryId: "BD-12",
-    reason: "Aggressive behavior toward referee during tournament match. Verbal warning escalated to formal warning.",
+    reason: "Aggressive behaviour toward the referee during a tournament match. Verbal warning escalated to a formal warning.",
     evidenceIds: ["ev-5", "ev-6"],
     scope: "tournament",
     scopeEntityId: "tr-2",
-    effectiveDate: "Today",
+    effectiveDate: seedAt(-30),
     status: "proposed",
     createdBy: "op-7",
-    createdAt: "Today, 14:40",
-    updatedAt: "Today, 14:40"
+    createdAt: seedAt(-30),
+    updatedAt: seedAt(-30)
   },
   {
     id: "mod-act-2",
     caseId: "mod-case-2",
     type: "temporary-suspension",
     subjectTemporaryId: "CR-22",
-    reason: "Third incident of disruptive behavior. Previous informal note (mod-act-3) was insufficient.",
+    reason: "Third incident of disruptive behaviour. The previous informal note (mod-act-3) was not enough.",
     scope: "territory",
     scopeEntityId: "hvd-central",
-    effectiveDate: "Today",
-    expiryDate: "Next week",
+    effectiveDate: seedAt(-7 * 60),
+    expiryDate: seedAt(7 * 24 * 60),
     status: "proposed",
     createdBy: "op-4",
-    createdAt: "Today, 11:00",
-    updatedAt: "Today, 11:00"
+    createdAt: seedAt(-7 * 60),
+    updatedAt: seedAt(-7 * 60)
   },
   {
     id: "mod-act-3",
     caseId: "mod-case-2",
     type: "informal-note",
     subjectTemporaryId: "CR-22",
-    reason: "Verbal altercation with another participant during session s-10. Spoke to participant, noted the incident.",
+    reason: "Verbal altercation with another participant during session s-10. Spoke to the participant and noted it.",
     scope: "venue",
     scopeEntityId: "v-3",
-    effectiveDate: "Yesterday",
+    effectiveDate: seedAt(-3 * 24 * 60),
     status: "active",
-    approvedBy: "op-4",
-    approvedAt: "Yesterday, 21:00",
+    approvedBy: "op-9",
+    approvedAt: seedAt(-3 * 24 * 60),
     createdBy: "op-7",
-    createdAt: "Yesterday, 20:50",
-    updatedAt: "Yesterday, 21:00"
+    createdAt: seedAt(-3 * 24 * 60),
+    updatedAt: seedAt(-3 * 24 * 60)
+  },
+  {
+    id: "mod-act-4",
+    caseId: "mod-case-3",
+    type: "temporary-suspension",
+    subjectTemporaryId: "CR-17",
+    reason: "Repeated equipment safety violations (metal studs on turf) after two reminders.",
+    scope: "platform",
+    effectiveDate: seedAt(-20 * 24 * 60),
+    expiryDate: seedAt(-6 * 24 * 60),
+    status: "active",
+    approvedBy: "op-2",
+    approvedAt: seedAt(-20 * 24 * 60),
+    createdBy: "op-9",
+    createdAt: seedAt(-21 * 24 * 60),
+    updatedAt: seedAt(-20 * 24 * 60)
   }
 ];
 
@@ -1921,7 +1980,7 @@ export const SEED_REFUND_EXCEPTIONS: RefundException[] = [
     reason: "safety-incident",
     amount: 249,
     currency: "INR",
-    status: "approved",
+    status: "completed",
     recommendedBy: "op-4",
     recommendedAt: "Yesterday, 18:10",
     reviewedBy: "op-1",
@@ -1937,6 +1996,7 @@ export const SEED_REFUND_EXCEPTIONS: RefundException[] = [
     id: "rex-2",
     incidentId: "i-6",
     sessionId: "s-1",
+    bookingId: "b-8",
     reason: "medical-incident",
     amount: 499,
     currency: "INR",
@@ -1985,42 +2045,147 @@ export const SEED_PROMOS: PromoCode[] = [
   { code: "MONSOON", label: "Rainy night · 25% off", discount: "25%", status: "expired" }
 ];
 
+/**
+ * One payment per paid booking. The payment provider is not connected, so
+ * every received payment is a manual record with its method and reference.
+ * Yesterday's completed session has been matched against the statement.
+ */
 export const SEED_PAYMENTS: Payment[] = SEED_BOOKINGS.filter(
-  (b) => b.paymentStatus === "confirmed" || b.paymentStatus === "pending" || b.paymentStatus === "failed"
-).map((b) => ({
-  id: `pay-${b.id}`,
-  bookingId: b.id,
-  sessionId: b.sessionId,
-  provider: "razorpay_sim",
-  providerReference: `pay_ref_${b.id}`,
-  amount: b.amount,
-  status: b.paymentStatus === "confirmed" ? "confirmed" : b.paymentStatus === "failed" ? "failed" : "pending",
-  paymentMethod: b.method || "card",
-  initiatedAt: b.createdAt,
-  confirmedAt: b.confirmedAt,
-  failedAt: b.paymentStatus === "failed" ? b.createdAt : undefined,
-  createdAt: b.createdAt,
-  updatedAt: b.createdAt
-}));
+  (b) => b.bookingType !== "complimentary" && b.amount > 0 && ["confirmed", "pending", "failed", "refunded", "refund-pending"].includes(String(b.paymentStatus))
+).map((b) => {
+  const status: Payment["status"] =
+    b.paymentStatus === "pending" ? "pending" : b.paymentStatus === "failed" ? "failed" : b.sessionId === "s-10" ? "reconciled" : "confirmed";
+  const received = status === "confirmed" || status === "reconciled";
+  return {
+    id: `pay-${b.id}`,
+    bookingId: b.id,
+    sessionId: b.sessionId,
+    provider: "manual",
+    providerReference: received ? b.paymentReference ?? seedPaymentReference(b.id, b.method ?? "card") : undefined,
+    amount: b.amount,
+    status,
+    paymentMethod: received ? b.method || "card" : b.paymentStatus === "failed" ? b.method : undefined,
+    initiatedAt: b.reservedAt ?? b.createdAt,
+    confirmedAt: received ? b.confirmedAt ?? b.createdAt : undefined,
+    failedAt: status === "failed" ? b.createdAt : undefined,
+    failureReason: status === "failed" ? "UPI collect request declined by the customer" : undefined,
+    createdAt: b.createdAt,
+    updatedAt: b.createdAt
+  };
+});
 
 export const SEED_REFUNDS: Refund[] = [
   {
     id: "ref-001",
-    paymentId: "pay-b-1",
-    bookingId: "b-1",
-    sessionId: "s-1",
+    paymentId: "pay-b-72",
+    bookingId: "b-72",
+    sessionId: "s-11",
+    type: "company-cancellation",
+    amount: 249,
+    reason: "Weather cancellation — customer dispute upheld, exception refund approved.",
+    status: "completed",
+    requestedAt: "Yesterday, 18:10",
+    approvedAt: "Yesterday, 18:25",
+    approvedBy: "op-1",
+    payoutMethod: "card",
+    payoutReference: "RFND-240118",
+    completedAt: "Yesterday, 18:40",
+    completedBy: "op-6",
+    refundExceptionId: "rex-1",
+    createdAt: "Yesterday, 18:10",
+    updatedAt: "Yesterday, 18:40"
+  },
+  {
+    id: "ref-002",
+    paymentId: "pay-b-73",
+    bookingId: "b-73",
+    sessionId: "s-11",
+    type: "company-cancellation",
+    amount: 249,
+    reason: "Session cancelled: venue power outage",
+    status: "completed",
+    requestedAt: "Yesterday, 17:05",
+    approvedAt: "Yesterday, 17:30",
+    approvedBy: "op-6",
+    payoutMethod: "upi",
+    payoutReference: "UTR884120573311",
+    completedAt: "Yesterday, 18:02",
+    completedBy: "op-6",
+    createdAt: "Yesterday, 17:05",
+    updatedAt: "Yesterday, 18:02"
+  },
+  {
+    id: "ref-003",
+    paymentId: "pay-b-74",
+    bookingId: "b-74",
+    sessionId: "s-11",
+    type: "company-cancellation",
+    amount: 249,
+    reason: "Session cancelled: venue power outage",
+    status: "approved",
+    requestedAt: "Yesterday, 17:05",
+    approvedAt: "Yesterday, 17:31",
+    approvedBy: "op-6",
+    createdAt: "Yesterday, 17:05",
+    updatedAt: "Yesterday, 17:31"
+  },
+  {
+    id: "ref-004",
+    paymentId: "pay-b-75",
+    bookingId: "b-75",
+    sessionId: "s-11",
+    type: "company-cancellation",
+    amount: 249,
+    reason: "Session cancelled: venue power outage",
+    status: "requested",
+    requestedAt: "Yesterday, 17:05",
+    createdAt: "Yesterday, 17:05",
+    updatedAt: "Yesterday, 17:05"
+  },
+  {
+    id: "ref-005",
+    paymentId: "pay-b-71",
+    bookingId: "b-71",
+    sessionId: "s-10",
     type: "user-cancellation",
     amount: 499,
-    reason: "Customer schedule conflict",
+    reason: "Customer schedule conflict — cancelled more than 24 hours before start",
     status: "completed",
-    requestedAt: "Yesterday, 14:00",
-    approvedAt: "Yesterday, 14:05",
-    completedAt: "Yesterday, 14:10",
-    approvedBy: "FIN-01",
-    createdAt: "Yesterday, 14:00",
-    updatedAt: "Yesterday, 14:10"
+    requestedAt: "Yesterday, 12:00",
+    approvedAt: "Yesterday, 12:20",
+    approvedBy: "op-6",
+    payoutMethod: "upi",
+    payoutReference: "UTR884120571904",
+    completedAt: "Yesterday, 13:05",
+    completedBy: "op-6",
+    createdAt: "Yesterday, 12:00",
+    updatedAt: "Yesterday, 13:05"
+  },
+  {
+    id: "ref-006",
+    paymentId: "pay-b-70",
+    bookingId: "b-70",
+    sessionId: "s-10",
+    type: "user-cancellation",
+    amount: 499,
+    reason: "Customer asked for a refund after not attending",
+    status: "rejected",
+    failureReason: "No-show — outside the refund policy",
+    requestedAt: "Yesterday, 21:30",
+    rejectedAt: "Yesterday, 22:10",
+    rejectedBy: "op-6",
+    createdAt: "Yesterday, 21:30",
+    updatedAt: "Yesterday, 22:10"
   }
 ];
+
+/** The money ledger view: derived from payments and refunds, plus manual promo/adjustment rows. */
+export const SEED_TRANSACTIONS: Transaction[] = buildLedgerTransactions({
+  payments: SEED_PAYMENTS,
+  refunds: SEED_REFUNDS,
+  sessions: SEED_SESSIONS,
+  transactions: SEED_MANUAL_TRANSACTIONS
+});
 
 export const SEED_IDENTITY_PATTERNS: IdentityPattern[] = [
   {

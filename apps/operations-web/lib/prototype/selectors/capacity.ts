@@ -1,5 +1,5 @@
 import type { PrototypeState } from "../scenarios/state";
-import type { ScheduledSession, Booking } from "../entities";
+import { seatClass } from "./status";
 
 export interface SessionCapacityLedger {
   sessionId: string;
@@ -33,7 +33,8 @@ export interface SessionCapacityLedger {
  * 1. Remaining capacity can never be negative.
  * 2. Physical occupancy is tracked against physical venue/playing-area capacity.
  * 3. Expired, cancelled, failed, or waitlisted (without offer hold) bookings consume 0 capacity.
- * 4. Checked-in participants are confirmed and do not double-count.
+ * 4. Every booking is classified once by `seatClass`, so nothing is double-counted
+ *    (checked-in participants are confirmed bookings with a `checkedIn` flag).
  */
 export function sessionCapacityLedger(
   state: PrototypeState,
@@ -64,50 +65,38 @@ export function sessionCapacityLedger(
 
   if (!session) return defaultLedger;
 
-  // 1. Physical Capacity Determination
+  // 1. Capacity. The session's configured maximum is the unit that is sold;
+  //    the playing area's capacity is only a fallback for sessions without one.
   const playingArea = state.playingAreas.find((pa) => pa.id === session.playingAreaId);
-  const maxPhysicalCapacity = playingArea?.maxCapacity || session.maxParticipants || 10;
-  const blockedSlots = session.blockedSlots || 0;
-  const compSlots = session.compSlots || 0;
+  const maxPhysicalCapacity = session.maxParticipants || playingArea?.maxCapacity || 10;
+  const blockedSlots = Math.max(0, session.blockedSlots || 0);
+  const compSlots = Math.max(0, session.compSlots || 0);
 
-  // 2. Sellable Capacity = max(0, Physical - Blocked)
-  const sellableCapacity = Math.max(0, maxPhysicalCapacity - blockedSlots);
+  // 2. Sellable capacity = physical − blocked − reserved complimentary slots.
+  const sellableCapacity = Math.max(0, maxPhysicalCapacity - blockedSlots - compSlots);
 
-  // 3. Filter Bookings for Session
-  const sessionBookings = state.bookings.filter((b) => b.sessionId === sessionId);
+  // 3. Classify every booking exactly once (canonical vocabulary, legacy tolerated).
+  let activeReservationHolds = 0;
+  let waitlistOfferHolds = 0;
+  let confirmedPaidBookings = 0;
+  let confirmedComplimentaryBookings = 0;
+  let waitlistCount = 0;
+  for (const b of state.bookings) {
+    if (b.sessionId !== sessionId) continue;
+    switch (seatClass(b)) {
+      case "hold": activeReservationHolds++; break;
+      case "offer": waitlistOfferHolds++; break;
+      case "paid": confirmedPaidBookings++; break;
+      case "comp": confirmedComplimentaryBookings++; break;
+      case "waitlist": waitlistCount++; break;
+      default: break;
+    }
+  }
 
-  // Active reservation holds (reserved or payment-pending, non-complimentary)
-  const activeReservationHolds = sessionBookings.filter((b) => {
-    if (b.bookingType === "complimentary") return false;
-    if (b.reservationStatus === "active") return true;
-    return b.status === "reserved" || b.status === "payment-pending";
-  }).length;
-
-  // Waitlist offer holds (active countdown hold)
-  const waitlistOfferHolds = sessionBookings.filter(
-    (b) => b.reservationStatus === "offer-hold" || b.status === "waitlist-offered"
-  ).length;
-
-  // Confirmed paid bookings
-  const confirmedPaidBookings = sessionBookings.filter((b) => {
-    if (b.bookingType === "complimentary") return false;
-    return b.status === "confirmed" || b.paymentStatus === "confirmed";
-  }).length;
-
-  // Confirmed complimentary bookings
-  const confirmedComplimentaryBookings = sessionBookings.filter((b) => {
-    if (b.bookingType !== "complimentary" && b.status !== "complimentary") return false;
-    return b.status === "confirmed" || b.paymentStatus === "confirmed" || b.status === "complimentary";
-  }).length;
-
-  // Waitlisted entries (0 capacity hold)
-  const waitlistCount = sessionBookings.filter(
-    (b) => b.status === "waitlisted" || b.status === "waitlist-joined"
-  ).length;
-
-  // 4. Occupancy Math
+  // 4. Occupancy. Complimentary seats beyond the reserved comp slots consume sellable capacity.
+  const compOverflow = Math.max(0, confirmedComplimentaryBookings - compSlots);
   const occupiedSellableCapacity =
-    activeReservationHolds + waitlistOfferHolds + confirmedPaidBookings;
+    activeReservationHolds + waitlistOfferHolds + confirmedPaidBookings + compOverflow;
 
   const physicalOccupancy =
     confirmedPaidBookings +
@@ -137,18 +126,8 @@ export function sessionCapacityLedger(
     occupancyStatus = "full";
   } else if (fillRate >= 85) {
     occupancyStatus = "almost-full";
-  } else if (occupiedSellableCapacity < minViableAttendance) {
+  } else if (physicalOccupancy < minViableAttendance) {
     occupancyStatus = "under-minimum";
-  }
-
-  // Development Invariant Assertions
-  if (process.env.NODE_ENV !== "production") {
-    if (remainingSellableCapacity < 0) {
-      console.error(`[CapacityEngine Error] Negative remaining capacity for session ${sessionId}`);
-    }
-    if (physicalOccupancy > maxPhysicalCapacity) {
-      console.warn(`[CapacityEngine Alert] Physical occupancy exceeds max for session ${sessionId}`);
-    }
   }
 
   return {

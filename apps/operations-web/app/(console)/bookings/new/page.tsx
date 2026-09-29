@@ -1,448 +1,261 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { Gift, ListPlus, Ticket } from "lucide-react";
 import { useStore } from "@/lib/store";
+import { cn, inr } from "@/lib/format";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Button } from "@/components/ui/primitives";
+import { PermissionDenied } from "@/components/ui/panels";
+import { Input, Select } from "@/components/ui/fields";
+import { useToast } from "@/components/ui/toast";
 import { sessionCapacityLedger } from "@/lib/prototype/selectors/capacity";
 import { sessionTitle, venueName } from "@/lib/prototype/selectors/lookups";
-import { inr } from "@/lib/format";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { Button, FillMeter, Badge, StatusChip } from "@/components/ui/primitives";
-import { BookingBackNavigation, CapacitySummary, PrototypeModeBanner, bookingTypeLabel } from "@/components/bookings/shared";
-import type { BookingType, BookingSource } from "@/lib/prototype/entities";
-import { Stagger, Item } from "@/components/motion/Motion";
-import { CheckCircle } from "lucide-react";
+import { PAYMENT_METHODS, type PaymentMethodId } from "@/lib/prototype/selectors/money";
+import { bookableSessionStatus } from "@/lib/prototype/selectors/status";
+import { Breadcrumbs, CapacityPanel, PageFrame, ProviderNotice, Section } from "@/components/bookings/shared";
+import { FormField } from "@/components/bookings/dialogs";
 
-type UiBookingType = "Customer Booking" | "Staff Added Booking" | "Free Pass";
-type PaymentOption = "Mark as Paid" | "Waiting for Payment" | "Free Pass";
+type Kind = "paid" | "comp";
 
-export default function AddBookingPage() {
+export default function NewBookingPage() {
   const router = useRouter();
-  const { state, createBookingReservation, confirmBookingPayment, role } = useStore();
+  const toast = useToast();
+  const id = useId();
+  const { state, territory, canAccess, createBookingReservation, confirmBookingPayment, joinWaitlist } = useStore();
 
-  const [step, setStep] = useState<number>(1);
-  const [selectedSessionId, setSelectedSessionId] = useState<string>("");
+  const [sessionId, setSessionId] = useState("");
   const [alias, setAlias] = useState("");
-  const [uiBookingType, setUiBookingType] = useState<UiBookingType>("Customer Booking");
-  const [note, setNote] = useState("");
-  const [paymentOption, setPaymentOption] = useState<PaymentOption>("Mark as Paid");
-  const [createdBookingId, setCreatedBookingId] = useState<string | null>(null);
+  const [phone, setPhone] = useState("");
+  const [kind, setKind] = useState<Kind>("paid");
+  const [paidNow, setPaidNow] = useState(false);
+  const [method, setMethod] = useState<PaymentMethodId>("upi");
+  const [reference, setReference] = useState("");
+  const [touched, setTouched] = useState(false);
+  const [serverError, setServerError] = useState<string>();
 
-  const activeSessions = useMemo(
-    () => state.sessions.filter((s) => s.status !== "cancelled" && s.status !== "archived"),
-    [state.sessions]
+  // Pre-select a session passed as ?session=… (read after mount to keep the page static-renderable).
+  useEffect(() => {
+    const wanted = new URLSearchParams(window.location.search).get("session");
+    if (wanted) setSessionId(wanted);
+  }, []);
+
+  const sessions = useMemo(
+    () => state.sessions.filter((s) => bookableSessionStatus(s.status) && (s.territoryId === territory.id || s.id === sessionId)),
+    [state.sessions, territory.id, sessionId]
   );
+  const session = sessions.find((s) => s.id === sessionId);
+  const ledger = useMemo(() => (session ? sessionCapacityLedger(state, session.id) : undefined), [state, session]);
 
-  const selectedSession = useMemo(
-    () => state.sessions.find((s) => s.id === selectedSessionId),
-    [state.sessions, selectedSessionId]
-  );
+  if (!canAccess("/bookings")) return <PermissionDenied module="Bookings" />;
 
-  const ledger = useMemo(
-    () => (selectedSessionId ? sessionCapacityLedger(state, selectedSessionId) : null),
-    [state, selectedSessionId]
-  );
+  const full = ledger ? ledger.remainingSellableCapacity <= 0 : false;
+  const compLeft = ledger ? Math.max(0, ledger.compSlots - ledger.confirmedComplimentaryBookings) : 0;
+  const compBlocked = kind === "comp" && ledger ? compLeft === 0 && ledger.remainingSellableCapacity <= 0 : false;
+  const waitlistMode = kind === "paid" && full;
+  const price = session ? session.finalPrice || session.basePrice : 0;
 
-  const isFull = ledger ? ledger.remainingSellableCapacity === 0 : false;
-
-  const handleSelectSession = (id: string) => {
-    setSelectedSessionId(id);
-    setStep(2);
+  const errors = {
+    session: !session ? "Choose a session." : undefined,
+    alias: alias.trim().length < 2 ? "Enter a name or alias (at least 2 characters)." : alias.trim().length > 40 ? "Keep it under 40 characters." : undefined,
+    phone: phone && !/^\d{4}$/.test(phone) ? "Enter exactly the last 4 digits, or leave it empty." : undefined,
+    reference: kind === "paid" && !waitlistMode && paidNow && reference.trim().length < 3 ? "Enter the payment reference (at least 3 characters)." : undefined,
   };
+  const invalid = Object.values(errors).some(Boolean) || compBlocked || (waitlistMode && session?.waitlistEnabled === false);
 
-  const handleStep2Continue = () => {
-    setStep(3);
-  };
+  const submit = () => {
+    setTouched(true);
+    setServerError(undefined);
+    if (invalid || !session) return;
+    const phoneMask = phone ? `•••• ${phone}` : undefined;
 
-  const handleStep3Continue = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!alias.trim()) return;
-    setStep(4);
-  };
-
-  const handleConfirm = () => {
-    if (!selectedSessionId || !selectedSession) return;
-
-    let type: BookingType = "individual";
-    let source: BookingSource = "admin";
-
-    if (uiBookingType === "Customer Booking") {
-      type = "individual";
-    } else if (uiBookingType === "Staff Added Booking") {
-      type = "admin";
-      source = "admin";
-    } else if (uiBookingType === "Free Pass") {
-      type = "complimentary";
-      source = "complimentary";
-    }
-
-    if (paymentOption === "Free Pass") {
-      type = "complimentary";
-      source = "complimentary";
-    }
-
-    const res = createBookingReservation({
-      sessionId: selectedSessionId,
-      alias,
-      bookingType: type,
-      source,
-      amount: paymentOption === "Free Pass" ? 0 : selectedSession.basePrice,
-      operatorId: role.id,
-      notes: note,
-    } as any);
-
-    if (res.error) {
-      alert(res.error);
+    if (waitlistMode) {
+      const out = joinWaitlist({ sessionId: session.id, alias: alias.trim(), phoneMask });
+      if (out.error || !out.booking) {
+        setServerError(out.error);
+        toast.error("Not added to the waitlist", out.error);
+        return;
+      }
+      toast.success("Added to the waitlist", `${out.booking.alias} will be offered the next free seat.`);
+      router.push(`/bookings/${out.booking.id}`);
       return;
     }
 
-    if (res.booking) {
-      if (paymentOption === "Mark as Paid") {
-        confirmBookingPayment(res.booking.id);
-      }
-      setCreatedBookingId(res.booking.id);
-      setStep(5);
+    const out = createBookingReservation({ sessionId: session.id, alias: alias.trim(), phoneMask, bookingType: kind === "comp" ? "complimentary" : "individual", source: kind === "comp" ? "complimentary" : "admin" });
+    if (out.error || !out.booking) {
+      setServerError(out.error);
+      toast.error("Booking not created", out.error);
+      return;
     }
+    if (kind === "paid" && paidNow) {
+      const paid = confirmBookingPayment(out.booking.id, { method, reference: reference.trim() });
+      if (paid.error) toast.warning("Booking created, payment not recorded", `${paid.error} The seat is held for 15 minutes — record the payment from the booking.`);
+      else toast.success("Booking confirmed", `${out.booking.alias} paid ${inr(price)} · reference ${reference.trim()}`);
+    } else if (kind === "comp") {
+      toast.success("Free pass issued", `${out.booking.alias} has a confirmed seat.`);
+    } else {
+      toast.success("Seat held for 15 minutes", `Record ${out.booking.alias}'s payment before the hold runs out.`);
+    }
+    router.push(`/bookings/${out.booking.id}`);
   };
 
-  const resetForm = () => {
-    setStep(1);
-    setSelectedSessionId("");
-    setAlias("");
-    setUiBookingType("Customer Booking");
-    setNote("");
-    setPaymentOption("Mark as Paid");
-    setCreatedBookingId(null);
-  };
+  const kindCard = ({ value, icon, title, line }: { value: Kind; icon: ReactNode; title: string; line: string }) => (
+    <label key={value} className={cn("flex cursor-pointer gap-3 rounded-2xl border p-4 transition-colors", kind === value ? "border-brand bg-brand-subtle/50 ring-2 ring-brand/15" : "border-edge hover:bg-bg-sunken")}>
+      <input type="radio" name={`${id}-kind`} value={value} checked={kind === value} onChange={() => setKind(value)} className="mt-1 h-4 w-4 accent-brand" />
+      <span className="min-w-0">
+        <span className="flex items-center gap-2 text-sm font-semibold text-ink-lum">
+          {icon} {title}
+        </span>
+        <span className="mt-0.5 block text-xs leading-5 text-ink-mut">{line}</span>
+      </span>
+    </label>
+  );
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-8 md:px-8 space-y-6">
-      <BookingBackNavigation label="Back to Bookings" href="/bookings" />
+    <PageFrame narrow>
+      <Breadcrumbs items={[{ label: "Bookings", href: "/bookings" }, { label: "New booking" }]} />
+      <PageHeader overline="Bookings" title="New booking" sub="Add someone to a session. A paid booking holds its seat for 15 minutes until the payment is recorded; if the session is full they join the waitlist." />
 
-      <PageHeader
-        overline="Add Booking"
-        title="Add Booking"
-        sub="Add someone to an event or place them on the waiting list."
-      />
-
-      <div className="mt-8">
-        {step === 1 && (
-          <Stagger className="space-y-4">
-            <Item>
-              <h2 className="text-lg font-medium text-ink-lum mb-4">Choose Event</h2>
-            </Item>
-            {activeSessions.length === 0 ? (
-              <Item>
-                <div className="p-8 text-center text-ink-mut glass rounded-xl">
-                  No active events available.
-                </div>
-              </Item>
-            ) : (
-              activeSessions.map((session) => {
-                const sessionLedger = sessionCapacityLedger(state, session.id);
-                const totalJoined = sessionLedger.confirmedPaidBookings + sessionLedger.confirmedComplimentaryBookings;
-                const isSessionFull = sessionLedger.remainingSellableCapacity === 0;
-                const vName = venueName(state, session.venueId);
-
-                return (
-                  <Item key={session.id}>
-                    <div className="glass rounded-xl p-5 flex flex-col md:flex-row gap-5 items-start md:items-center">
-                      <div className="flex-1 space-y-3 w-full">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-base font-semibold text-ink-lum">
-                            {sessionTitle(state, session.id)}
-                          </h3>
-                          <Badge>{session.date} • {session.startTime}</Badge>
-                          <StatusChip value={session.status as string} />
-                        </div>
-                        
-                        <div className="text-sm text-ink-sec flex items-center gap-2">
-                          <svg className="w-4 h-4 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                          {vName}
-                        </div>
-
-                        <div className="flex flex-col gap-1 w-full max-w-sm">
-                          <div className="flex justify-between text-xs text-ink-sec">
-                            <span>{totalJoined} / {sessionLedger.sellableCapacity} joined</span>
-                            {isSessionFull ? (
-                              <span className="text-brand-solid font-bold">Full</span>
-                            ) : (
-                              <span>{sessionLedger.remainingSellableCapacity} spaces left</span>
-                            )}
-                          </div>
-                          <FillMeter value={sessionLedger.fillRate} />
-                          {sessionLedger.waitlistCount > 0 && (
-                            <div className="text-xs text-ink-mut mt-1">
-                              {sessionLedger.waitlistCount} waiting
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col items-end gap-3 w-full md:w-auto shrink-0 border-t border-slate-200 pt-4 md:border-0 md:pt-0">
-                        <div className="text-lg font-medium text-ink-lum">
-                          {inr(session.basePrice)}
-                        </div>
-                        <Button 
-                          variant="primary" 
-                          onClick={() => handleSelectSession(session.id)}
-                          className="w-full md:w-auto"
-                        >
-                          Choose Event
-                        </Button>
-                      </div>
-                    </div>
-                  </Item>
-                );
-              })
-            )}
-          </Stagger>
-        )}
-
-        {step === 2 && ledger && selectedSession && (
-          <Stagger className="max-w-xl glass rounded-2xl p-6 space-y-6">
-            <Item>
-              <h2 className="text-lg font-medium text-ink-lum mb-2">Check Spaces</h2>
-              <div className="text-sm text-ink-sec mb-6">
-                {sessionTitle(state, selectedSession.id)} • {selectedSession.date} {selectedSession.startTime}
-              </div>
-            </Item>
-
-            <Item>
-              <div className="bg-slate-50 rounded-xl p-5 border border-slate-200 space-y-4">
-                <CapacitySummary ledger={ledger} />
-              </div>
-            </Item>
-
-            <Item>
-              {isFull ? (
-                <div className="space-y-4">
-                  <div className="p-4 rounded-xl bg-brand-solid/10 text-brand-solid border border-brand-solid/20 text-sm">
-                    This event is full. You can add this person to the waiting list.
-                  </div>
-                  <div className="flex justify-end gap-3">
-                    <Button variant="ghost" onClick={() => setStep(1)}>Back</Button>
-                    <Button variant="primary" onClick={handleStep2Continue}>Add to Waiting List</Button>
-                  </div>
-                </div>
+      <form
+        className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]"
+        onSubmit={(e) => {
+          e.preventDefault();
+          submit();
+        }}
+        noValidate
+      >
+        <div className="space-y-6">
+          <Section title="1. Session">
+            <FormField label="Session" htmlFor={`${id}-session`} error={touched ? errors.session : undefined} hint={sessions.length ? `Sessions in ${territory.name} that are taking bookings.` : undefined}>
+              {sessions.length ? (
+                <Select id={`${id}-session`} value={sessionId} onChange={(e) => setSessionId(e.target.value)}>
+                  <option value="">Choose a session…</option>
+                  {sessions.map((s) => {
+                    const l = sessionCapacityLedger(state, s.id);
+                    return (
+                      <option key={s.id} value={s.id}>
+                        {sessionTitle(state, s.id)} · {s.date} {s.startTime} · {l.remainingSellableCapacity > 0 ? `${l.remainingSellableCapacity} free` : "full — waitlist"}
+                      </option>
+                    );
+                  })}
+                </Select>
               ) : (
-                <div className="flex justify-end gap-3 mt-8">
-                  <Button variant="ghost" onClick={() => setStep(1)}>Back</Button>
-                  <Button variant="primary" onClick={handleStep2Continue}>Continue</Button>
-                </div>
+                <p className="rounded-xl bg-bg-sunken px-3 py-2.5 text-sm text-ink-mut">No session in {territory.name} is taking bookings. Publish a session or switch territory.</p>
               )}
-            </Item>
-          </Stagger>
-        )}
-
-        {step === 3 && (
-          <form onSubmit={handleStep3Continue} className="max-w-xl glass rounded-2xl p-6 space-y-6">
-            <h2 className="text-lg font-medium text-ink-lum mb-6">Participant Details</h2>
-            
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-ink-lum">Name / Alias <span className="text-brand-solid">*</span></label>
-                <input
-                  type="text"
-                  required
-                  value={alias}
-                  onChange={(e) => setAlias(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 text-ink-lum focus:outline-none focus:border-brand-solid focus:ring-1 focus:ring-brand-solid"
-                  placeholder="e.g. John Doe"
-                />
+            </FormField>
+            {session && ledger && (
+              <div className="mt-4 rounded-2xl border border-edge p-4">
+                <p className="mb-3 text-sm text-ink-sec">
+                  {venueName(state, session.venueId)} · {inr(price)} per seat
+                </p>
+                <CapacityPanel ledger={ledger} compact />
               </div>
+            )}
+          </Section>
 
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-ink-lum">Booking Type</label>
-                <select
-                  value={uiBookingType}
-                  onChange={(e) => setUiBookingType(e.target.value as UiBookingType)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 text-ink-lum focus:outline-none focus:border-brand-solid focus:ring-1 focus:ring-brand-solid appearance-none"
-                >
-                  <option value="Customer Booking">Customer Booking</option>
-                  <option value="Staff Added Booking">Staff Added Booking</option>
-                  <option value="Free Pass">Free Pass</option>
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-ink-lum">Note (Optional)</label>
-                <textarea
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 text-ink-lum focus:outline-none focus:border-brand-solid focus:ring-1 focus:ring-brand-solid resize-none h-24"
-                  placeholder="Add any special requirements or notes..."
-                />
-              </div>
+          <Section title="2. Participant">
+            <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_180px]">
+              <FormField label="Name or alias" htmlFor={`${id}-alias`} error={touched ? errors.alias : undefined}>
+                <Input id={`${id}-alias`} value={alias} onChange={(e) => setAlias(e.target.value)} placeholder="e.g. Priya S or CourtQueen" autoComplete="off" aria-invalid={Boolean(touched && errors.alias) || undefined} />
+              </FormField>
+              <FormField label="Phone — last 4 digits" htmlFor={`${id}-phone`} error={touched ? errors.phone : undefined} hint="Optional">
+                <Input id={`${id}-phone`} inputMode="numeric" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 4))} placeholder="4821" aria-invalid={Boolean(touched && errors.phone) || undefined} />
+              </FormField>
             </div>
+          </Section>
 
-            <div className="flex justify-end gap-3 pt-4">
-              <Button type="button" variant="ghost" onClick={() => setStep(2)}>Back</Button>
-              <Button type="submit" variant="primary" disabled={!alias.trim()}>Continue</Button>
+          <Section title="3. Booking type">
+            <div className="grid gap-3 sm:grid-cols-2">
+              {kindCard({ value: "paid", icon: <Ticket className="h-4 w-4 text-brand" />, title: "Paid booking", line: `${session ? inr(price) : "Session price"}. Holds the seat for 15 minutes until payment is recorded.` })}
+              {kindCard({ value: "comp", icon: <Gift className="h-4 w-4 text-sky-600" />, title: "Free pass", line: ledger ? `Confirmed immediately. ${compLeft} reserved free-pass slot${compLeft === 1 ? "" : "s"} left.` : "Confirmed immediately, no payment." })}
             </div>
-          </form>
-        )}
+            {compBlocked && <p className="mt-3 text-sm font-medium text-red-600">No free-pass slot or free seat is left in this session.</p>}
 
-        {step === 4 && selectedSession && (
-          <Stagger className="max-w-xl glass rounded-2xl p-6 space-y-6">
-            <Item>
-              <h2 className="text-lg font-medium text-ink-lum mb-6">Payment Options</h2>
-            </Item>
-
-            <Item>
-              <div className="space-y-3">
-                <label className="flex items-center gap-3 p-4 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors bg-slate-50">
-                  <input
-                    type="radio"
-                    name="payment"
-                    value="Mark as Paid"
-                    checked={paymentOption === "Mark as Paid"}
-                    onChange={(e) => setPaymentOption(e.target.value as PaymentOption)}
-                    className="w-4 h-4 accent-brand-solid"
-                  />
-                  <div className="flex-1">
-                    <div className="font-medium text-ink-lum">Mark as Paid</div>
-                    <div className="text-sm text-ink-mut">Customer has already paid via cash or external terminal.</div>
-                  </div>
+            {kind === "paid" && !waitlistMode && (
+              <div className="mt-5 space-y-4 rounded-2xl bg-bg-sunken p-4">
+                <label className="flex items-start gap-2.5 text-sm text-ink-sec">
+                  <input type="checkbox" checked={paidNow} onChange={(e) => setPaidNow(e.target.checked)} className="mt-0.5 h-4 w-4 rounded accent-brand" />
+                  <span>
+                    <span className="font-medium text-ink-lum">Payment already received</span>
+                    <span className="block text-xs text-ink-mut">Record it now and the booking is confirmed straight away.</span>
+                  </span>
                 </label>
-
-                <label className="flex items-center gap-3 p-4 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors bg-slate-50">
-                  <input
-                    type="radio"
-                    name="payment"
-                    value="Waiting for Payment"
-                    checked={paymentOption === "Waiting for Payment"}
-                    onChange={(e) => setPaymentOption(e.target.value as PaymentOption)}
-                    className="w-4 h-4 accent-brand-solid"
-                  />
-                  <div className="flex-1">
-                    <div className="font-medium text-ink-lum">Waiting for Payment</div>
-                    <div className="text-sm text-ink-mut">Generate a payment link or collect payment later.</div>
+                {paidNow && (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <FormField label="Payment method" htmlFor={`${id}-method`}>
+                      <Select id={`${id}-method`} value={method} onChange={(e) => setMethod(e.target.value as PaymentMethodId)}>
+                        {PAYMENT_METHODS.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.label}
+                          </option>
+                        ))}
+                      </Select>
+                    </FormField>
+                    <FormField label="Reference" htmlFor={`${id}-ref`} error={touched ? errors.reference : undefined} hint="Receipt number, UTR or POS slip">
+                      <Input id={`${id}-ref`} value={reference} onChange={(e) => setReference(e.target.value)} placeholder="e.g. UTR 4018 8231 0977" aria-invalid={Boolean(touched && errors.reference) || undefined} />
+                    </FormField>
                   </div>
-                </label>
-
-                <label className="flex items-center gap-3 p-4 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors bg-slate-50">
-                  <input
-                    type="radio"
-                    name="payment"
-                    value="Free Pass"
-                    checked={paymentOption === "Free Pass"}
-                    onChange={(e) => setPaymentOption(e.target.value as PaymentOption)}
-                    className="w-4 h-4 accent-brand-solid"
-                  />
-                  <div className="flex-1">
-                    <div className="font-medium text-ink-lum">Free Pass</div>
-                    <div className="text-sm text-ink-mut">Provide this booking for free (Complimentary).</div>
-                  </div>
-                </label>
+                )}
               </div>
-            </Item>
-
-            <Item>
-              <div className="bg-slate-50 p-4 rounded-xl flex justify-between items-center border border-slate-200 mt-4">
-                <span className="text-ink-sec">Amount Due</span>
-                <span className="text-xl font-medium text-ink-lum">
-                  {paymentOption === "Free Pass" ? inr(0) : inr(selectedSession.basePrice)}
-                </span>
-              </div>
-            </Item>
-
-            <Item>
-              <div className="flex justify-end gap-3 pt-4">
-                <Button variant="ghost" onClick={() => setStep(3)}>Back</Button>
-                <Button variant="primary" onClick={() => setStep(5)}>Continue</Button>
-              </div>
-            </Item>
-            
-            <Item>
-              <PrototypeModeBanner />
-            </Item>
-          </Stagger>
-        )}
-
-        {step === 5 && !createdBookingId && selectedSession && (
-          <Stagger className="max-w-xl glass rounded-2xl p-6 space-y-6">
-            <Item>
-              <h2 className="text-lg font-medium text-ink-lum mb-6">Confirm Booking</h2>
-            </Item>
-
-            <Item>
-              <div className="space-y-4 bg-slate-50 p-5 rounded-xl border border-slate-200">
-                <div className="grid grid-cols-2 gap-y-4 text-sm">
-                  <div className="text-ink-mut">Event</div>
-                  <div className="text-ink-lum font-medium text-right">{sessionTitle(state, selectedSession.id)}</div>
-                  
-                  <div className="text-ink-mut">Participant</div>
-                  <div className="text-ink-lum font-medium text-right">{alias}</div>
-                  
-                  <div className="text-ink-mut">Booking Type</div>
-                  <div className="text-ink-lum font-medium text-right">{uiBookingType}</div>
-                  
-                  <div className="text-ink-mut">Space</div>
-                  <div className="text-ink-lum font-medium text-right">{isFull ? "Waiting List" : "Confirmed Spot"}</div>
-                  
-                  <div className="text-ink-mut">Payment Status</div>
-                  <div className="text-ink-lum font-medium text-right">{paymentOption}</div>
-
-                  <div className="text-ink-mut">Amount</div>
-                  <div className="text-ink-lum font-medium text-right">
-                    {paymentOption === "Free Pass" ? inr(0) : inr(selectedSession.basePrice)}
-                  </div>
-                </div>
-              </div>
-            </Item>
-
-            <Item>
-              <div className="flex justify-end gap-3 pt-4">
-                <Button variant="ghost" onClick={() => setStep(4)}>Back</Button>
-                <Button variant="primary" onClick={handleConfirm}>Confirm Booking</Button>
-              </div>
-            </Item>
-          </Stagger>
-        )}
-
-        {step === 5 && createdBookingId && (
-          <Stagger className="max-w-xl glass rounded-2xl p-8 text-center space-y-6 mx-auto">
-            <Item>
-              <div className="flex justify-center mb-6">
-                <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center">
-                  <CheckCircle className="w-8 h-8 text-green-500" />
-                </div>
-              </div>
-              <h2 className="text-2xl font-medium text-ink-lum mb-2">Booking Successful</h2>
-              <p className="text-ink-sec text-sm">
-                The booking for {alias} has been {isFull ? "added to the waiting list" : "confirmed"}.
+            )}
+            {waitlistMode && (
+              <p className="mt-4 rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-900">
+                {session?.waitlistEnabled === false
+                  ? "This session is full and does not use a waitlist."
+                  : "This session is full. The person joins the waitlist and is offered the next seat that frees up, in queue order."}
               </p>
-            </Item>
-            
-            <Item>
-              <div className="flex flex-col sm:flex-row justify-center gap-3 mt-8">
-                <Button 
-                  variant="lamp" 
-                  onClick={() => router.push(`/bookings/${createdBookingId}`)}
-                >
-                  View Booking
-                </Button>
-                <Button 
-                  variant="primary" 
-                  onClick={resetForm}
-                >
-                  Add Another
-                </Button>
+            )}
+          </Section>
+        </div>
+
+        <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
+          <Section title="Summary">
+            <dl className="space-y-2.5 text-sm">
+              <div className="flex justify-between gap-3">
+                <dt className="text-ink-mut">Session</dt>
+                <dd className="text-right font-medium text-ink-lum">{session ? `${sessionTitle(state, session.id)} · ${session.date} ${session.startTime}` : "—"}</dd>
               </div>
-              <div className="mt-4">
-                <Button 
-                  variant="ghost" 
-                  onClick={() => router.push('/bookings')}
-                  className="text-ink-mut"
-                >
-                  Back to Bookings
-                </Button>
+              <div className="flex justify-between gap-3">
+                <dt className="text-ink-mut">Participant</dt>
+                <dd className="text-right font-medium text-ink-lum">{alias.trim() || "—"}</dd>
               </div>
-            </Item>
-          </Stagger>
-        )}
-      </div>
-    </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-ink-mut">Outcome</dt>
+                <dd className="text-right font-medium text-ink-lum">
+                  {waitlistMode ? "Joins the waitlist" : kind === "comp" ? "Confirmed free pass" : paidNow ? "Confirmed and paid" : "Seat held 15 minutes"}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-3 border-t border-edge pt-2.5">
+                <dt className="text-ink-mut">Amount</dt>
+                <dd className="font-display text-lg font-bold tabular text-ink-lum">{kind === "comp" ? "Free" : inr(price)}</dd>
+              </div>
+            </dl>
+            {serverError && (
+              <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+                {serverError}
+              </p>
+            )}
+            <Button type="submit" size="lg" className="mt-5 w-full" variant={waitlistMode ? "lamp" : "primary"}>
+              {waitlistMode ? (
+                <>
+                  <ListPlus className="h-4 w-4" /> Add to waitlist
+                </>
+              ) : kind === "comp" ? (
+                "Issue free pass"
+              ) : paidNow ? (
+                "Create and confirm booking"
+              ) : (
+                "Hold seat for 15 minutes"
+              )}
+            </Button>
+            <Button variant="ghost" className="mt-2 w-full" onClick={() => router.push("/bookings")}>
+              Cancel
+            </Button>
+          </Section>
+          <ProviderNotice />
+        </aside>
+      </form>
+    </PageFrame>
   );
 }

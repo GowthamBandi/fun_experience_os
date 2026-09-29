@@ -1,136 +1,53 @@
 "use client";
 
-import Link from "next/link";
+import { useMemo } from "react";
+import { CalendarX2, ShieldAlert, ShieldCheck, UserX, Users } from "lucide-react";
 import { useStore } from "@/lib/store";
-import {
-  selectStaffHealth,
-  selectEventsMissingCoordinator,
-  selectEventsMissingSafety,
-  selectLateStaff,
-} from "@/lib/prototype/selectors/staff";
+import { selectDoubleAssignedStaff, selectEventsMissingCoordinator, selectEventsMissingSafety, selectStaffDirectory, selectStaffHealth, sessionLabel } from "@/lib/prototype/selectors/staff";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { StaffBackNavigation, StaffStatusBadge } from "@/components/staff";
-import { Button } from "@/components/ui/primitives";
-import { AlertTriangle, ShieldAlert, UserX, ArrowRight, CheckCircle2 } from "lucide-react";
+import { MetricTile, PermissionDenied } from "@/components/ui/panels";
+import { StatusChip } from "@/components/ui/primitives";
+import { LinkRows, Notice, PageShell, Panel } from "@/components/setup/kit";
+import { StaffingNav, useStaffScope } from "@/components/staff/StaffingNav";
 
 export default function StaffHealthPage() {
-  const { state, territory } = useStore();
+  const { state, canAccess } = useStore();
+  const scope = useStaffScope();
+  const health = useMemo(() => selectStaffHealth(state, scope.territoryId), [state, scope.territoryId]);
+  const noLead = useMemo(() => selectEventsMissingCoordinator(state, scope.territoryId), [state, scope.territoryId]);
+  const noSafety = useMemo(() => selectEventsMissingSafety(state, scope.territoryId), [state, scope.territoryId]);
+  const overlaps = useMemo(() => selectDoubleAssignedStaff(state, scope.territoryId), [state, scope.territoryId]);
+  const staff = useMemo(() => selectStaffDirectory(state, scope.territoryId), [state, scope.territoryId]);
 
-  const health = selectStaffHealth(state);
-  const missingCoordinators = selectEventsMissingCoordinator(state);
-  const missingSafety = selectEventsMissingSafety(state);
-  const lateStaff = selectLateStaff(state);
+  if (!canAccess("/staffing")) return <PermissionDenied module="Staffing" />;
+  const venueName = (id: string) => state.venues.find((v) => v.id === id)?.name ?? id;
+  const sessionRow = (s: (typeof noLead)[number]) => ({ href: `/staffing/assign?sessionId=${s.id}`, title: `${sessionLabel(state, s)} · ${s.date} ${s.startTime}`, meta: venueName(s.venueId), right: <StatusChip value={s.status} /> });
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6">
-      <StaffBackNavigation label="Back to Staff Schedule" href="/staffing" />
-
-      <PageHeader
-        overline={`Staff Operations · ${territory.name}`}
-        title="Staff Readiness"
-        sub="Fix staffing problems before events begin. Which staffing problems must be fixed now?"
-      />
-
-      <div className="space-y-4">
-        {/* Card 1: Missing Lead Coordinator */}
-        {missingCoordinators.length > 0 && (
-          <div className="glass p-6 rounded-2xl border border-rose-300 bg-rose-100 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-rose-100 border border-rose-200 flex items-center justify-center text-rose-600 font-bold">
-                  <UserX className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-base text-rose-700">
-                    {missingCoordinators.length} Event(s) Missing Lead Coordinator
-                  </h3>
-                  <p className="text-xs text-ink-sec">Events cannot run without an assigned Lead Coordinator.</p>
-                </div>
-              </div>
-
-              <Link href="/staffing/assign">
-                <Button variant="primary" className="font-bold text-xs bg-rose-500 text-slate-950">
-                  Fix Problems <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                </Button>
-              </Link>
-            </div>
-
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1 text-xs font-mono">
-              {missingCoordinators.map((s) => (
-                <div key={s.id} className="text-rose-700">
-                  • Event #{s.id} ({s.date} @ {s.startTime}) — Needs Lead Coordinator
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Card 2: Missing Safety Officer */}
-        {missingSafety.length > 0 && (
-          <div className="glass p-6 rounded-2xl border border-amber-300 bg-amber-100 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-amber-100 border border-amber-200 flex items-center justify-center text-amber-600 font-bold">
-                  <ShieldAlert className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-base text-amber-700">
-                    {missingSafety.length} Event(s) Missing Safety Lead
-                  </h3>
-                  <p className="text-xs text-ink-sec">Events require a dedicated safety officer for emergency compliance.</p>
-                </div>
-              </div>
-
-              <Link href="/staffing/assign">
-                <Button variant="secondary" className="font-bold text-xs border-amber-300 text-amber-700">
-                  Fix Problems <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                </Button>
-              </Link>
-            </div>
-
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1 text-xs font-mono">
-              {missingSafety.map((s) => (
-                <div key={s.id} className="text-amber-700">
-                  • Event #{s.id} ({s.date} @ {s.startTime}) — Needs Safety Lead
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Card 3: Late Staff */}
-        {lateStaff.length > 0 && (
-          <div className="glass p-6 rounded-2xl border border-amber-300 bg-amber-100 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-amber-100 border border-amber-200 flex items-center justify-center text-amber-600 font-bold">
-                  <AlertTriangle className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-base text-amber-700">
-                    {lateStaff.length} Staff Member(s) Marked Late
-                  </h3>
-                  <p className="text-xs text-ink-sec">Staff members have passed expected shift start time without check-in.</p>
-                </div>
-              </div>
-
-              <Link href="/staffing/check-in">
-                <Button variant="secondary" className="font-bold text-xs">
-                  Review Check-In <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                </Button>
-              </Link>
-            </div>
-          </div>
-        )}
-
-        {missingCoordinators.length === 0 && missingSafety.length === 0 && lateStaff.length === 0 && (
-          <div className="glass p-8 rounded-2xl border border-emerald-300 bg-emerald-100 text-center space-y-3">
-            <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto" />
-            <h3 className="text-lg font-bold text-ink-lum">All Staffing Issues Resolved</h3>
-            <p className="text-xs text-ink-sec">Every event has the required staff roles assigned and on track.</p>
-          </div>
-        )}
+    <PageShell>
+      <PageHeader overline={`Staffing · ${scope.label}`} title="Staffing health" sub="Gaps and risks in upcoming staffing, with a link to fix each one." />
+      <StaffingNav />
+      <Notice tone={health.status === "ready" || health.status === "empty" ? "ok" : health.status === "blocked" ? "danger" : "warn"} title={health.label} />
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricTile label="No lead coordinator" value={noLead.length} icon={<CalendarX2 className="h-4 w-4" />} tone={noLead.length ? "rose" : "emerald"} detail="sessions blocked from opening" />
+        <MetricTile label="No safety contact" value={noSafety.length} icon={<ShieldAlert className="h-4 w-4" />} tone={noSafety.length ? "amber" : "emerald"} detail="where the experience requires one" />
+        <MetricTile label="Overlapping" value={overlaps.length} icon={<Users className="h-4 w-4" />} tone={overlaps.length ? "rose" : "emerald"} detail="people on two sessions at once" />
+        <MetricTile label="Safety officers" value={health.safetyStaffCount} icon={<ShieldCheck className="h-4 w-4" />} tone="sky" detail={`${health.leadCoordinatorCount} coordinators on the list`} />
       </div>
-    </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Panel title="Sessions without a lead coordinator" icon={<CalendarX2 className="h-4 w-4" />}>
+          <LinkRows empty="Every upcoming session has a lead coordinator." rows={noLead.map(sessionRow)} />
+        </Panel>
+        <Panel title="Sessions without a safety contact" icon={<ShieldAlert className="h-4 w-4" />}>
+          <LinkRows empty="Every session that needs a safety contact has one." rows={noSafety.map(sessionRow)} />
+        </Panel>
+        <Panel title="People on overlapping sessions" icon={<Users className="h-4 w-4" />}>
+          <LinkRows empty="No overlapping assignments." rows={overlaps.map((p) => ({ href: `/people/staff/${p.id}`, title: p.name, meta: p.sessions.map((s) => `${s.date} ${s.startTime} ${s.title}`).join(" · "), right: <StatusChip value="overlapping" tone="danger" /> }))} />
+        </Panel>
+        <Panel title="Off today" icon={<UserX className="h-4 w-4" />}>
+          <LinkRows empty="No one is off." rows={staff.filter((s) => s.status === "off").map((p) => ({ href: `/people/staff/${p.id}`, title: p.name, meta: `${p.roleLabel} · ${p.venueName}`, right: <StatusChip value="off" /> }))} />
+        </Panel>
+      </div>
+    </PageShell>
   );
 }

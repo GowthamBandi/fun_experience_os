@@ -2,199 +2,103 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Globe2, IndianRupee, Landmark, Plus, TriangleAlert } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { franchiseRows, type FranchiseListRow } from "@/lib/prototype/repositories";
-import { selectFranchiseSetupHealth } from "@/lib/prototype/selectors/setup";
-import { PageFrame } from "@/components/geo/layout";
-import { Tide } from "@/components/motion/Motion";
-import { SearchInput, FilterRail } from "@/components/ui/fields";
+import { geoCan } from "@/lib/geo/access";
+import { inr } from "@/lib/format";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { MetricTile, PermissionDenied } from "@/components/ui/panels";
+import { StatusChip } from "@/components/ui/primitives";
+import { FilterRail, SearchInput } from "@/components/ui/fields";
 import { DataTable, type Column } from "@/components/ui/table";
-import { Button } from "@/components/ui/primitives";
-import { 
-  SetupBackNavigation, 
-  SetupEmptyState, 
-  SetupNextStep, 
-  SetupPrimaryAction, 
-  SetupStatusBadge 
-} from "@/components/setup/shared";
-import { PermissionDenied } from "@/components/ui/panels";
+import { Crumbs, EmptyPanel, LinkButton, PageShell } from "@/components/setup/kit";
 
-type StatusFilter = FranchiseListRow["status"] | "all";
+const STATUSES = ["active", "inactive", "suspended"] as const;
 
 export default function FranchisesPage() {
   const router = useRouter();
-  const { state, canAccess, hydrated } = useStore();
-
+  const { state, canAccess, role } = useStore();
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-
+  const [status, setStatus] = useState<(typeof STATUSES)[number] | "all">("all");
   const rows = useMemo(() => franchiseRows(state), [state]);
-
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return rows.filter((r) => {
-      const matchesQuery =
-        !q ||
-        r.name.toLowerCase().includes(q) ||
-        r.legalEntity.toLowerCase().includes(q) ||
-        r.franchiseHead.toLowerCase().includes(q);
-      const matchesStatus = statusFilter === "all" || r.status === statusFilter;
-      return matchesQuery && matchesStatus;
-    });
-  }, [rows, query, statusFilter]);
+    return rows.filter((r) => (status === "all" || r.status === status) && (!q || `${r.name} ${r.legalEntity} ${r.franchiseHead}`.toLowerCase().includes(q)));
+  }, [rows, query, status]);
 
-  if (!hydrated) return <PageFrame><Tide /></PageFrame>;
-  if (!canAccess("/franchises")) return <PageFrame><PermissionDenied module="Franchises" /></PageFrame>;
-
-  const getNextAction = (r: FranchiseListRow) => {
-    if (r.territories === 0) {
-      return { label: "Add First Territory", href: `/territories/new?franchiseId=${r.id}` };
-    }
-    if (r.activeCities === 0) {
-      return { label: "Add City", href: `/cities/new?franchiseId=${r.id}` };
-    }
-    if (r.activeVenues === 0) {
-      return { label: "Create Venue", href: `/venues/new?franchiseId=${r.id}` };
-    }
-    return { label: "View Operations", href: `/franchises/${r.id}` };
-  };
+  if (!canAccess("/franchises")) return <PermissionDenied module="Franchises" />;
+  const canCreate = geoCan(role.id, "create-franchise");
 
   const columns: Column<FranchiseListRow>[] = [
     {
-      key: "franchise",
-      header: "Franchise Name",
+      key: "name",
+      header: "Franchise",
       render: (r) => (
-        <div>
-          <div className="font-medium text-ink-lum">{r.name}</div>
+        <div className="min-w-0">
+          <p className="font-semibold text-ink-lum">{r.name}</p>
+          <p className="text-xs text-ink-mut">{r.legalEntity} · {r.isInternal ? "Internal" : "External"} {r.type}</p>
         </div>
       ),
     },
-    { key: "head", header: "Operating Head", render: (r) => <span className="text-ink-sec">{r.franchiseHead}</span> },
-    { key: "territories", header: "Territories", align: "right", render: (r) => <span className="tabular text-ink-sec">{r.territories}</span> },
-    { key: "cities", header: "Cities", align: "right", render: (r) => <span className="tabular text-ink-sec">{r.activeCities}</span> },
-    { key: "venues", header: "Venues", align: "right", render: (r) => <span className="tabular text-ink-sec">{r.activeVenues}</span> },
-    { key: "upcoming", header: "Active Events", align: "right", render: (r) => <span className="tabular text-ink-sec">{r.upcomingSessions}</span> },
-    {
-      key: "status",
-      header: "Setup Status",
-      render: (r) => {
-        const health = selectFranchiseSetupHealth(state, r.id);
-        return <SetupStatusBadge status={health.status} />;
-      },
-    },
-    {
-      key: "action",
-      header: "Next Action",
-      align: "right",
-      render: (r) => {
-        const nextAction = getNextAction(r);
-        return (
-          <Button variant="secondary" className="h-7 text-xs px-2.5" onClick={() => router.push(nextAction.href)}>
-            {nextAction.label}
-          </Button>
-        );
-      },
-    },
+    { key: "head", header: "Head", render: (r) => <span className="text-ink-sec">{r.franchiseHead}</span> },
+    { key: "territories", header: "Territories", align: "right", render: (r) => r.territories },
+    { key: "cities", header: "Active cities", align: "right", render: (r) => r.activeCities },
+    { key: "venues", header: "Open venues", align: "right", render: (r) => r.activeVenues },
+    { key: "upcoming", header: "Upcoming sessions", align: "right", render: (r) => r.upcomingSessions },
+    { key: "revenue", header: "Settled revenue", align: "right", render: (r) => inr(r.revenue) },
+    { key: "status", header: "Status", render: (r) => <StatusChip value={r.status === "inactive" ? "paused" : r.status} /> },
   ];
 
   return (
-    <PageFrame>
-      <div className="max-w-7xl mx-auto space-y-6 pb-20">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div className="space-y-1">
-            <SetupBackNavigation label="Back to Setup" href="/setup" />
-            <h1 className="text-2xl font-semibold text-ink-lum">Franchises</h1>
-            <p className="text-sm text-ink-mut">Create the regional organizations responsible for running events.</p>
-          </div>
-          <SetupPrimaryAction 
-            label="Create Franchise" 
-            href="/franchises/new" 
-            allowedRoles={["platform-owner", "super-admin"]} 
-          />
-        </div>
+    <PageShell>
+      <Crumbs items={[{ label: "Setup", href: "/setup" }, { label: "Franchises" }]} />
+      <PageHeader
+        overline="Setup"
+        title="Franchises"
+        sub="The businesses that run your operating areas. Each franchise owns one or more territories."
+        right={
+          canCreate && (
+            <LinkButton href="/franchises/new">
+              <Plus className="h-4 w-4" /> New franchise
+            </LinkButton>
+          )
+        }
+      />
 
-        <div className="flex flex-wrap items-center gap-3">
-          <SearchInput value={query} onChange={setQuery} placeholder="Search franchises..." />
-          <FilterRail
-            options={["active", "inactive", "suspended"] as const}
-            value={statusFilter}
-            onChange={setStatusFilter}
-          />
-        </div>
-
-        {rows.length === 0 ? (
-          <SetupEmptyState 
-            title="No franchises yet" 
-            message="Create your first franchise to start assigning territories."
-            actionLabel="Create Franchise"
-            actionHref="/franchises/new"
-          />
-        ) : filtered.length === 0 ? (
-          <div className="solid rounded-panel p-10 text-center">
-            <p className="text-sm font-medium text-ink-lum">No franchises match</p>
-            <p className="mt-1 text-sm text-ink-mut">Loosen the search or clear a filter.</p>
+      {rows.length === 0 ? (
+        <EmptyPanel
+          icon={<Landmark className="h-5 w-5" />}
+          title="No franchises yet"
+          line={canCreate ? "A franchise is the first thing to set up. Territories, cities and venues all sit under it." : "A Platform Owner or Super Admin creates franchises. Ask one to set up the first franchise."}
+          actionHref={canCreate ? "/franchises/new" : undefined}
+          actionLabel="Create the first franchise"
+        />
+      ) : (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <MetricTile label="Franchises" value={rows.length} detail={`${rows.filter((r) => r.status === "active").length} active`} icon={<Landmark className="h-4 w-4" />} />
+            <MetricTile label="Territories" value={rows.reduce((a, r) => a + r.territories, 0)} detail="across all franchises" icon={<Globe2 className="h-4 w-4" />} tone="sky" />
+            <MetricTile label="Settled revenue" value={inr(rows.reduce((a, r) => a + r.revenue, 0))} detail="payments settled to date" icon={<IndianRupee className="h-4 w-4" />} tone="emerald" />
+            <MetricTile label="Need attention" value={rows.filter((r) => r.status !== "active" || r.territories === 0).length} detail="paused, suspended or without territories" icon={<TriangleAlert className="h-4 w-4" />} tone="amber" />
           </div>
-        ) : (
-          <>
-            <div className="hidden md:block">
-              <DataTable
-                columns={columns}
-                rows={filtered}
-                emptyTitle="No franchises"
-                emptyLine="Try a different filter."
-                onRowClick={(r) => router.push(`/franchises/${r.id}`)}
-              />
+
+          <div className="flex flex-col gap-3 md:flex-row md:items-center">
+            <div className="md:w-80">
+              <SearchInput value={query} onChange={setQuery} placeholder="Search name, entity or head" />
             </div>
-            
-            <div className="grid grid-cols-1 gap-4 md:hidden">
-              {filtered.map((r) => {
-                const health = selectFranchiseSetupHealth(state, r.id);
-                const nextAction = getNextAction(r);
-                return (
-                  <div 
-                    key={r.id} 
-                    className="solid rounded-panel p-4 flex flex-col gap-4 cursor-pointer hover:bg-slate-50 transition-colors"
-                    onClick={() => router.push(`/franchises/${r.id}`)}
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="font-medium text-ink-lum">{r.name}</div>
-                        <div className="text-sm text-ink-sec">{r.franchiseHead}</div>
-                      </div>
-                      <SetupStatusBadge status={health.status} />
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div className="flex flex-col">
-                        <span className="text-ink-mut text-xs">Territories</span>
-                        <span className="text-ink-sec">{r.territories}</span>
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-ink-mut text-xs">Cities</span>
-                        <span className="text-ink-sec">{r.activeCities}</span>
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-ink-mut text-xs">Venues</span>
-                        <span className="text-ink-sec">{r.activeVenues}</span>
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-ink-mut text-xs">Active Events</span>
-                        <span className="text-ink-sec">{r.upcomingSessions}</span>
-                      </div>
-                    </div>
-                    
-                    <div className="pt-2 border-t border-slate-200" onClick={(e) => e.stopPropagation()}>
-                      <Button variant="secondary" className="w-full text-xs font-bold" onClick={() => router.push(nextAction.href)}>
-                        {nextAction.label}
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        )}
-      </div>
-    </PageFrame>
+            <FilterRail options={STATUSES} value={status} onChange={setStatus} />
+          </div>
+
+          <DataTable
+            columns={columns}
+            rows={filtered}
+            onRowClick={(r) => router.push(`/franchises/${r.id}`)}
+            emptyTitle="No franchises match"
+            emptyLine="Clear the search or choose another status."
+          />
+        </>
+      )}
+    </PageShell>
   );
 }

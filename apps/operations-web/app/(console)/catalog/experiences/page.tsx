@@ -1,157 +1,76 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Plus, Sparkles } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { selectExperienceReadiness } from "@/lib/prototype/selectors/catalog";
+import { templateViews, type TemplateView } from "@/lib/prototype/repositories";
+import { geoCan } from "@/lib/geo/access";
+import { inr } from "@/lib/format";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PermissionDenied } from "@/components/ui/panels";
-import { Button } from "@/components/ui/primitives";
-import { SearchInput, FilterRail } from "@/components/ui/fields";
-import { Stagger, Item } from "@/components/motion/Motion";
-import {
-  CatalogBackNavigation,
-  ExperienceStatusBadge,
-  CatalogEmptyState,
-} from "@/components/catalog";
-import { Sparkles, Plus, ArrowRight } from "lucide-react";
+import { StatusChip } from "@/components/ui/primitives";
+import { FilterRail, SearchInput, Select } from "@/components/ui/fields";
+import { DataTable, type Column } from "@/components/ui/table";
+import { Crumbs, EmptyPanel, LinkButton, PageShell } from "@/components/setup/kit";
 
-export default function ExperiencesListPage() {
+const STATUSES = ["active", "ready", "draft", "paused", "archived"] as const;
+
+export default function ExperiencesPage() {
   const router = useRouter();
-  const { state, territory, canAccess } = useStore();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-
-  const templates = state.templates ?? [];
-  const categories = state.categories ?? [];
-
+  const { state, canAccess, role } = useStore();
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState<(typeof STATUSES)[number] | "all">("all");
+  const [categoryId, setCategoryId] = useState("all");
+  const rows = useMemo(() => templateViews(state), [state]);
   const filtered = useMemo(() => {
-    let result = templates;
-    if (statusFilter !== "all") {
-      result = result.filter((t) => t.status === statusFilter);
-    }
-    const q = searchQuery.toLowerCase().trim();
-    if (q) {
-      result = result.filter(
-        (t) =>
-          t.name.toLowerCase().includes(q) ||
-          (categories.find((c) => c.id === t.categoryId)?.name ?? "").toLowerCase().includes(q)
-      );
-    }
-    return result;
-  }, [templates, categories, statusFilter, searchQuery]);
+    const q = query.trim().toLowerCase();
+    return rows.filter((r) => (status === "all" || r.status === status) && (categoryId === "all" || r.categoryId === categoryId) && (!q || `${r.name} ${r.categoryName}`.toLowerCase().includes(q)));
+  }, [rows, query, status, categoryId]);
 
-  if (!canAccess("/catalog")) {
-    return (
-      <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8">
-        <PermissionDenied module="Experiences" />
-      </div>
-    );
-  }
+  if (!canAccess("/catalog")) return <PermissionDenied module="Catalog" />;
+  const canManage = geoCan(role.id, "manage-catalog");
+  const hasCategories = state.categories.some((c) => (c.status ?? "active") !== "archived");
+
+  const columns: Column<TemplateView>[] = [
+    { key: "name", header: "Experience", render: (r) => <div><p className="font-semibold text-ink-lum">{r.name}</p><p className="text-xs capitalize text-ink-mut">{r.categoryName} · {r.format} · {r.entryType.replace("-", " ")}</p></div> },
+    { key: "price", header: "Price", align: "right", render: (r) => inr(r.basePrice) },
+    { key: "size", header: "Group size", align: "right", render: (r) => `${r.minParticipants}–${r.maxParticipants}` },
+    { key: "venues", header: "Can run at", align: "right", render: (r) => `${r.compatibleVenues} venue${r.compatibleVenues === 1 ? "" : "s"}` },
+    { key: "sessions", header: "Sessions", align: "right", render: (r) => r.scheduledCount },
+    { key: "margin", header: "Margin at target", align: "right", render: (r) => <span className={r.marginPct < 0 ? "text-red-600" : undefined}>{r.marginPct}%</span> },
+    { key: "ready", header: "Schedulable", render: (r) => <StatusChip value={r.schedulable ? "yes" : "no"} tone={r.schedulable ? "ok" : "neutral"} /> },
+    { key: "status", header: "Status", render: (r) => <StatusChip value={r.status} /> },
+  ];
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6">
-      <CatalogBackNavigation label="Back to Experiences Landing" href="/catalog" />
-
+    <PageShell>
+      <Crumbs items={[{ label: "Catalog", href: "/catalog" }, { label: "Experiences" }]} />
       <PageHeader
-        overline={`Catalog · ${territory.name}`}
+        overline="Catalog"
         title="Experiences"
-        sub="Create reusable event plans that can be scheduled many times. What can customers join?"
-        right={
-          <Link href="/catalog/experiences/new">
-            <Button variant="primary" className="font-bold">
-              <Plus className="w-4 h-4 mr-1" />
-              Create Experience
-            </Button>
-          </Link>
-        }
+        sub="Reusable plans that sessions are scheduled from. Only active experiences that pass every readiness check can be scheduled."
+        right={canManage && hasCategories && <LinkButton href="/catalog/experiences/new"><Plus className="h-4 w-4" /> New experience</LinkButton>}
       />
-
-      <div className="glass p-5 rounded-2xl border border-slate-200 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="w-full sm:w-72">
-            <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search experience or category..." />
-          </div>
-          <FilterRail
-            options={["all", "draft", "active", "paused"] as const}
-            value={statusFilter as any}
-            onChange={setStatusFilter as any}
-          />
-        </div>
-
-        {templates.length === 0 ? (
-          <CatalogEmptyState
-            title="No Reusable Experiences Created"
-            message="No customer experiences have been created yet. Create your first experience plan to start scheduling."
-            actionLabel="Create Experience"
-            actionHref="/catalog/experiences/new"
-          />
-        ) : filtered.length === 0 ? (
-          <div className="p-8 text-center text-xs text-ink-mut">No experiences match your filter criteria.</div>
+      {rows.length === 0 ? (
+        hasCategories ? (
+          <EmptyPanel icon={<Sparkles className="h-5 w-5" />} title="No experiences yet" line="Create the first experience: its format, group size, price, staffing and reveal rules." actionHref={canManage ? "/catalog/experiences/new" : undefined} actionLabel="Create an experience" />
         ) : (
-          <Stagger className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map((t) => {
-              const cat = categories.find((c) => c.id === t.categoryId);
-              const read = selectExperienceReadiness(t, state);
-              const sessionsCount = (state.sessions ?? []).filter((s) => s.templateId === t.id).length;
-
-              return (
-                <Item key={t.id}>
-                  <div className="glass p-5 rounded-2xl border border-slate-200 hover:border-slate-200 transition-all flex flex-col justify-between space-y-4">
-                    <div className="space-y-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <h3 className="font-bold text-base text-ink-lum flex items-center gap-2">
-                            <Sparkles className="w-4 h-4 text-purple-600 shrink-0" />
-                            <Link href={`/catalog/experiences/${t.id}`} className="hover:text-brand transition-colors">
-                              {t.name}
-                            </Link>
-                          </h3>
-                          <span className="text-xs text-purple-600 font-medium">{cat?.name || "Category"}</span>
-                        </div>
-                        <ExperienceStatusBadge status={read.status} size="sm" />
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-2 text-center text-xs border-t border-slate-200 pt-2">
-                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
-                          <span className="text-[10px] text-ink-mut block uppercase">Default Price</span>
-                          <span className="font-bold text-emerald-600">₹{t.basePrice}</span>
-                        </div>
-                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
-                          <span className="text-[10px] text-ink-mut block uppercase">Group Size</span>
-                          <span className="font-bold text-ink-lum">{t.targetParticipants} pax</span>
-                        </div>
-                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
-                          <span className="text-[10px] text-ink-mut block uppercase">Duration</span>
-                          <span className="font-bold text-ink-lum">{t.duration}m</span>
-                        </div>
-                      </div>
-
-                      <div className="text-[11px] text-ink-sec truncate">
-                        Format: <span className="text-ink-lum capitalize">{t.format}</span> · Gender: <span className="text-ink-lum capitalize">{t.entryType || "individual"}</span>
-                      </div>
-                    </div>
-
-                    <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
-                      <span className="text-[11px] text-ink-sec">{sessionsCount} active events</span>
-                      <Link href={read.nextActionHref}>
-                        <Button
-                          variant={read.schedulable ? "primary" : "secondary"}
-                          className="h-7 text-xs font-bold px-3"
-                        >
-                          {read.nextActionLabel}
-                          <ArrowRight className="w-3 h-3 ml-1" />
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                </Item>
-              );
-            })}
-          </Stagger>
-        )}
-      </div>
-    </div>
+          <EmptyPanel icon={<Sparkles className="h-5 w-5" />} title="Add an activity category first" line="Every experience belongs to a category." actionHref={canManage ? "/catalog/categories/new" : undefined} actionLabel="Add a category" />
+        )
+      ) : (
+        <>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="lg:w-72"><SearchInput value={query} onChange={setQuery} placeholder="Search experiences" /></div>
+            <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} aria-label="Filter by category" className="lg:w-52">
+              <option value="all">All categories</option>
+              {state.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </Select>
+            <FilterRail options={STATUSES} value={status} onChange={setStatus} />
+          </div>
+          <DataTable columns={columns} rows={filtered} onRowClick={(r) => router.push(`/catalog/experiences/${r.id}`)} emptyTitle="No experiences match" emptyLine="Clear the search or filters." />
+        </>
+      )}
+    </PageShell>
   );
 }

@@ -1,213 +1,176 @@
 "use client";
 
-import React, { useMemo } from "react";
-import { useParams } from "next/navigation";
+import { useMemo } from "react";
 import Link from "next/link";
+import { ArrowRight, CalendarClock, KeyRound, ShieldCheck, Users } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { Button } from "@/components/ui/primitives";
-import { Card } from "@/components/ui/panels";
-import { sessionTitle } from "@/lib/prototype/selectors/lookups";
 import { selectLiveSessionState } from "@/lib/prototype/selectors/liveSession";
+import { selectSessionIdentitySummary } from "@/lib/prototype/selectors/identity";
+import { selectTeamAllocationReadiness } from "@/lib/prototype/selectors/teams";
+import { selectCheckInSummary, selectStaffReadiness } from "@/lib/prototype/selectors/checkIn";
+import { selectResultsProgress } from "@/lib/prototype/selectors/results";
 import { selectCompletionChecklist } from "@/lib/prototype/selectors/completion";
-import { selectSessionSegmentResults } from "@/lib/prototype/selectors/results";
-import { selectEventStaffingSummary } from "@/lib/prototype/selectors/staff";
-import { StaffStatusBadge } from "@/components/staff";
-import {
-  MissionWorkspaceHeader,
-  MissionStageNavigation,
-  MissionMetricsSummary,
-  getOperationalStatusLabel,
-} from "@/components/missions/shared";
-import { Play, ClipboardCheck, LockKeyhole, ArrowLeft, HeartPulse, UserCheck, ShieldCheck, ArrowRight } from "lucide-react";
+import { sessionCapacityLedger } from "@/lib/prototype/selectors/capacity";
+import { fillRate } from "@/lib/format";
+import { Button, FillMeter, StatusChip } from "@/components/ui/primitives";
+import { MetricTile } from "@/components/ui/panels";
+import { CheckRow, MissionShell, MissionStageStepper, WorkspaceCard, formatWhen, useMissionId, useOperatorName } from "@/components/missions/shared";
 
 export default function SessionOverviewPage() {
-  const params = useParams();
-  const sessionId = params.id as string;
+  return (
+    <MissionShell tab="overview">
+      <OverviewBody />
+    </MissionShell>
+  );
+}
+
+function OverviewBody() {
+  const sessionId = useMissionId();
   const { state } = useStore();
+  const opName = useOperatorName();
 
-  const session = useMemo(() => state.sessions.find((s) => s.id === sessionId), [state, sessionId]);
-  const lss = useMemo(() => selectLiveSessionState(state, sessionId), [state, sessionId]);
-  const checklist = useMemo(() => selectCompletionChecklist(state, sessionId), [state, sessionId]);
-  const results = useMemo(() => (state.activitySegments ?? []).filter((s) => s.sessionId === sessionId), [state, sessionId]);
-  const segmentResults = useMemo(() => selectSessionSegmentResults(state, sessionId), [state, sessionId]);
+  const d = useMemo(() => {
+    const session = state.sessions.find((s) => s.id === sessionId)!;
+    return {
+      session,
+      lss: selectLiveSessionState(state, sessionId),
+      ids: selectSessionIdentitySummary(state, sessionId),
+      teams: selectTeamAllocationReadiness(state, sessionId),
+      checkIn: selectCheckInSummary(state, sessionId),
+      staff: selectStaffReadiness(state, sessionId),
+      results: selectResultsProgress(state, sessionId),
+      checklist: selectCompletionChecklist(state, sessionId),
+      ledger: sessionCapacityLedger(state, sessionId),
+      activity: state.audits.filter((a) => a.sessionId === sessionId).slice(0, 8),
+    };
+  }, [state, sessionId]);
 
-  const staffingSummary = useMemo(() => selectEventStaffingSummary(state, sessionId), [state, sessionId]);
+  const { session, lss, ids, teams, checkIn, staff, results, checklist, ledger } = d;
+  const revealed = ["revealed", "check-in-open", "live", "completed"].includes(session.status);
+  const checkInOpen = ["check-in-open", "live", "completed"].includes(session.status);
+  const joined = ledger.confirmedPaidBookings + ledger.confirmedComplimentaryBookings;
 
-  const confirmedCount = useMemo(() => {
-    return segmentResults.filter((r) => r.status === "Confirmed" || r.status === "Corrected").length;
-  }, [segmentResults]);
-
-  if (!session) {
-    return <div className="p-8 text-center text-xs text-ink-mut">Session not found</div>;
-  }
-
-  const hasStarted = (lss.status as string) !== "Ready" && (lss.status as string) !== "scheduled" && (lss.status as string) !== "draft";
-  const hasEnded = (lss.status as string) === "Ended" || (lss.status as string) === "Completed" || (session.status as string) === "completed";
-  const isCompleted = (lss.status as string) === "Completed" || (session.status as string) === "completed";
-
-  // Description copy
-  const runDesc =
-    (lss.status as string) === "Ready" || (lss.status as string) === "scheduled" || (lss.status as string) === "draft"
-      ? "Enough participants and staff are present. Ready for live handover."
-      : lss.status === "Live"
-      ? "The timer is active. Match brackets or activities are currently underway."
-      : lss.status === "Paused"
-      ? "Event is paused. Operational notes or safety adjustments are being made."
-      : lss.status === "Emergency"
-      ? "Safety mode active. Operators are triaging a participant event or concern."
-      : "The active session runtime has ended.";
-
-  const resultsDesc = !hasStarted
-    ? "Record Results becomes available after starting the event."
-    : confirmedCount < results.length
-    ? `${results.length - confirmedCount} segment results still need to be verified.`
-    : "All scores and experience outcomes have been successfully verified.";
-
-  const finishDesc = isCompleted
-    ? "This event is closed and locked. Records are in read-only snapshot mode."
-    : !hasEnded
-    ? "Finish Event becomes available after the session timer has ended."
-    : checklist.isReadyToComplete
-    ? "All verification checks have passed. You are ready to close this session."
-    : "Some critical verification items are still missing or require attention.";
+  const next = (() => {
+    const base = `/missions/${sessionId}`;
+    if (session.status === "cancelled") return { title: "This session was cancelled", line: "No further operations are possible.", href: `${base}/bookings`, cta: "Review bookings" };
+    if (lss.status === "Completed" || session.status === "completed") return { title: "Session completed", line: "The report is ready to share or print.", href: `${base}/summary`, cta: "Open report" };
+    if (lss.status === "Ended") {
+      return results.isComplete
+        ? { title: "Finish the session", line: checklist.isReadyToComplete ? "Every check has passed." : `${checklist.criticalBlockers.length} item(s) still need attention.`, href: `${base}/completion`, cta: "Go to Finish" }
+        : { title: "Confirm the results", line: `${results.requiredCount - results.confirmedCount} scored step(s) still need a confirmed result.`, href: `${base}/results`, cta: "Go to Results" };
+    }
+    if (lss.status !== "Ready") return { title: "The session is running", line: `Status: ${lss.status.toLowerCase()}. Use the Run tab for the clock, steps, equipment and notes.`, href: `${base}/live`, cta: "Go to Run" };
+    if (joined === 0) return { title: "Waiting for bookings", line: "Nobody holds a confirmed place yet.", href: `${base}/bookings`, cta: "Open bookings" };
+    if (!ids.isFullyLocked) return { title: "Generate and lock participant codes", line: `${ids.lockedCount} of ${ids.eligibleCount} codes locked.`, href: `${base}/participants`, cta: "Go to Codes" };
+    if (!teams.isLocked) return { title: "Build and lock teams", line: teams.unassignedCount ? `${teams.unassignedCount} participant(s) have no team.` : "Every participant has a team; lock them to continue.", href: `${base}/teams`, cta: "Go to Teams" };
+    if (!revealed) return { title: "Reveal teams to participants", line: "Check the reveal checklist, then send the reveal.", href: `${base}/reveal`, cta: "Go to Reveal" };
+    if (!checkInOpen) return { title: "Open door check-in", line: "Start the door list so arrivals can be recorded.", href: `${base}/check-in`, cta: "Go to Check-in" };
+    return { title: "Start the session", line: `${checkIn.presentCount} of ${checkIn.expectedCount} participants present.`, href: `${base}/live`, cta: "Go to Run" };
+  })();
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6 font-mono text-xs">
-      {/* Back button and Breadcrumbs */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-1.5 text-xs text-ink-mut">
-          <Link href="/missions" className="hover:text-ink-sec transition-colors font-semibold">
-            All Events
-          </Link>
-          <span>/</span>
-          <span className="text-ink-sec font-bold truncate max-w-[250px]">{sessionTitle(state, session.id)}</span>
+    <div className="space-y-6">
+      <section className="flex flex-wrap items-center justify-between gap-4 rounded-panel border border-brand/20 bg-gradient-to-r from-brand-subtle to-white p-5 shadow-panel">
+        <div className="min-w-0">
+          <p className="overline text-brand">Next step</p>
+          <p className="mt-1 font-display text-xl font-bold text-ink-lum">{next.title}</p>
+          <p className="mt-1 text-sm text-ink-sec">{next.line}</p>
         </div>
-        <div>
-          <Link href="/missions">
-            <button className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink-mut hover:text-ink-lum transition-colors bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg">
-              <ArrowLeft className="h-4 w-4" />
-              ← Back to All Events
-            </button>
-          </Link>
+        <Link href={next.href}>
+          <Button>
+            {next.cta} <ArrowRight className="h-4 w-4" />
+          </Button>
+        </Link>
+      </section>
+
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+        <MetricTile label="Codes locked" value={`${ids.lockedCount + ids.revealedCount}/${ids.eligibleCount}`} detail={ids.missingIdentityCount ? `${ids.missingIdentityCount} without a code` : "Everyone has a code"} icon={<KeyRound className="h-4 w-4" />} tone={ids.isFullyLocked ? "emerald" : "amber"} />
+        <MetricTile label="Teams" value={teams.teamsCount} detail={teams.unassignedCount ? `${teams.unassignedCount} participant(s) without a team` : teams.isLocked ? "Locked" : "Everyone placed"} icon={<Users className="h-4 w-4" />} tone={teams.unassignedCount ? "amber" : "violet"} />
+        <MetricTile label="Present" value={`${checkIn.presentCount}`} detail={`${checkIn.lateCount} late · ${checkIn.noShowCount} no-show`} icon={<ShieldCheck className="h-4 w-4" />} tone="emerald" />
+        <MetricTile label="Starts" value={session.startTime} detail={`${session.date} · ${session.duration} min`} icon={<CalendarClock className="h-4 w-4" />} tone="sky" />
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
+        <WorkspaceCard title="Preparation" sub="Everything that must be true before the doors open.">
+          <ul className="divide-y divide-edge">
+            <CheckRow passed={joined >= session.minParticipants} warning={joined > 0} label="Minimum bookings reached" detail={`${joined} booked, ${session.minParticipants} needed.`} />
+            <CheckRow
+              passed={ids.isFullyLocked}
+              warning={ids.generatedCount > 0}
+              label="Participant codes locked"
+              detail={`${ids.generatedCount} generated · ${ids.lockedCount + ids.revealedCount} locked of ${ids.eligibleCount}.`}
+              action={<TabLink href={`/missions/${sessionId}/participants`} label="Codes" />}
+            />
+            <CheckRow
+              passed={teams.isLocked || revealed}
+              warning={teams.teamsCount > 0}
+              label="Teams built and locked"
+              detail={teams.teamsCount ? `${teams.teamsCount} teams · ${teams.unassignedCount} unassigned.` : "No teams yet."}
+              action={<TabLink href={`/missions/${sessionId}/teams`} label="Teams" />}
+            />
+            <CheckRow passed={revealed} label="Reveal sent" detail={revealed ? "Participants can see their team and code." : `Scheduled for ${session.revealAt}.`} action={<TabLink href={`/missions/${sessionId}/reveal`} label="Reveal" />} />
+            <CheckRow
+              passed={!!staff.leadCoordinator && !!staff.safetyContact}
+              label="Lead coordinator and safety contact assigned"
+              detail={`Lead: ${staff.leadCoordinator?.name ?? "not assigned"} · Safety: ${staff.safetyContact?.name ?? "not assigned"}`}
+            />
+            <CheckRow passed={checkInOpen} label="Door check-in open" detail={checkInOpen ? `${checkIn.presentCount} present, ${checkIn.awaitingCount} not yet marked.` : "Opens after the reveal."} action={<TabLink href={`/missions/${sessionId}/check-in`} label="Check-in" />} />
+          </ul>
+        </WorkspaceCard>
+
+        <div className="space-y-6">
+          <WorkspaceCard title="On the day" sub="Run the session, record results, then finish and lock it.">
+            <MissionStageStepper layout="column" />
+          </WorkspaceCard>
+
+          <WorkspaceCard title="Attendance">
+            <div className="space-y-4">
+              <Meter label="Seats booked" value={fillRate(joined, ledger.sellableCapacity)} detail={`${joined}/${ledger.sellableCapacity}`} />
+              <Meter label="Arrived" value={checkIn.expectedCount ? Math.round((checkIn.presentCount / checkIn.expectedCount) * 100) : 0} detail={`${checkIn.presentCount}/${checkIn.expectedCount}`} />
+            </div>
+          </WorkspaceCard>
         </div>
       </div>
 
-      <PageHeader
-        overline="Event Operations Command Room"
-        title="Event Operations Desk"
-        sub="Monitor real-time participant attendance, run game clock controls, enter final scores, and close the ledger."
-      />
+      <WorkspaceCard title="Recent activity" sub="Latest recorded actions on this session." bodyClassName="p-0">
+        {d.activity.length === 0 ? (
+          <p className="px-5 py-8 text-center text-sm text-ink-mut">Nothing recorded for this session yet.</p>
+        ) : (
+          <ul className="divide-y divide-edge">
+            {d.activity.map((a) => (
+              <li key={a.id} className="flex flex-wrap items-start justify-between gap-2 px-5 py-3">
+                <div className="min-w-0">
+                  <p className="text-sm text-ink-lum">{a.description}</p>
+                  <p className="mt-0.5 text-xs text-ink-mut">{opName(a.operatorId)}</p>
+                </div>
+                <span className="whitespace-nowrap text-xs text-ink-mut">{formatWhen((a as { at?: string }).at ?? a.timestamp)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </WorkspaceCard>
+    </div>
+  );
+}
 
-      {/* Global persistent header */}
-      <MissionWorkspaceHeader />
+function TabLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link href={href} className="inline-flex items-center gap-1 text-sm font-semibold text-brand hover:text-brand-hover">
+      {label} <ArrowRight className="h-3.5 w-3.5" />
+    </Link>
+  );
+}
 
-      {/* Three step navigator */}
-      <MissionStageNavigation />
-
-      {/* Three main stages cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
-        {/* Step 1: Run Event */}
-        <div className="glass rounded-panel border border-slate-200 p-5 flex flex-col justify-between space-y-4">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-brand uppercase tracking-wider">1. Run Event</span>
-              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                lss.status === "Live"
-                  ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
-                  : lss.status === "Paused"
-                  ? "bg-amber-50 text-amber-700 border border-amber-200"
-                  : lss.status === "Emergency"
-                  ? "bg-red-50 text-red-600 border border-red-200"
-                  : "bg-slate-50 text-ink-sec"
-              }`}>
-                {getOperationalStatusLabel(lss.status)}
-              </span>
-            </div>
-            <p className="text-sm font-semibold text-ink-lum">Operational Control</p>
-            <p className="text-ink-mut text-[11px] leading-relaxed">{runDesc}</p>
-          </div>
-          <Link href={`/missions/${sessionId}/live`} className="w-full">
-            <Button variant="lamp" className="w-full justify-center text-xs h-9 gap-1.5">
-              <Play className="h-3.5 w-3.5" />
-              Open Run Event
-            </Button>
-          </Link>
-        </div>
-
-        {/* Step 2: Record Results */}
-        <div className="glass rounded-panel border border-slate-200 p-5 flex flex-col justify-between space-y-4">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">2. Record Results</span>
-              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                !hasStarted
-                  ? "bg-slate-50 border-slate-200 text-ink-mut"
-                  : confirmedCount === results.length && results.length > 0
-                  ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
-                  : "bg-amber-50 text-amber-700 border border-amber-200"
-              }`}>
-                {!hasStarted ? "LOCKED" : `${confirmedCount}/${results.length} Confirmed`}
-              </span>
-            </div>
-            <p className="text-sm font-semibold text-ink-lum">Outcome & Scores Entry</p>
-            <p className="text-ink-mut text-[11px] leading-relaxed">{resultsDesc}</p>
-          </div>
-          {hasStarted ? (
-            <Link href={`/missions/${sessionId}/results`} className="w-full">
-              <Button variant="ghost" className="w-full border border-slate-200 justify-center text-xs h-9 gap-1.5">
-                <ClipboardCheck className="h-3.5 w-3.5" />
-                Record Results
-              </Button>
-            </Link>
-          ) : (
-            <Button disabled className="w-full justify-center text-xs h-9 gap-1.5 opacity-50 cursor-not-allowed">
-              <LockKeyhole className="h-3.5 w-3.5" />
-              Record Results (Locked)
-            </Button>
-          )}
-        </div>
-
-        {/* Step 3: Finish Event */}
-        <div className="glass rounded-panel border border-slate-200 p-5 flex flex-col justify-between space-y-4">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">3. Finish Event</span>
-              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                isCompleted
-                  ? "bg-slate-50 border-slate-200 text-slate-500"
-                  : !hasEnded
-                  ? "bg-slate-50 border-slate-200 text-ink-mut"
-                  : checklist.isReadyToComplete
-                  ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
-                  : "bg-red-50 text-red-600 border border-red-200"
-              }`}>
-                {isCompleted ? "COMPLETED" : !hasEnded ? "LOCKED" : checklist.isReadyToComplete ? "READY" : "NEEDS ACTION"}
-              </span>
-            </div>
-            <p className="text-sm font-semibold text-ink-lum">Archival & Ledger Verification</p>
-            <p className="text-ink-mut text-[11px] leading-relaxed">{finishDesc}</p>
-          </div>
-          {hasEnded ? (
-            <Link href={`/missions/${sessionId}/completion`} className="w-full">
-              <Button variant="ghost" className="w-full border border-slate-200 justify-center text-xs h-9 gap-1.5">
-                <ClipboardCheck className="h-3.5 w-3.5" />
-                Review Completion
-              </Button>
-            </Link>
-          ) : (
-            <Button disabled className="w-full justify-center text-xs h-9 gap-1.5 opacity-50 cursor-not-allowed">
-              <LockKeyhole className="h-3.5 w-3.5" />
-              Review Completion (Locked)
-            </Button>
-          )}
-        </div>
+function Meter({ label, value, detail }: { label: string; value: number; detail: string }) {
+  return (
+    <div>
+      <div className="mb-1.5 flex items-center justify-between text-sm">
+        <span className="font-medium text-ink-sec">{label}</span>
+        <span className="tabular text-ink-mut">
+          {detail} <StatusChip value={`${value}%`} dot={false} tone={value >= 80 ? "ok" : value >= 50 ? "warn" : "neutral"} />
+        </span>
       </div>
-
-      {/* Metrics Summary cards */}
-      <div className="pt-2">
-        <MissionMetricsSummary />
-      </div>
+      <FillMeter value={value} />
     </div>
   );
 }

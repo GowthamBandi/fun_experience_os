@@ -1,350 +1,207 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { ArrowRight, CheckCircle2, FileText, Lock } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { selectCompletionChecklist, selectSessionSummary } from "@/lib/prototype/selectors/completion";
-import { selectLiveSessionState } from "@/lib/prototype/selectors/liveSession";
-import { sessionTitle } from "@/lib/prototype/selectors/lookups";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { Button } from "@/components/ui/primitives";
-import {
-  MissionWorkspaceHeader,
-  MissionStageNavigation,
-  MissionBackNavigation,
-} from "@/components/missions/shared";
-import { selectSessionTeams } from "@/lib/prototype/selectors/teams";
+import { selectResultsProgress } from "@/lib/prototype/selectors/results";
 import { inr } from "@/lib/format";
-import { ShieldCheck, AlertOctagon, HelpCircle, ArrowRight, Lock, CheckCircle } from "lucide-react";
+import { Button, StatusChip } from "@/components/ui/primitives";
+import { EmptyState } from "@/components/ui/panels";
+import { useToast } from "@/components/ui/toast";
+import { CheckRow, ConfirmDialog, MissionShell, MissionStageStepper, ReasonDialog, WorkspaceCard, formatWhen, useMissionId, useOperatorName } from "@/components/missions/shared";
 
-export default function SessionCompletionPage() {
-  const params = useParams();
-  const router = useRouter();
-  const sessionId = params.id as string;
+export default function CompletionPage() {
+  return (
+    <MissionShell tab="completion" sub="Check that everything is accounted for, then lock the session and save its report.">
+      <CompletionBody />
+    </MissionShell>
+  );
+}
 
-  const { state, completeLiveSession, role } = useStore();
+const TAB_LABEL = { live: "Run", "check-in": "Check-in", results: "Results" } as const;
 
-  const [overrideModalOpen, setOverrideModalOpen] = useState(false);
-  const [overrideReason, setOverrideReason] = useState("");
-  const [confirmCloseModalOpen, setConfirmCloseModalOpen] = useState(false);
-  const [closingNote, setClosingNote] = useState("");
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+function CompletionBody() {
+  const sessionId = useMissionId();
+  const { state, completeLiveSession } = useStore();
+  const toast = useToast();
+  const opName = useOperatorName();
 
-  const session = useMemo(() => state.sessions.find((s) => s.id === sessionId), [state, sessionId]);
-  const liveState = useMemo(() => selectLiveSessionState(state, sessionId), [state, sessionId]);
   const checklist = useMemo(() => selectCompletionChecklist(state, sessionId), [state, sessionId]);
   const summary = useMemo(() => selectSessionSummary(state, sessionId), [state, sessionId]);
-  const teams = useMemo(() => selectSessionTeams(state, sessionId), [state, sessionId]);
+  const results = useMemo(() => selectResultsProgress(state, sessionId), [state, sessionId]);
+  const [note, setNote] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [overrideOpen, setOverrideOpen] = useState(false);
 
-  const isCompleted = liveState.status === "Completed" || session?.status === "completed";
+  const { lss, snapshot } = summary;
+  const ended = lss.status === "Ended";
+  const open = checklist.items.filter((i) => i.status !== "passed");
+  const blockers = checklist.items.filter((i) => i.status === "blocked");
 
-  const winnerName = useMemo(() => {
-    // If sport, look up segment results winner
-    const winnerId = summary.results?.[summary.results.length - 1]?.winnerTeamId;
-    if (winnerId) {
-      return teams.find((t) => t.team.id === winnerId)?.team.name || winnerId;
-    }
-    return "No Winner";
-  }, [summary.results, teams]);
-
-  if (!session) {
-    return <div className="p-8 text-xs font-mono text-slate-500">Session not found.</div>;
+  if (summary.isCompleted) {
+    return (
+      <div className="space-y-6">
+        <MissionStageStepper current="completion" />
+        <section className="rounded-panel border border-emerald-200 bg-emerald-50/60 p-6 shadow-panel">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <CheckCircle2 className="mt-0.5 h-7 w-7 text-emerald-600" />
+              <div>
+                <p className="font-display text-xl font-bold text-ink-lum">Session completed</p>
+                <p className="mt-1 text-sm text-ink-sec">
+                  {snapshot ? `Locked by ${opName(snapshot.completedBy)} on ${formatWhen(snapshot.completedAt)}.` : "This session is closed."} Attendance, results and notes are now read-only.
+                </p>
+                {snapshot?.overrideReason && <p className="mt-2 text-sm text-amber-800">Completed with override: {snapshot.overrideReason}</p>}
+                {snapshot?.closingNote && <p className="mt-2 text-sm text-ink-sec">Closing note: {snapshot.closingNote}</p>}
+              </div>
+            </div>
+            <Link href={`/missions/${sessionId}/summary`}>
+              <Button>
+                <FileText className="h-4 w-4" /> Open report
+              </Button>
+            </Link>
+          </div>
+        </section>
+      </div>
+    );
   }
 
-  const handleComplete = (override?: string) => {
-    setErrorMsg(null);
-    const res = completeLiveSession(sessionId, override, role.id);
-    if (res.error) {
-      setErrorMsg(res.error);
-    } else {
-      setOverrideModalOpen(false);
-      setOverrideReason("");
-      setConfirmCloseModalOpen(false);
-    }
-  };
-
-  const getBlockerAction = (key: string) => {
-    if (key === "session-ended" || key === "active-segments-closed" || key === "equipment-returned" || key === "safety-signals-cleared") {
-      return { label: "Review Equipment & Steps", href: `/missions/${sessionId}/live` };
-    }
-    if (key === "attendance-finalized" || key === "staff-finalized") {
-      return { label: "Open Check-In Desk", href: `/missions/${sessionId}/check-in` };
-    }
-    if (key === "results-finalized") {
-      return { label: "Review Results", href: `/missions/${sessionId}/results` };
-    }
-    return null;
-  };
-
-  const blockers = checklist.items.filter((item) => item.status !== "passed");
-
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6 font-mono text-xs">
-      {/* Back button & Breadcrumbs */}
-      <MissionBackNavigation currentStageName="Finish Event" />
+    <div className="space-y-6">
+      <MissionStageStepper current="completion" />
 
-      <PageHeader
-        overline="Event Closure & Archive"
-        title="Finish Event"
-        sub="Verify all attendance records, confirm match outcomes, log equipment returns, and lock the event history."
-      />
-
-      {/* Global persistent header */}
-      <MissionWorkspaceHeader />
-
-      {/* Three step navigator */}
-      <MissionStageNavigation />
-
-      {errorMsg && <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl">{errorMsg}</div>}
-
-      {/* If Completed state */}
-      {isCompleted ? (
-        <div className="bg-emerald-200 border border-emerald-200 p-6 rounded-panel space-y-4">
-          <div className="flex items-center gap-3">
-            <CheckCircle className="h-6 w-6 text-emerald-600" />
-            <div>
-              <h3 className="text-sm font-bold text-emerald-700">Event Completed</h3>
-              <p className="text-[11px] text-emerald-400/80">
-                This event is now closed and the final summary is ready. Normal operations are locked.
-              </p>
-            </div>
-          </div>
-          <div className="text-[10px] text-slate-500">
-            Locked At: {liveState.updatedAt ? new Date(liveState.updatedAt).toLocaleString() : "Recently"}
-          </div>
-          <div className="flex items-center gap-2 pt-2 border-t border-emerald-300">
-            <Link href={`/missions/${sessionId}/summary`}>
-              <button className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold rounded-xl text-xs">
-                View Final Summary
-              </button>
+      {!ended ? (
+        <EmptyState
+          title="Finish opens after the session ends"
+          line={`The session is ${lss.status.toLowerCase()}. End it on the Run tab, confirm results, then come back here.`}
+          action={
+            <Link href={`/missions/${sessionId}/live`}>
+              <Button variant="secondary">
+                Go to Run <ArrowRight className="h-4 w-4" />
+              </Button>
             </Link>
-            <Link href="/missions">
-              <button className="px-4 py-2 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-ink-sec rounded-xl text-xs">
-                Back to All Events
-              </button>
-            </Link>
-          </div>
-        </div>
+          }
+        />
       ) : (
-        /* Active closure form */
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left Column: Blockers and Checklist */}
-          <div className="space-y-6">
-            {/* Blocker Alert Banner */}
-            {blockers.length > 0 && (
-              <div className="bg-red-200 border border-red-200 rounded-panel p-5 space-y-3">
-                <div className="flex items-center gap-2 text-red-600 font-bold text-sm">
-                  <AlertOctagon className="h-5 w-5" />
-                  <span>Event Cannot Be Finished Yet</span>
-                </div>
-                <p className="text-red-700 text-[11px]">
-                  Before we can lock records, you must resolve the remaining checklist items below.
-                </p>
-
-                <div className="space-y-2 pt-2 border-t border-red-300">
-                  {blockers.map((item) => {
-                    const action = getBlockerAction(item.key);
-                    return (
-                      <div key={item.key} className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-lg bg-slate-50 border border-red-200 text-[11px]">
-                        <div>
-                          <p className="font-bold text-red-700">{item.label}</p>
-                          <p className="text-[10px] text-slate-500 mt-0.5">{item.evidence}</p>
-                        </div>
-                        {action && (
-                          <Link href={action.href}>
-                            <button className="px-2.5 py-1 bg-red-200 hover:bg-red-50 border border-red-200 text-red-700 text-[10px] font-bold rounded">
-                              {action.label}
-                            </button>
-                          </Link>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Checklist items */}
-            <div className="glass border border-slate-200 rounded-panel p-5 space-y-4">
-              <span className="font-bold text-ink-lum uppercase tracking-wider block border-b border-slate-200 pb-2">Before You Finish</span>
-              <div className="space-y-2">
-                {checklist.items.map((item) => {
-                  const passed = item.status === "passed";
-                  const warning = item.status === "warning";
-                  return (
-                    <div key={item.key} className="flex items-center justify-between py-2 border-b border-slate-200">
-                      <div>
-                        <p className="font-bold text-ink-sec">{item.label}</p>
-                        <p className="text-[10px] text-ink-mut">{item.evidence}</p>
-                      </div>
-                      <span className={`px-2 py-0.5 rounded text-[9px] font-bold border ${
-                        passed
-                          ? "bg-emerald-50 border-emerald-200 text-emerald-600"
-                          : warning
-                          ? "bg-amber-50 border-amber-200 text-amber-700"
-                          : "bg-red-50 border-red-200 text-red-600"
-                      }`}>
-                        {item.status.toUpperCase()}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* Right Column: Final Numbers and Closing Actions */}
-          <div className="space-y-6">
-            {/* Final Numbers Card */}
-            <div className="glass border border-slate-200 rounded-panel p-5 space-y-4">
-              <span className="font-bold text-ink-lum uppercase tracking-wider block border-b border-slate-200 pb-2">Final Summary Numbers</span>
-
-              <div className="grid grid-cols-2 gap-4">
-                {/* Column 1: Attendance */}
-                <div className="space-y-2">
-                  <span className="text-[10px] text-ink-mut uppercase font-semibold block">Attendance</span>
-                  <div className="space-y-1 text-[11px] text-ink-sec">
-                    <div>Joined: <strong className="text-brand">{summary.checkIn.checkedInCount + summary.checkIn.lateCount + summary.checkIn.missingCount}</strong></div>
-                    <div>Present: <strong className="text-emerald-700">{summary.checkIn.checkedInCount + summary.checkIn.lateCount}</strong></div>
-                    <div>Late: <strong className="text-amber-700">{summary.checkIn.lateCount}</strong></div>
-                    <div>No Show: <strong className="text-danger">{summary.checkIn.missingCount}</strong></div>
-                  </div>
-                </div>
-
-                {/* Column 2: Financials */}
-                <div className="space-y-2 border-l border-slate-200 pl-4">
-                  <span className="text-[10px] text-ink-mut uppercase font-semibold block">Financials</span>
-                  <div className="space-y-1 text-[11px] text-ink-sec">
-                    <div>Gross: <strong className="text-ink-lum">{inr(summary.money.grossCollected)}</strong></div>
-                    <div>Refunds: <strong className="text-danger">-{inr(summary.money.totalRefunded)}</strong></div>
-                    <div className="border-t border-slate-200 pt-1 mt-1 font-bold">
-                      Net: <strong className="text-emerald-700">{inr(summary.money.netRevenue)}</strong>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Column 3: Event Runtime */}
-                <div className="space-y-2 border-t border-slate-200 pt-3 col-span-2 grid grid-cols-2">
-                  <div className="space-y-1">
-                    <span className="text-[10px] text-ink-mut uppercase font-semibold block">Event Timing</span>
-                    <div className="text-[11px] text-ink-sec">
-                      <div>Active Running: <strong className="text-ink-lum">{summary.formattedDuration}</strong></div>
-                    </div>
-                  </div>
-                  <div className="space-y-1 border-l border-slate-200 pl-4">
-                    <span className="text-[10px] text-ink-mut uppercase font-semibold block">Teams & Winner</span>
-                    <div className="text-[11px] text-ink-sec">
-                      <div>Teams: <strong className="text-ink-lum">{teams.length} Groups</strong></div>
-                      <div>Winner: <strong className="text-brand">{winnerName}</strong></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Closing Note and Action card */}
-            <div className="glass border border-slate-200 rounded-panel p-5 space-y-4">
-              <span className="font-bold text-ink-lum uppercase tracking-wider block border-b border-slate-200 pb-2">Complete Closure Notes</span>
-
-              <div className="space-y-2">
-                <label className="text-[10px] text-ink-mut uppercase font-semibold">Closing Note</label>
-                <textarea
-                  rows={2}
-                  placeholder="e.g. Event completed successfully. One racket was damaged and recorded."
-                  value={closingNote}
-                  onChange={(e) => setClosingNote(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs text-ink-lum"
+        <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
+          <WorkspaceCard
+            title="Before you finish"
+            sub={checklist.isReadyToComplete ? (open.length ? "Nothing blocks completion; review the warnings." : "Every check has passed.") : `${blockers.length} item(s) block completion.`}
+            right={<StatusChip value={checklist.isReadyToComplete ? "ready" : "blocked"} tone={checklist.isReadyToComplete ? "ok" : "danger"} />}
+          >
+            <ul className="divide-y divide-edge">
+              {checklist.items.map((i) => (
+                <CheckRow
+                  key={i.key}
+                  passed={i.status === "passed"}
+                  warning={i.status === "warning"}
+                  label={i.label}
+                  detail={i.status === "passed" ? i.evidence : `${i.evidence}${i.evidence.endsWith(".") ? "" : "."} ${i.recommendedAction}`}
+                  action={
+                    i.status !== "passed" && i.fixTab ? (
+                      <Link href={`/missions/${sessionId}/${i.fixTab}`} className="inline-flex items-center gap-1 text-sm font-semibold text-brand hover:text-brand-hover">
+                        {TAB_LABEL[i.fixTab]} <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                    ) : undefined
+                  }
                 />
-              </div>
+              ))}
+            </ul>
+          </WorkspaceCard>
 
-              <div className="pt-2 flex justify-end gap-2">
+          <div className="space-y-6">
+            <WorkspaceCard title="Final numbers">
+              <dl className="grid grid-cols-2 gap-4 text-sm">
+                <Stat label="Present" value={`${summary.checkIn.presentCount} / ${summary.checkIn.expectedCount}`} detail={`${summary.checkIn.lateCount} late · ${summary.checkIn.noShowCount} no-show`} />
+                <Stat label="Active time" value={summary.formattedDuration} detail={`${summary.session?.duration ?? 0} min planned`} />
+                <Stat label="Results" value={`${results.confirmedCount} / ${results.requiredCount}`} detail="scored steps confirmed" />
+                <Stat label="Net collected" value={inr(summary.money.netRevenue)} detail={`${inr(summary.money.totalRefunded)} refunded`} />
+              </dl>
+            </WorkspaceCard>
+
+            <WorkspaceCard title="Finish the session" sub="Locking saves the report and makes attendance, results and notes read-only.">
+              <label className="block">
+                <span className="mb-1.5 block text-[13px] font-medium text-ink-sec">Closing note (optional)</span>
+                <textarea
+                  rows={3}
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="e.g. Great turnout; one bat damaged and logged for repair."
+                  className="field w-full rounded-xl px-3.5 py-2.5 text-sm"
+                />
+              </label>
+              <div className="mt-4 flex flex-wrap justify-end gap-2">
                 {checklist.isReadyToComplete ? (
-                  <button
-                    onClick={() => setConfirmCloseModalOpen(true)}
-                    className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold rounded-xl text-sm shadow-[0_0_20px_rgba(52,211,153,0.3)] transition-all"
-                  >
-                    Finish and Lock Event
-                  </button>
+                  <Button variant="success" onClick={() => setConfirmOpen(true)}>
+                    <Lock className="h-4 w-4" /> Finish and lock
+                  </Button>
                 ) : (
-                  <>
-                    <button
-                      onClick={() => setOverrideModalOpen(true)}
-                      className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl text-xs"
-                    >
-                      Audited Completion Override
-                    </button>
-                  </>
+                  <Button variant="warning" onClick={() => setOverrideOpen(true)}>
+                    <Lock className="h-4 w-4" /> Finish with override
+                  </Button>
                 )}
               </div>
-            </div>
+            </WorkspaceCard>
           </div>
         </div>
       )}
 
-      {/* Confirmation Finish Modal */}
-      {confirmCloseModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-50 flex items-center justify-center p-4">
-          <div className="bg-slate-50 border border-emerald-200 rounded-lg p-6 max-w-md w-full space-y-4 font-mono text-xs">
-            <h4 className="font-bold text-emerald-600 text-sm">Finish this event?</h4>
-            <p className="text-slate-350 leading-relaxed">
-              Are you sure you want to lock the event ledger? This action will generate the final database snapshot and freeze all check-ins, scores, and revenue outputs.
-            </p>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setConfirmCloseModalOpen(false)}
-                className="px-3 py-1 bg-slate-100 text-slate-700 rounded font-bold"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => handleComplete()}
-                className="px-4 py-1 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold rounded"
-              >
-                Finish Event
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        title="Finish and lock this session?"
+        tone="success"
+        confirmLabel="Finish session"
+        onConfirm={() => {
+          const res = completeLiveSession(sessionId, undefined, note);
+          if (res.error) return res;
+          toast.success("Session completed", "The report is ready.");
+          return true;
+        }}
+      >
+        This cannot be undone. The report is saved and attendance, results, equipment and notes become read-only.
+        {open.length > 0 && <span className="mt-2 block text-amber-800">Warnings: {open.map((o) => o.label.toLowerCase()).join(", ")}.</span>}
+      </ConfirmDialog>
 
-      {/* Audited Completion Override Modal */}
-      {overrideModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-50 flex items-center justify-center p-4">
-          <div className="bg-slate-50 border border-purple-200 rounded-lg p-6 max-w-md w-full space-y-4 font-mono text-xs">
-            <h4 className="font-bold text-purple-700 text-sm">Audited Completion Override</h4>
-            <p className="text-slate-350 leading-relaxed">
-              Completing a session with unresolved checklist items requires an audited justification reason.
-            </p>
-            <textarea
-              rows={3}
-              placeholder="e.g. Lead Coordinator verified venue cleared and attendance confirmed on site."
-              value={overrideReason}
-              onChange={(e) => setOverrideReason(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-slate-800"
-              required
-            />
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setOverrideModalOpen(false)}
-                className="px-3 py-1 bg-slate-100 text-slate-700 rounded font-bold"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => handleComplete(overrideReason.trim())}
-                className="px-4 py-1 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded animate-pulse"
-              >
-                Execute Audited Completion
-              </button>
-            </div>
+      <ReasonDialog
+        open={overrideOpen}
+        onClose={() => setOverrideOpen(false)}
+        title="Finish with override"
+        tone="warning"
+        description={
+          <div>
+            <p>These items are unresolved and will be recorded in the report:</p>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-ink-mut">
+              {blockers.map((b) => (
+                <li key={b.key}>
+                  {b.label} — {b.evidence}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2">This cannot be undone.</p>
           </div>
-        </div>
-      )}
+        }
+        placeholder="e.g. Safety contact left early with approval; staff sign-off done by phone."
+        confirmLabel="Finish session"
+        onConfirm={(reason) => {
+          const res = completeLiveSession(sessionId, reason, note);
+          if (res.error) return res;
+          toast.warning("Session completed with override", "The override reason is in the report and audit record.");
+          return true;
+        }}
+      />
+    </div>
+  );
+}
+
+function Stat({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return (
+    <div>
+      <dt className="text-xs text-ink-mut">{label}</dt>
+      <dd className="mt-0.5 font-display text-xl font-bold tabular text-ink-lum">{value}</dd>
+      <dd className="text-xs text-ink-mut">{detail}</dd>
     </div>
   );
 }

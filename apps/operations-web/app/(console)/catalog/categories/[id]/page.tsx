@@ -1,159 +1,156 @@
 "use client";
 
-import { use } from "react";
-import Link from "next/link";
+import { useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { Building2, Copy, Pencil, Plus, RefreshCw, Sparkles } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { selectCategoryHealth, selectExperienceReadiness } from "@/lib/prototype/selectors/catalog";
+import { categoryByIdView, categoryCompatibleVenues } from "@/lib/prototype/repositories";
+import { geoCan } from "@/lib/geo/access";
+import { inr } from "@/lib/format";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { CatalogBackNavigation, CategoryStatusBadge, ExperienceStatusBadge } from "@/components/catalog";
+import { PermissionDenied } from "@/components/ui/panels";
 import { Button, StatusChip } from "@/components/ui/primitives";
-import { Layers, Sparkles, Plus, ArrowRight } from "lucide-react";
+import { useCommandFeedback } from "@/components/ui/toast";
+import { ConfirmDialog, Crumbs, DetailList, Figure, LinkButton, LinkRows, NotFoundCard, Notice, PageShell, Panel, StatusDialog } from "@/components/setup/kit";
+import { EditDrawer } from "@/components/setup/form";
+import { RecordActivity } from "@/components/setup/shared";
+import { CATEGORY_STATUS, categoryFromValues, categorySteps, categoryValues } from "@/components/catalog/schemas";
 
-export default function CategoryDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id: categoryId } = use(params);
-  const { state } = useStore();
+export default function CategoryDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  const { state, canAccess, role, updateActivityCategory, changeCategoryStatus, duplicateCategory } = useStore();
+  const feedback = useCommandFeedback();
+  const category = state.categories.find((c) => c.id === id);
+  const view = useMemo(() => categoryByIdView(state, id), [state, id]);
+  const compat = useMemo(() => categoryCompatibleVenues(state, id), [state, id]);
+  const [editing, setEditing] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(false);
+  const [dupOpen, setDupOpen] = useState(false);
 
-  const categories = state.categories ?? [];
-  const templates = state.templates ?? [];
+  if (!canAccess("/catalog")) return <PermissionDenied module="Catalog" />;
+  if (!category || !view) return <PageShell><NotFoundCard what="category" backHref="/catalog/categories" backLabel="All categories" /></PageShell>;
 
-  const category = categories.find((c) => c.id === categoryId);
-
-  if (!category) {
-    return (
-      <div className="mx-auto w-full max-w-7xl px-4 py-12 text-center space-y-4">
-        <h2 className="text-xl font-bold text-ink-lum">Category Not Found</h2>
-        <p className="text-xs text-ink-sec">The requested category does not exist in prototype state.</p>
-        <Link href="/catalog/categories">
-          <Button variant="primary">Return to Categories</Button>
-        </Link>
-      </div>
-    );
-  }
-
-  const catTemplates = templates.filter((t) => t.categoryId === category.id);
-  const health = selectCategoryHealth(category, state);
-
-  // Derive single primary action
-  let primaryActionLabel = "Create Experience";
-  let primaryActionHref = `/catalog/experiences/new?categoryId=${category.id}`;
-
-  if (catTemplates.length > 0) {
-    const readyTemplates = catTemplates.filter((t) => selectExperienceReadiness(t, state).schedulable);
-    if (readyTemplates.length > 0) {
-      primaryActionLabel = "Schedule Event";
-      primaryActionHref = `/missions/new?experienceId=${readyTemplates[0].id}`;
-    } else {
-      primaryActionLabel = "Review Experience Setup";
-      primaryActionHref = `/catalog/experiences/${catTemplates[0].id}`;
-    }
-  }
+  const canManage = geoCan(role.id, "manage-catalog");
+  const canStatus = geoCan(role.id, "change-catalog-status");
+  const archived = view.status === "archived";
+  const experiences = state.templates.filter((t) => t.categoryId === id);
+  const fields = categorySteps().flatMap((s) => s.fields).filter((f) => f.key !== "status");
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6">
-      <CatalogBackNavigation
-        label="Back to Categories"
-        href="/catalog/categories"
-        breadcrumbs={[
-          { label: "Categories", href: "/catalog/categories" },
-          { label: category.name, href: `/catalog/categories/${category.id}` },
-        ]}
-      />
-
+    <PageShell>
+      <Crumbs items={[{ label: "Catalog", href: "/catalog" }, { label: "Categories", href: "/catalog/categories" }, { label: category.name }]} />
       <PageHeader
-        overline={`Category Details · ${category.visualTreatment || "Standard"}`}
+        overline={`Activity category · ${view.shortCode}`}
         title={category.name}
-        sub={category.description || "Activity category for organizing reusable experience plans."}
+        sub={category.description}
         right={
-          <div className="flex items-center gap-3">
-            <CategoryStatusBadge status={health.status} />
-            <Link href={primaryActionHref}>
-              <Button variant="primary" className="font-bold text-xs">
-                {primaryActionLabel}
-                <ArrowRight className="w-3.5 h-3.5 ml-1" />
-              </Button>
-            </Link>
-          </div>
+          <>
+            <StatusChip value={view.status} />
+            {canManage && !archived && <Button variant="secondary" onClick={() => setEditing(true)}><Pencil className="h-4 w-4" /> Edit</Button>}
+            {canManage && <Button variant="secondary" onClick={() => setDupOpen(true)}><Copy className="h-4 w-4" /> Duplicate</Button>}
+            {canStatus && <Button variant="secondary" onClick={() => setStatusOpen(true)}><RefreshCw className="h-4 w-4" /> Change status</Button>}
+            {canManage && view.status === "active" && <LinkButton href={`/catalog/experiences/new?categoryId=${id}`}><Plus className="h-4 w-4" /> New experience</LinkButton>}
+          </>
         }
       />
 
-      {/* Category Overview Card */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="glass p-5 rounded-2xl border border-slate-200 space-y-1">
-          <span className="text-[10px] text-ink-mut uppercase font-semibold">Format & Type</span>
-          <p className="text-lg font-bold text-ink-lum capitalize">{category.visualTreatment || "Sport"}</p>
-          <p className="text-xs text-ink-sec">Risk level: {category.riskLevel || "low"}</p>
-        </div>
+      {view.status === "paused" && <Notice tone="warn" title="Paused">Its active experiences cannot be scheduled until the category is active again.</Notice>}
+      {view.status === "draft" && <Notice tone="info" title="Draft">Activate the category before activating experiences in it.</Notice>}
+      {archived && <Notice tone="info" title="Archived">This category is read-only. Restore it to draft to edit it, or duplicate it.</Notice>}
 
-        <div className="glass p-5 rounded-2xl border border-slate-200 space-y-1">
-          <span className="text-[10px] text-ink-mut uppercase font-semibold">Compatible Spaces</span>
-          <p className="text-lg font-bold text-ink-lum">{category.isIndoor ? "Indoor Facility" : "Outdoor Space"}</p>
-          <p className="text-xs text-ink-sec">Courts, fields, or rooms</p>
-        </div>
-
-        <div className="glass p-5 rounded-2xl border border-slate-200 space-y-1">
-          <span className="text-[10px] text-ink-mut uppercase font-semibold">Associated Experiences</span>
-          <p className="text-3xl font-bold text-ink-lum">{catTemplates.length}</p>
-          <p className="text-xs text-ink-sec">{health.activeExperiences} active plans</p>
-        </div>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Figure label="Experiences" value={view.templates} hint={`${view.activeTemplates} active · ${view.draftTemplates} draft`} />
+        <Figure label="Compatible venues" value={`${view.compatibleVenues}/${view.totalVenues}`} tone={view.totalVenues && !view.compatibleVenues ? "warn" : undefined} />
+        <Figure label="Sessions" value={view.scheduledSessions} hint="all time" />
+        <Figure label="Risk" value={<span className="capitalize">{category.riskLevel}</span>} />
       </div>
 
-      {/* Experiences in Category */}
-      <div className="glass p-6 rounded-2xl border border-slate-200 space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-          <div>
-            <h3 className="text-base font-bold text-ink-lum">Experiences in {category.name}</h3>
-            <p className="text-xs text-ink-sec">Reusable event plans belonging to this category.</p>
-          </div>
-          <Link href={`/catalog/experiences/new?categoryId=${category.id}`}>
-            <Button variant="primary" className="font-bold text-xs">
-              <Plus className="w-3.5 h-3.5 mr-1" />
-              Create Experience
-            </Button>
-          </Link>
-        </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Panel title="Experiences" sub="Built on this category" icon={<Sparkles className="h-4 w-4" />}>
+          <LinkRows
+            empty="No experiences in this category yet."
+            rows={experiences.map((t) => ({ href: `/catalog/experiences/${t.id}`, title: t.name, meta: `${inr(t.basePrice)} · ${t.minParticipants}–${t.maxParticipants} people · ${t.duration} min`, right: <StatusChip value={t.status} /> }))}
+          />
+        </Panel>
+        <Panel title="Defaults">
+          <DetailList
+            rows={[
+              { label: "Group size", value: `${category.defaultParticipantsMin}–${category.defaultParticipantsMax} (target ${category.defaultTargetParticipants ?? "—"})` },
+              { label: "Team size", value: category.defaultTeamSize ?? "" },
+              { label: "Duration", value: `${category.defaultDuration} min` },
+              { label: "Ages", value: `${category.defaultAgeMin}–${category.defaultAgeMax}` },
+              { label: "Setting", value: category.isIndoor ? "Indoor" : "Outdoor" },
+              { label: "Referee", value: <span className="capitalize">{category.refereeRequirement ?? "none"}</span> },
+              { label: "Safety contact required", value: category.safetyContactRequired ? "Yes" : "No" },
+              { label: "Equipment", value: category.equipmentRequirements.join(", ") },
+              { label: "Participants bring", value: (category.participantRequirements ?? []).join(", ") },
+              { label: "Accessibility", value: category.accessibilityNotes ?? "" },
+            ]}
+          />
+        </Panel>
+      </div>
 
-        {catTemplates.length === 0 ? (
-          <div className="p-8 text-center text-xs text-ink-mut space-y-3">
-            <p>No reusable experiences have been created under this category yet.</p>
-            <Link href={`/catalog/experiences/new?categoryId=${category.id}`}>
-              <Button variant="primary" className="font-bold text-xs">
-                <Plus className="w-3.5 h-3.5 mr-1" />
-                Create First Experience
-              </Button>
-            </Link>
-          </div>
+      <Panel title="Venue compatibility" sub="Venues that meet this category's requirements" icon={<Building2 className="h-4 w-4" />}>
+        {compat.length === 0 ? (
+          <p className="py-4 text-center text-sm text-ink-mut">No venues exist yet.</p>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {catTemplates.map((t) => {
-              const read = selectExperienceReadiness(t, state);
-              return (
-                <div key={t.id} className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h4 className="font-bold text-sm text-ink-lum">{t.name}</h4>
-                      <p className="text-xs text-ink-mut">
-                        ₹{t.basePrice} · {t.targetParticipants} pax · {t.duration}m
-                      </p>
-                    </div>
-                    <ExperienceStatusBadge status={read.status} size="sm" />
-                  </div>
-
-                  <div className="flex items-center justify-between text-xs border-t border-slate-200 pt-2">
-                    <span className="text-ink-sec">
-                      {read.schedulable ? "Ready to Schedule" : `${read.blockedCount} Blocker(s)`}
-                    </span>
-                    <Link href={read.nextActionHref}>
-                      <Button variant="secondary" className="h-7 text-xs px-2.5">
-                        {read.nextActionLabel} <ArrowRight className="w-3 h-3 ml-1" />
-                      </Button>
-                    </Link>
-                  </div>
+          <ul className="divide-y divide-slate-100">
+            {compat.map((r) => (
+              <li key={r.venueId} className="flex flex-col gap-1 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-ink-lum">{r.venueName}</p>
+                  {!r.compatible && <p className="text-xs text-ink-mut">{r.reasons.join(" · ")}</p>}
                 </div>
-              );
-            })}
-          </div>
+                <StatusChip value={r.compatible ? "compatible" : "not compatible"} tone={r.compatible ? "ok" : "neutral"} />
+              </li>
+            ))}
+          </ul>
         )}
-      </div>
-    </div>
+      </Panel>
+
+      <Panel title="Recent changes" sub="From the audit log">
+        <RecordActivity state={state} match={[`"${category.name}"`]} />
+      </Panel>
+
+      <EditDrawer
+        open={editing}
+        onClose={() => setEditing(false)}
+        title={`Edit ${category.name}`}
+        fields={fields}
+        initial={categoryValues(category)}
+        onSave={(v) => {
+          const { status: _s, ...patch } = categoryFromValues(v);
+          void _s;
+          const out = updateActivityCategory(id, { ...patch, icon: category.icon, visualTreatment: category.visualTreatment, traits: category.traits });
+          feedback(out, "Category updated");
+          return out;
+        }}
+      />
+      <StatusDialog
+        open={statusOpen}
+        onClose={() => setStatusOpen(false)}
+        title={`Change status — ${category.name}`}
+        current={view.status}
+        options={archived ? CATEGORY_STATUS.map((o) => (o.value === "draft" ? { ...o, label: "Restore to draft", needsReason: true, consequence: "Brings the category back for editing. It stays hidden from scheduling until activated." } : o)).filter((o) => o.value === "draft") : CATEGORY_STATUS}
+        onConfirm={(s, reason) => {
+          const out = changeCategoryStatus(id, s, reason);
+          feedback(out, `Category set to ${s}`);
+          return out;
+        }}
+      />
+      <ConfirmDialog
+        open={dupOpen}
+        onClose={() => setDupOpen(false)}
+        title="Duplicate this category"
+        body={<>A draft copy of <strong>{category.name}</strong> is created with the same defaults. Experiences are not copied.</>}
+        confirmLabel="Create copy"
+        onConfirm={() => {
+          const out = duplicateCategory(id);
+          if (feedback(out, "Category duplicated", "The copy is a draft.") && out.id) router.push(`/catalog/categories/${out.id}`);
+          return out;
+        }}
+      />
+    </PageShell>
   );
 }

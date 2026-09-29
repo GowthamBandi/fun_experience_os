@@ -1,5 +1,5 @@
 import type { PrototypeState } from "../scenarios";
-import { SEAT_STATUSES, type SeatStatus } from "../selectors";
+import { sessionCapacityLedger } from "../selectors/capacity";
 import type { CategoryInput, TemplateInput } from "../services/create";
 
 export interface ValidationIssue {
@@ -139,13 +139,14 @@ export function validatePrototypeState(state: PrototypeState): ValidationIssue[]
 
   /* 6 — booking capacity overflow */
   for (const s of state.sessions) {
-    const seats = state.bookings.filter((b) => b.sessionId === s.id && SEAT_STATUSES.has(b.status as SeatStatus)).length;
-    if (seats > s.maxParticipants) {
+    const ledger = sessionCapacityLedger(state, s.id);
+    const seats = ledger.physicalOccupancy;
+    if (seats > ledger.maxPhysicalCapacity) {
       issues.push(
-        issue("error", "CAPACITY_OVERFLOW", s.id, `Session ${s.id} has ${seats} seated bookings against a cap of ${s.maxParticipants}.`, s.id)
+        issue("error", "CAPACITY_OVERFLOW", s.id, `Session ${s.id} has ${seats} occupied seats against a capacity of ${ledger.maxPhysicalCapacity}.`, s.id)
       );
-    } else if (seats === s.maxParticipants && s.status !== "full") {
-      issues.push(issue("info", "CAPACITY_STATUS_STALE", s.id, `Session ${s.id} is at capacity (${seats}/${s.maxParticipants}) but status is "${s.status}".`, s.id));
+    } else if (ledger.remainingSellableCapacity === 0 && ledger.sellableCapacity > 0 && ["booking-open", "almost-full", "scheduled", "published"].includes(s.status)) {
+      issues.push(issue("info", "CAPACITY_STATUS_STALE", s.id, `Session ${s.id} has no free seats but its status is "${s.status}".`, s.id));
     }
   }
 

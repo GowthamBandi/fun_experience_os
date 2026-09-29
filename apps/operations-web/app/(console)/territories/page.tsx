@@ -1,231 +1,96 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
-import Link from "next/link";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { CalendarClock, Globe2, MapPin, Plus, ShieldAlert } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { territoryRows, type TerritoryListRow } from "@/lib/prototype/repositories";
-import { selectTerritorySetupHealth } from "@/lib/prototype/selectors/setup";
-import { PageFrame } from "@/components/geo/layout";
+import { geoCan } from "@/lib/geo/access";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { PermissionDenied } from "@/components/ui/panels";
+import { MetricTile, PermissionDenied } from "@/components/ui/panels";
+import { StatusChip } from "@/components/ui/primitives";
+import { FilterRail, SearchInput } from "@/components/ui/fields";
 import { DataTable, type Column } from "@/components/ui/table";
-import { SearchInput, FilterRail } from "@/components/ui/fields";
-import { Button } from "@/components/ui/primitives";
-import { Tide } from "@/components/motion/Motion";
-import { SetupBackNavigation, SetupPrimaryAction, SetupStatusBadge, SetupEmptyState } from "@/components/setup/shared";
-import { cn } from "@/lib/format";
+import { Crumbs, EmptyPanel, LinkButton, PageShell } from "@/components/setup/kit";
+
+const STATUSES = ["active", "draft", "paused", "disabled"] as const;
 
 export default function TerritoriesPage() {
   const router = useRouter();
-  const { state, canAccess, hydrated } = useStore();
+  const { state, canAccess, role } = useStore();
   const [query, setQuery] = useState("");
-  const [view, setView] = useState<"table" | "cards">("table");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-
+  const [status, setStatus] = useState<(typeof STATUSES)[number] | "all">("all");
   const rows = useMemo(() => territoryRows(state), [state]);
-
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return rows.filter((r) => {
-      const matchesQuery = !q || r.name.toLowerCase().includes(q) || r.franchiseName.toLowerCase().includes(q);
-      const matchesStatus = statusFilter === "all" || r.status === statusFilter;
-      return matchesQuery && matchesStatus;
-    });
-  }, [rows, query, statusFilter]);
+    return rows.filter((r) => (status === "all" || r.status === status) && (!q || `${r.name} ${r.state} ${r.region} ${r.franchiseName} ${r.managerName}`.toLowerCase().includes(q)));
+  }, [rows, query, status]);
 
-  if (!hydrated) return <PageFrame><Tide /></PageFrame>;
-  if (!canAccess("/territories")) return <PageFrame><PermissionDenied module="Territories" /></PageFrame>;
+  if (!canAccess("/territories")) return <PermissionDenied module="Territories" />;
+  const canCreate = geoCan(role.id, "create-territory");
+  const noFranchise = state.franchises.length === 0;
 
   const columns: Column<TerritoryListRow>[] = [
     {
       key: "name",
-      header: "Territory Name",
+      header: "Territory",
       render: (r) => (
         <div>
-          <p className="font-medium text-ink-lum">{r.name}</p>
-          <p className="text-[11px] text-ink-mut">{r.region} · {r.state}</p>
+          <p className="font-semibold text-ink-lum">{r.name}</p>
+          <p className="text-xs text-ink-mut">{r.state}{r.region ? ` · ${r.region}` : ""}</p>
         </div>
       ),
     },
-    { key: "franchise", header: "Parent Franchise", render: (r) => <span className="text-ink-sec">{r.franchiseName}</span> },
+    { key: "franchise", header: "Franchise", render: (r) => <span className="text-ink-sec">{r.franchiseName}</span> },
     { key: "manager", header: "Manager", render: (r) => <span className="text-ink-sec">{r.managerName}</span> },
-    { key: "cities", header: "Cities", align: "right", render: (r) => <span className="tabular text-ink-sec">{r.cities}</span> },
-    { key: "venues", header: "Venues", align: "right", render: (r) => <span className="tabular text-ink-sec">{r.venues}</span> },
-    { key: "upcoming", header: "Active Events", align: "right", render: (r) => <span className="tabular text-ink-sec">{r.upcomingSessions}</span> },
-    {
-      key: "health",
-      header: "Setup Health",
-      render: (r) => {
-        const health = selectTerritorySetupHealth(state, r.id);
-        return <SetupStatusBadge status={health.status} />;
-      },
-    },
+    { key: "cities", header: "Cities", align: "right", render: (r) => r.cities },
+    { key: "venues", header: "Venues", align: "right", render: (r) => r.venues },
+    { key: "upcoming", header: "Upcoming", align: "right", render: (r) => r.upcomingSessions },
+    { key: "fill", header: "Avg fill", align: "right", render: (r) => (r.upcomingSessions ? `${r.fill}%` : "—") },
+    { key: "staff", header: "Staffing", render: (r) => <StatusChip value={r.staffingRisk === "ok" ? "ready" : r.staffingRisk === "watch" ? "monitoring" : "critical"} /> },
+    { key: "status", header: "Status", render: (r) => <StatusChip value={r.status} /> },
   ];
 
   return (
-    <PageFrame>
-      <div className="mb-6 space-y-4">
-        <SetupBackNavigation label="Back to Setup" href="/setup" />
-        <PageHeader
-          overline="Setup · Territories"
-          title="Territories"
-          sub="Manage the local operating areas inside each franchise."
-          right={
-            <SetupPrimaryAction 
-              label="Add Territory" 
-              href="/territories/new" 
-              allowedRoles={["platform-owner", "super-admin", "regional-partner"]} 
-            />
-          }
-        />
-      </div>
+    <PageShell>
+      <Crumbs items={[{ label: "Setup", href: "/setup" }, { label: "Territories" }]} />
+      <PageHeader
+        overline="Setup"
+        title="Territories"
+        sub="Regions your franchises run. A territory sets the manager, time zone and currency for its cities, venues, staff and sessions."
+        right={
+          canCreate &&
+          !noFranchise && (
+            <LinkButton href="/territories/new">
+              <Plus className="h-4 w-4" /> New territory
+            </LinkButton>
+          )
+        }
+      />
 
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <SearchInput value={query} onChange={setQuery} placeholder="Search territories..." />
-            <FilterRail
-              options={["active", "draft", "paused", "disabled"]}
-              value={statusFilter}
-              onChange={setStatusFilter}
-            />
-          </div>
-          <div className="inline-flex gap-1 rounded-xl bg-slate-50 p-1">
-            <button
-              onClick={() => setView("table")}
-              className={cn("rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200", view === "table" ? "bg-slate-100 text-ink-lum" : "text-ink-mut hover:text-ink-sec")}
-            >
-              Table
-            </button>
-            <button
-              onClick={() => setView("cards")}
-              className={cn("rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200", view === "cards" ? "bg-slate-100 text-ink-lum" : "text-ink-mut hover:text-ink-sec")}
-            >
-              Cards
-            </button>
-          </div>
-        </div>
-
-        {rows.length === 0 ? (
-          <SetupEmptyState
-            title="No territories created yet"
-            message="Divide your franchise regions into local operating areas."
-            actionLabel="Add Territory"
-            actionHref="/territories/new"
-          />
-        ) : filtered.length === 0 ? (
-          <div className="solid rounded-panel p-10 text-center">
-            <p className="text-sm font-medium text-ink-lum">No territories found</p>
-            <p className="mt-1 text-sm text-ink-mut">Adjust your filters.</p>
-          </div>
+      {rows.length === 0 ? (
+        noFranchise ? (
+          <EmptyPanel icon={<Globe2 className="h-5 w-5" />} title="Create a franchise first" line="Every territory belongs to a franchise. Set up the franchise, then come back to add its territories." actionHref="/franchises/new" actionLabel="Create a franchise" />
         ) : (
-          <div className="hidden md:block">
-            {view === "table" ? (
-              <DataTable
-                columns={columns}
-                rows={filtered}
-                emptyTitle=""
-                emptyLine=""
-                onRowClick={(r) => router.push(`/territories/${r.id}`)}
-              />
-            ) : (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {filtered.map(r => {
-                  const health = selectTerritorySetupHealth(state, r.id);
-                  return (
-                    <div key={r.id} className="glass rounded-panel p-5 space-y-4">
-                      <div>
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h4 className="font-bold text-ink-lum">{r.name}</h4>
-                            <p className="text-xs text-ink-sec">{r.franchiseName}</p>
-                          </div>
-                          <SetupStatusBadge status={health.status} />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div>
-                          <span className="text-ink-mut block">Manager</span>
-                          <span className="text-ink-lum">{r.managerName}</span>
-                        </div>
-                        <div>
-                          <span className="text-ink-mut block">Cities</span>
-                          <span className="text-ink-lum">{r.cities}</span>
-                        </div>
-                        <div>
-                          <span className="text-ink-mut block">Venues</span>
-                          <span className="text-ink-lum">{r.venues}</span>
-                        </div>
-                        <div>
-                          <span className="text-ink-mut block">Active Events</span>
-                          <span className="text-ink-lum">{r.upcomingSessions}</span>
-                        </div>
-                      </div>
-                      <div className="pt-2 border-t border-slate-200 flex justify-between items-center">
-                        <Link href={`/territories/${r.id}`}>
-                          <Button variant="secondary" className="text-[11px] h-7 px-3">View Territory</Button>
-                        </Link>
-                        {health.status !== "complete" && (
-                          <Link href={`/cities/new?territoryId=${r.id}`}>
-                            <Button variant="primary" className="text-[11px] h-7 px-3">Add City</Button>
-                          </Link>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+          <EmptyPanel icon={<Globe2 className="h-5 w-5" />} title="No territories yet" line="Add the first region your franchise will run." actionHref={canCreate ? "/territories/new" : undefined} actionLabel="Add a territory" />
+        )
+      ) : (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <MetricTile label="Territories" value={rows.length} detail={`${rows.filter((r) => r.status === "active").length} active`} icon={<Globe2 className="h-4 w-4" />} />
+            <MetricTile label="Cities" value={rows.reduce((a, r) => a + r.cities, 0)} detail={`${rows.reduce((a, r) => a + r.venues, 0)} venues`} icon={<MapPin className="h-4 w-4" />} tone="emerald" />
+            <MetricTile label="Upcoming sessions" value={rows.reduce((a, r) => a + r.upcomingSessions, 0)} detail="today and tomorrow" icon={<CalendarClock className="h-4 w-4" />} tone="sky" />
+            <MetricTile label="Safety signals" value={rows.reduce((a, r) => a + r.safetySignals, 0)} detail="alerts and open incidents" icon={<ShieldAlert className="h-4 w-4" />} tone="rose" />
           </div>
-        )}
-        <div className="md:hidden block">
-            {filtered.map(r => {
-              const health = selectTerritorySetupHealth(state, r.id);
-              return (
-                <div key={r.id} className="glass rounded-panel p-5 space-y-4 mb-3">
-                  <div>
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h4 className="font-bold text-ink-lum">{r.name}</h4>
-                        <p className="text-xs text-ink-sec">{r.franchiseName}</p>
-                      </div>
-                      <SetupStatusBadge status={health.status} />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div>
-                      <span className="text-ink-mut block">Manager</span>
-                      <span className="text-ink-lum">{r.managerName}</span>
-                    </div>
-                    <div>
-                      <span className="text-ink-mut block">Cities</span>
-                      <span className="text-ink-lum">{r.cities}</span>
-                    </div>
-                    <div>
-                      <span className="text-ink-mut block">Venues</span>
-                      <span className="text-ink-lum">{r.venues}</span>
-                    </div>
-                    <div>
-                      <span className="text-ink-mut block">Active Events</span>
-                      <span className="text-ink-lum">{r.upcomingSessions}</span>
-                    </div>
-                  </div>
-                  <div className="pt-2 border-t border-slate-200 flex justify-between items-center">
-                    <Link href={`/territories/${r.id}`}>
-                      <Button variant="secondary" className="text-[11px] h-7 px-3">View Territory</Button>
-                    </Link>
-                    {health.status !== "complete" && (
-                      <Link href={`/cities/new?territoryId=${r.id}`}>
-                        <Button variant="primary" className="text-[11px] h-7 px-3">Add City</Button>
-                      </Link>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-        </div>
-      </div>
-    </PageFrame>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center">
+            <div className="md:w-80">
+              <SearchInput value={query} onChange={setQuery} placeholder="Search name, state, franchise, manager" />
+            </div>
+            <FilterRail options={STATUSES} value={status} onChange={setStatus} />
+          </div>
+          <DataTable columns={columns} rows={filtered} onRowClick={(r) => router.push(`/territories/${r.id}`)} emptyTitle="No territories match" emptyLine="Clear the search or choose another status." />
+        </>
+      )}
+    </PageShell>
   );
 }

@@ -1,6 +1,8 @@
 import type { PrototypeState } from "../scenarios/state";
-import type { Booking, BookingStatus, ReservationStatus, PaymentStatus } from "../entities";
+import type { BookingType } from "../entities";
 import { sessionCapacityLedger } from "../selectors/capacity";
+import { bookingRefundTotals } from "../selectors/money";
+import { bookableSessionStatus } from "../selectors/status";
 
 export interface ValidationResult {
   isValid: boolean;
@@ -8,126 +10,84 @@ export interface ValidationResult {
   warnings: string[];
 }
 
-/**
- * Validates whether a state transition between reservationStatus, paymentStatus, and bookingStatus is valid.
- */
-export function validateBookingStateTransition(
-  current: Partial<Booking>,
-  nextStatus: BookingStatus
-): ValidationResult {
-  const errors: string[] = [];
-  const warnings: string[] = [];
-
-  // Allowed transitions
-  if (current.status === "confirmed" && (nextStatus === "reserved" || nextStatus === "payment-pending")) {
-    errors.push("Cannot revert a confirmed booking back to reserved or pending status.");
-  }
-
-  if (current.status === "refunded" && nextStatus !== "refunded") {
-    errors.push("Refunding is a terminal financial state.");
-  }
-
-  if ((current.status === "cancelled-user" || current.status === "cancelled-company") && nextStatus === "confirmed") {
-    errors.push("Cancelled bookings cannot be directly confirmed. A new reservation must be created.");
-  }
-
-  return {
-    isValid: errors.length === 0,
-    errors,
-    warnings,
-  };
-}
+const rupees = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 
 /**
- * Validates session capacity eligibility before creating a new reservation.
+ * Can a new reservation be created on this session right now?
+ * Paid bookings need a free sellable seat. Complimentary bookings use a reserved
+ * comp slot first and a sellable seat after that.
  */
 export function validateBookingCapacityEligibility(
   state: PrototypeState,
   sessionId: string,
-  bookingType: "individual" | "group" | "complimentary" | "admin"
+  bookingType: BookingType
 ): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
   const session = state.sessions.find((s) => s.id === sessionId);
   if (!session) {
-    errors.push(`Session ${sessionId} does not exist.`);
-    return { isValid: false, errors, warnings };
+    return { isValid: false, errors: ["This session no longer exists."], warnings };
   }
 
-  if (session.status === "cancelled" || session.status === "archived") {
-    errors.push(`Session ${sessionId} is ${session.status} and cannot accept reservations.`);
-    return { isValid: false, errors, warnings };
-  }
-
-  if (session.status === "completed" || session.status === "booking-closed") {
-    errors.push(`Bookings are closed for session ${sessionId} (Status: ${session.status}).`);
-    return { isValid: false, errors, warnings };
+  if (!bookableSessionStatus(session.status)) {
+    const why =
+      session.status === "cancelled" ? "it has been cancelled"
+      : session.status === "completed" || session.status === "archived" ? "it has already finished"
+      : session.status === "draft" ? "it is still a draft"
+      : "bookings are closed";
+    return { isValid: false, errors: [`This session is not taking bookings because ${why}.`], warnings };
   }
 
   const ledger = sessionCapacityLedger(state, sessionId);
 
   if (bookingType === "complimentary") {
-    if (ledger.confirmedComplimentaryBookings >= ledger.compSlots) {
-      warnings.push(
-        `Complimentary allocation limit (${ledger.compSlots}) reached. Additional comp booking consumes sellable capacity.`
-      );
+    const compSlotsLeft = Math.max(0, ledger.compSlots - ledger.confirmedComplimentaryBookings);
+    if (compSlotsLeft === 0 && ledger.remainingSellableCapacity <= 0) {
+      errors.push("No complimentary slot or free seat is left in this session.");
+    } else if (compSlotsLeft === 0) {
+      warnings.push("All reserved complimentary slots are used — this free pass takes a sellable seat.");
     }
-    if (ledger.physicalOccupancy >= ledger.maxPhysicalCapacity) {
-      errors.push(`Physical venue max capacity (${ledger.maxPhysicalCapacity}) reached. Cannot add comp booking.`);
-    }
-  } else {
-    if (ledger.remainingSellableCapacity <= 0) {
-      errors.push(`No remaining sellable capacity for session ${sessionId}.`);
-    }
+  } else if (ledger.remainingSellableCapacity <= 0) {
+    errors.push("This session is full. Add the person to the waiting list instead.");
   }
 
-  return {
-    isValid: errors.length === 0,
-    errors,
-    warnings,
-  };
+  return { isValid: errors.length === 0, errors, warnings };
 }
 
 /**
- * Validates refund eligibility.
+ * Cumulative over-refund guard. A refund is allowed only when the booking was
+ * paid and the sum of all requested, approved and completed refunds (plus this
+ * one) stays within what was actually collected.
  */
 export function validateRefundEligibility(
   state: PrototypeState,
   bookingId: string,
-  refundAmount: number
+  refundAmount: number,
+  options: { excludeRefundId?: string } = {}
 ): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
   const booking = state.bookings.find((b) => b.id === bookingId);
   if (!booking) {
-    errors.push(`Booking ${bookingId} not found.`);
-    return { isValid: false, errors, warnings };
+    return { isValid: false, errors: ["The booking for this refund could not be found."], warnings };
   }
 
-  if (refundAmount <= 0) {
-    errors.push("Refund amount must be strictly greater than 0.");
+  if (!Number.isFinite(refundAmount) || refundAmount <= 0) {
+    errors.push("Enter a refund amount greater than zero.");
+  } else if (!Number.isInteger(refundAmount)) {
+    errors.push("Refunds are recorded in whole rupees.");
   }
 
-  if (refundAmount > (booking.amount || 0)) {
-    errors.push(`Refund amount (₹${refundAmount}) cannot exceed paid amount (₹${booking.amount}).`);
-  }
-
-  const existingRefunds = (state.refunds ?? []).filter(
-    (r) => r.bookingId === bookingId && r.status !== "rejected" && r.status !== "failed"
-  );
-  const totalAlreadyRefundedOrPending = existingRefunds.reduce((sum, r) => sum + r.amount, 0);
-
-  if (totalAlreadyRefundedOrPending + refundAmount > (booking.amount || 0)) {
+  const totals = bookingRefundTotals(state, bookingId, options.excludeRefundId);
+  if (totals.paid <= 0) {
+    errors.push("No payment has been recorded for this booking, so there is nothing to refund.");
+  } else if (refundAmount > totals.refundable) {
     errors.push(
-      `Total refund requests (₹${totalAlreadyRefundedOrPending + refundAmount}) would exceed booking amount (₹${booking.amount}).`
+      `A refund of ${rupees(refundAmount)} would exceed what can still be refunded (${rupees(totals.refundable)} of ${rupees(totals.paid)} paid; ${rupees(totals.committed)} already refunded or in progress).`
     );
   }
 
-  return {
-    isValid: errors.length === 0,
-    errors,
-    warnings,
-  };
+  return { isValid: errors.length === 0, errors, warnings };
 }

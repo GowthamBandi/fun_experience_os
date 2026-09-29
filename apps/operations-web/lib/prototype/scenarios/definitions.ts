@@ -1,5 +1,14 @@
 import type { PrototypeState } from "./state";
 import type { AuditEvent, Signal } from "../entities";
+import {
+  cancelBooking,
+  confirmBookingPayment,
+  createBookingReservation,
+  failBookingPayment,
+  joinWaitlist,
+  type PaymentRecordInput,
+} from "../services/bookings";
+import { cancelSession } from "../services/operations";
 
 export interface ScenarioDef {
   name: string;
@@ -10,10 +19,10 @@ export const SCENARIOS: ScenarioDef[] = [
   { name: "Normal Weekend", blurb: "Balanced baseline — steady fills, settled payments, one low-severity incident." },
   { name: "New City Launch", blurb: "City + venue + playing area + first sessions created under Hyderabad Central." },
   { name: "High Demand", blurb: "Sessions pushed to almost-full/full; waitlists growing; revenue spiking." },
-  { name: "Waitlist Active", blurb: "Waitlist offers extended with countdown expiries across three sessions." },
+  { name: "Waitlist Active", blurb: "Full sessions with waitlists; a cancellation frees a seat that is offered to the next person with a live countdown." },
   { name: "Staff Shortage", blurb: "Key crew marked off; coverage gaps on tonight's sessions." },
   { name: "Venue Conflict", blurb: "Venue in maintenance; impacted session cancelled; refunds queued." },
-  { name: "Payment Failure", blurb: "Failed payments + failed transactions on the Mumbai turf session." },
+  { name: "Payment Failure", blurb: "Two payments recorded as failed (seats released) and one unpaid hold still counting down." },
   { name: "Weather Cancellation", blurb: "Outdoor session cancelled for rain; bookings cancelled; refunds queued." },
   { name: "Safety Incident", blurb: "High-severity incident escalated; session flagged; safety signal raised." },
   { name: "Tournament Day", blurb: "Brackets live, scores submitted, winners advancing across two tournaments." }
@@ -44,24 +53,36 @@ const signal = (kind: Signal["kind"], message: string, sessionId?: string, at = 
   read: false
 });
 
+/* ---------------------------- booking helpers ---------------------------- */
+
+const SCENARIO_OPERATOR = "op-5";
+
+/** Book and record payment through the booking services, so data stays canonical. */
+function bookPaid(state: PrototypeState, sessionId: string, alias: string, payment: PaymentRecordInput): PrototypeState {
+  const held = createBookingReservation(state, { sessionId, alias, operatorId: SCENARIO_OPERATOR, source: "customer-app" });
+  if (held.error || !held.booking) return state;
+  const paid = confirmBookingPayment(held.state, held.booking.id, payment, SCENARIO_OPERATOR);
+  return paid.error ? held.state : paid.state;
+}
+
+function hold(state: PrototypeState, sessionId: string, alias: string): { state: PrototypeState; bookingId?: string } {
+  const held = createBookingReservation(state, { sessionId, alias, operatorId: SCENARIO_OPERATOR, source: "customer-app" });
+  return { state: held.state, bookingId: held.booking?.id };
+}
+
+function waitlist(state: PrototypeState, sessionId: string, alias: string): PrototypeState {
+  return joinWaitlist(state, { sessionId, alias, operatorId: SCENARIO_OPERATOR }).state;
+}
+
 /* ---------------------------- scenario transforms ---------------------------- */
 
 export const applyScenario = (name: string, state: PrototypeState): PrototypeState => {
-  const next = clone(state);
+  let next = clone(state);
 
   switch (name) {
     case "Normal Weekend": {
-      next.sessions = next.sessions.map((s) => (s.id === "s-2" ? { ...s, status: "almost-full" as const } : s));
-      next.bookings.push(
-        { id: "b-nw-1", sessionId: "s-7", alias: "MonopolyMan", phoneMask: "•••• 71", tempId: "BG-04", amount: 199, status: "payment-confirmed", createdAt: "Today, 17:20", method: "upi" },
-        { id: "b-nw-2", sessionId: "s-7", alias: "PuzzlePete", phoneMask: "•••• 72", tempId: "BG-05", amount: 199, status: "payment-confirmed", createdAt: "Today, 17:32", method: "card" }
-      );
-      next.transactions.push(
-        { id: "t-nw-1", sessionId: "s-7", territoryId: "blr-south", bookingId: "b-nw-1", kind: "payment", amount: 199, method: "upi", status: "settled", at: "17:20" },
-        { id: "t-nw-2", sessionId: "s-7", territoryId: "blr-south", bookingId: "b-nw-2", kind: "payment", amount: 199, method: "card", status: "settled", at: "17:32" }
-      );
-      next.transactions = next.transactions.map((t) => (t.id === "t-9" ? { ...t, status: "settled" as const } : t));
-      next.signals.unshift(signal("join", "MonopolyMan joined Board Games Parlour", "s-7"));
+      next = bookPaid(next, "s-7", "MonopolyMan", { method: "upi", reference: "UTR401882310977" });
+      next = bookPaid(next, "s-7", "PuzzlePete", { method: "card", reference: "POS-771204" });
       next.audits.unshift(nowAudit(name));
       break;
     }
@@ -169,27 +190,13 @@ export const applyScenario = (name: string, state: PrototypeState): PrototypeSta
     }
 
     case "High Demand": {
-      next.sessions = next.sessions.map((s) =>
-        s.id === "s-2" ? { ...s, status: "full" as const }
-        : s.id === "s-8" ? { ...s, status: "almost-full" as const }
-        : s
-      );
-      next.bookings.push(
-        { id: "b-hd-1", sessionId: "s-2", alias: "RallyKing", phoneMask: "•••• 81", tempId: "BM-15", amount: 349, status: "payment-confirmed", createdAt: "Today, 16:10", method: "card" },
-        { id: "b-hd-2", sessionId: "s-2", alias: "ShuttleShark", phoneMask: "•••• 82", tempId: "BM-16", amount: 349, status: "payment-confirmed", createdAt: "Today, 16:18", method: "upi" },
-        { id: "b-hd-3", sessionId: "s-2", alias: "DinkQueen", phoneMask: "•••• 83", tempId: "", amount: 349, status: "waitlist-joined", createdAt: "Today, 16:25", method: "card", waitlistOrder: 3 },
-        { id: "b-hd-4", sessionId: "s-8", alias: "SixShooter", phoneMask: "•••• 84", tempId: "MCR-06", amount: 599, status: "payment-confirmed", createdAt: "Today, 16:30", method: "card" },
-        { id: "b-hd-5", sessionId: "s-8", alias: "YorkerYash", phoneMask: "•••• 85", tempId: "", amount: 599, status: "waitlist-joined", createdAt: "Today, 16:35", method: "upi", waitlistOrder: 2 }
-      );
-      next.transactions.push(
-        { id: "t-hd-1", sessionId: "s-2", territoryId: "hvd-central", bookingId: "b-hd-1", kind: "payment", amount: 349, method: "card", status: "settled", at: "16:10" },
-        { id: "t-hd-2", sessionId: "s-2", territoryId: "hvd-central", bookingId: "b-hd-2", kind: "payment", amount: 349, method: "upi", status: "settled", at: "16:18" },
-        { id: "t-hd-3", sessionId: "s-8", territoryId: "mum-west", bookingId: "b-hd-4", kind: "payment", amount: 599, method: "card", status: "settled", at: "16:30" }
-      );
-      next.signals.unshift(
-        signal("alert", "Night Badminton League is FULL. Waitlist has 3.", "s-2"),
-        signal("alert", "Mumbai Turf Cricket is almost full. 1 seat left.", "s-8")
-      );
+      // Night Badminton League is already full: demand builds on its waitlist.
+      for (const alias of ["RallyKing", "ShuttleShark", "DinkQueen"]) next = waitlist(next, "s-2", alias);
+      // Mumbai Turf Cricket fills up to almost full.
+      const cricketers = ["SixShooter", "YorkerYash", "GoogleyGuru", "PowerPlay", "SillyPoint", "ReverseSweep", "SlogSweep"];
+      cricketers.forEach((alias, i) => {
+        next = bookPaid(next, "s-8", alias, i % 2 ? { method: "card", reference: `POS-88${1200 + i}` } : { method: "upi", reference: `UTR40199${7310 + i}` });
+      });
       next.analytics = next.analytics.map((d) =>
         d.label === "Sat" ? { ...d, revenue: d.revenue + 2400, bookings: d.bookings + 6, fill: Math.min(96, d.fill + 4) } : d
       );
@@ -198,19 +205,11 @@ export const applyScenario = (name: string, state: PrototypeState): PrototypeSta
     }
 
     case "Waitlist Active": {
-      next.bookings = next.bookings.map((b) =>
-        b.id === "b-w1" || b.id === "b-w2" || b.id === "b-w3" || b.id === "b-w8"
-          ? { ...b, status: "waitlist-promoted" as const, waitlistOfferExpiresAt: "19:45" }
-          : b
-      );
-      next.signals.unshift(
-        signal("system", "Waitlist offer extended to SquareTurn (s-1). Expires 19:45.", "s-1"),
-        signal("system", "Waitlist offers extended on Night Badminton League (2 offers). Expires 19:45.", "s-2"),
-        signal("system", "Waitlist offer extended to BlazerFox (s-8). Expires 19:45.", "s-8")
-      );
-      next.promoCodes = next.promoCodes.map((p) =>
-        p.code === "DOUBLESUP" ? p : p
-      );
+      // Women's Social Badminton is full: three people join its waitlist, then a
+      // cancellation frees a seat that is offered automatically to the first.
+      for (const alias of ["ShuttleSam", "NetNinja", "BaselineBea"]) next = waitlist(next, "s-3", alias);
+      const cancelled = cancelBooking(next, "b-41", { reason: "Customer can no longer attend" }, SCENARIO_OPERATOR);
+      if (!cancelled.error) next = cancelled.state;
       next.audits.unshift(nowAudit(name));
       break;
     }
@@ -231,27 +230,8 @@ export const applyScenario = (name: string, state: PrototypeState): PrototypeSta
 
     case "Venue Conflict": {
       next.venues = next.venues.map((v) => (v.id === "v-1" ? { ...v, status: "maintenance" as const } : v));
-      next.sessions = next.sessions.map((s) => (s.id === "s-2" ? { ...s, status: "cancelled" as const } : s));
-      next.bookings = next.bookings.map((b) =>
-        b.sessionId === "s-2"
-          ? { ...b, status: ("cancelled" as const) }
-          : b
-      );
-      next.bookings.filter((b) => b.sessionId === "s-2" && b.status === "cancelled").forEach((b) => {
-        if (b.amount > 0 && !next.transactions.some((t) => t.bookingId === b.id && t.kind === "refund")) {
-          next.transactions.push({
-            id: `t-vc-${b.id}`,
-            sessionId: "s-2",
-            territoryId: "hvd-central",
-            bookingId: b.id,
-            kind: "refund",
-            amount: -b.amount,
-            method: "card",
-            status: "pending",
-            at: "Just now"
-          });
-        }
-      });
+      const cancelled = cancelSession(next, "s-2", "Hitex Hall A closed for maintenance", "op-4");
+      if (!cancelled.error) next = cancelled.state;
       next.incidents.push({
         id: "i-vc-1",
         sessionId: "s-2",
@@ -260,63 +240,39 @@ export const applyScenario = (name: string, state: PrototypeState): PrototypeSta
         severity: "high",
         time: "Just now",
         peopleInvolved: [],
-        immediateAction: "Cancelled impacted session, queued refunds",
+        immediateAction: "Cancelled the affected session; refund requests created for Finance",
         medicalAssistance: false,
         escalatedToVenue: true,
         status: "escalated",
         notes: "Hitex Hall A flagged for maintenance; Night Badminton League cancelled.",
         ownerId: "op-4"
       });
-      next.signals.unshift(signal("alert", "VENUE CONFLICT: Hitex Hall A in maintenance. s-2 cancelled, refunds queued.", "s-2"));
+      next.signals.unshift(signal("alert", "Venue conflict: Hitex Hall A in maintenance. Night Badminton League cancelled and refunds requested.", "s-2"));
       next.audits.unshift(nowAudit(name));
       break;
     }
 
     case "Payment Failure": {
-      next.bookings.push({
-        id: "b-pf-1",
-        sessionId: "s-8",
-        alias: "ChaseMercy",
-        phoneMask: "•••• 91",
-        tempId: "",
-        amount: 599,
-        status: "payment-failed",
-        createdAt: "Today, 17:15",
-        method: "upi"
-      });
-      next.transactions.push(
-        { id: "t-pf-1", sessionId: "s-8", territoryId: "mum-west", bookingId: "b-pf-1", kind: "payment", amount: 599, method: "upi", status: "failed", at: "17:15" },
-        { id: "t-pf-2", sessionId: "s-7", territoryId: "blr-south", bookingId: "b-49", kind: "payment", amount: 199, method: "upi", status: "failed", at: "17:20" }
-      );
-      next.bookings = next.bookings.map((b) => (b.id === "b-49" ? { ...b, status: "payment-pending" as const } : b));
-      next.signals.unshift(
-        signal("system", "UPI payment failed for ChaseMercy on Mumbai Turf Cricket (₹599).", "s-8"),
-        signal("system", "Payment retry pending for DiceRoller on Board Games Parlour.", "s-7")
-      );
+      const a = hold(next, "s-8", "ChaseMercy");
+      next = a.state;
+      if (a.bookingId) {
+        const failed = failBookingPayment(next, a.bookingId, "UPI collect request declined by the customer", SCENARIO_OPERATOR);
+        if (!failed.error) next = failed.state;
+      }
+      const b = hold(next, "s-7", "RollTheDice");
+      next = b.state;
+      if (b.bookingId) {
+        const failed = failBookingPayment(next, b.bookingId, "Card declined by the issuing bank", SCENARIO_OPERATOR);
+        if (!failed.error) next = failed.state;
+      }
+      next = hold(next, "s-8", "RetryRaj").state;
       next.audits.unshift(nowAudit(name));
       break;
     }
 
     case "Weather Cancellation": {
-      next.sessions = next.sessions.map((s) => (s.id === "s-1" ? { ...s, status: "cancelled" as const } : s));
-      next.bookings = next.bookings.map((b) =>
-        b.sessionId === "s-1" ? { ...b, status: ("cancelled" as const) } : b
-      );
-      next.bookings.filter((b) => b.sessionId === "s-1").forEach((b) => {
-        if (b.amount > 0 && !next.transactions.some((t) => t.bookingId === b.id && t.kind === "refund")) {
-          next.transactions.push({
-            id: `t-wx-${b.id}`,
-            sessionId: "s-1",
-            territoryId: "hvd-central",
-            bookingId: b.id,
-            kind: "refund",
-            amount: -b.amount,
-            method: "card",
-            status: "pending",
-            at: "Just now"
-          });
-        }
-      });
+      const cancelled = cancelSession(next, "s-1", "Heavy rain — outdoor cricket cancelled under the weather policy", "op-4");
+      if (!cancelled.error) next = cancelled.state;
       next.incidents.push({
         id: "i-wx-1",
         sessionId: "s-1",
@@ -325,14 +281,14 @@ export const applyScenario = (name: string, state: PrototypeState): PrototypeSta
         severity: "high",
         time: "Just now",
         peopleInvolved: [],
-        immediateAction: "Cancelled outdoor cricket, refunds queued",
+        immediateAction: "Cancelled outdoor cricket; refund requests created for Finance",
         medicalAssistance: false,
         escalatedToVenue: true,
         status: "escalated",
         notes: "Heavy rain on Jubilee Grounds. Session s-1 cancelled under weather policy.",
         ownerId: "op-4"
       });
-      next.signals.unshift(signal("system", "WEATHER: Evening Box Cricket cancelled (rain). 8 refunds queued.", "s-1"));
+      next.signals.unshift(signal("system", "Weather: Evening Box Cricket cancelled (rain). Refund requests created for every paid booking.", "s-1"));
       next.analytics = next.analytics.map((d) =>
         d.label === "Sat" ? { ...d, revenue: Math.max(0, d.revenue - 3400), bookings: Math.max(0, d.bookings - 8), fill: Math.max(0, d.fill - 6) } : d
       );
@@ -341,60 +297,103 @@ export const applyScenario = (name: string, state: PrototypeState): PrototypeSta
     }
 
     case "Safety Incident": {
-      next.incidents.push({
-        id: "i-si-1",
-        sessionId: "s-1",
-        reporterId: "op-7",
-        type: "Participant injury",
-        severity: "high",
-        time: "Just now",
-        peopleInvolved: ["CR-06"],
-        immediateAction: "Ice pack applied, transport called, escalated to venue",
-        medicalAssistance: true,
-        escalatedToVenue: true,
-        status: "escalated",
-        notes: "Twisted ankle on wet turf. Participant stable, awaiting pickup.",
-        ownerId: "op-4"
-      });
+      // A high-severity injury on s-1, escalated to the venue, with a refund exception waiting for Finance.
+      const iso = (minutesAgo: number) => new Date(Date.now() - minutesAgo * 60_000).toISOString();
+      const session = next.sessions.find((s) => s.id === "s-1");
+      const incidentId = "i-si-1";
+      if (!next.incidents.some((i) => i.id === incidentId)) {
+        next.incidents.push({
+          id: incidentId,
+          incidentCode: "INC-HVD-SI1",
+          sessionId: "s-1",
+          territoryId: session?.territoryId ?? "hvd-central",
+          cityId: session?.cityId,
+          venueId: session?.venueId,
+          category: "injury",
+          severity: "high",
+          status: "escalated",
+          reportedBy: "op-7",
+          reportedAt: iso(12),
+          occurredAt: iso(15),
+          acknowledgedAt: iso(10),
+          acknowledgedBy: "op-5",
+          triagedAt: iso(8),
+          triagedBy: "op-5",
+          escalatedAt: iso(6),
+          escalationReason: "Participant needs transport; venue duty manager informed.",
+          participantTemporaryIds: ["CR-06"],
+          staffIds: ["op-7", "op-5"],
+          immediateAction: "Ice pack applied, transport called, venue duty manager informed",
+          medicalAssistance: true,
+          venueEscalated: true,
+          followUpOwnerId: "op-9",
+          followUpDueAt: iso(-24 * 60),
+          evidenceItemIds: [],
+          notes: "Twisted ankle on wet turf. Participant stable and waiting for pickup.",
+          triageSeverityReview: "Severity confirmed as high",
+          triageImmediateRisk: "Wet turf may cause further slips",
+          triageRecommendation: "Pause play on the wet end of the pitch and escalate to the venue.",
+          createdAt: iso(12),
+          updatedAt: iso(6)
+        });
+      }
       next.sessions = next.sessions.map((s) => (s.id === "s-1" ? { ...s, weatherRisk: "high" as const } : s));
-      next.transactions.push({
-        id: "t-si-1",
-        sessionId: "s-1",
-        territoryId: "hvd-central",
-        bookingId: "b-6",
-        kind: "adjustment",
-        amount: -99,
-        method: "adjustment",
-        status: "pending",
-        at: "Just now"
-      });
-      next.signals.unshift(signal("alert", "CRITICAL: Safety incident on Evening Box Cricket. Escalated to venue.", "s-1"));
+      if (!next.refundExceptions.some((r) => r.id === "rex-si-1")) {
+        next.refundExceptions.push({
+          id: "rex-si-1",
+          incidentId,
+          sessionId: "s-1",
+          bookingId: "b-6",
+          reason: "safety-incident",
+          amount: 499,
+          currency: "INR",
+          status: "recommended",
+          recommendedBy: "op-5",
+          recommendedAt: iso(5),
+          notes: "Injured participant (CR-06) could not finish the session.",
+          createdAt: iso(5),
+          updatedAt: iso(5)
+        });
+      }
+      next.signals.unshift(signal("alert", "High-severity injury on Evening Box Cricket escalated to the venue.", "s-1"));
       next.audits.unshift(nowAudit(name));
       break;
     }
 
     case "Tournament Day": {
-      next.tournaments = next.tournaments.map((t) => {
-        if (t.id === "tr-1") return { ...t, status: "live" as const };
-        return t;
+      // Both semi-finals of the cricket knockout are played; the second waits for verification.
+      // The badminton cup reaches its final. Every slot references entrant ids, never names.
+      const iso = (minutesAgo: number) => new Date(Date.now() - minutesAgo * 60_000).toISOString();
+      const revision = (scoreA: number, scoreB: number, winnerTeamId: string, recordedBy: string, minutesAgo: number, verifiedBy?: string) => ({
+        revisionNumber: 1,
+        scoreA,
+        scoreB,
+        winnerTeamId,
+        resultType: "score" as const,
+        recordedBy,
+        recordedAt: iso(minutesAgo),
+        ...(verifiedBy ? { verifiedBy, verifiedAt: iso(minutesAgo - 2) } : {})
       });
+      next.tournaments = next.tournaments.map((t) =>
+        t.id === "tr-1" ? { ...t, status: "live" as const, actualStart: iso(90), updatedAt: iso(5) } : t
+      );
       next.tournamentMatches = next.tournamentMatches.map((m) => {
-        if (m.id === "m-1") return { ...m, scoreA: 74, scoreB: 68, winnerTeamId: "Ravi's XI", winner: "Ravi's XI", status: "completed" as const, resultType: "score" as const, startedAt: "Today, 14:00", endedAt: "Today, 14:35", verifiedAt: "Today, 14:37", verifiedBy: "op-5" };
-        if (m.id === "m-2") return { ...m, scoreA: 82, scoreB: 79, winnerTeamId: "Net Runners", winner: "Net Runners", status: "completed" as const, resultType: "score" as const, startedAt: "Today, 14:40", endedAt: "Today, 15:10", verifiedAt: "Today, 15:12", verifiedBy: "op-5" };
-        if (m.id === "m-5") return { ...m, teamAId: "Ravi's XI", teamBId: "Net Runners", teamA: "Ravi's XI", teamB: "Net Runners", status: "live" as const, startedAt: "Today, 15:20" };
+        if (m.id === "m-1") {
+          return { ...m, refereeId: m.refereeId ?? "c-2", scoreA: 74, scoreB: 68, winnerTeamId: "tr-1-team-1", status: "verified" as const, resultType: "score" as const, startedAt: iso(90), endedAt: iso(55), verifiedAt: iso(53), verifiedBy: "op-5", resultRevisions: [revision(74, 68, "tr-1-team-1", "op-7", 55, "op-5")] };
+        }
+        if (m.id === "m-2") {
+          return { ...m, refereeId: m.refereeId ?? "c-2", scoreA: 79, scoreB: 82, winnerTeamId: "tr-1-team-3", status: "awaiting-verification" as const, resultType: "score" as const, startedAt: iso(50), endedAt: iso(10), resultRevisions: [revision(79, 82, "tr-1-team-3", "op-7", 10)] };
+        }
+        if (m.id === "m-5") return { ...m, teamAId: "tr-1-team-1", status: "scheduled" as const };
+        if (m.id === "m-4") {
+          return { ...m, scoreA: 21, scoreB: 18, winnerTeamId: "tr-2-team-3", status: "verified" as const, resultType: "score" as const, endedAt: iso(12), verifiedAt: iso(11), verifiedBy: "op-2", resultRevisions: [revision(21, 18, "tr-2-team-3", "op-7", 12, "op-2")] };
+        }
+        if (m.id === "m-6") return { ...m, teamAId: "tr-2-team-1", teamBId: "tr-2-team-3", status: "live" as const, startedAt: iso(5) };
         return m;
       });
 
-      // tr-2 already live from seed, just update match results
-      next.tournamentMatches = next.tournamentMatches.map((m) => {
-        if (m.id === "m-3") return { ...m, scoreA: 21, scoreB: 14, winnerTeamId: "Smash Order", winner: "Smash Order", status: "completed" as const, resultType: "score" as const };
-        if (m.id === "m-4") return { ...m, scoreA: 21, scoreB: 18, winnerTeamId: "Featherstorm", winner: "Featherstorm", status: "completed" as const, resultType: "score" as const };
-        if (m.id === "m-6") return { ...m, teamAId: "Smash Order", teamBId: "Featherstorm", teamA: "Smash Order", teamB: "Featherstorm", status: "live" as const };
-        return m;
-      });
-
-      next.signals.unshift(signal("alert", "Tournament Day active — Badminton Masters Cup finals underway.", "s-6"));
-      next.signals.unshift(signal("strike", "Sunday Cricket Knockout bracket published — 4 teams ready.", "s-10"));
+      next.signals.unshift(signal("alert", "Badminton Masters Cup final is live: Smash Order v Featherstorm.", undefined));
+      next.signals.unshift(signal("system", "Sunday Cricket Knockout: a semi-final result is waiting for verification.", "s-10"));
       next.audits.unshift(nowAudit(name));
       break;
     }

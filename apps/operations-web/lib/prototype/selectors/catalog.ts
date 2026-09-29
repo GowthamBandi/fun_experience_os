@@ -187,8 +187,7 @@ export function templateReadiness(state: PrototypeState, t: ExperienceTemplate):
   if (!t.safetyLevel) push("warn", "safety", "Safety level not rated");
   if (t.weatherDependency) push("warn", "safety", "Weather dependency set — confirm weather risk plan");
 
-  if (t.legalReviewStatus === "pending") push("warn", "policy", "Legal review pending (prototype placeholder)");
-  if (!t.dataRetentionPlaceholder) push("warn", "policy", "Data retention placeholder not set");
+  if (t.legalReviewStatus === "pending") push("warn", "policy", "Legal review pending");
   if (!t.prizeVerificationRequired && t.isTournament) push("warn", "policy", "Tournament without prize verification");
 
   if (t.anonymousJoinedCount && t.showJoinedCountBeforeReveal)
@@ -501,16 +500,6 @@ export function templateVersions(state: PrototypeState, templateId: TemplateId) 
   return state.templateVersions.filter((v) => v.templateId === templateId).sort((a, b) => b.version - a.version);
 }
 
-export function operatorName(state: PrototypeState, operatorId: string): string {
-  void state;
-  const known: Record<string, string> = {
-    "op-1": "Aditya Rao", "op-2": "Meera Krishnan", "op-3": "Dev Patel", "op-4": "Noor Fatima",
-    "op-5": "Ravi Teja", "op-6": "Sanjay Verma", "op-7": "Aisha Khan", "op-9": "Priya Menon",
-    "op-10": "Ishaan Gupta", "op-12": "Zara Ahmed", "op-13": "Vikram Joshi"
-  };
-  return known[operatorId] ?? operatorId;
-}
-
 export { categoryName, venueName, templateById, categoryById };
 
 /* ------------------------------ SA-P2I Catalog Usability Selectors ------------------------------ */
@@ -533,12 +522,22 @@ export function selectExperienceReadiness(t: ExperienceTemplate, state: Prototyp
   if (!cat) {
     items.push({
       id: "category",
-      label: "Active Category Selected",
+      label: "Category",
       category: "basics",
       status: "blocked",
-      missingText: "No active activity category selected for this experience.",
-      actionLabel: "Choose Category",
-      actionHref: `/catalog/experiences/${t.id}/edit`
+      missingText: "This experience has no category.",
+      actionLabel: "Choose category",
+      actionHref: `/catalog/experiences/${t.id}?edit=1`
+    });
+  } else if ((cat.status ?? "active") !== "active") {
+    items.push({
+      id: "category",
+      label: `Category: ${cat.name}`,
+      category: "basics",
+      status: "blocked",
+      missingText: `The category is ${cat.status}. Sessions cannot be scheduled until it is active.`,
+      actionLabel: "Open category",
+      actionHref: `/catalog/categories/${cat.id}`
     });
   } else {
     items.push({
@@ -552,17 +551,17 @@ export function selectExperienceReadiness(t: ExperienceTemplate, state: Prototyp
   if (!t.name?.trim()) {
     items.push({
       id: "name",
-      label: "Experience Name",
+      label: "Experience name",
       category: "basics",
       status: "blocked",
       missingText: "Experience name is missing.",
-      actionLabel: "Set Name",
-      actionHref: `/catalog/experiences/${t.id}/edit`
+      actionLabel: "Set name",
+      actionHref: `/catalog/experiences/${t.id}?edit=1`
     });
   } else {
     items.push({
       id: "name",
-      label: "Experience Name Configured",
+      label: "Name set",
       category: "basics",
       status: "complete"
     });
@@ -572,27 +571,27 @@ export function selectExperienceReadiness(t: ExperienceTemplate, state: Prototyp
   if (t.minParticipants <= 0 || t.maxParticipants <= 0 || t.minParticipants > t.maxParticipants) {
     items.push({
       id: "group-size",
-      label: "Group Size Bounds",
+      label: "Group size",
       category: "group",
       status: "blocked",
       missingText: "Capacity limits invalid (min must be positive and <= max).",
-      actionLabel: "Fix Capacity",
-      actionHref: `/catalog/experiences/${t.id}/edit`
+      actionLabel: "Fix group size",
+      actionHref: `/catalog/experiences/${t.id}?edit=1`
     });
   } else if (t.targetParticipants < t.minParticipants || t.targetParticipants > t.maxParticipants) {
     items.push({
       id: "group-size",
-      label: "Target Group Size",
+      label: "Target group size",
       category: "group",
       status: "needs-attention",
       missingText: `Target participants (${t.targetParticipants}) outside min-max range [${t.minParticipants}, ${t.maxParticipants}].`,
-      actionLabel: "Adjust Target",
-      actionHref: `/catalog/experiences/${t.id}/edit`
+      actionLabel: "Adjust target",
+      actionHref: `/catalog/experiences/${t.id}?edit=1`
     });
   } else {
     items.push({
       id: "group-size",
-      label: `Group Size: ${t.minParticipants}-${t.maxParticipants} participants`,
+      label: `Group size: ${t.minParticipants}-${t.maxParticipants} participants`,
       category: "group",
       status: "complete"
     });
@@ -602,12 +601,12 @@ export function selectExperienceReadiness(t: ExperienceTemplate, state: Prototyp
   if (t.duration <= 0) {
     items.push({
       id: "duration",
-      label: "Default Duration",
+      label: "Duration",
       category: "time",
       status: "blocked",
       missingText: "Session duration must be specified.",
-      actionLabel: "Set Duration",
-      actionHref: `/catalog/experiences/${t.id}/edit`
+      actionLabel: "Set duration",
+      actionHref: `/catalog/experiences/${t.id}?edit=1`
     });
   } else {
     items.push({
@@ -622,17 +621,17 @@ export function selectExperienceReadiness(t: ExperienceTemplate, state: Prototyp
   if (t.basePrice < 0) {
     items.push({
       id: "price",
-      label: "Default Price",
+      label: "Price",
       category: "price",
       status: "blocked",
       missingText: "Default price cannot be negative.",
-      actionLabel: "Set Price",
-      actionHref: `/catalog/experiences/${t.id}/edit`
+      actionLabel: "Set price",
+      actionHref: `/catalog/experiences/${t.id}?edit=1`
     });
   } else {
     items.push({
       id: "price",
-      label: `Default Price: ₹${t.basePrice}`,
+      label: `Price: ₹${t.basePrice}`,
       category: "price",
       status: "complete"
     });
@@ -642,17 +641,17 @@ export function selectExperienceReadiness(t: ExperienceTemplate, state: Prototyp
   if (!t.requiredRoles || t.requiredRoles.length === 0) {
     items.push({
       id: "staff",
-      label: "Staff Roles Defined",
+      label: "Staff roles",
       category: "staff",
       status: "needs-attention",
       missingText: "No specific staff roles defined for event execution.",
-      actionLabel: "Assign Roles",
-      actionHref: `/catalog/experiences/${t.id}/edit`
+      actionLabel: "Set staff roles",
+      actionHref: `/catalog/experiences/${t.id}?edit=1`
     });
   } else {
     items.push({
       id: "staff",
-      label: `Staff Roles: ${t.requiredRoles.join(", ")}`,
+      label: `Staff roles: ${t.requiredRoles.join(", ")}`,
       category: "staff",
       status: "complete"
     });
@@ -663,17 +662,17 @@ export function selectExperienceReadiness(t: ExperienceTemplate, state: Prototyp
   if (compatVenues.length === 0) {
     items.push({
       id: "location",
-      label: "Where It Can Run",
+      label: "Where it can run",
       category: "location",
       status: "needs-attention",
-      missingText: "No current playing area or venue matches this Experience requirements.",
-      actionLabel: "Review Playing Areas",
+      missingText: "No venue with an active playing area meets this experience's requirements yet.",
+      actionLabel: "Review playing areas",
       actionHref: "/locations/playing-areas"
     });
   } else {
     items.push({
       id: "location",
-      label: `Compatible Locations: ${compatVenues.length} venue(s)`,
+      label: `Can run at ${compatVenues.length} venue${compatVenues.length === 1 ? "" : "s"}`,
       category: "location",
       status: "complete"
     });
@@ -683,7 +682,7 @@ export function selectExperienceReadiness(t: ExperienceTemplate, state: Prototyp
   const isSport = cat ? (cat.visualTreatment === "sport" || cat.riskLevel === "high" || t.isTournament) : true;
   items.push({
     id: "results",
-    label: `Result Type: ${isSport ? "Score & Team Outcome" : "Participant Completion"}`,
+    label: `Results recorded as ${isSport ? "scores and team outcomes" : "participant completion"}`,
     category: "results",
     status: "complete"
   });
@@ -695,14 +694,14 @@ export function selectExperienceReadiness(t: ExperienceTemplate, state: Prototyp
   if (hasBlocked) status = "blocked";
   else if (hasWarn || t.status === "draft") status = "needs-attention";
 
-  let nextActionLabel = "Schedule Event";
+  let nextActionLabel = "Schedule a session";
   let nextActionHref = `/missions/new?experienceId=${t.id}`;
 
   if (hasBlocked) {
-    nextActionLabel = "Fix Readiness Blocker";
+    nextActionLabel = "Fix what is blocking";
     nextActionHref = `/catalog/experiences/${t.id}`;
   } else if (t.status === "draft") {
-    nextActionLabel = "Publish Experience";
+    nextActionLabel = "Activate experience";
     nextActionHref = `/catalog/experiences/${t.id}`;
   }
 

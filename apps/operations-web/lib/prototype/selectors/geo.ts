@@ -1,8 +1,7 @@
 import type { City, Franchise, PlayingArea, Territory, Venue } from "../entities";
 import type { PrototypeState } from "../scenarios";
-import { operatorName } from "@/lib/data/mock";
 import { bookedCount } from "./status";
-import { cityById, territoryById, venueById, playingAreaById } from "./lookups";
+import { cityById, territoryById, venueById, playingAreaById, operatorName } from "./lookups";
 import { sessionViews, type SessionView } from "./views";
 
 /* ------------------------------ local helpers ------------------------------ */
@@ -150,7 +149,7 @@ export function territoryRows(state: PrototypeState): TerritoryListRow[] {
       region: t.region,
       state: t.state,
       managerId: t.managerId,
-      managerName: operatorName(t.managerId),
+      managerName: operatorName(state, t.managerId),
       status: t.status,
       cities: state.cities.filter((c) => c.territoryId === t.id).length,
       venues: venueIds.size,
@@ -195,7 +194,7 @@ export function cityRows(state: PrototypeState, territoryId?: string): CityListR
       state: c.state,
       status: c.status,
       managerId: c.managerId,
-      managerName: operatorName(c.managerId),
+      managerName: operatorName(state, c.managerId),
       launchDate: c.launchDate,
       venues: venueIds.size,
       playingAreas: state.playingAreas.filter((p) => venueIds.has(p.venueId)).length,
@@ -364,7 +363,7 @@ export function territoryDetail(state: PrototypeState, id: string): TerritoryDet
     cities: cityRows(state, id),
     venues: venueRows(state, id),
     sessions: sessionViews(state, id),
-    managerName: operatorName(t.managerId),
+    managerName: operatorName(state, t.managerId),
     metrics: {
       cityCount: state.cities.filter((c) => c.territoryId === id).length,
       venueCount: venueIds.size,
@@ -421,7 +420,7 @@ export function cityDetail(state: PrototypeState, id: string): CityDetail | unde
     },
     venues: venueRows(state).filter((v) => v.cityId === id),
     sessions: sessionViews(state).filter((s) => s.cityId === id),
-    managerName: operatorName(c.managerId),
+    managerName: operatorName(state, c.managerId),
     metrics: {
       venueCount: venueIds.size,
       playingAreaCount: state.playingAreas.filter((p) => venueIds.has(p.venueId)).length,

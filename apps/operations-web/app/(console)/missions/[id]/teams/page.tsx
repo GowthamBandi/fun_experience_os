@@ -1,272 +1,407 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useParams } from "next/navigation";
-import Link from "next/link";
+import { ArrowLeftRight, Lock, MoveRight, Shuffle, Unlock, UsersRound } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { selectSessionParticipantPool } from "@/lib/prototype/selectors/identity";
-import { selectSessionTeams, selectTeamAllocationReadiness } from "@/lib/prototype/selectors/teams";
-import { sessionTitle } from "@/lib/prototype/selectors/lookups";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { Button } from "@/components/ui/primitives";
-import { TheFormationAnimation } from "@/components/geo/TheFormationAnimation";
+import { selectSessionParticipantPool, type ParticipantPoolItem } from "@/lib/prototype/selectors/identity";
+import { selectSessionTeams, selectTeamAllocationReadiness, selectUnassignedParticipants } from "@/lib/prototype/selectors/teams";
+import { MAX_TEAMS } from "@/lib/prototype/services/teams";
+import { cn } from "@/lib/format";
+import { Button, StatusChip } from "@/components/ui/primitives";
+import { EmptyState } from "@/components/ui/panels";
+import { Field, Input, Select } from "@/components/ui/fields";
+import { Dialog } from "@/components/ui/overlays";
+import { useToast } from "@/components/ui/toast";
+import { ConfirmDialog, MissionShell, ReasonDialog, WorkspaceCard, formatWhen, useMissionId, useOperatorName } from "@/components/missions/shared";
 
-export default function TeamFormationPage() {
-  const params = useParams();
-  const sessionId = params.id as string;
+export default function TeamsPage() {
+  return (
+    <MissionShell tab="teams" sub="Split confirmed participants into teams, adjust with a reason, then lock the teams for the reveal.">
+      <TeamsBody />
+    </MissionShell>
+  );
+}
 
-  const {
-    state,
-    allocateTeamsRandomly,
-    moveTeamParticipant,
-    lockTeams,
-    unlockTeamsWithOverride,
-  } = useStore();
+type MoveTarget = { item: ParticipantPoolItem; currentTeamId?: string };
 
-  const [animating, setAnimating] = useState(false);
-  const [selectedBookingToMove, setSelectedBookingToMove] = useState<string | null>(null);
-  const [targetTeamId, setTargetTeamId] = useState<string>("");
-  const [moveReason, setMoveReason] = useState<string>("");
-  const [overrideReason, setOverrideReason] = useState<string>("");
-  const [showOverrideModal, setShowOverrideModal] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+function TeamsBody() {
+  const sessionId = useMissionId();
+  const { state, createTeams, allocateTeamsRandomly, moveTeamParticipant, swapTeamParticipants, lockTeams, unlockTeamsWithOverride } = useStore();
+  const toast = useToast();
+  const opName = useOperatorName();
 
-  const session = useMemo(() => state.sessions.find((s) => s.id === sessionId), [state, sessionId]);
   const pool = useMemo(() => selectSessionParticipantPool(state, sessionId), [state, sessionId]);
   const teams = useMemo(() => selectSessionTeams(state, sessionId), [state, sessionId]);
   const readiness = useMemo(() => selectTeamAllocationReadiness(state, sessionId), [state, sessionId]);
+  const unassigned = useMemo(() => selectUnassignedParticipants(state, sessionId), [state, sessionId]);
+  const history = useMemo(
+    () =>
+      (state.teamAssignments ?? [])
+        .filter((ta) => ta.sessionId === sessionId && ta.status !== "active")
+        .sort((a, b) => (b.movedAt ?? "").localeCompare(a.movedAt ?? ""))
+        .slice(0, 12),
+    [state.teamAssignments, sessionId],
+  );
 
-  if (!session) {
-    return <div className="p-8 text-xs font-mono text-slate-500">Session not found.</div>;
-  }
+  const frozen = teams.some((t) => t.team.status === "locked" || t.team.status === "revealed");
+  const revealed = teams.some((t) => t.team.status === "revealed");
+  const hasMembers = teams.some((t) => t.currentMemberCount > 0);
+  const byBooking = new Map(pool.map((p) => [p.booking.id, p]));
+  const teamName = (id: string) => teams.find((t) => t.team.id === id)?.team.name ?? "a removed team";
 
-  const handleRunAllocation = () => {
-    setAnimating(true);
-    allocateTeamsRandomly(sessionId);
-  };
+  const [setupOpen, setSetupOpen] = useState(false);
+  const [confirmShuffle, setConfirmShuffle] = useState(false);
+  const [confirmLock, setConfirmLock] = useState(false);
+  const [unlockOpen, setUnlockOpen] = useState(false);
+  const [move, setMove] = useState<MoveTarget | null>(null);
+  const [moveTo, setMoveTo] = useState("");
+  const [swap, setSwap] = useState<MoveTarget | null>(null);
+  const [swapWith, setSwapWith] = useState("");
 
-  const handleMoveParticipant = (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg(null);
-
-    if (!selectedBookingToMove || !targetTeamId || !moveReason.trim()) {
-      setErrorMsg("Select a participant, target team, and provide an operational move reason.");
-      return;
-    }
-
-    const res = moveTeamParticipant({
-      sessionId,
-      bookingId: selectedBookingToMove,
-      targetTeamId,
-      reason: moveReason.trim(),
-    });
-
-    if (res.error) {
-      setErrorMsg(res.error);
-    } else {
-      setSelectedBookingToMove(null);
-      setMoveReason("");
-    }
-  };
-
-  const handleUnlockOverride = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!overrideReason.trim()) return;
-    unlockTeamsWithOverride(sessionId, overrideReason.trim());
-    setShowOverrideModal(false);
-    setOverrideReason("");
+  const shuffle = () => {
+    const res = allocateTeamsRandomly(sessionId);
+    if (res.error) return res;
+    toast.success("Teams allocated", `${readiness.eligibleCount} participants spread across ${Math.max(teams.length, 2)} teams.`);
+    return true;
   };
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6 font-mono text-xs">
-      <PageHeader
-        overline={`Team Formation Workspace · ${session.id}`}
-        title={`Team Allocation: ${sessionTitle(state, session.id)}`}
-        sub="Deterministic random allocation ('The Formation'), manual team movement with history preservation, and team lock controls."
-        right={
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleRunAllocation}
-              className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded"
-            >
-              ⚡ Run &quot;The Formation&quot; Allocation
-            </button>
-            {!readiness.isLocked ? (
-              <button
-                onClick={() => lockTeams(sessionId)}
-                disabled={!readiness.isFullyAssigned}
-                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-slate-950 font-bold rounded"
-              >
-                🔒 Lock Teams
-              </button>
-            ) : (
-              <button
-                onClick={() => setShowOverrideModal(true)}
-                className="px-3 py-1.5 bg-red-50 hover:bg-red-50 text-red-700 border border-red-200 font-bold rounded"
-              >
-                🔓 Audited Unlock Override
-              </button>
-            )}
-            <Link href={`/missions/${session.id}/reveal`}>
-              <Button variant="ghost" className="h-8 px-3 text-xs">
-                Reveal Control →
-              </Button>
-            </Link>
-          </div>
+    <div className="space-y-6">
+      <WorkspaceCard
+        title="Team setup"
+        sub={
+          revealed
+            ? "Teams have been revealed. Cancel the reveal to change them."
+            : frozen
+              ? "Teams are locked for the reveal. Unlock with a reason to make changes."
+              : `${readiness.eligibleCount} confirmed participants · ${readiness.teamsCount} teams · ${readiness.totalTeamCapacity} places`
         }
+        right={
+          <>
+            <Button variant="secondary" disabled={frozen} onClick={() => setSetupOpen(true)}>
+              <UsersRound className="h-4 w-4" /> {teams.length ? "Rebuild teams" : "Set up teams"}
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={frozen || readiness.eligibleCount === 0}
+              onClick={() => {
+                if (hasMembers) return setConfirmShuffle(true);
+                const res = shuffle();
+                if (res !== true) toast.error("Teams not allocated", res.error);
+              }}
+            >
+              <Shuffle className="h-4 w-4" /> Allocate randomly
+            </Button>
+            {frozen ? (
+              <Button variant="secondary" disabled={revealed} onClick={() => setUnlockOpen(true)}>
+                <Unlock className="h-4 w-4" /> Unlock
+              </Button>
+            ) : (
+              <Button disabled={teams.length === 0} onClick={() => setConfirmLock(true)}>
+                <Lock className="h-4 w-4" /> Lock teams
+              </Button>
+            )}
+          </>
+        }
+      >
+        <div className="flex flex-wrap gap-2 text-sm">
+          <StatusChip value={readiness.isLocked ? "locked" : teams.length ? "allocated" : "not-generated"} />
+          {readiness.unassignedCount > 0 && <StatusChip value={`${readiness.unassignedCount} without a team`} tone="warn" />}
+          {!readiness.isCapacitySufficient && teams.length > 0 && <StatusChip value="Not enough places" tone="danger" />}
+        </div>
+      </WorkspaceCard>
+
+      {teams.length === 0 ? (
+        <EmptyState
+          title="No teams yet"
+          line={readiness.eligibleCount ? "Set up teams yourself, or allocate randomly and two teams sized for this session are created for you." : "Teams can be built once participants have confirmed places."}
+          action={
+            readiness.eligibleCount > 0 ? (
+              <Button onClick={() => setSetupOpen(true)}>
+                <UsersRound className="h-4 w-4" /> Set up teams
+              </Button>
+            ) : undefined
+          }
+        />
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {teams.map((t) => (
+            <section key={t.team.id} className="rounded-panel border border-edge bg-white shadow-panel">
+              <header className="border-b border-edge px-5 py-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-subtle font-mono text-xs font-bold text-brand-ink">{t.team.code}</span>
+                    <h3 className="truncate text-[15px] font-semibold text-ink-lum">{t.team.name}</h3>
+                  </div>
+                  <StatusChip value={t.team.status} />
+                </div>
+                <div className="mt-3 flex items-center gap-3">
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                    <div className="h-full rounded-full bg-brand transition-all duration-500" style={{ width: `${Math.min(100, Math.round((t.currentMemberCount / Math.max(1, t.team.capacity)) * 100))}%` }} />
+                  </div>
+                  <span className="whitespace-nowrap text-xs tabular text-ink-mut">
+                    {t.currentMemberCount}/{t.team.capacity}
+                  </span>
+                </div>
+              </header>
+              <ul className="divide-y divide-edge">
+                {t.activeAssignments.length === 0 && <li className="px-5 py-6 text-center text-sm text-ink-mut">No members yet.</li>}
+                {t.activeAssignments.map((ta) => {
+                  const p = byBooking.get(ta.bookingId);
+                  if (!p) return null;
+                  return (
+                    <li key={ta.id} className="flex items-center justify-between gap-2 px-5 py-2.5">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-ink-lum">{p.booking.alias}</p>
+                        <p className="font-mono text-xs text-ink-mut">{p.temporaryIdentity?.temporaryCode ?? "no code"}</p>
+                      </div>
+                      {!frozen && (
+                        <div className="flex shrink-0 gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => { setMove({ item: p, currentTeamId: t.team.id }); setMoveTo(""); }} aria-label={`Move ${p.booking.alias}`}>
+                            <MoveRight className="h-3.5 w-3.5" /> Move
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => { setSwap({ item: p, currentTeamId: t.team.id }); setSwapWith(""); }} aria-label={`Swap ${p.booking.alias}`} disabled={teams.length < 2}>
+                            <ArrowLeftRight className="h-3.5 w-3.5" /> Swap
+                          </Button>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ))}
+        </div>
+      )}
+
+      {unassigned.length > 0 && teams.length > 0 && (
+        <WorkspaceCard title="Without a team" sub="Confirmed participants who still need a team." bodyClassName="p-0">
+          <ul className="divide-y divide-edge">
+            {unassigned.map((p) => (
+              <li key={p.booking.id} className="flex items-center justify-between gap-2 px-5 py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-ink-lum">{p.booking.alias}</p>
+                  <p className="font-mono text-xs text-ink-mut">{p.temporaryIdentity?.temporaryCode ?? "no code"}</p>
+                </div>
+                <Button variant="secondary" size="sm" disabled={frozen} onClick={() => { setMove({ item: p }); setMoveTo(""); }}>
+                  <MoveRight className="h-3.5 w-3.5" /> Add to team
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </WorkspaceCard>
+      )}
+
+      <WorkspaceCard title="Change history" sub="Earlier placements are kept when participants are moved, swapped or re-allocated." bodyClassName="p-0">
+        {history.length === 0 ? (
+          <p className="px-5 py-8 text-center text-sm text-ink-mut">No changes yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px] text-sm">
+              <thead>
+                <tr className="border-b border-edge bg-bg-sunken/80 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-mut">
+                  <th className="px-5 py-2.5">Participant</th>
+                  <th className="px-5 py-2.5">Left</th>
+                  <th className="px-5 py-2.5">Reason</th>
+                  <th className="px-5 py-2.5">By</th>
+                  <th className="px-5 py-2.5">When</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.map((h) => (
+                  <tr key={h.id} className="border-b border-slate-100 last:border-0">
+                    <td className="px-5 py-2.5 font-medium text-ink-lum">{byBooking.get(h.bookingId)?.booking.alias ?? h.bookingId}</td>
+                    <td className="px-5 py-2.5 text-ink-sec">{teamName(h.teamId)}</td>
+                    <td className="px-5 py-2.5 text-ink-mut">{h.reason ?? "—"}</td>
+                    <td className="px-5 py-2.5 text-ink-mut">{opName(h.movedBy)}</td>
+                    <td className="whitespace-nowrap px-5 py-2.5 text-ink-mut">{formatWhen(h.movedAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </WorkspaceCard>
+
+      <SetupTeamsDialog
+        open={setupOpen}
+        onClose={() => setSetupOpen(false)}
+        eligible={readiness.eligibleCount}
+        hasMembers={hasMembers}
+        onSubmit={(n, cap) => {
+          const res = createTeams(sessionId, n, cap);
+          if (res.error) return res;
+          toast.success("Teams set up", `${n} teams of ${cap}. Allocate participants next.`);
+          return true;
+        }}
       />
 
-      {/* Allocation Method Banner per Correction 5 */}
-      <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 flex flex-wrap items-center justify-between gap-3 text-slate-700">
-        <div>
-          <span className="font-bold text-slate-800">Active Allocation Mode:</span> Random Distribution & Manual Adjustment
-        </div>
-        <div className="text-purple-400/80 text-[11px] italic">
-          “Future allocation model — not available in this prototype.” (Balanced Allocation)
-        </div>
-      </div>
+      <ConfirmDialog open={confirmShuffle} onClose={() => setConfirmShuffle(false)} title="Re-allocate everyone?" confirmLabel="Allocate randomly" onConfirm={shuffle}>
+        Every participant will be placed again at random, replacing manual moves. The current placements are kept in the change history.
+      </ConfirmDialog>
 
-      {/* "The Formation" Interaction Area */}
-      {animating && (
-        <TheFormationAnimation
-          participants={pool}
-          teams={teams}
-          onComplete={() => setAnimating(false)}
-        />
-      )}
+      <ConfirmDialog
+        open={confirmLock}
+        onClose={() => setConfirmLock(false)}
+        title="Lock teams?"
+        confirmLabel="Lock teams"
+        onConfirm={() => {
+          const res = lockTeams(sessionId);
+          if (res.error) return res;
+          toast.success("Teams locked", "Next: check the reveal checklist.");
+          return true;
+        }}
+      >
+        Locked teams cannot be changed without an unlock reason. Every confirmed participant must already have a team.
+      </ConfirmDialog>
 
-      {/* Team Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {teams.map((t) => (
-          <div key={t.team.id} className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-              <div>
-                <span className="font-bold text-emerald-600 text-sm">{t.team.name}</span>
-                <span className="ml-2 text-slate-500 text-xs font-bold">[{t.team.code}]</span>
-              </div>
-              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                t.team.status === "locked" ? "bg-amber-50 text-amber-700 border border-amber-200" : "bg-slate-100 text-slate-700"
-              }`}>
-                {t.team.status.toUpperCase()} ({t.currentMemberCount} / {t.team.capacity})
-              </span>
-            </div>
+      <ReasonDialog
+        open={unlockOpen}
+        onClose={() => setUnlockOpen(false)}
+        title="Unlock teams"
+        tone="warning"
+        description="Teams go back to editable. Lock them again before the reveal."
+        placeholder="e.g. A late replacement joined and needs a team."
+        confirmLabel="Unlock teams"
+        onConfirm={(reason) => {
+          const res = unlockTeamsWithOverride(sessionId, reason);
+          if (res.error) return res;
+          toast.success("Teams unlocked", "Remember to lock them again before the reveal.");
+          return true;
+        }}
+      />
 
-            <div className="space-y-1.5">
-              {t.activeAssignments.map((ta) => {
-                const p = pool.find((x) => x.booking.id === ta.bookingId);
-                return (
-                  <div key={ta.id} className="bg-slate-50 border border-slate-200 p-2 rounded flex items-center justify-between text-slate-700">
-                    <div>
-                      <span className="font-bold text-amber-600">{p?.temporaryIdentity?.temporaryCode || "CR-??"}</span>
-                      <span className="ml-2 font-medium text-slate-800">{p?.booking.alias}</span>
-                    </div>
-                    {!readiness.isLocked && (
-                      <button
-                        onClick={() => setSelectedBookingToMove(ta.bookingId)}
-                        className="text-[10px] text-emerald-600 hover:underline"
-                      >
-                        Move
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+      <ReasonDialog
+        open={!!move}
+        onClose={() => setMove(null)}
+        title={move?.currentTeamId ? `Move ${move.item.booking.alias}` : `Add ${move?.item.booking.alias ?? ""} to a team`}
+        placeholder="e.g. Balance experience levels between teams."
+        confirmLabel="Move participant"
+        onConfirm={(reason) => {
+          if (!moveTo) return { error: "Choose the team to move to." };
+          const res = moveTeamParticipant({ sessionId, bookingId: move!.item.booking.id, targetTeamId: moveTo, reason });
+          if (res.error) return res;
+          toast.success("Participant moved", `${move!.item.booking.alias} is now in ${teamName(moveTo)}.`);
+          return true;
+        }}
+      >
+        <fieldset>
+          <legend className="mb-2 text-[13px] font-medium text-ink-sec">Move to</legend>
+          <div className="grid gap-2">
+            {teams
+              .filter((t) => t.team.id !== move?.currentTeamId)
+              .map((t) => (
+                <label
+                  key={t.team.id}
+                  className={cn(
+                    "flex cursor-pointer items-center justify-between gap-3 rounded-xl border px-3.5 py-2.5 text-sm",
+                    moveTo === t.team.id ? "border-brand bg-brand-subtle" : "border-edge hover:bg-slate-50",
+                    t.isFull && "cursor-not-allowed opacity-60",
+                  )}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <input type="radio" name="move-to" value={t.team.id} disabled={t.isFull} checked={moveTo === t.team.id} onChange={() => setMoveTo(t.team.id)} className="accent-[var(--brand)]" />
+                    <span className="font-medium text-ink-lum">{t.team.name}</span>
+                  </span>
+                  <span className="text-xs text-ink-mut">{t.isFull ? "Full — use swap" : `${t.remainingCapacity} place(s) left`}</span>
+                </label>
+              ))}
           </div>
-        ))}
-      </div>
+        </fieldset>
+      </ReasonDialog>
 
-      {/* Move Participant Form */}
-      {selectedBookingToMove && (
-        <form onSubmit={handleMoveParticipant} className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
-          <div className="font-bold text-slate-800 uppercase tracking-wider text-xs">
-            Move Participant: {selectedBookingToMove}
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <span className="text-slate-500 block mb-1">Target Team:</span>
-              <select
-                value={targetTeamId}
-                onChange={(e) => setTargetTeamId(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-slate-800"
-                required
-              >
-                <option value="">Select Target Team...</option>
-                {teams.map((t) => (
-                  <option key={t.team.id} value={t.team.id}>
-                    {t.team.name} ({t.currentMemberCount}/{t.team.capacity})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <span className="text-slate-500 block mb-1">Mandatory Operational Reason:</span>
-              <input
-                type="text"
-                placeholder="e.g. Balancing play position preference"
-                value={moveReason}
-                onChange={(e) => setMoveReason(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-slate-800"
-                required
-              />
-            </div>
-          </div>
-
-          {errorMsg && <div className="bg-red-50 border border-red-200 text-red-700 p-2 rounded">{errorMsg}</div>}
-
-          <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={() => setSelectedBookingToMove(null)}
-              className="px-3 py-1 bg-slate-100 text-slate-700 rounded font-bold"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-1 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold rounded"
-            >
-              Execute Move & Preserve History
-            </button>
-          </div>
-        </form>
-      )}
-
-      {/* Unlock Override Modal */}
-      {showOverrideModal && (
-        <div className="fixed inset-0 z-50 bg-slate-50 flex items-center justify-center p-4">
-          <form onSubmit={handleUnlockOverride} className="bg-slate-50 border border-red-200 rounded-lg p-6 max-w-md w-full space-y-4">
-            <h4 className="font-bold text-red-600 text-sm">Audited Team Unlock Override</h4>
-            <p className="text-slate-700">
-              Unlocking teams after locking requires an audited justification reason.
-            </p>
-            <textarea
-              rows={3}
-              placeholder="e.g. Late participant replacement requested by Lead Coordinator."
-              value={overrideReason}
-              onChange={(e) => setOverrideReason(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-slate-800"
-              required
-            />
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setShowOverrideModal(false)}
-                className="px-3 py-1 bg-slate-100 text-slate-700 rounded font-bold"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-1 bg-red-50 border border-red-200 text-red-700 font-bold rounded"
-              >
-                Confirm Audited Unlock
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+      <ReasonDialog
+        open={!!swap}
+        onClose={() => setSwap(null)}
+        title={`Swap ${swap?.item.booking.alias ?? ""}`}
+        description="Both participants change teams. Works even when both teams are full."
+        placeholder="e.g. Two friends asked to play on opposite teams."
+        confirmLabel="Swap participants"
+        onConfirm={(reason) => {
+          if (!swapWith) return { error: "Choose who to swap with." };
+          const res = swapTeamParticipants({ sessionId, bookingIdA: swap!.item.booking.id, bookingIdB: swapWith, reason });
+          if (res.error) return res;
+          toast.success("Participants swapped", `${swap!.item.booking.alias} ⇄ ${byBooking.get(swapWith)?.booking.alias}`);
+          return true;
+        }}
+      >
+        <Field label="Swap with">
+          <Select value={swapWith} onChange={(e) => setSwapWith(e.target.value)}>
+            <option value="">Choose a participant in another team…</option>
+            {teams
+              .filter((t) => t.team.id !== swap?.currentTeamId)
+              .map((t) => (
+                <optgroup key={t.team.id} label={t.team.name}>
+                  {t.activeAssignments.map((ta) => {
+                    const p = byBooking.get(ta.bookingId);
+                    return p ? (
+                      <option key={ta.bookingId} value={ta.bookingId}>
+                        {p.booking.alias} {p.temporaryIdentity ? `(${p.temporaryIdentity.temporaryCode})` : ""}
+                      </option>
+                    ) : null;
+                  })}
+                </optgroup>
+              ))}
+          </Select>
+        </Field>
+      </ReasonDialog>
     </div>
+  );
+}
+
+function SetupTeamsDialog({
+  open,
+  onClose,
+  eligible,
+  hasMembers,
+  onSubmit,
+}: {
+  open: boolean;
+  onClose: () => void;
+  eligible: number;
+  hasMembers: boolean;
+  onSubmit: (n: number, cap: number) => { error?: string } | true;
+}) {
+  const [n, setN] = useState("2");
+  const [cap, setCap] = useState(String(Math.max(2, Math.ceil(eligible / 2))));
+  const [error, setError] = useState<string | null>(null);
+  const places = Number(n) * Number(cap);
+
+  return (
+    <Dialog open={open} onClose={onClose} title="Set up teams">
+      <form
+        className="space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const res = onSubmit(Number(n), Number(cap));
+          if (res === true) onClose();
+          else setError(res.error ?? "Teams were not created.");
+        }}
+      >
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Number of teams">
+            <Input type="number" min={1} max={MAX_TEAMS} value={n} onChange={(e) => { setN(e.target.value); setError(null); }} />
+          </Field>
+          <Field label="Players per team">
+            <Input type="number" min={1} max={50} value={cap} onChange={(e) => { setCap(e.target.value); setError(null); }} />
+          </Field>
+        </div>
+        <p className={cn("text-sm", places >= eligible ? "text-ink-mut" : "text-amber-700")}>
+          {Number.isFinite(places) ? places : 0} places for {eligible} confirmed participants.
+        </p>
+        {hasMembers && <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">Current members will be released from their teams. Their placements stay in the change history.</p>}
+        {error && (
+          <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error}
+          </p>
+        )}
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit">Save teams</Button>
+        </div>
+      </form>
+    </Dialog>
   );
 }

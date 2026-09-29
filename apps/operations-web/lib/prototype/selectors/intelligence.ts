@@ -1,5 +1,13 @@
 import type { PrototypeState } from "../scenarios/state";
+import type { ScheduledSession } from "../entities";
 import { sessionCapacityLedger } from "./capacity";
+import { sessionTitle, venueName } from "./lookups";
+import { canonicalBookingStatus, isoMillis } from "./status";
+import {
+  AWAITING_APPROVAL_REFUND_STATUSES,
+  AWAITING_PAYOUT_REFUND_STATUSES,
+  selectReconciliationIssues,
+} from "./money";
 
 export interface OperationsAlert {
   id: string;
@@ -20,6 +28,9 @@ export interface OperationsAlert {
     | "venue-overbooked"
     | "heavy-waitlist"
     | "refund-spike"
+    | "refund-payout-pending"
+    | "reconciliation-mismatch"
+    | "holds-expiring"
     | "payment-failure-spike"
     | "below-breakeven"
     | "crew-shortage"
@@ -53,64 +64,93 @@ export interface OperationsAlert {
  * Automatically inspects PrototypeState and derives real-time operational alerts.
  * These are not static decorative text — they derive strictly from actual state data.
  */
-export function generateOperationsAlerts(state: PrototypeState): OperationsAlert[] {
+const SEVERITY_ORDER: Record<OperationsAlert["severity"], number> = { critical: 0, high: 1, medium: 2, low: 3 };
+const OPEN_FOR_BOOKING = new Set(["scheduled", "published", "booking-open", "almost-full", "full"]);
+const FINISHED = new Set(["cancelled", "archived", "completed"]);
+const rupees = (n: number) => `₹${n.toLocaleString("en-IN")}`;
+
+export function generateOperationsAlerts(state: PrototypeState, nowIso: string = new Date().toISOString()): OperationsAlert[] {
   const alerts: OperationsAlert[] = [];
-  const nowStr = "Live";
+  const nowStr = nowIso;
+  const now = Date.parse(nowIso);
+  const label = (s: ScheduledSession) => `${sessionTitle(state, s.id)} · ${venueName(state, s.venueId)} (${s.date} ${s.startTime})`;
+  const upcoming = (s: ScheduledSession) => !FINISHED.has(s.status) && (s.date === "Today" || s.date === "Tomorrow");
 
-  // 1. Check Capacity & Waitlist Alerts for Active Sessions
+  // 1. Capacity, waitlist and break-even — only for sessions that have not finished.
   state.sessions.forEach((s) => {
-    if (s.status === "cancelled" || s.status === "archived") return;
-
+    if (FINISHED.has(s.status)) return;
     const ledger = sessionCapacityLedger(state, s.id);
 
-    // Overbooked alert
     if (ledger.occupancyStatus === "overbooked") {
       alerts.push({
         id: `alert-overbook-${s.id}`,
         severity: "critical",
         type: "venue-overbooked",
-        title: `Physical Overbooking Alert: ${s.date} ${s.startTime}`,
-        trigger: "Physical occupancy exceeds maximum venue playing-area capacity",
-        evidence: `Occupancy: ${ledger.physicalOccupancy} / Max: ${ledger.maxPhysicalCapacity}`,
-        impact: "Safety hazard and compliance violation at venue door",
-        recommendedAction: "Cancel unconfirmed reservations or move participants to companion slot",
+        title: `Overbooked: ${label(s)}`,
+        trigger: "More seats are taken than the session can hold",
+        evidence: `${ledger.physicalOccupancy} seats taken for a capacity of ${ledger.maxPhysicalCapacity}`,
+        impact: "Participants may be turned away at check-in",
+        recommendedAction: "Release unpaid holds or move participants to another session",
         relatedEntityIds: [s.id, s.venueId],
         generatedAt: nowStr,
         status: "active",
       });
     }
 
-    // Heavy Waitlist alert
-    if (ledger.waitlistCount >= 2) {
+    if (ledger.waitlistCount > 0 && ledger.remainingSellableCapacity > 0 && OPEN_FOR_BOOKING.has(s.status)) {
+      alerts.push({
+        id: `alert-waitlist-free-${s.id}`,
+        severity: "high",
+        type: "heavy-waitlist",
+        title: `Free seats while people wait: ${label(s)}`,
+        trigger: `${ledger.remainingSellableCapacity} free seat${ledger.remainingSellableCapacity === 1 ? "" : "s"} and ${ledger.waitlistCount} on the waitlist`,
+        evidence: `Waitlist ${ledger.waitlistCount}, free seats ${ledger.remainingSellableCapacity}`,
+        impact: "Seats may go unsold while customers are waiting",
+        recommendedAction: "Open the session's waitlist and offer the next seat",
+        relatedEntityIds: [s.id],
+        generatedAt: nowStr,
+        status: "active",
+      });
+    } else if (ledger.waitlistCount >= 2 && ledger.remainingSellableCapacity === 0) {
       alerts.push({
         id: `alert-waitlist-${s.id}`,
         severity: "medium",
         type: "heavy-waitlist",
-        title: `High Waitlist Demand: Session ${s.id}`,
-        trigger: `${ledger.waitlistCount} participants waiting in operational queue`,
-        evidence: `Waitlist count: ${ledger.waitlistCount}, Remaining sellable: ${ledger.remainingSellableCapacity}`,
-        impact: "Potential uncaptured revenue; customer delay dissatisfaction",
-        recommendedAction: "Release blocked slots or dispatch waitlist offer to top entry",
+        title: `${ledger.waitlistCount} people waiting: ${label(s)}`,
+        trigger: `Session is full with ${ledger.waitlistCount} people on the waitlist`,
+        evidence: `Waitlist ${ledger.waitlistCount}, capacity ${ledger.sellableCapacity}`,
+        impact: "Demand is higher than capacity",
+        recommendedAction: "Release blocked seats or schedule another session at this time",
         relatedEntityIds: [s.id],
         generatedAt: nowStr,
         status: "active",
       });
     }
 
-    // Below Break-even alert
-    if (
-      ledger.occupiedSellableCapacity < ledger.breakEvenAttendance &&
-      (s.status === "published" || s.status === "booking-open" || s.status === "almost-full")
-    ) {
+    if (upcoming(s) && OPEN_FOR_BOOKING.has(s.status) && s.date === "Today" && ledger.physicalOccupancy < ledger.minViableAttendance) {
+      alerts.push({
+        id: `alert-minimum-${s.id}`,
+        severity: "high",
+        type: "minimum-attendance-risk",
+        title: `Below minimum attendance: ${label(s)}`,
+        trigger: `${ledger.physicalOccupancy} seats taken; the session needs ${ledger.minViableAttendance} to run`,
+        evidence: `${ledger.physicalOccupancy} of ${ledger.minViableAttendance} minimum seats`,
+        impact: "The session may have to be cancelled and refunded",
+        recommendedAction: "Promote the session now, or decide early whether to cancel it",
+        relatedEntityIds: [s.id],
+        generatedAt: nowStr,
+        status: "active",
+      });
+    } else if (upcoming(s) && OPEN_FOR_BOOKING.has(s.status) && ledger.physicalOccupancy < ledger.breakEvenAttendance) {
       alerts.push({
         id: `alert-breakeven-${s.id}`,
-        severity: "high",
+        severity: "medium",
         type: "below-breakeven",
-        title: `Session Below Break-Even: Session ${s.id}`,
-        trigger: `Confirmed/held seats (${ledger.occupiedSellableCapacity}) below break-even (${ledger.breakEvenAttendance})`,
-        evidence: `Attendance: ${ledger.occupiedSellableCapacity}/${ledger.breakEvenAttendance} required for break-even`,
-        impact: "Session currently running at an operational net loss",
-        recommendedAction: "Launch local promo boost or merge session with adjacent time slot",
+        title: `Below break-even: ${label(s)}`,
+        trigger: `${ledger.physicalOccupancy} seats taken; ${ledger.breakEvenAttendance} needed to break even`,
+        evidence: `${ledger.physicalOccupancy} of ${ledger.breakEvenAttendance} break-even seats`,
+        impact: "The session will run at a loss at current bookings",
+        recommendedAction: "Promote the session or merge it with a nearby time slot",
         relatedEntityIds: [s.id],
         generatedAt: nowStr,
         status: "active",
@@ -118,58 +158,113 @@ export function generateOperationsAlerts(state: PrototypeState): OperationsAlert
     }
   });
 
-  // 2. Check Payment Failure Spike
-  const failedPayments = (state.payments ?? []).filter((p) => p.status === "failed");
+  // 2. Seat holds about to expire (ISO expiry, next 5 minutes).
+  const expiringSoon = state.bookings.filter((b) => {
+    if (canonicalBookingStatus(b.status) !== "payment-pending") return false;
+    const ms = isoMillis(b.reservationExpiresAt);
+    return !Number.isNaN(ms) && ms > now && ms - now <= 5 * 60_000;
+  });
+  if (expiringSoon.length > 0) {
+    alerts.push({
+      id: "alert-holds-expiring",
+      severity: "medium",
+      type: "holds-expiring",
+      title: `${expiringSoon.length} unpaid seat hold${expiringSoon.length === 1 ? "" : "s"} expire within 5 minutes`,
+      trigger: "Payment has not been recorded for these holds",
+      evidence: expiringSoon.map((b) => b.alias).join(", "),
+      impact: "The seats will be released automatically when the hold runs out",
+      recommendedAction: "Record the payments that have been received, with their reference",
+      relatedEntityIds: expiringSoon.map((b) => b.id),
+      generatedAt: nowStr,
+      status: "active",
+    });
+  }
+
+  // 3. Failed payments on sessions that are still running or upcoming.
+  const openSessions = new Set(state.sessions.filter((s) => !FINISHED.has(s.status)).map((s) => s.id));
+  const failedPayments = (state.payments ?? []).filter((p) => p.status === "failed" && openSessions.has(p.sessionId));
   if (failedPayments.length >= 2) {
     alerts.push({
       id: "alert-pay-failures",
       severity: "high",
       type: "payment-failure-spike",
-      title: "Payment Failure Spike Detected",
-      trigger: `${failedPayments.length} recent payment transaction failures recorded`,
-      evidence: `Failed payment count: ${failedPayments.length}`,
-      impact: "Reserved slots stuck in pending state; revenue leakage",
-      recommendedAction: "Review payment gateway failure codes and expire stalled reservations",
+      title: `${failedPayments.length} failed payments on upcoming sessions`,
+      trigger: `${failedPayments.length} payments were recorded as failed`,
+      evidence: failedPayments.map((p) => p.failureReason ?? p.id).slice(0, 3).join("; "),
+      impact: "Customers may believe they are booked",
+      recommendedAction: "Contact the customers and take payment again, or release their bookings",
       relatedEntityIds: failedPayments.map((p) => p.id),
       generatedAt: nowStr,
       status: "active",
     });
   }
 
-  // 3. Check Refund Spike
-  const pendingRefunds = (state.refunds ?? []).filter(
-    (r) => r.status === "requested" || r.status === "under-review"
-  );
-  if (pendingRefunds.length >= 1) {
+  // 4. Refunds waiting for approval, and approved refunds waiting to be paid out.
+  const awaitingApproval = (state.refunds ?? []).filter((r) => AWAITING_APPROVAL_REFUND_STATUSES.has(r.status));
+  if (awaitingApproval.length > 0) {
+    const total = awaitingApproval.reduce((a, r) => a + r.amount, 0);
     alerts.push({
       id: "alert-refund-spike",
       severity: "medium",
       type: "refund-spike",
-      title: "Pending Refund Approvals Require Action",
-      trigger: `${pendingRefunds.length} refund requests awaiting Finance authorization`,
-      evidence: `Pending refund count: ${pendingRefunds.length}`,
-      impact: "Delayed customer reimbursement; pending financial liability",
-      recommendedAction: "Open Refund Authorization Workspace and review request eligibility",
-      relatedEntityIds: pendingRefunds.map((r) => r.id),
+      title: `${awaitingApproval.length} refund${awaitingApproval.length === 1 ? "" : "s"} waiting for approval (${rupees(total)})`,
+      trigger: "Refund requests are waiting for a Finance decision",
+      evidence: `${awaitingApproval.length} requests totalling ${rupees(total)}`,
+      impact: "Customers are waiting for their money",
+      recommendedAction: "Open Money → Refunds and approve or reject each request",
+      relatedEntityIds: awaitingApproval.map((r) => r.id),
+      generatedAt: nowStr,
+      status: "active",
+    });
+  }
+  const awaitingPayout = (state.refunds ?? []).filter((r) => AWAITING_PAYOUT_REFUND_STATUSES.has(r.status));
+  if (awaitingPayout.length > 0) {
+    const total = awaitingPayout.reduce((a, r) => a + r.amount, 0);
+    alerts.push({
+      id: "alert-refund-payout",
+      severity: "medium",
+      type: "refund-payout-pending",
+      title: `${awaitingPayout.length} approved refund${awaitingPayout.length === 1 ? "" : "s"} not yet paid out (${rupees(total)})`,
+      trigger: "Refunds were approved but the payout has not been recorded",
+      evidence: `${awaitingPayout.length} refunds totalling ${rupees(total)}`,
+      impact: "Approved money has not reached the customer",
+      recommendedAction: "Pay the refund out and record it with its reference in Money → Refunds",
+      relatedEntityIds: awaitingPayout.map((r) => r.id),
       generatedAt: nowStr,
       status: "active",
     });
   }
 
-  // 4. Check Crew Shortage
-  const unassignedSessions = state.sessions.filter(
-    (s) => !s.leadCoordinatorId && s.status !== "cancelled" && s.status !== "archived"
-  );
+  // 5. Payment records that do not match their bookings.
+  const mismatches = selectReconciliationIssues(state).filter((i) => i.severity === "high");
+  if (mismatches.length > 0) {
+    alerts.push({
+      id: "alert-reconciliation",
+      severity: "high",
+      type: "reconciliation-mismatch",
+      title: `${mismatches.length} payment record${mismatches.length === 1 ? "" : "s"} don't match their booking`,
+      trigger: "Payments and bookings disagree",
+      evidence: mismatches.map((m) => m.title).slice(0, 2).join("; "),
+      impact: "Revenue and refunds may be wrong",
+      recommendedAction: "Open Money → Reconciliation and resolve each item",
+      relatedEntityIds: mismatches.map((m) => m.bookingId ?? m.paymentId ?? m.id),
+      generatedAt: nowStr,
+      status: "active",
+    });
+  }
+
+  // 6. Upcoming sessions without a lead coordinator.
+  const unassignedSessions = state.sessions.filter((s) => upcoming(s) && !s.leadCoordinatorId);
   if (unassignedSessions.length >= 1) {
     alerts.push({
       id: "alert-crew-shortage",
       severity: "high",
       type: "crew-shortage",
-      title: "Unassigned Lead Coordinators",
-      trigger: `${unassignedSessions.length} active sessions lack assigned Lead Coordinator`,
-      evidence: `Sessions unassigned: ${unassignedSessions.map((s) => s.id).join(", ")}`,
-      impact: "Door execution risk; session cannot commence without lead staffing",
-      recommendedAction: "Open Staffing Module and assign available crew members",
+      title: `${unassignedSessions.length} upcoming session${unassignedSessions.length === 1 ? " has" : "s have"} no lead coordinator`,
+      trigger: "No lead coordinator assigned",
+      evidence: unassignedSessions.map(label).join(", "),
+      impact: "The session cannot start without a lead coordinator",
+      recommendedAction: "Open Staffing and assign a lead coordinator",
       relatedEntityIds: unassignedSessions.map((s) => s.id),
       generatedAt: nowStr,
       status: "active",
@@ -186,7 +281,7 @@ export function generateOperationsAlerts(state: PrototypeState): OperationsAlert
         id: `alert-eq-missing-${lss.sessionId}`,
         severity: "high",
         type: "critical-equipment-missing",
-        title: `Critical Equipment Missing: Session ${lss.sessionId}`,
+        title: `Critical equipment missing: ${sessionTitle(state, lss.sessionId)}`,
         trigger: "Critical session equipment unavailable or missing",
         evidence: `Missing items: ${criticalMissing.map((e) => `${e.equipmentName} (${e.missingCount})`).join(", ")}`,
         impact: "Active match or segment cannot commence safely without required equipment",
@@ -203,7 +298,7 @@ export function generateOperationsAlerts(state: PrototypeState): OperationsAlert
         id: `alert-emergency-${lss.sessionId}`,
         severity: "critical",
         type: "emergency-active",
-        title: `Emergency Mode Active: Session ${lss.sessionId}`,
+        title: `Emergency mode active: ${sessionTitle(state, lss.sessionId)}`,
         trigger: `Emergency mode triggered: ${lss.emergencyReason || "Safety event"}`,
         evidence: `Reason: ${lss.emergencyReason || "Operational safety hold"}, Action: ${lss.emergencyAction || "None"}`,
         impact: "Live activity paused; requires safety clearance to resume",
@@ -220,11 +315,11 @@ export function generateOperationsAlerts(state: PrototypeState): OperationsAlert
         id: `alert-paused-${lss.sessionId}`,
         severity: "medium",
         type: "session-paused-too-long",
-        title: `Session Paused: Session ${lss.sessionId}`,
+        title: `Session paused: ${sessionTitle(state, lss.sessionId)}`,
         trigger: `Live session currently paused (${lss.pauseReason || "Operational delay"})`,
         evidence: `Pause reason: ${lss.pauseReason || "Operational delay"}`,
         impact: "Run-of-show timeline delay; venue playing area slot risk",
-        recommendedAction: "Resolve pause condition and click Resume in Command Center",
+        recommendedAction: "Resolve the reason for the pause and resume the session from its live page",
         relatedEntityIds: [lss.sessionId],
         generatedAt: nowStr,
         status: "active",
@@ -243,7 +338,7 @@ export function generateOperationsAlerts(state: PrototypeState): OperationsAlert
         id: `alert-critical-unack-${i.id}`,
         severity: "critical",
         type: "critical-incident-unacknowledged",
-        title: `Critical Incident Awaiting Ack: ${i.incidentCode || i.id}`,
+        title: `Critical incident not acknowledged: ${i.incidentCode || i.id}`,
         trigger: `Critical severity incident reported at ${i.reportedAt || i.time} not yet acknowledged`,
         evidence: `Incident code: ${i.incidentCode || i.id}, Status: ${i.status}`,
         impact: "Safety hazard escalation delay; customer liability exposure",
@@ -265,7 +360,7 @@ export function generateOperationsAlerts(state: PrototypeState): OperationsAlert
         id: `alert-triage-overdue-${i.id}`,
         severity: "high",
         type: "triage-overdue",
-        title: `Incident Triage Overdue: ${i.incidentCode || i.id}`,
+        title: `Incident needs triage: ${i.incidentCode || i.id}`,
         trigger: `Severe incident (${i.severity}) remains untriaged after report`,
         evidence: `Severity: ${i.severity}, Status: ${i.status}`,
         impact: "Unresolved immediate risk to participants and operations",
@@ -288,7 +383,7 @@ export function generateOperationsAlerts(state: PrototypeState): OperationsAlert
         id: `alert-investigation-overdue-${i.id}`,
         severity: "high",
         type: "investigation-overdue",
-        title: `Investigation Assignment Pending: ${i.incidentCode || i.id}`,
+        title: `No investigator assigned: ${i.incidentCode || i.id}`,
         trigger: `Incident status is ${i.status} but no investigator has been assigned`,
         evidence: `Incident: ${i.incidentCode || i.id}, Investigator: None`,
         impact: "Case resolution stalls; unresolved liability and safety concerns",
@@ -389,7 +484,7 @@ export function generateOperationsAlerts(state: PrototypeState): OperationsAlert
       id: "alert-verification-backlog",
       severity: "medium",
       type: "result-verification-backlog",
-      title: "Match Result Verification Backlog",
+      title: `${pendingVerifications.length} match results waiting for verification`,
       trigger: `${pendingVerifications.length} completed matches awaiting score verification`,
       evidence: `Pending matches: ${pendingVerifications.map((m) => m.id).join(", ")}`,
       impact: "Bracket progression blocked; tournament delays",
@@ -448,11 +543,11 @@ export function generateOperationsAlerts(state: PrototypeState): OperationsAlert
       id: "alert-refund-exceptions-pending",
       severity: "medium",
       type: "refund-exception-pending",
-      title: "Refund Exceptions Pending Approval",
+      title: `${pendingRex.length} exception refund${pendingRex.length === 1 ? "" : "s"} waiting for Finance`,
       trigger: `${pendingRex.length} refund exceptions awaiting Finance review`,
       evidence: `Recommended exceptions: ${pendingRex.length}`,
       impact: "Customer credit delayed; unresolved customer service issues",
-      recommendedAction: "Finance role must review and approve or reject recommended exceptions",
+      recommendedAction: "Open Money → Refunds and approve or reject each exception",
       relatedEntityIds: pendingRex.map((re) => re.id),
       generatedAt: nowStr,
       status: "active"
@@ -466,7 +561,7 @@ export function generateOperationsAlerts(state: PrototypeState): OperationsAlert
       id: "alert-evidence-incomplete",
       severity: "low",
       type: "evidence-placeholder-incomplete",
-      title: "Evidence Item Collection Pending",
+      title: `${pendingEvidence.length} evidence item${pendingEvidence.length === 1 ? "" : "s"} still to collect`,
       trigger: `${pendingEvidence.length} evidence placeholders awaiting document upload`,
       evidence: `Pending evidence IDs: ${pendingEvidence.map((e) => e.id).join(", ")}`,
       impact: "Incident investigation cannot be fully completed or reviewed",
@@ -477,5 +572,5 @@ export function generateOperationsAlerts(state: PrototypeState): OperationsAlert
     });
   }
 
-  return alerts;
+  return alerts.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
 }

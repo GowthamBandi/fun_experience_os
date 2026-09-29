@@ -1,8 +1,7 @@
 import type { PrototypeState } from "../scenarios/state";
-import type { SessionCompletionSnapshot } from "../entities";
 import { selectLiveSessionState, selectElapsedActiveSeconds, selectEquipmentReadiness } from "./liveSession";
 import { selectCheckInSummary, selectStaffReadiness } from "./checkIn";
-import { selectSessionSegmentResults } from "./results";
+import { selectResultsProgress, selectSessionSegmentResults } from "./results";
 import { selectSessionFinancialSummary } from "./money";
 
 export interface ChecklistItem {
@@ -12,83 +11,90 @@ export interface ChecklistItem {
   status: "passed" | "blocked" | "warning";
   evidence: string;
   recommendedAction: string;
+  /** Workspace tab where the item is resolved. */
+  fixTab?: "live" | "check-in" | "results";
 }
 
 export function selectCompletionChecklist(state: PrototypeState, sessionId: string) {
   const lss = selectLiveSessionState(state, sessionId);
-  const session = state.sessions.find((s) => s.id === sessionId);
   const checkIn = selectCheckInSummary(state, sessionId);
   const staff = selectStaffReadiness(state, sessionId);
   const eq = selectEquipmentReadiness(state, sessionId);
-  const results = selectSessionSegmentResults(state, sessionId);
-  const activeSegments = (state.activitySegments ?? []).filter(
-    (s) => s.sessionId === sessionId && (s.status === "Active" || s.status === "Paused")
-  );
+  const results = selectResultsProgress(state, sessionId);
+  const openSegments = results.segments.filter((s) => s.status === "Active" || s.status === "Paused");
+  const ended = lss.status === "Ended" || lss.status === "Completed";
 
   const items: ChecklistItem[] = [
     {
       key: "session-ended",
-      label: "Runtime Status Ended",
+      label: "Session ended",
       isCritical: true,
-      status: lss.status === "Ended" || lss.status === "Completed" ? "passed" : "blocked",
-      evidence: `Current status: '${lss.status}'`,
-      recommendedAction: lss.status === "Ended" || lss.status === "Completed" ? "None" : "Execute End Session in Command Center.",
+      status: ended ? "passed" : "blocked",
+      evidence: ended ? "The clock is stopped." : `The session is ${lss.status.toLowerCase()}.`,
+      recommendedAction: ended ? "" : "End the session on the Run tab.",
+      fixTab: "live",
     },
     {
       key: "active-segments-closed",
-      label: "All Activity Segments Closed",
+      label: "All steps closed",
       isCritical: true,
-      status: activeSegments.length === 0 ? "passed" : "blocked",
-      evidence: `${activeSegments.length} segment(s) currently Active/Paused`,
-      recommendedAction: activeSegments.length === 0 ? "None" : "Complete or skip active segments in Run-of-Show.",
-    },
-    {
-      key: "attendance-finalized",
-      label: "Door Attendance Finalized",
-      isCritical: true,
-      status: checkIn.expectedCount === 0 || checkIn.missingCount === 0 ? "passed" : "warning",
-      evidence: `${checkIn.checkedInCount + checkIn.lateCount} present, ${checkIn.missingCount} derived missing`,
-      recommendedAction: checkIn.missingCount === 0 ? "None" : "Resolve missing attendance or provide audited completion override.",
+      status: openSegments.length === 0 ? "passed" : "blocked",
+      evidence: openSegments.length === 0 ? "No step is running." : `${openSegments.map((s) => s.name).join(", ")} still open.`,
+      recommendedAction: openSegments.length === 0 ? "" : "Finish or skip the open step on the Run tab.",
+      fixTab: "live",
     },
     {
       key: "results-finalized",
-      label: "Match Scores & Outcomes Recorded",
+      label: "Results confirmed",
       isCritical: true,
-      status: results.length > 0 ? "passed" : "warning",
-      evidence: `${results.length} segment result(s) recorded`,
-      recommendedAction: results.length > 0 ? "None" : "Confirm match/activity scores in Results workspace.",
+      status: results.isComplete ? "passed" : "blocked",
+      evidence:
+        results.requiredCount === 0
+          ? "No scored steps ran."
+          : `${results.confirmedCount} of ${results.requiredCount} scored steps confirmed.`,
+      recommendedAction: results.isComplete ? "" : "Confirm the outstanding results on the Results tab.",
+      fixTab: "results",
+    },
+    {
+      key: "attendance-finalized",
+      label: "Attendance settled",
+      isCritical: false,
+      status: checkIn.awaitingCount === 0 ? "passed" : "warning",
+      evidence: `${checkIn.presentCount} present · ${checkIn.noShowCount} no-show · ${checkIn.awaitingCount} not marked`,
+      recommendedAction: checkIn.awaitingCount === 0 ? "" : "Mark the remaining participants as no-show or checked in.",
+      fixTab: "check-in",
     },
     {
       key: "staff-finalized",
-      label: "Operating Staff Attendance Confirmed",
+      label: "Lead and safety staff checked in",
       isCritical: true,
-      status: staff.leadCoordinator?.status === "checked-in" && staff.safetyContact?.status === "checked-in" ? "passed" : "blocked",
-      evidence: `Lead Coordinator: ${staff.leadCoordinator?.status || "missing"}, Safety Contact: ${staff.safetyContact?.status || "missing"}`,
-      recommendedAction: "Check in required staff or override with operational reason.",
+      status: staff.isLeadPresent && staff.isSafetyPresent ? "passed" : "blocked",
+      evidence: `Lead: ${staff.leadCoordinator ? `${staff.leadCoordinator.name} (${staff.leadCoordinator.status.replace(/-/g, " ")})` : "not assigned"} · Safety: ${
+        staff.safetyContact ? `${staff.safetyContact.name} (${staff.safetyContact.status.replace(/-/g, " ")})` : "not assigned"
+      }`,
+      recommendedAction: staff.isStaffReady ? "" : "Check in the required staff on the Check-in tab, or complete with an override reason.",
+      fixTab: "check-in",
     },
     {
       key: "equipment-returned",
-      label: "Equipment Issued & Returned",
+      label: "Equipment returned or accounted for",
       isCritical: true,
-      status: eq.allReturnedOrResolved ? "passed" : eq.criticalMissingCount > 0 ? "blocked" : "warning",
-      evidence: `${eq.totalReturned}/${eq.totalRequired} items returned (${eq.criticalMissingCount} critical missing)`,
-      recommendedAction: eq.allReturnedOrResolved ? "None" : "Mark missing/damaged equipment returned or record exception.",
+      status: eq.allReturnedOrResolved && eq.criticalMissingCount === 0 ? "passed" : eq.criticalMissingCount > 0 ? "blocked" : "warning",
+      evidence:
+        eq.items.length === 0
+          ? "No equipment tracked for this session."
+          : `${eq.totalReturned}/${eq.totalRequired} returned · ${eq.exceptionCount} exception(s) · ${eq.criticalMissingCount} critical missing`,
+      recommendedAction: eq.allReturnedOrResolved ? "" : "Record returned, missing or damaged counts on the Run tab.",
+      fixTab: "live",
     },
     {
       key: "safety-signals-cleared",
-      label: "Safety & Emergency Signals Reviewed",
+      label: "No active emergency",
       isCritical: true,
       status: !lss.emergencyMode ? "passed" : "blocked",
-      evidence: lss.emergencyMode ? `Emergency Mode Active: ${lss.emergencyReason}` : "No active emergency mode",
-      recommendedAction: !lss.emergencyMode ? "None" : "Exit emergency mode with audited justification.",
-    },
-    {
-      key: "venue-handover-confirmed",
-      label: "Venue & Court Handover Confirmed",
-      isCritical: true,
-      status: "passed",
-      evidence: "Venue playing area cleared and restored",
-      recommendedAction: "None",
+      evidence: lss.emergencyMode ? `Emergency active: ${lss.emergencyReason}` : "No emergency in progress.",
+      recommendedAction: !lss.emergencyMode ? "" : "Close the emergency with a reason on the Run tab.",
+      fixTab: "live",
     },
   ];
 
@@ -101,6 +107,15 @@ export function selectCompletionChecklist(state: PrototypeState, sessionId: stri
     criticalBlockers: criticalBlockers.map((b) => b.label),
     warnings: warnings.map((w) => w.label),
   };
+}
+
+export function formatDuration(totalSeconds: number): string {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  if (h > 0) return `${h} h ${m} min`;
+  if (m > 0) return `${m} min ${s} s`;
+  return `${s} s`;
 }
 
 export function selectSessionSummary(state: PrototypeState, sessionId: string) {
@@ -123,9 +138,8 @@ export function selectSessionSummary(state: PrototypeState, sessionId: string) {
     results,
     money,
     durationSeconds: duration,
-    formattedDuration: `${Math.floor(duration / 60)} mins ${duration % 60} secs`,
+    formattedDuration: formatDuration(duration),
     snapshot,
     isCompleted: lss.status === "Completed" || session?.status === "completed",
-    label: "Prototype completion snapshot — production reporting storage is not connected.",
   };
 }

@@ -1,217 +1,97 @@
 "use client";
 
 import { useMemo } from "react";
-import Link from "next/link";
+import { ArrowRight, Building2, Globe2, Landmark, LayoutGrid, ListChecks, MapPin, Network } from "lucide-react";
 import { useStore } from "@/lib/store";
-import {
-  selectSetupHealth,
-  selectNextSetupAction,
-  selectSetupJourney,
-} from "@/lib/prototype/selectors/setup";
+import { selectNextSetupAction, selectSetupHealth, selectSetupJourney } from "@/lib/prototype/selectors/setup";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { PermissionDenied } from "@/components/ui/panels";
-import { Stagger, Item } from "@/components/motion/Motion";
-import {
-  SetupProgress,
-  SetupNextStep,
-  SetupRelationshipTree,
-  SetupStatusBadge,
-  SetupHelpPanel,
-} from "@/components/setup/shared";
-import {
-  Landmark,
-  Globe,
-  MapPin,
-  Building2,
-  CheckCircle2,
-  AlertTriangle,
-  Layers,
-  ArrowRight,
-  Sparkles,
-} from "lucide-react";
-import { Button } from "@/components/ui/primitives";
+import { MetricTile, PermissionDenied } from "@/components/ui/panels";
+import { StatusChip } from "@/components/ui/primitives";
+import { LinkButton, Notice, PageShell, Panel } from "@/components/setup/kit";
+import { SetupJourney, SetupTree } from "@/components/setup/shared";
 
-export default function SetupLandingPage() {
-  const { territory, canAccess, state } = useStore();
-
+export default function SetupPage() {
+  const { canAccess, state } = useStore();
   const health = useMemo(() => selectSetupHealth(state), [state]);
-  const nextAction = useMemo(() => selectNextSetupAction(state), [state]);
-  const journeySteps = useMemo(() => selectSetupJourney(state), [state]);
+  const next = useMemo(() => selectNextSetupAction(state), [state]);
+  const journey = useMemo(() => selectSetupJourney(state), [state]);
 
-  if (!canAccess("/setup")) {
-    return (
-      <PageFrame>
-        <PermissionDenied module="Setup" />
-      </PageFrame>
-    );
-  }
+  if (!canAccess("/setup")) return <PermissionDenied module="Setup" />;
+
+  const done = journey.filter((s) => s.status === "complete").length;
+  const firstRun = health.franchiseCount === 0;
 
   return (
-    <PageFrame>
+    <PageShell>
       <PageHeader
-        overline={`Setup · ${territory.name}`}
-        title="Set Up Your Operating Area"
-        sub="Create where your company operates and where events will happen."
+        overline="Operations"
+        title="Setup"
+        sub="Where your business operates: franchises, territories, cities, venues and the playing areas inside them. Work top to bottom — each level needs the one above it."
         right={
-          <div className="flex items-center gap-3">
-            <SetupStatusBadge status={health.status} />
-            <Link href={nextAction.href}>
-              <Button variant="primary" className="font-bold">
-                {nextAction.label}
-              </Button>
-            </Link>
-          </div>
+          <LinkButton href={next.href}>
+            {next.label} <ArrowRight className="h-4 w-4" />
+          </LinkButton>
         }
       />
 
-      <Stagger className="mt-6 space-y-6">
-        {/* Next Action Engine */}
-        <Item>
-          <SetupNextStep nextAction={nextAction} />
-        </Item>
-
-        {/* 5-Step Journey Progress */}
-        <Item>
-          <SetupProgress steps={journeySteps} />
-        </Item>
-
-        {/* Detailed 5-Step Cards */}
-        <Item>
-          <div className="space-y-4">
-            <h2 className="text-base font-bold text-ink-lum flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-brand" />
-              <span>What must be created first?</span>
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-              {journeySteps.map((s) => (
-                <div
-                  key={s.key}
-                  className="glass p-5 rounded-2xl border border-slate-200 flex flex-col justify-between space-y-4"
-                >
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-ink-mut">STEP {s.step}</span>
-                      <SetupStatusBadge status={s.status} size="sm" />
-                    </div>
-                    <h3 className="font-bold text-base text-ink-lum">{s.title.split(". ")[1]}</h3>
-                    <p className="text-xs text-ink-sec leading-relaxed">{s.explanation}</p>
-                  </div>
-
-                  <div className="pt-2 space-y-3 border-t border-slate-200">
-                    <div className="flex justify-between items-center text-xs text-ink-mut">
-                      <span>Registered:</span>
-                      <span className="font-mono text-ink-lum font-semibold">{s.count}</span>
-                    </div>
-                    <Link href={s.actionHref} className="block">
-                      <Button
-                        variant={s.status === "complete" ? "ghost" : "primary"}
-                        className="w-full justify-center h-8 text-xs font-bold"
-                      >
-                        {s.actionLabel}
-                        <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </Item>
-
-        {/* Setup Health & Issues Panel */}
-        <Item>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Setup Health Overview */}
-            <div className="glass p-6 rounded-2xl border border-slate-200 space-y-4 lg:col-span-2">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-                <div>
-                  <h3 className="text-sm font-semibold text-ink-lum flex items-center gap-2">
-                    {health.status === "complete" ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    ) : (
-                      <AlertTriangle className="w-4 h-4 text-amber-600" />
-                    )}
-                    <span>Setup Readiness & Health</span>
-                  </h3>
-                  <p className="text-xs text-ink-mut mt-0.5">{health.label}</p>
-                </div>
-                <SetupStatusBadge status={health.status} />
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                  <p className="text-[10px] text-ink-mut uppercase">Franchises</p>
-                  <p className="text-xl font-bold text-ink-lum mt-1">{health.franchiseCount}</p>
-                </div>
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                  <p className="text-[10px] text-ink-mut uppercase">Territories</p>
-                  <p className="text-xl font-bold text-ink-lum mt-1">{health.territoryCount}</p>
-                </div>
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                  <p className="text-[10px] text-ink-mut uppercase">Cities</p>
-                  <p className="text-xl font-bold text-ink-lum mt-1">{health.cityCount}</p>
-                </div>
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                  <p className="text-[10px] text-ink-mut uppercase">Venues</p>
-                  <p className="text-xl font-bold text-ink-lum mt-1">{health.venueCount}</p>
-                </div>
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                  <p className="text-[10px] text-ink-mut uppercase">Playing Areas</p>
-                  <p className="text-xl font-bold text-ink-lum mt-1">{health.playingAreaCount}</p>
-                </div>
-              </div>
-
-              {health.missingItems.length > 0 ? (
-                <div className="space-y-2 pt-2">
-                  <p className="text-xs font-semibold text-amber-700">Items requiring attention before scheduling:</p>
-                  <ul className="space-y-1 text-xs text-ink-sec list-disc list-inside">
-                    {health.missingItems.map((item, idx) => (
-                      <li key={idx}>{item}</li>
-                    ))}
-                  </ul>
-                </div>
-              ) : (
-                <div className="p-3 rounded-xl bg-emerald-100 border border-emerald-300 text-emerald-700 text-xs flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
-                  <span>All operating areas are configured and ready for live session scheduling!</span>
-                </div>
-              )}
-            </div>
-
-            {/* Help Panel */}
-            <div>
-              <SetupHelpPanel />
-            </div>
-          </div>
-        </Item>
-
-        {/* Operating Structure Relationship Tree */}
-        <Item>
-          <SetupRelationshipTree state={state} />
-        </Item>
-
-        {/* Simple Example Section */}
-        <Item>
-          <div className="glass p-6 rounded-2xl border border-slate-200 space-y-4">
-            <h3 className="text-sm font-semibold text-ink-lum">Simple Setup Example</h3>
-            <p className="text-xs text-ink-sec">
-              Here is how a real operating region is structured from top to bottom:
+      <section className="relative overflow-hidden rounded-panel border border-brand/20 bg-gradient-to-br from-white via-white to-brand-subtle p-5 shadow-panel sm:p-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0">
+            <p className="overline text-brand">{firstRun ? "Get started" : `Next step · ${next.stepNumber} of ${journey.length}`}</p>
+            <h2 className="mt-1.5 font-display text-xl font-bold text-ink-lum">{firstRun ? "Set up your first operating area" : next.label}</h2>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-ink-mut">
+              {firstRun
+                ? "Your workspace is empty. Create a franchise, then a territory, city, venue and playing area. Add an activity category and an experience, and you can schedule your first session."
+                : next.subtitle}
             </p>
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 font-mono text-xs text-ink-sec space-y-1">
-              <div className="text-amber-600 font-bold">Hyderabad Operations (Franchise)</div>
-              <div>└── Madhapur Central (Territory)</div>
-              <div>    └── Hyderabad (City)</div>
-              <div>        └── Arena Sports Hub (Venue)</div>
-              <div>            └── Badminton Court 1 (Playing Area)</div>
-            </div>
           </div>
-        </Item>
-      </Stagger>
-    </PageFrame>
-  );
-}
+          <div className="flex shrink-0 items-center gap-4">
+            <div className="text-right">
+              <p className="font-display text-2xl font-bold text-ink-lum tabular">
+                {done}/{journey.length}
+              </p>
+              <p className="text-xs text-ink-mut">steps complete</p>
+            </div>
+            <LinkButton href={next.href} size="lg">
+              {next.label} <ArrowRight className="h-4 w-4" />
+            </LinkButton>
+          </div>
+        </div>
+        <div className="mt-5 h-2 overflow-hidden rounded-full bg-white ring-1 ring-edge">
+          <div className="h-full rounded-full bg-gradient-to-r from-brand to-fuchsia-500 transition-all duration-500" style={{ width: `${(done / journey.length) * 100}%` }} />
+        </div>
+      </section>
 
-function PageFrame({ children }: { children: React.ReactNode }) {
-  return <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8">{children}</div>;
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <MetricTile label="Franchises" value={health.franchiseCount} icon={<Landmark className="h-4 w-4" />} tone="violet" detail="businesses operating" />
+        <MetricTile label="Territories" value={health.territoryCount} icon={<Globe2 className="h-4 w-4" />} tone="sky" detail={health.territoriesWithoutCitiesCount ? `${health.territoriesWithoutCitiesCount} without a city` : "all have cities"} />
+        <MetricTile label="Cities" value={health.cityCount} icon={<MapPin className="h-4 w-4" />} tone="emerald" detail={health.citiesWithoutVenuesCount ? `${health.citiesWithoutVenuesCount} without a venue` : "all have venues"} />
+        <MetricTile label="Venues" value={health.venueCount} icon={<Building2 className="h-4 w-4" />} tone="amber" detail={health.venuesWithoutPlayingAreasCount ? `${health.venuesWithoutPlayingAreasCount} without a playing area` : "all have playing areas"} />
+        <MetricTile label="Playing areas" value={health.playingAreaCount} icon={<LayoutGrid className="h-4 w-4" />} tone="pink" detail="courts, pitches, tables, rooms" />
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[1.25fr_1fr]">
+        <Panel title="First-run checklist" sub="Eight steps from an empty workspace to a bookable session." icon={<ListChecks className="h-4 w-4" />} right={<StatusChip value={health.status === "complete" ? "ready" : health.status === "needs-attention" ? "needs attention" : "incomplete"} tone={health.status === "complete" ? "ok" : health.status === "needs-attention" ? "warn" : "neutral"} />}>
+          <SetupJourney steps={journey} />
+        </Panel>
+
+        <div className="space-y-6">
+          {health.missingItems.length > 0 && (
+            <Notice tone="warn" title="Gaps to close before scheduling">
+              <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                {health.missingItems.map((m) => (
+                  <li key={m}>{m}</li>
+                ))}
+              </ul>
+            </Notice>
+          )}
+          <Panel title="Operating structure" sub="Select any level to open it. Collapse branches you are not working on." icon={<Network className="h-4 w-4" />}>
+            <div className="max-h-[560px] overflow-y-auto">
+              <SetupTree state={state} />
+            </div>
+          </Panel>
+        </div>
+      </div>
+    </PageShell>
+  );
 }

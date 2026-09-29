@@ -9,7 +9,7 @@ export interface WizardStep {
   sub?: string;
 }
 
-/** A numbered rail of steps — the wizard's spine. */
+/** A numbered rail of steps beside a white form card. Completed steps can be revisited. */
 export function WizardShell({
   steps,
   step,
@@ -26,52 +26,46 @@ export function WizardShell({
   className?: string;
 }) {
   return (
-    <div className={cn("grid gap-6 lg:grid-cols-[220px_1fr]", className)}>
-      <div className="order-2 lg:order-1">
-        <ol className="flex flex-row gap-1 overflow-x-auto lg:flex-col lg:gap-0.5 lg:overflow-visible" aria-label="Wizard steps">
+    <div className={cn("grid gap-5 lg:grid-cols-[240px_1fr]", className)}>
+      <nav aria-label="Steps" className="min-w-0">
+        <ol className="flex gap-1.5 overflow-x-auto pb-1 lg:flex-col lg:gap-1 lg:overflow-visible lg:pb-0">
           {steps.map((s, i) => {
             const active = i === step;
             const done = i < step;
-            const clickable = done;
             return (
               <li key={s.label} className="shrink-0">
                 <button
                   type="button"
-                  onClick={clickable ? () => onStep(i) : undefined}
+                  onClick={done ? () => onStep(i) : undefined}
+                  disabled={!done && !active}
                   aria-current={active ? "step" : undefined}
                   className={cn(
-                    "flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors",
-                    clickable ? "cursor-pointer hover:bg-slate-50" : "cursor-default",
+                    "flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors",
+                    active ? "bg-white shadow-lift ring-1 ring-edge" : done ? "hover:bg-white/70" : "cursor-default opacity-70",
                   )}
                 >
                   <span
                     className={cn(
-                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold",
-                      active
-                        ? "border-brand bg-brand/15 text-ink-lum"
-                        : done
-                          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                          : "border-slate-200 text-ink-mut",
+                      "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                      active ? "bg-brand text-white shadow-brand" : done ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-ink-mut",
                     )}
                   >
-                    {done ? <Check className="h-3 w-3" /> : i + 1}
+                    {done ? <Check className="h-3.5 w-3.5" /> : i + 1}
                   </span>
                   <span className="min-w-0">
-                    <span className={cn("block truncate text-xs font-medium", active ? "text-ink-lum" : "text-ink-sec")}>{s.label}</span>
-                    {s.sub && <span className="block truncate text-[10px] text-ink-mut">{s.sub}</span>}
+                    <span className={cn("block truncate text-[13px] font-semibold", active ? "text-ink-lum" : "text-ink-sec")}>{s.label}</span>
+                    {s.sub && <span className="hidden truncate text-[11px] text-ink-mut lg:block">{s.sub}</span>}
                   </span>
                 </button>
               </li>
             );
           })}
         </ol>
-      </div>
+      </nav>
 
-      <div className="order-1 min-w-0 lg:order-2">
-        <div className="glass rounded-panel p-5 md:p-6">
-          {children}
-          <div className="mt-8 flex items-center justify-between gap-3 border-t border-slate-200 pt-5">{footer}</div>
-        </div>
+      <div className="min-w-0 rounded-panel border border-edge bg-white p-5 shadow-panel sm:p-6">
+        {children}
+        <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-edge pt-5">{footer}</div>
       </div>
     </div>
   );

@@ -11,12 +11,13 @@ import {
   type ReactNode,
 } from "react";
 import { MotionConfig } from "framer-motion";
-import type { Operator, Role, RoleId, Territory, TerritoryId } from "@/lib/types";
-import { ROLES, territoryById } from "@/lib/data/mock";
+import type { Operator, Role, RoleId, Territory } from "@/lib/types";
+import { ROLES } from "@/lib/data/mock";
 import { buildActivityRecord } from "@/lib/activity";
 import { canAccess } from "@/lib/nav";
 import type {
   Incident,
+  EvidenceStatus,
   Signal,
   SessionStatus,
   Franchise as PrototypeFranchise,
@@ -24,7 +25,6 @@ import type {
   City as PrototypeCity,
   Venue as PrototypeVenue,
   PlayingArea as PrototypePlayingArea,
-  CrewMember,
   OperatorAccount
 } from "./prototype/entities";
 import {
@@ -40,6 +40,7 @@ import {
   parseWorkspaceBackup,
   downloadWorkspaceBackup,
   onWorkspaceSavedElsewhere,
+  onWorkspaceConflict,
   loadDemoStep,
   saveDemoStep,
   type LoadSource
@@ -79,8 +80,6 @@ import {
   updatePlayingArea,
   changePlayingAreaStatus,
   addOperationalNote,
-  createCategory,
-  createTemplate,
   createActivityCategory,
   updateActivityCategory,
   changeCategoryStatus,
@@ -93,9 +92,7 @@ import {
   addCatalogNote,
   createSession,
   createBooking,
-  confirmBooking,
   cancelBooking,
-  promoteWaitlistUser,
   generateTemporaryIds,
   allocateTeams,
   completeSession as completeSessionRepo,
@@ -103,9 +100,6 @@ import {
   updateSessionStatus,
   updateMatchScore,
   strikeBooking as strikeBookingCommand,
-  toggleTemplate as toggleTemplateCommand,
-  simulateRefund,
-  retryPayment,
   createBookingReservation,
   confirmBookingPayment,
   failBookingPayment,
@@ -120,6 +114,7 @@ import {
   completeRefund,
   reconcilePayment,
   createIdentityPattern,
+  setIdentityPatternStatus,
   generateTemporaryIdentities,
   lockTemporaryIdentities,
   revokeTemporaryIdentity,
@@ -169,7 +164,6 @@ import {
   declareWalkover,
   disqualifyTeam,
   abandonMatch,
-  advanceVerifiedWinner,
   completeTournament,
   reportIncident,
   acknowledgeIncident,
@@ -179,7 +173,8 @@ import {
   updateInvestigation,
   resolveIncident,
   closeIncident,
-  addEvidencePlaceholder,
+  addEvidenceRecord,
+  updateEvidenceStatus,
   createFollowUp,
   submitDispute,
   assignDisputeReviewer,
@@ -191,6 +186,17 @@ import {
   approveModerationAction,
   rejectModerationAction,
   revokeModerationAction,
+  closeModerationCase,
+  type TournamentInput,
+  type MatchResultInput,
+  type MatchCorrectionInput,
+  type IncidentReportInput,
+  type IncidentTriageInput,
+  type EvidenceInput,
+  type DisputeInput,
+  type DisputeDecisionInput,
+  type ModerationCaseInput,
+  type ModerationProposalInput,
   recommendRefundException,
   approveRefundException,
   rejectRefundException,
@@ -205,14 +211,41 @@ import {
   type CategoryInput,
   type TemplateInput,
   type SessionInput,
-  type BookingInput
+  type BookingInput,
+  createCrewMember as createCrewMemberCommand,
+  updateCrewMember as updateCrewMemberCommand,
+  assignCrewToSession as assignCrewToSessionCommand,
+  unassignCrewFromSession as unassignCrewFromSessionCommand,
+  recordStaffAttendance as recordStaffAttendanceCommand,
+  type AttendanceAction,
+  type CrewInput,
+  type StaffSlot,
+  type PaymentRecordInput,
+  type PayoutInput
 } from "./prototype/services";
 import type {
   Booking,
+  BookingSource,
+  BookingType,
+  Refund,
+  RefundType,
   ActivityCategory,
   CategoryStatus,
   ExperienceTemplate,
   TemplateStatus
+} from "./prototype/entities";
+import type {
+  IdentityPattern,
+  CheckInStatus,
+  CheckInMethod,
+  EmergencyAccessLog,
+  ActivitySegment,
+  ResultType,
+  TeamScore,
+  LiveNoteType,
+  LiveNoteSeverity,
+  LiveOperationalNote,
+  EquipmentItemStatus
 } from "./prototype/entities";
 
 const AUTH_KEY = "xos.auth";
@@ -235,6 +268,7 @@ export interface WorkspaceStatus {
 }
 
 export type CommandOutcome = { error?: string };
+export type CreatedOutcome = CommandOutcome & { id?: string };
 
 interface StoreValue {
   authed: boolean;
@@ -263,167 +297,171 @@ interface StoreValue {
   setSignalOpen: (open: boolean) => void;
   markAllRead: () => void;
   markSignalRead: (id: string) => void;
+  markSignalUnread: (id: string) => void;
 
   // Create commands (services)
-  createFranchise: (input: FranchiseInput) => void;
-  createTerritory: (input: TerritoryInput) => void;
-  createCity: (input: CityInput) => void;
-  createVenue: (input: VenueInput) => void;
-  createPlayingArea: (input: PlayingAreaInput) => void;
-  createCategory: (input: CategoryInput) => void;
-  createTemplate: (input: TemplateInput) => void;
-  createActivityCategory: (input: CategoryInput) => void;
-  updateActivityCategory: (id: string, patch: Partial<ActivityCategory>) => void;
-  changeCategoryStatus: (id: string, status: CategoryStatus) => void;
-  duplicateCategory: (id: string) => void;
-  createExperienceTemplate: (input: TemplateInput) => void;
-  updateExperienceTemplate: (id: string, patch: Partial<ExperienceTemplate>, reason?: string, changedFields?: string[]) => void;
-  changeTemplateStatus: (id: string, status: TemplateStatus, reason?: string) => void;
-  duplicateExperienceTemplate: (id: string) => void;
-  duplicateTemplateVersion: (versionId: string) => void;
-  addCatalogNote: (entity: string, name: string, note: string) => void;
+  createFranchise: (input: FranchiseInput) => CreatedOutcome;
+  createTerritory: (input: TerritoryInput) => CreatedOutcome;
+  createCity: (input: CityInput) => CreatedOutcome;
+  createVenue: (input: VenueInput) => CreatedOutcome;
+  createPlayingArea: (input: PlayingAreaInput) => CreatedOutcome;
+  createActivityCategory: (input: CategoryInput) => CreatedOutcome;
+  updateActivityCategory: (id: string, patch: Partial<ActivityCategory>) => CommandOutcome;
+  changeCategoryStatus: (id: string, status: CategoryStatus, reason?: string) => CommandOutcome;
+  duplicateCategory: (id: string) => CreatedOutcome;
+  createExperienceTemplate: (input: TemplateInput) => CreatedOutcome;
+  updateExperienceTemplate: (id: string, patch: Partial<ExperienceTemplate>, reason?: string, changedFields?: string[]) => CommandOutcome;
+  changeTemplateStatus: (id: string, status: TemplateStatus, reason?: string) => CommandOutcome;
+  duplicateExperienceTemplate: (id: string) => CreatedOutcome;
+  duplicateTemplateVersion: (versionId: string) => CreatedOutcome;
+  addCatalogNote: (entity: string, name: string, note: string) => CommandOutcome;
   createSession: (input: SessionInput) => void;
   createBooking: (input: BookingInput) => void;
-  createCrewMember: (input: Partial<CrewMember> & { name: string; role: RoleId; territoryId: string; venueId: string }) => void;
-  updateCrewMember: (id: string, patch: Partial<CrewMember>) => void;
-  assignCrewToSession: (params: { sessionId: string; crewId: string; role?: string; assignmentTitle?: string }) => void;
+  createCrewMember: (input: CrewInput) => CreatedOutcome;
+  updateCrewMember: (id: string, patch: Partial<CrewInput>) => CommandOutcome;
+  assignCrewToSession: (params: { sessionId: string; crewId: string; slot: StaffSlot }) => CommandOutcome;
+  unassignCrewFromSession: (params: { sessionId: string; slot: StaffSlot; reason: string }) => CommandOutcome;
+  recordStaffAttendance: (params: { crewId: string; action: AttendanceAction; reason?: string }) => CommandOutcome;
 
   // Geography update/status commands (services)
-  updateFranchise: (id: string, patch: Partial<PrototypeFranchise>) => void;
-  changeFranchiseStatus: (id: string, status: PrototypeFranchise["status"]) => void;
-  changeFranchiseHead: (id: string, head: string) => void;
-  updateTerritory: (id: string, patch: Partial<PrototypeTerritory>) => void;
-  changeTerritoryStatus: (id: string, status: PrototypeTerritory["status"]) => void;
-  assignTerritoryManager: (id: string, managerId: string) => void;
-  updateCity: (id: string, patch: Partial<PrototypeCity>) => void;
-  changeCityStatus: (id: string, status: PrototypeCity["status"]) => void;
-  assignCityManager: (id: string, managerId: string) => void;
-  updateVenue: (id: string, patch: Partial<PrototypeVenue>) => void;
-  changeVenueStatus: (id: string, status: PrototypeVenue["status"]) => void;
-  addVenueSafetyNote: (id: string, note: string) => void;
-  updatePlayingArea: (id: string, patch: Partial<PrototypePlayingArea>) => void;
-  changePlayingAreaStatus: (id: string, status: PrototypePlayingArea["status"]) => void;
-  addOperationalNote: (entity: string, name: string, note: string) => void;
+  updateFranchise: (id: string, patch: Partial<PrototypeFranchise>) => CommandOutcome;
+  changeFranchiseStatus: (id: string, status: PrototypeFranchise["status"], reason?: string) => CommandOutcome;
+  changeFranchiseHead: (id: string, head: string) => CommandOutcome;
+  updateTerritory: (id: string, patch: Partial<PrototypeTerritory>) => CommandOutcome;
+  changeTerritoryStatus: (id: string, status: PrototypeTerritory["status"], reason?: string) => CommandOutcome;
+  assignTerritoryManager: (id: string, managerId: string) => CommandOutcome;
+  updateCity: (id: string, patch: Partial<PrototypeCity>) => CommandOutcome;
+  changeCityStatus: (id: string, status: PrototypeCity["status"], reason?: string) => CommandOutcome;
+  assignCityManager: (id: string, managerId: string) => CommandOutcome;
+  updateVenue: (id: string, patch: Partial<PrototypeVenue>) => CommandOutcome;
+  changeVenueStatus: (id: string, status: PrototypeVenue["status"], reason?: string) => CommandOutcome;
+  addVenueSafetyNote: (id: string, note: string) => CommandOutcome;
+  updatePlayingArea: (id: string, patch: Partial<PrototypePlayingArea>) => CommandOutcome;
+  changePlayingAreaStatus: (id: string, status: PrototypePlayingArea["status"], reason?: string) => CommandOutcome;
+  addOperationalNote: (entity: string, name: string, note: string) => CommandOutcome;
 
   // Operational commands (services)
-  updateBooking: (id: string, updates: Partial<Booking>) => void;
-  confirmBooking: (id: string, method?: string) => void;
-  cancelBooking: (id: string, reason?: string) => void;
-  promoteWaitlistUser: (sessionId: string) => void;
+  /** Cancel a booking or waitlist entry; a paid booking gets a refund request. */
+  cancelBooking: (id: string, reason: string, byCompany?: boolean) => CommandOutcome & { refundId?: string };
   generateTemporaryIds: (sessionId: string) => void;
   allocateTeams: (sessionId: string) => void;
-  completeSession: (sessionId: string) => void;
-  cancelSession: (sessionId: string, reason: string) => void;
+  completeSession: (sessionId: string) => CommandOutcome;
+  /** Cancels every booking and creates a refund request for every paid booking. */
+  cancelSession: (sessionId: string, reason: string) => CommandOutcome & { refundCount?: number };
   updateSessionStatus: (id: string, status: SessionStatus) => void;
   updateMatchScore: (tournamentId: string, matchId: string, scoreA: number, scoreB: number, winner: string, status: "scheduled" | "live" | "completed" | "walkover" | "abandoned") => void;
-  strikeBooking: (id: string) => void;
-  toggleTemplate: (id: string) => void;
-  simulateRefund: (transactionId: string) => void;
-  retryPayment: (transactionId: string) => void;
+  strikeBooking: (id: string) => CommandOutcome;
 
-  // SA-P2E Operations Commands
-  createBookingReservation: (params: { sessionId: string; alias: string; phoneMask?: string; bookingType?: any; source?: any; amount?: number; operatorId?: string }) => { state: PrototypeState; booking?: Booking; error?: string };
-  confirmBookingPayment: (id: string, method?: string) => void;
-  failBookingPayment: (id: string, reason?: string) => void;
-  expireReservation: (id: string) => void;
-  joinWaitlist: (params: { sessionId: string; alias: string; phoneMask?: string; operatorId?: string }) => void;
-  offerWaitlistSlot: (sessionId: string, operatorId?: string) => void;
-  acceptWaitlistOffer: (bookingId: string, operatorId?: string) => void;
-  expireWaitlistOffer: (bookingId: string, operatorId?: string) => void;
-  initiateRefund: (params: { bookingId: string; amount: number; reason: string; type?: any; operatorId?: string }) => { state: PrototypeState; refund?: any; error?: string };
-  approveRefund: (refundId: string, operatorId?: string) => void;
-  rejectRefund: (refundId: string, reason?: string, operatorId?: string) => void;
-  completeRefund: (refundId: string, operatorId?: string) => void;
-  reconcilePayment: (paymentId: string, operatorId?: string) => void;
+  // Bookings, holds, waitlist and money. Every command returns its outcome.
+  createBookingReservation: (params: { sessionId: string; alias: string; phoneMask?: string; bookingType?: BookingType; source?: BookingSource; amount?: number }) => { booking?: Booking; error?: string };
+  /** Record a payment received outside the console (payment provider not connected). */
+  confirmBookingPayment: (id: string, payment: PaymentRecordInput) => CommandOutcome;
+  failBookingPayment: (id: string, reason: string) => CommandOutcome;
+  expireReservation: (id: string) => CommandOutcome;
+  joinWaitlist: (params: { sessionId: string; alias: string; phoneMask?: string }) => { booking?: Booking; error?: string };
+  offerWaitlistSlot: (sessionId: string) => { booking?: Booking; error?: string };
+  acceptWaitlistOffer: (bookingId: string) => CommandOutcome;
+  expireWaitlistOffer: (bookingId: string) => CommandOutcome;
+  initiateRefund: (params: { bookingId: string; amount: number; reason: string; type?: RefundType }) => { refund?: Refund; error?: string };
+  approveRefund: (refundId: string) => CommandOutcome;
+  rejectRefund: (refundId: string, reason: string) => CommandOutcome;
+  /** Record that an approved refund was paid out, with method and reference. */
+  completeRefund: (refundId: string, payout: PayoutInput) => CommandOutcome;
+  reconcilePayment: (paymentId: string) => CommandOutcome;
 
-  // SA-P2F Operations Commands
-  createIdentityPattern: (input: { name: string; prefix: string; separator?: string; numberLength?: number; aliasStyle?: string }, operatorId?: string) => { state: PrototypeState; pattern?: any; error?: string };
-  generateTemporaryIdentities: (sessionId: string, patternId?: string, operatorId?: string) => void;
-  lockTemporaryIdentities: (sessionId: string, operatorId?: string) => void;
-  revokeTemporaryIdentity: (identityId: string, reason: string, operatorId?: string) => void;
-  createTeams: (sessionId: string, numTeams?: number, teamCapacity?: number, operatorId?: string) => void;
-  allocateTeamsRandomly: (sessionId: string, operatorId?: string) => void;
-  moveTeamParticipant: (params: { sessionId: string; bookingId: string; targetTeamId: string; reason: string; operatorId?: string }) => { state: PrototypeState; error?: string };
-  swapTeamParticipants: (params: { sessionId: string; bookingIdA: string; bookingIdB: string; reason: string; operatorId?: string }) => { state: PrototypeState; error?: string };
-  lockTeams: (sessionId: string, operatorId?: string) => void;
-  unlockTeamsWithOverride: (sessionId: string, reason: string, operatorId?: string) => void;
-  triggerReveal: (sessionId: string, overrideReason?: string, operatorId?: string) => { state: PrototypeState; error?: string };
-  delayReveal: (sessionId: string, newRevealTime: string, reason: string, operatorId?: string) => void;
-  cancelReveal: (sessionId: string, reason: string, operatorId?: string) => void;
-  createCheckInRecords: (sessionId: string, operatorId?: string) => void;
-  updateCheckInStatus: (params: { sessionId: string; bookingId: string; targetStatus: any; method?: any; denialReason?: string; auditOverrideReason?: string; operatorId?: string }) => { state: PrototypeState; error?: string };
-  checkInStaff: (sessionId: string, crewId: string, operatorId?: string) => void;
-  requestEmergencyIdentityAccess: (params: { sessionId?: string; bookingId?: string; operatorId: string; operatorRole: string; reason: string }) => { state: PrototypeState; accessLog?: any; error?: string };
-  closeEmergencyIdentityAccess: (logId: string, operatorId?: string) => void;
+  // Session operations (identity, teams, reveal, check-in, emergency access). Every command returns its outcome.
+  createIdentityPattern: (input: { name: string; prefix: string; separator?: string; numberLength?: number; aliasStyle?: string }) => { pattern?: IdentityPattern; error?: string };
+  setIdentityPatternStatus: (patternId: string, status: "active" | "deprecated") => CommandOutcome;
+  generateTemporaryIdentities: (sessionId: string, patternId?: string) => CommandOutcome;
+  lockTemporaryIdentities: (sessionId: string) => CommandOutcome;
+  revokeTemporaryIdentity: (identityId: string, reason: string) => CommandOutcome;
+  createTeams: (sessionId: string, numTeams?: number, teamCapacity?: number) => CommandOutcome;
+  allocateTeamsRandomly: (sessionId: string) => CommandOutcome;
+  moveTeamParticipant: (params: { sessionId: string; bookingId: string; targetTeamId: string; reason: string }) => CommandOutcome;
+  swapTeamParticipants: (params: { sessionId: string; bookingIdA: string; bookingIdB: string; reason: string }) => CommandOutcome;
+  lockTeams: (sessionId: string) => CommandOutcome;
+  unlockTeamsWithOverride: (sessionId: string, reason: string) => CommandOutcome;
+  triggerReveal: (sessionId: string, overrideReason?: string) => CommandOutcome;
+  delayReveal: (sessionId: string, newRevealTime: string, reason: string) => CommandOutcome;
+  cancelReveal: (sessionId: string, reason: string) => CommandOutcome;
+  createCheckInRecords: (sessionId: string) => CommandOutcome;
+  updateCheckInStatus: (params: { sessionId: string; bookingId: string; targetStatus: CheckInStatus; method?: CheckInMethod; denialReason?: string; auditOverrideReason?: string }) => CommandOutcome;
+  /** Accepts a crew id or a legacy operator id. */
+  checkInStaff: (sessionId: string, personRef: string) => CommandOutcome;
+  /** The acting operator and role are always the signed-in operator. */
+  requestEmergencyIdentityAccess: (params: { sessionId?: string; bookingId: string; reason: string }) => { accessLog?: EmergencyAccessLog; error?: string };
+  closeEmergencyIdentityAccess: (logId: string) => CommandOutcome;
 
-  // SA-P2G Live Operations Commands
-  openSession: (sessionId: string, operatorId?: string) => { state: PrototypeState; error?: string };
-  startLiveSession: (sessionId: string, operatorId?: string) => { state: PrototypeState; error?: string };
-  pauseLiveSession: (sessionId: string, reason: string, operatorId?: string) => { state: PrototypeState; error?: string };
-  resumeLiveSession: (sessionId: string, operatorId?: string) => { state: PrototypeState; error?: string };
-  enterEmergencyMode: (params: { sessionId: string; reason: string; immediateAction: string; safetyContactConfirmed: boolean; operatorId?: string; operatorRole?: string }) => { state: PrototypeState; error?: string };
-  exitEmergencyMode: (params: { sessionId: string; exitReason: string; operatorId?: string; operatorRole?: string }) => { state: PrototypeState; error?: string };
-  endLiveSession: (sessionId: string, operatorId?: string) => { state: PrototypeState; error?: string };
-  createActivitySegment: (input: { sessionId: string; name: string; type: any; teamIds?: string[]; notes?: string }, operatorId?: string) => { state: PrototypeState; segment?: any; error?: string };
-  startActivitySegment: (sessionId: string, segmentId: string, operatorId?: string) => { state: PrototypeState; error?: string };
-  completeActivitySegment: (sessionId: string, segmentId: string, operatorId?: string) => { state: PrototypeState; error?: string };
-  skipActivitySegment: (sessionId: string, segmentId: string, reason: string, operatorId?: string) => { state: PrototypeState; error?: string };
-  createDraftResult: (params: { sessionId: string; segmentId: string; resultType: any; teamScores?: any[]; winnerTeamId?: string; outcome?: string; operatorId?: string }) => { state: PrototypeState; error?: string };
-  confirmResult: (sessionId: string, segmentId: string, operatorId?: string) => { state: PrototypeState; error?: string };
-  correctResult: (params: { sessionId: string; segmentId: string; resultType: any; teamScores?: any[]; winnerTeamId?: string; outcome?: string; reason: string; operatorId?: string }) => { state: PrototypeState; error?: string };
-  addLiveOperationalNote: (input: { sessionId: string; type: any; severity: any; note: string; relatedSegmentId?: string; followUpRequired?: boolean }, operatorId?: string) => { state: PrototypeState; note?: any; error?: string };
-  updateEquipmentStatus: (params: { sessionId: string; equipmentId: string; status?: any; issuedCount?: number; missingCount?: number; damagedCount?: number; returnedCount?: number; note?: string; operatorId?: string }) => { state: PrototypeState; error?: string };
-  completeLiveSession: (sessionId: string, overrideReason?: string, operatorId?: string) => { state: PrototypeState; error?: string };
+  // Live operations. Emergency commands use the signed-in operator's id and role id.
+  openSession: (sessionId: string, overrideReason?: string) => CommandOutcome;
+  startLiveSession: (sessionId: string, overrideReason?: string) => CommandOutcome;
+  pauseLiveSession: (sessionId: string, reason: string) => CommandOutcome;
+  resumeLiveSession: (sessionId: string) => CommandOutcome;
+  enterEmergencyMode: (params: { sessionId: string; reason: string; immediateAction: string; safetyContactConfirmed: boolean }) => CommandOutcome;
+  exitEmergencyMode: (params: { sessionId: string; exitReason: string }) => CommandOutcome;
+  endLiveSession: (sessionId: string) => CommandOutcome;
+  createActivitySegment: (input: { sessionId: string; name: string; type: ActivitySegment["type"]; teamIds?: string[]; notes?: string }) => { segment?: ActivitySegment; error?: string };
+  startActivitySegment: (sessionId: string, segmentId: string) => CommandOutcome;
+  completeActivitySegment: (sessionId: string, segmentId: string) => CommandOutcome;
+  skipActivitySegment: (sessionId: string, segmentId: string, reason: string) => CommandOutcome;
+  createDraftResult: (params: { sessionId: string; segmentId: string; resultType: ResultType; teamScores?: TeamScore[]; winnerTeamId?: string; outcome?: string }) => CommandOutcome;
+  confirmResult: (sessionId: string, segmentId: string) => CommandOutcome;
+  correctResult: (params: { sessionId: string; segmentId: string; resultType: ResultType; teamScores?: TeamScore[]; winnerTeamId?: string; outcome?: string; reason: string }) => CommandOutcome;
+  addLiveOperationalNote: (input: { sessionId: string; type: LiveNoteType; severity: LiveNoteSeverity; note: string; relatedSegmentId?: string; followUpRequired?: boolean }) => { note?: LiveOperationalNote; error?: string };
+  updateEquipmentStatus: (params: { sessionId: string; equipmentId: string; status?: EquipmentItemStatus; issuedCount?: number; missingCount?: number; damagedCount?: number; returnedCount?: number; note?: string }) => CommandOutcome;
+  completeLiveSession: (sessionId: string, overrideReason?: string, closingNote?: string) => CommandOutcome;
 
-  // Tournament
-  createTournament: (params: any) => void;
-  assignTournamentTeams: (tournamentId: string, teamIds: string[]) => void;
-  generateSingleEliminationBracket: (tournamentId: string) => void;
-  publishTournament: (tournamentId: string) => void;
-  assignMatchReferee: (tournamentId: string, matchId: string, refereeId: string) => void;
-  updateMatchReadiness: (tournamentId: string, matchId: string, status: "scheduled" | "ready") => void;
-  startTournamentMatch: (tournamentId: string, matchId: string) => void;
-  pauseTournamentMatch: (tournamentId: string, matchId: string) => void;
-  resumeTournamentMatch: (tournamentId: string, matchId: string) => void;
-  confirmTournamentMatchResult: (params: any) => void;
-  verifyTournamentMatchResult: (tournamentId: string, matchId: string) => void;
-  correctTournamentMatchResult: (params: any) => void;
-  declareWalkover: (tournamentId: string, matchId: string, winnerTeamId: string, reason: string) => void;
-  disqualifyTeam: (tournamentId: string, teamId: string, reason: string) => void;
-  abandonMatch: (tournamentId: string, matchId: string, reason: string) => void;
-  advanceVerifiedWinner: (tournamentId: string, matchId: string) => void;
-  completeTournament: (tournamentId: string, winnerTeamId: string) => void;
+  // Tournament (every command returns { error } when refused)
+  createTournament: (params: TournamentInput) => CreatedOutcome;
+  assignTournamentTeams: (tournamentId: string, teams: Array<{ id?: string; name: string }>) => CommandOutcome;
+  generateSingleEliminationBracket: (tournamentId: string) => CommandOutcome;
+  publishTournament: (tournamentId: string) => CommandOutcome;
+  assignMatchReferee: (tournamentId: string, matchId: string, refereeId: string) => CommandOutcome;
+  updateMatchReadiness: (tournamentId: string, matchId: string, status: "scheduled" | "ready") => CommandOutcome;
+  startTournamentMatch: (tournamentId: string, matchId: string) => CommandOutcome;
+  pauseTournamentMatch: (tournamentId: string, matchId: string) => CommandOutcome;
+  resumeTournamentMatch: (tournamentId: string, matchId: string) => CommandOutcome;
+  confirmTournamentMatchResult: (params: MatchResultInput) => CommandOutcome;
+  verifyTournamentMatchResult: (tournamentId: string, matchId: string) => CommandOutcome;
+  correctTournamentMatchResult: (params: MatchCorrectionInput) => CommandOutcome;
+  declareWalkover: (tournamentId: string, matchId: string, winnerTeamId: string, reason: string) => CommandOutcome;
+  disqualifyTeam: (tournamentId: string, teamId: string, reason: string) => CommandOutcome;
+  abandonMatch: (tournamentId: string, matchId: string, reason: string) => CommandOutcome;
+  completeTournament: (tournamentId: string) => CommandOutcome & { championId?: string };
 
-  // Safety
-  reportIncident: (params: any) => void;
-  acknowledgeIncident: (incidentId: string) => void;
-  triageIncident: (params: any) => void;
-  assignInvestigator: (incidentId: string, investigatorId: string) => void;
-  escalateIncident: (incidentId: string, reason: string) => void;
-  updateInvestigation: (incidentId: string, summary: string) => void;
-  resolveIncident: (incidentId: string, resolution: string) => void;
-  closeIncident: (incidentId: string, notes: string) => void;
-  addEvidencePlaceholder: (params: any) => void;
-  createFollowUp: (incidentId: string, followUpOwnerId: string, dueAt: string) => void;
+  // Safety incidents
+  reportIncident: (params: IncidentReportInput) => CreatedOutcome;
+  acknowledgeIncident: (incidentId: string) => CommandOutcome;
+  triageIncident: (params: IncidentTriageInput) => CommandOutcome;
+  assignInvestigator: (incidentId: string, investigatorId: string) => CommandOutcome;
+  escalateIncident: (incidentId: string, reason: string) => CommandOutcome;
+  updateInvestigation: (incidentId: string, summary: string) => CommandOutcome;
+  resolveIncident: (incidentId: string, resolution: string) => CommandOutcome;
+  closeIncident: (incidentId: string, notes: string) => CommandOutcome;
+  addEvidenceRecord: (params: EvidenceInput) => CreatedOutcome;
+  updateEvidenceStatus: (evidenceId: string, status: EvidenceStatus) => CommandOutcome;
+  createFollowUp: (incidentId: string, followUpOwnerId: string, dueAt: string) => CommandOutcome;
 
   // Disputes
-  submitDispute: (params: any) => void;
-  assignDisputeReviewer: (disputeId: string, reviewerId: string) => void;
-  requestDisputeEvidence: (disputeId: string) => void;
-  decideDispute: (params: any) => void;
-  closeDispute: (disputeId: string) => void;
+  submitDispute: (params: DisputeInput) => CreatedOutcome;
+  assignDisputeReviewer: (disputeId: string, reviewerId: string) => CommandOutcome;
+  requestDisputeEvidence: (disputeId: string, request: string) => CommandOutcome;
+  decideDispute: (params: DisputeDecisionInput) => CommandOutcome;
+  closeDispute: (disputeId: string) => CommandOutcome;
 
   // Moderation
-  createModerationCase: (params: any) => void;
-  proposeModerationAction: (params: any) => void;
-  approveModerationAction: (actionId: string) => void;
-  rejectModerationAction: (actionId: string, reason: string) => void;
-  revokeModerationAction: (actionId: string, reason: string) => void;
+  createModerationCase: (params: ModerationCaseInput) => CreatedOutcome;
+  proposeModerationAction: (params: ModerationProposalInput) => CreatedOutcome;
+  approveModerationAction: (actionId: string) => CommandOutcome;
+  rejectModerationAction: (actionId: string, reason: string) => CommandOutcome;
+  revokeModerationAction: (actionId: string, reason: string) => CommandOutcome;
+  closeModerationCase: (caseId: string, note: string) => CommandOutcome;
 
   // Refund Exceptions
-  recommendRefundException: (params: any) => void;
-  approveRefundException: (exceptionId: string) => void;
-  rejectRefundException: (exceptionId: string, reason: string) => void;
+  recommendRefundException: (params: Parameters<typeof recommendRefundException>[1]) => CommandOutcome;
+  /** Approve an exception; exceptions raised without a booking must name one. */
+  approveRefundException: (exceptionId: string, bookingId?: string) => CommandOutcome & { refundId?: string };
+  rejectRefundException: (exceptionId: string, reason: string) => CommandOutcome;
 
   // Incident / signal / audit helpers
   addIncident: (i: Incident) => void;
@@ -533,6 +571,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setWorkspace((w) => ({ ...w, saveState: "saved", lastSavedAt: savedAt ?? w.lastSavedAt }));
       });
     });
+    const offConflict = onWorkspaceConflict((message) => {
+      setWorkspace((w) => ({ ...w, saveState: "error" }));
+      console.warn("[workspace] save conflict:", message);
+      void loadWorkspace().then(({ state: loaded }) => {
+        stateRef.current = loaded;
+        setState(loaded);
+        setWorkspace((w) => ({ ...w, saveState: "saved", lastSavedAt: new Date().toISOString() }));
+        window.dispatchEvent(new CustomEvent("xos:workspace-conflict", { detail: message }));
+      });
+    });
     const onHide = () => {
       if (document.visibilityState === "hidden") void flushSave();
     };
@@ -541,6 +589,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
       offOther();
+      offConflict();
       document.removeEventListener("visibilitychange", onHide);
       window.removeEventListener("pagehide", onHide);
     };
@@ -626,590 +675,314 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     commit((prev) => ({ ...prev, signals: prev.signals.map((s) => ({ ...s, read: true })) }));
   }, [commit]);
 
+  const markSignalUnread = useCallback((id: string) => {
+    commit((prev) => ({ ...prev, signals: prev.signals.map((s) => (s.id === id ? { ...s, read: false } : s)) }));
+  }, [commit]);
+
   const markSignalRead = useCallback((id: string) => {
     commit((prev) => ({ ...prev, signals: prev.signals.map((s) => (s.id === id ? { ...s, read: true } : s)) }));
   }, [commit]);
 
   /* ---------------------- create commands (services) ---------------------- */
 
-  const createFranchiseCb = useCallback((input: FranchiseInput) => commit((prev) => createFranchise(prev, input, operatorId)), [commit, operatorId]);
-  const createTerritoryCb = useCallback((input: TerritoryInput) => commit((prev) => createTerritory(prev, input, operatorId)), [commit, operatorId]);
-  const createCityCb = useCallback((input: CityInput) => commit((prev) => createCity(prev, input, operatorId)), [commit, operatorId]);
-  const createVenueCb = useCallback((input: VenueInput) => commit((prev) => createVenue(prev, input, operatorId)), [commit, operatorId]);
-  const createPlayingAreaCb = useCallback((input: PlayingAreaInput) => commit((prev) => createPlayingArea(prev, input, operatorId)), [commit, operatorId]);
-  const createCategoryCb = useCallback((input: CategoryInput) => commit((prev) => createCategory(prev, input, operatorId)), [commit, operatorId]);
-  const createTemplateCb = useCallback((input: TemplateInput) => commit((prev) => createTemplate(prev, input, operatorId)), [commit, operatorId]);
-  const createActivityCategoryCb = useCallback((input: CategoryInput) => commit((prev) => createActivityCategory(prev, input, operatorId)), [commit, operatorId]);
-  const updateActivityCategoryCb = useCallback((id: string, patch: Partial<ActivityCategory>) => commit((prev) => updateActivityCategory(prev, id, patch, operatorId)), [commit, operatorId]);
-  const changeCategoryStatusCb = useCallback((id: string, status: CategoryStatus) => commit((prev) => changeCategoryStatus(prev, id, status, operatorId)), [commit, operatorId]);
-  const duplicateCategoryCb = useCallback((id: string) => commit((prev) => duplicateCategory(prev, id, operatorId)), [commit, operatorId]);
-  const createExperienceTemplateCb = useCallback((input: TemplateInput) => commit((prev) => createExperienceTemplate(prev, input, operatorId)), [commit, operatorId]);
-  const updateExperienceTemplateCb = useCallback((id: string, patch: Partial<ExperienceTemplate>, reason?: string, changedFields?: string[]) => commit((prev) => updateExperienceTemplate(prev, id, patch, operatorId, reason, changedFields)), [commit, operatorId]);
-  const changeTemplateStatusCb = useCallback((id: string, status: TemplateStatus, reason?: string) => commit((prev) => changeTemplateStatus(prev, id, status, operatorId, reason)), [commit, operatorId]);
-  const duplicateExperienceTemplateCb = useCallback((id: string) => commit((prev) => duplicateExperienceTemplate(prev, id, operatorId)), [commit, operatorId]);
-  const duplicateTemplateVersionCb = useCallback((versionId: string) => commit((prev) => duplicateTemplateVersion(prev, versionId, operatorId)), [commit, operatorId]);
-  const addCatalogNoteCb = useCallback((entity: string, name: string, note: string) => commit((prev) => addCatalogNote(prev, entity, name, note, operatorId)), [commit, operatorId]);
+  /**
+   * Run a service that returns `{ state, error }`: the new state is applied only
+   * when the command succeeded, and the outcome (minus state) is handed back.
+   */
+  const runResult = useCallback(
+    <R extends { state: PrototypeState; error?: string }>(fn: (prev: PrototypeState) => R): Omit<R, "state"> => {
+      let out: R | undefined;
+      commit((prev) => {
+        out = fn(prev);
+        return out.error ? prev : out.state;
+      });
+      const { state: _ignored, ...rest } = out as R;
+      void _ignored;
+      return rest;
+    },
+    [commit]
+  );
+
+  const createFranchiseCb = useCallback((input: FranchiseInput) => runResult((prev) => createFranchise(prev, input, operatorId)), [runResult, operatorId]);
+  const createTerritoryCb = useCallback((input: TerritoryInput) => runResult((prev) => createTerritory(prev, input, operatorId)), [runResult, operatorId]);
+  const createCityCb = useCallback((input: CityInput) => runResult((prev) => createCity(prev, input, operatorId)), [runResult, operatorId]);
+  const createVenueCb = useCallback((input: VenueInput) => runResult((prev) => createVenue(prev, input, operatorId)), [runResult, operatorId]);
+  const createPlayingAreaCb = useCallback((input: PlayingAreaInput) => runResult((prev) => createPlayingArea(prev, input, operatorId)), [runResult, operatorId]);
+  const createActivityCategoryCb = useCallback((input: CategoryInput) => runResult((prev) => createActivityCategory(prev, input, operatorId)), [runResult, operatorId]);
+  const updateActivityCategoryCb = useCallback((id: string, patch: Partial<ActivityCategory>) => runResult((prev) => updateActivityCategory(prev, id, patch, operatorId)), [runResult, operatorId]);
+  const changeCategoryStatusCb = useCallback((id: string, status: CategoryStatus, reason?: string) => runResult((prev) => changeCategoryStatus(prev, id, status, operatorId, reason)), [runResult, operatorId]);
+  const duplicateCategoryCb = useCallback((id: string) => runResult((prev) => duplicateCategory(prev, id, operatorId)), [runResult, operatorId]);
+  const createExperienceTemplateCb = useCallback((input: TemplateInput) => runResult((prev) => createExperienceTemplate(prev, input, operatorId)), [runResult, operatorId]);
+  const updateExperienceTemplateCb = useCallback((id: string, patch: Partial<ExperienceTemplate>, reason?: string, changedFields?: string[]) => runResult((prev) => updateExperienceTemplate(prev, id, patch, operatorId, reason, changedFields)), [runResult, operatorId]);
+  const changeTemplateStatusCb = useCallback((id: string, status: TemplateStatus, reason?: string) => runResult((prev) => changeTemplateStatus(prev, id, status, operatorId, reason)), [runResult, operatorId]);
+  const duplicateExperienceTemplateCb = useCallback((id: string) => runResult((prev) => duplicateExperienceTemplate(prev, id, operatorId)), [runResult, operatorId]);
+  const duplicateTemplateVersionCb = useCallback((versionId: string) => runResult((prev) => duplicateTemplateVersion(prev, versionId, operatorId)), [runResult, operatorId]);
+  const addCatalogNoteCb = useCallback((entity: string, name: string, note: string) => runResult((prev) => addCatalogNote(prev, entity, name, note, operatorId)), [runResult, operatorId]);
   const createSessionCb = useCallback((input: SessionInput) => commit((prev) => createSession(prev, input, operatorId)), [commit, operatorId]);
   const createBookingCb = useCallback((input: BookingInput) => commit((prev) => createBooking(prev, input, operatorId)), [commit, operatorId]);
 
   /* ------------------- geography update/status commands ------------------- */
 
-  const updateFranchiseCb = useCallback((id: string, patch: Partial<PrototypeFranchise>) => commit((prev) => updateFranchise(prev, id, patch, operatorId)), [commit, operatorId]);
-  const changeFranchiseStatusCb = useCallback((id: string, status: PrototypeFranchise["status"]) => commit((prev) => changeFranchiseStatus(prev, id, status, operatorId)), [commit, operatorId]);
-  const changeFranchiseHeadCb = useCallback((id: string, head: string) => commit((prev) => changeFranchiseHead(prev, id, head, operatorId)), [commit, operatorId]);
-  const updateTerritoryCb = useCallback((id: string, patch: Partial<PrototypeTerritory>) => commit((prev) => updateTerritory(prev, id, patch, operatorId)), [commit, operatorId]);
-  const changeTerritoryStatusCb = useCallback((id: string, status: PrototypeTerritory["status"]) => commit((prev) => changeTerritoryStatus(prev, id, status, operatorId)), [commit, operatorId]);
-  const assignTerritoryManagerCb = useCallback((id: string, managerId: string) => commit((prev) => assignTerritoryManager(prev, id, managerId, operatorId)), [commit, operatorId]);
-  const updateCityCb = useCallback((id: string, patch: Partial<PrototypeCity>) => commit((prev) => updateCity(prev, id, patch, operatorId)), [commit, operatorId]);
-  const changeCityStatusCb = useCallback((id: string, status: PrototypeCity["status"]) => commit((prev) => changeCityStatus(prev, id, status, operatorId)), [commit, operatorId]);
-  const assignCityManagerCb = useCallback((id: string, managerId: string) => commit((prev) => assignCityManager(prev, id, managerId, operatorId)), [commit, operatorId]);
-  const updateVenueCb = useCallback((id: string, patch: Partial<PrototypeVenue>) => commit((prev) => updateVenue(prev, id, patch, operatorId)), [commit, operatorId]);
-  const changeVenueStatusCb = useCallback((id: string, status: PrototypeVenue["status"]) => commit((prev) => changeVenueStatus(prev, id, status, operatorId)), [commit, operatorId]);
-  const addVenueSafetyNoteCb = useCallback((id: string, note: string) => commit((prev) => addVenueSafetyNote(prev, id, note, operatorId)), [commit, operatorId]);
-  const updatePlayingAreaCb = useCallback((id: string, patch: Partial<PrototypePlayingArea>) => commit((prev) => updatePlayingArea(prev, id, patch, operatorId)), [commit, operatorId]);
-  const changePlayingAreaStatusCb = useCallback((id: string, status: PrototypePlayingArea["status"]) => commit((prev) => changePlayingAreaStatus(prev, id, status, operatorId)), [commit, operatorId]);
-  const addOperationalNoteCb = useCallback((entity: string, name: string, note: string) => commit((prev) => addOperationalNote(prev, entity, name, note, operatorId)), [commit, operatorId]);
+  const updateFranchiseCb = useCallback((id: string, patch: Partial<PrototypeFranchise>) => runResult((prev) => updateFranchise(prev, id, patch, operatorId)), [runResult, operatorId]);
+  const changeFranchiseStatusCb = useCallback((id: string, status: PrototypeFranchise["status"], reason?: string) => runResult((prev) => changeFranchiseStatus(prev, id, status, operatorId, reason)), [runResult, operatorId]);
+  const changeFranchiseHeadCb = useCallback((id: string, head: string) => runResult((prev) => changeFranchiseHead(prev, id, head, operatorId)), [runResult, operatorId]);
+  const updateTerritoryCb = useCallback((id: string, patch: Partial<PrototypeTerritory>) => runResult((prev) => updateTerritory(prev, id, patch, operatorId)), [runResult, operatorId]);
+  const changeTerritoryStatusCb = useCallback((id: string, status: PrototypeTerritory["status"], reason?: string) => runResult((prev) => changeTerritoryStatus(prev, id, status, operatorId, reason)), [runResult, operatorId]);
+  const assignTerritoryManagerCb = useCallback((id: string, managerId: string) => runResult((prev) => assignTerritoryManager(prev, id, managerId, operatorId)), [runResult, operatorId]);
+  const updateCityCb = useCallback((id: string, patch: Partial<PrototypeCity>) => runResult((prev) => updateCity(prev, id, patch, operatorId)), [runResult, operatorId]);
+  const changeCityStatusCb = useCallback((id: string, status: PrototypeCity["status"], reason?: string) => runResult((prev) => changeCityStatus(prev, id, status, operatorId, reason)), [runResult, operatorId]);
+  const assignCityManagerCb = useCallback((id: string, managerId: string) => runResult((prev) => assignCityManager(prev, id, managerId, operatorId)), [runResult, operatorId]);
+  const updateVenueCb = useCallback((id: string, patch: Partial<PrototypeVenue>) => runResult((prev) => updateVenue(prev, id, patch, operatorId)), [runResult, operatorId]);
+  const changeVenueStatusCb = useCallback((id: string, status: PrototypeVenue["status"], reason?: string) => runResult((prev) => changeVenueStatus(prev, id, status, operatorId, reason)), [runResult, operatorId]);
+  const addVenueSafetyNoteCb = useCallback((id: string, note: string) => runResult((prev) => addVenueSafetyNote(prev, id, note, operatorId)), [runResult, operatorId]);
+  const updatePlayingAreaCb = useCallback((id: string, patch: Partial<PrototypePlayingArea>) => runResult((prev) => updatePlayingArea(prev, id, patch, operatorId)), [runResult, operatorId]);
+  const changePlayingAreaStatusCb = useCallback((id: string, status: PrototypePlayingArea["status"], reason?: string) => runResult((prev) => changePlayingAreaStatus(prev, id, status, operatorId, reason)), [runResult, operatorId]);
+  const addOperationalNoteCb = useCallback((entity: string, name: string, note: string) => runResult((prev) => addOperationalNote(prev, entity, name, note, operatorId)), [runResult, operatorId]);
 
   /* ------------------- operational commands (services) ------------------- */
 
-  const updateBooking = useCallback(
-    (id: string, updates: Partial<Booking>) =>
-      commit((prev) => ({
-        ...prev,
-        bookings: prev.bookings.map((b) => (b.id === id ? { ...b, ...updates } : b))
-      })),
-    [commit]
+  const cancelBookingCb = useCallback(
+    (id: string, reason: string, byCompany?: boolean) => runResult((prev) => cancelBooking(prev, id, { reason, byCompany }, operatorId)),
+    [runResult, operatorId]
   );
-
-  const confirmBookingCb = useCallback((id: string, method = "card") => commit((prev) => confirmBooking(prev, id, method, operatorId)), [commit, operatorId]);
-  const cancelBookingCb = useCallback((id: string, reason = "cancelled") => commit((prev) => cancelBooking(prev, id, operatorId, reason)), [commit, operatorId]);
-  const promoteWaitlistUserCb = useCallback((sessionId: string) => commit((prev) => promoteWaitlistUser(prev, sessionId, operatorId)), [commit, operatorId]);
   const generateTemporaryIdsCb = useCallback((sessionId: string) => commit((prev) => generateTemporaryIds(prev, sessionId, operatorId)), [commit, operatorId]);
   const allocateTeamsCb = useCallback((sessionId: string) => commit((prev) => allocateTeams(prev, sessionId, operatorId)), [commit, operatorId]);
-  const completeSessionCb = useCallback((sessionId: string) => commit((prev) => completeSessionRepo(prev, sessionId, operatorId)), [commit, operatorId]);
-  const cancelSessionCb = useCallback((sessionId: string, reason: string) => commit((prev) => cancelSession(prev, sessionId, reason, operatorId)), [commit, operatorId]);
+  const completeSessionCb = useCallback((sessionId: string) => runResult((prev) => completeSessionRepo(prev, sessionId, operatorId)), [runResult, operatorId]);
+  const cancelSessionCb = useCallback((sessionId: string, reason: string) => runResult((prev) => cancelSession(prev, sessionId, reason, operatorId)), [runResult, operatorId]);
   const updateSessionStatusCb = useCallback((id: string, status: SessionStatus) => commit((prev) => updateSessionStatus(prev, id, status, operatorId)), [commit, operatorId]);
   const updateMatchScoreCb = useCallback(
     (tournamentId: string, matchId: string, scoreA: number, scoreB: number, winner: string, status: "scheduled" | "live" | "completed" | "walkover" | "abandoned") =>
       commit((prev) => updateMatchScore(prev, tournamentId, matchId, scoreA, scoreB, winner, status, operatorId)),
     [commit, operatorId]
   );
-  const strikeBookingCb = useCallback((id: string) => commit((prev) => strikeBookingCommand(prev, id, operatorId)), [commit, operatorId]);
-  const toggleTemplateCb = useCallback((id: string) => commit((prev) => toggleTemplateCommand(prev, id, operatorId)), [commit, operatorId]);
-  const simulateRefundCb = useCallback((transactionId: string) => commit((prev) => simulateRefund(prev, transactionId, operatorId)), [commit, operatorId]);
-  const retryPaymentCb = useCallback((transactionId: string) => commit((prev) => retryPayment(prev, transactionId, operatorId)), [commit, operatorId]);
+  const strikeBookingCb = useCallback((id: string) => runResult((prev) => strikeBookingCommand(prev, id, operatorId)), [runResult, operatorId]);
+
+  /* ------------------- bookings, holds, waitlist and money ------------------- */
 
   const createBookingReservationCb = useCallback(
-    (params: any) => {
-      let res: any;
-      commit((prev) => {
-        const out = createBookingReservation(prev, { ...params, operatorId });
-        res = out;
-        return out.state;
-      });
-      return res;
-    },
-    [commit, operatorId]
+    (params: { sessionId: string; alias: string; phoneMask?: string; bookingType?: BookingType; source?: BookingSource; amount?: number }) =>
+      runResult((prev) => createBookingReservation(prev, { ...params, operatorId })),
+    [runResult, operatorId]
   );
-
-  const confirmBookingPaymentCb = useCallback((id: string, method = "card") => commit((prev) => confirmBookingPayment(prev, id, method, operatorId)), [commit, operatorId]);
-  const failBookingPaymentCb = useCallback((id: string, reason?: string) => commit((prev) => failBookingPayment(prev, id, reason, operatorId)), [commit, operatorId]);
-  const expireReservationCb = useCallback((id: string) => commit((prev) => expireReservation(prev, id, operatorId)), [commit, operatorId]);
-  const joinWaitlistCb = useCallback((params: any) => commit((prev) => joinWaitlist(prev, { ...params, operatorId })), [commit, operatorId]);
-  const offerWaitlistSlotCb = useCallback((sessionId: string) => commit((prev) => offerWaitlistSlot(prev, sessionId, operatorId)), [commit, operatorId]);
-  const acceptWaitlistOfferCb = useCallback((bookingId: string) => commit((prev) => acceptWaitlistOffer(prev, bookingId, operatorId)), [commit, operatorId]);
-  const expireWaitlistOfferCb = useCallback((bookingId: string) => commit((prev) => expireWaitlistOffer(prev, bookingId, operatorId)), [commit, operatorId]);
-
+  const confirmBookingPaymentCb = useCallback((id: string, payment: PaymentRecordInput) => runResult((prev) => confirmBookingPayment(prev, id, payment, operatorId)), [runResult, operatorId]);
+  const failBookingPaymentCb = useCallback((id: string, reason: string) => runResult((prev) => failBookingPayment(prev, id, reason, operatorId)), [runResult, operatorId]);
+  const expireReservationCb = useCallback((id: string) => runResult((prev) => expireReservation(prev, id, operatorId)), [runResult, operatorId]);
+  const joinWaitlistCb = useCallback(
+    (params: { sessionId: string; alias: string; phoneMask?: string }) => runResult((prev) => joinWaitlist(prev, { ...params, operatorId })),
+    [runResult, operatorId]
+  );
+  const offerWaitlistSlotCb = useCallback((sessionId: string) => runResult((prev) => offerWaitlistSlot(prev, sessionId, operatorId)), [runResult, operatorId]);
+  const acceptWaitlistOfferCb = useCallback((bookingId: string) => runResult((prev) => acceptWaitlistOffer(prev, bookingId, operatorId)), [runResult, operatorId]);
+  const expireWaitlistOfferCb = useCallback((bookingId: string) => runResult((prev) => expireWaitlistOffer(prev, bookingId, operatorId)), [runResult, operatorId]);
   const initiateRefundCb = useCallback(
-    (params: any) => {
-      let res: any;
-      commit((prev) => {
-        const out = initiateRefund(prev, { ...params, operatorId });
-        res = out;
-        return out.state;
-      });
-      return res;
-    },
-    [commit, operatorId]
+    (params: { bookingId: string; amount: number; reason: string; type?: RefundType }) => runResult((prev) => initiateRefund(prev, { ...params, operatorId })),
+    [runResult, operatorId]
   );
+  const approveRefundCb = useCallback((refundId: string) => runResult((prev) => approveRefund(prev, refundId, operatorId, roleId)), [runResult, operatorId, roleId]);
+  const rejectRefundCb = useCallback((refundId: string, reason: string) => runResult((prev) => rejectRefund(prev, refundId, reason, operatorId, roleId)), [runResult, operatorId, roleId]);
+  const completeRefundCb = useCallback((refundId: string, payout: PayoutInput) => runResult((prev) => completeRefund(prev, refundId, payout, operatorId, roleId)), [runResult, operatorId, roleId]);
+  const reconcilePaymentCb = useCallback((paymentId: string) => runResult((prev) => reconcilePayment(prev, paymentId, operatorId)), [runResult, operatorId]);
 
-  const approveRefundCb = useCallback((refundId: string) => commit((prev) => approveRefund(prev, refundId, operatorId)), [commit, operatorId]);
-  const rejectRefundCb = useCallback((refundId: string, reason?: string) => commit((prev) => rejectRefund(prev, refundId, reason, operatorId)), [commit, operatorId]);
-  const completeRefundCb = useCallback((refundId: string) => commit((prev) => completeRefund(prev, refundId, operatorId)), [commit, operatorId]);
-  const reconcilePaymentCb = useCallback((paymentId: string) => commit((prev) => reconcilePayment(prev, paymentId, operatorId)), [commit, operatorId]);
-
-  /* ------------------- SA-P2F Operations Commands ------------------- */
+  /* ------------------- Session operations (identity, teams, reveal, check-in) ------------------- */
 
   const createIdentityPatternCb = useCallback(
-    (input: any) => {
-      let res: any;
-      commit((prev) => {
-        const out = createIdentityPattern(prev, input, operatorId);
-        res = out;
-        return out.state;
-      });
-      return res;
-    },
-    [commit, operatorId]
+    (input: { name: string; prefix: string; separator?: string; numberLength?: number; aliasStyle?: string }) => runResult((prev) => createIdentityPattern(prev, input, operatorId)),
+    [runResult, operatorId]
   );
-
+  const setIdentityPatternStatusCb = useCallback(
+    (patternId: string, status: "active" | "deprecated") => runResult((prev) => setIdentityPatternStatus(prev, patternId, status, operatorId)),
+    [runResult, operatorId]
+  );
   const generateTemporaryIdentitiesCb = useCallback(
-    (sessionId: string, patternId?: string) => commit((prev) => generateTemporaryIdentities(prev, sessionId, patternId, operatorId)),
-    [commit, operatorId]
+    (sessionId: string, patternId?: string) => runResult((prev) => generateTemporaryIdentities(prev, sessionId, patternId, operatorId)),
+    [runResult, operatorId]
   );
-
-  const lockTemporaryIdentitiesCb = useCallback(
-    (sessionId: string) => commit((prev) => lockTemporaryIdentities(prev, sessionId, operatorId)),
-    [commit, operatorId]
-  );
-
+  const lockTemporaryIdentitiesCb = useCallback((sessionId: string) => runResult((prev) => lockTemporaryIdentities(prev, sessionId, operatorId)), [runResult, operatorId]);
   const revokeTemporaryIdentityCb = useCallback(
-    (identityId: string, reason: string) => commit((prev) => revokeTemporaryIdentity(prev, identityId, reason, operatorId)),
-    [commit, operatorId]
+    (identityId: string, reason: string) => runResult((prev) => revokeTemporaryIdentity(prev, identityId, reason, operatorId)),
+    [runResult, operatorId]
   );
-
   const createTeamsCb = useCallback(
-    (sessionId: string, numTeams?: number, teamCapacity?: number) => commit((prev) => createTeams(prev, sessionId, numTeams, teamCapacity, operatorId)),
-    [commit, operatorId]
+    (sessionId: string, numTeams?: number, teamCapacity?: number) => runResult((prev) => createTeams(prev, sessionId, numTeams, teamCapacity, operatorId)),
+    [runResult, operatorId]
   );
-
-  const allocateTeamsRandomlyCb = useCallback(
-    (sessionId: string) => commit((prev) => allocateTeamsRandomly(prev, sessionId, operatorId)),
-    [commit, operatorId]
-  );
-
+  const allocateTeamsRandomlyCb = useCallback((sessionId: string) => runResult((prev) => allocateTeamsRandomly(prev, sessionId, operatorId)), [runResult, operatorId]);
   const moveTeamParticipantCb = useCallback(
-    (params: any) => {
-      let res: any;
-      commit((prev) => {
-        const out = moveTeamParticipant(prev, { ...params, operatorId });
-        res = out;
-        return out.state;
-      });
-      return res;
-    },
-    [commit, operatorId]
+    (params: { sessionId: string; bookingId: string; targetTeamId: string; reason: string }) => runResult((prev) => moveTeamParticipant(prev, { ...params, operatorId })),
+    [runResult, operatorId]
   );
-
   const swapTeamParticipantsCb = useCallback(
-    (params: any) => {
-      let res: any;
-      commit((prev) => {
-        const out = swapTeamParticipants(prev, { ...params, operatorId });
-        res = out;
-        return out.state;
-      });
-      return res;
-    },
-    [commit, operatorId]
+    (params: { sessionId: string; bookingIdA: string; bookingIdB: string; reason: string }) => runResult((prev) => swapTeamParticipants(prev, { ...params, operatorId })),
+    [runResult, operatorId]
   );
-
-  const lockTeamsCb = useCallback(
-    (sessionId: string) => commit((prev) => lockTeams(prev, sessionId, operatorId)),
-    [commit, operatorId]
-  );
-
+  const lockTeamsCb = useCallback((sessionId: string) => runResult((prev) => lockTeams(prev, sessionId, operatorId)), [runResult, operatorId]);
   const unlockTeamsWithOverrideCb = useCallback(
-    (sessionId: string, reason: string) => commit((prev) => unlockTeamsWithOverride(prev, sessionId, reason, operatorId)),
-    [commit, operatorId]
+    (sessionId: string, reason: string) => runResult((prev) => unlockTeamsWithOverride(prev, sessionId, reason, operatorId)),
+    [runResult, operatorId]
   );
-
   const triggerRevealCb = useCallback(
-    (sessionId: string, overrideReason?: string) => {
-      let res: any;
-      commit((prev) => {
-        const out = triggerReveal(prev, sessionId, overrideReason, operatorId);
-        res = out;
-        return out.state;
-      });
-      return res;
-    },
-    [commit, operatorId]
+    (sessionId: string, overrideReason?: string) => runResult((prev) => triggerReveal(prev, sessionId, overrideReason, operatorId)),
+    [runResult, operatorId]
   );
-
   const delayRevealCb = useCallback(
-    (sessionId: string, newRevealTime: string, reason: string) => commit((prev) => delayReveal(prev, sessionId, newRevealTime, reason, operatorId)),
-    [commit, operatorId]
+    (sessionId: string, newRevealTime: string, reason: string) => runResult((prev) => delayReveal(prev, sessionId, newRevealTime, reason, operatorId)),
+    [runResult, operatorId]
   );
-
-  const cancelRevealCb = useCallback(
-    (sessionId: string, reason: string) => commit((prev) => cancelReveal(prev, sessionId, reason, operatorId)),
-    [commit, operatorId]
-  );
-
-  const createCheckInRecordsCb = useCallback(
-    (sessionId: string) => commit((prev) => createCheckInRecords(prev, sessionId, operatorId)),
-    [commit, operatorId]
-  );
-
+  const cancelRevealCb = useCallback((sessionId: string, reason: string) => runResult((prev) => cancelReveal(prev, sessionId, reason, operatorId)), [runResult, operatorId]);
+  const createCheckInRecordsCb = useCallback((sessionId: string) => runResult((prev) => createCheckInRecords(prev, sessionId, operatorId)), [runResult, operatorId]);
   const updateCheckInStatusCb = useCallback(
-    (params: any) => {
-      let res: any;
-      commit((prev) => {
-        const out = updateCheckInStatus(prev, { ...params, operatorId });
-        res = out;
-        return out.state;
-      });
-      return res;
-    },
-    [commit, operatorId]
+    (params: { sessionId: string; bookingId: string; targetStatus: CheckInStatus; method?: CheckInMethod; denialReason?: string; auditOverrideReason?: string }) =>
+      runResult((prev) => updateCheckInStatus(prev, { ...params, operatorId })),
+    [runResult, operatorId]
   );
+  const checkInStaffCb = useCallback((sessionId: string, personRef: string) => runResult((prev) => checkInStaff(prev, sessionId, personRef, operatorId)), [runResult, operatorId]);
 
-  const checkInStaffCb = useCallback(
-    (sessionId: string, crewId: string) => commit((prev) => checkInStaff(prev, sessionId, crewId, operatorId)),
-    [commit, operatorId]
-  );
-
-  const createCrewMemberCb = useCallback(
-    (input: any) =>
-      commit((prev) => {
-        const id = input.id || `c-${Date.now()}`;
-        const newCrew: CrewMember = {
-          id,
-          territoryId: input.territoryId || "hvd-central",
-          venueId: input.venueId || "v-1",
-          name: input.name || "New Staff Member",
-          role: input.role || "staff",
-          status: input.status || "available",
-          assignment: input.assignment || "General Floor Support",
-        };
-        return { ...prev, crew: [...(prev.crew || []), newCrew] };
-      }),
-    [commit]
-  );
-
-  const updateCrewMemberCb = useCallback(
-    (id: string, patch: Partial<CrewMember>) =>
-      commit((prev) => ({
-        ...prev,
-        crew: (prev.crew || []).map((c) => (c.id === id ? { ...c, ...patch } : c)),
-      })),
-    [commit]
-  );
-
+  const createCrewMemberCb = useCallback((input: CrewInput) => runResult((prev) => createCrewMemberCommand(prev, input, operatorId)), [runResult, operatorId]);
+  const updateCrewMemberCb = useCallback((id: string, patch: Partial<CrewInput>) => runResult((prev) => updateCrewMemberCommand(prev, id, patch, operatorId)), [runResult, operatorId]);
   const assignCrewToSessionCb = useCallback(
-    (params: { sessionId: string; crewId: string; role?: string; assignmentTitle?: string }) =>
-      commit((prev) => {
-        const session = (prev.sessions || []).find((s) => s.id === params.sessionId);
-        const crewMember = (prev.crew || []).find((c) => c.id === params.crewId);
-        if (!session || !crewMember) return prev;
-
-        const isLead = params.role === "coordinator" || params.role === "Lead Coordinator";
-        const isSafety = params.role === "safety" || params.role === "Safety Officer";
-
-        const updatedSessions = (prev.sessions || []).map((s) => {
-          if (s.id !== params.sessionId) return s;
-          return {
-            ...s,
-            ...(isLead ? { leadCoordinatorId: params.crewId } : {}),
-            ...(isSafety ? { safetyContactId: params.crewId } : {}),
-          };
-        });
-
-        const updatedCrew = (prev.crew || []).map((c) => {
-          if (c.id !== params.crewId) return c;
-          return {
-            ...c,
-            status: "assigned" as const,
-            assignment: params.assignmentTitle || `Assigned to Event ${params.sessionId}`,
-          };
-        });
-
-        return { ...prev, sessions: updatedSessions, crew: updatedCrew };
-      }),
-    [commit]
+    (params: { sessionId: string; crewId: string; slot: StaffSlot }) => runResult((prev) => assignCrewToSessionCommand(prev, params, operatorId)),
+    [runResult, operatorId]
+  );
+  const unassignCrewFromSessionCb = useCallback(
+    (params: { sessionId: string; slot: StaffSlot; reason: string }) => runResult((prev) => unassignCrewFromSessionCommand(prev, params, operatorId)),
+    [runResult, operatorId]
+  );
+  const recordStaffAttendanceCb = useCallback(
+    (params: { crewId: string; action: AttendanceAction; reason?: string }) => runResult((prev) => recordStaffAttendanceCommand(prev, params, operatorId)),
+    [runResult, operatorId]
   );
 
   const requestEmergencyIdentityAccessCb = useCallback(
-    (params: any) => {
-      let res: any;
-      commit((prev) => {
-        const out = requestEmergencyIdentityAccess(prev, { ...params, operatorId, operatorRole: roleId ?? "" });
-        res = out;
-        return out.state;
-      });
-      return res;
-    },
-    [commit, operatorId, roleId]
+    (params: { sessionId?: string; bookingId: string; reason: string }) =>
+      runResult((prev) => requestEmergencyIdentityAccess(prev, { ...params, operatorId, operatorRole: roleId ?? "" })),
+    [runResult, operatorId, roleId]
   );
-
   const closeEmergencyIdentityAccessCb = useCallback(
-    (logId: string) => commit((prev) => closeEmergencyIdentityAccess(prev, logId, operatorId)),
-    [commit, operatorId]
+    (logId: string) => runResult((prev) => closeEmergencyIdentityAccess(prev, logId, operatorId, roleId ?? "")),
+    [runResult, operatorId, roleId]
   );
 
-  /* ------------------- SA-P2G Live Operations Commands ------------------- */
+  /* ------------------------------ live operations ------------------------------ */
 
-  const openSessionCb = useCallback(
-    (sessionId: string) => {
-      let res: any;
-      commit((prev) => {
-        const out = openSession(prev, sessionId, operatorId);
-        res = out;
-        return out.state;
-      });
-      return res;
-    },
-    [commit, operatorId]
-  );
-
+  const openSessionCb = useCallback((sessionId: string, overrideReason?: string) => runResult((prev) => openSession(prev, sessionId, overrideReason, operatorId)), [runResult, operatorId]);
   const startLiveSessionCb = useCallback(
-    (sessionId: string) => {
-      let res: any;
-      commit((prev) => {
-        const out = startLiveSession(prev, sessionId, operatorId);
-        res = out;
-        return out.state;
-      });
-      return res;
-    },
-    [commit, operatorId]
+    (sessionId: string, overrideReason?: string) => runResult((prev) => startLiveSession(prev, sessionId, overrideReason, operatorId)),
+    [runResult, operatorId]
   );
-
-  const pauseLiveSessionCb = useCallback(
-    (sessionId: string, reason: string) => {
-      let res: any;
-      commit((prev) => {
-        const out = pauseLiveSession(prev, sessionId, reason, operatorId);
-        res = out;
-        return out.state;
-      });
-      return res;
-    },
-    [commit, operatorId]
-  );
-
-  const resumeLiveSessionCb = useCallback(
-    (sessionId: string) => {
-      let res: any;
-      commit((prev) => {
-        const out = resumeLiveSession(prev, sessionId, operatorId);
-        res = out;
-        return out.state;
-      });
-      return res;
-    },
-    [commit, operatorId]
-  );
-
+  const pauseLiveSessionCb = useCallback((sessionId: string, reason: string) => runResult((prev) => pauseLiveSession(prev, sessionId, reason, operatorId)), [runResult, operatorId]);
+  const resumeLiveSessionCb = useCallback((sessionId: string) => runResult((prev) => resumeLiveSession(prev, sessionId, operatorId)), [runResult, operatorId]);
   const enterEmergencyModeCb = useCallback(
-    (params: any) => {
-      let res: any;
-      commit((prev) => {
-        const out = enterEmergencyMode(prev, { ...params, operatorId, operatorRole: roleId ?? "" });
-        res = out;
-        return out.state;
-      });
-      return res;
-    },
-    [commit, operatorId, roleId]
+    (params: { sessionId: string; reason: string; immediateAction: string; safetyContactConfirmed: boolean }) =>
+      runResult((prev) => enterEmergencyMode(prev, { ...params, operatorId, operatorRole: roleId ?? "" })),
+    [runResult, operatorId, roleId]
   );
-
   const exitEmergencyModeCb = useCallback(
-    (params: any) => {
-      let res: any;
-      commit((prev) => {
-        const out = exitEmergencyMode(prev, { ...params, operatorId, operatorRole: roleId ?? "" });
-        res = out;
-        return out.state;
-      });
-      return res;
-    },
-    [commit, operatorId, roleId]
+    (params: { sessionId: string; exitReason: string }) => runResult((prev) => exitEmergencyMode(prev, { ...params, operatorId, operatorRole: roleId ?? "" })),
+    [runResult, operatorId, roleId]
   );
-
-  const endLiveSessionCb = useCallback(
-    (sessionId: string) => {
-      let res: any;
-      commit((prev) => {
-        const out = endLiveSession(prev, sessionId, operatorId);
-        res = out;
-        return out.state;
-      });
-      return res;
-    },
-    [commit, operatorId]
-  );
-
+  const endLiveSessionCb = useCallback((sessionId: string) => runResult((prev) => endLiveSession(prev, sessionId, operatorId)), [runResult, operatorId]);
   const createActivitySegmentCb = useCallback(
-    (input: any) => {
-      let res: any;
-      commit((prev) => {
-        const out = createActivitySegment(prev, input, operatorId);
-        res = out;
-        return out.state;
-      });
-      return res;
-    },
-    [commit, operatorId]
+    (input: { sessionId: string; name: string; type: ActivitySegment["type"]; teamIds?: string[]; notes?: string }) =>
+      runResult((prev) => createActivitySegment(prev, input, operatorId)),
+    [runResult, operatorId]
   );
-
   const startActivitySegmentCb = useCallback(
-    (sessionId: string, segmentId: string) => {
-      let res: any;
-      commit((prev) => {
-        const out = startActivitySegment(prev, sessionId, segmentId, operatorId);
-        res = out;
-        return out.state;
-      });
-      return res;
-    },
-    [commit, operatorId]
+    (sessionId: string, segmentId: string) => runResult((prev) => startActivitySegment(prev, sessionId, segmentId, operatorId)),
+    [runResult, operatorId]
   );
-
   const completeActivitySegmentCb = useCallback(
-    (sessionId: string, segmentId: string) => {
-      let res: any;
-      commit((prev) => {
-        const out = completeActivitySegment(prev, sessionId, segmentId, operatorId);
-        res = out;
-        return out.state;
-      });
-      return res;
-    },
-    [commit, operatorId]
+    (sessionId: string, segmentId: string) => runResult((prev) => completeActivitySegment(prev, sessionId, segmentId, operatorId)),
+    [runResult, operatorId]
   );
-
   const skipActivitySegmentCb = useCallback(
-    (sessionId: string, segmentId: string, reason: string) => {
-      let res: any;
-      commit((prev) => {
-        const out = skipActivitySegment(prev, sessionId, segmentId, reason, operatorId);
-        res = out;
-        return out.state;
-      });
-      return res;
-    },
-    [commit, operatorId]
+    (sessionId: string, segmentId: string, reason: string) => runResult((prev) => skipActivitySegment(prev, sessionId, segmentId, reason, operatorId)),
+    [runResult, operatorId]
   );
-
   const createDraftResultCb = useCallback(
-    (params: any) => {
-      let res: any;
-      commit((prev) => {
-        const out = createDraftResult(prev, { ...params, operatorId });
-        res = out;
-        return out.state;
-      });
-      return res;
-    },
-    [commit, operatorId]
+    (params: { sessionId: string; segmentId: string; resultType: ResultType; teamScores?: TeamScore[]; winnerTeamId?: string; outcome?: string }) =>
+      runResult((prev) => createDraftResult(prev, { ...params, operatorId })),
+    [runResult, operatorId]
   );
-
-  const confirmResultCb = useCallback(
-    (sessionId: string, segmentId: string) => {
-      let res: any;
-      commit((prev) => {
-        const out = confirmResult(prev, sessionId, segmentId, operatorId);
-        res = out;
-        return out.state;
-      });
-      return res;
-    },
-    [commit, operatorId]
-  );
-
+  const confirmResultCb = useCallback((sessionId: string, segmentId: string) => runResult((prev) => confirmResult(prev, sessionId, segmentId, operatorId)), [runResult, operatorId]);
   const correctResultCb = useCallback(
-    (params: any) => {
-      let res: any;
-      commit((prev) => {
-        const out = correctResult(prev, { ...params, operatorId });
-        res = out;
-        return out.state;
-      });
-      return res;
-    },
-    [commit, operatorId]
+    (params: { sessionId: string; segmentId: string; resultType: ResultType; teamScores?: TeamScore[]; winnerTeamId?: string; outcome?: string; reason: string }) =>
+      runResult((prev) => correctResult(prev, { ...params, operatorId })),
+    [runResult, operatorId]
   );
-
   const addLiveOperationalNoteCb = useCallback(
-    (input: any) => {
-      let res: any;
-      commit((prev) => {
-        const out = addLiveOperationalNote(prev, input, operatorId);
-        res = out;
-        return out.state;
-      });
-      return res;
-    },
-    [commit, operatorId]
+    (input: { sessionId: string; type: LiveNoteType; severity: LiveNoteSeverity; note: string; relatedSegmentId?: string; followUpRequired?: boolean }) =>
+      runResult((prev) => addLiveOperationalNote(prev, input, operatorId)),
+    [runResult, operatorId]
   );
-
   const updateEquipmentStatusCb = useCallback(
-    (params: any) => {
-      let res: any;
-      commit((prev) => {
-        const out = updateEquipmentStatus(prev, { ...params, operatorId });
-        res = out;
-        return out.state;
-      });
-      return res;
-    },
-    [commit, operatorId]
+    (params: { sessionId: string; equipmentId: string; status?: EquipmentItemStatus; issuedCount?: number; missingCount?: number; damagedCount?: number; returnedCount?: number; note?: string }) =>
+      runResult((prev) => updateEquipmentStatus(prev, { ...params, operatorId })),
+    [runResult, operatorId]
   );
-
   const completeLiveSessionCb = useCallback(
-    (sessionId: string, overrideReason?: string) => {
-      let res: any;
-      commit((prev) => {
-        const out = completeLiveSession(prev, sessionId, overrideReason, operatorId);
-        res = out;
-        return out.state;
-      });
-      return res;
-    },
-    [commit, operatorId]
+    (sessionId: string, overrideReason?: string, closingNote?: string) => runResult((prev) => completeLiveSession(prev, sessionId, overrideReason, operatorId, closingNote)),
+    [runResult, operatorId]
   );
 
-  // Tournament Callbacks
-  const createTournamentCb = useCallback((params: any) => commit((prev) => createTournament(prev, params, operatorId)), [commit, operatorId]);
-  const assignTournamentTeamsCb = useCallback((tournamentId: string, teamIds: string[]) => commit((prev) => assignTournamentTeams(prev, tournamentId, teamIds, operatorId)), [commit, operatorId]);
-  const generateSingleEliminationBracketCb = useCallback((tournamentId: string) => commit((prev) => generateSingleEliminationBracket(prev, tournamentId, operatorId)), [commit, operatorId]);
-  const publishTournamentCb = useCallback((tournamentId: string) => commit((prev) => publishTournament(prev, tournamentId, operatorId)), [commit, operatorId]);
-  const assignMatchRefereeCb = useCallback((tournamentId: string, matchId: string, refereeId: string) => commit((prev) => assignMatchReferee(prev, tournamentId, matchId, refereeId, operatorId)), [commit, operatorId]);
-  const updateMatchReadinessCb = useCallback((tournamentId: string, matchId: string, status: "scheduled" | "ready") => commit((prev) => updateMatchReadiness(prev, tournamentId, matchId, status, operatorId)), [commit, operatorId]);
-  const startTournamentMatchCb = useCallback((tournamentId: string, matchId: string) => commit((prev) => startTournamentMatch(prev, tournamentId, matchId, operatorId)), [commit, operatorId]);
-  const pauseTournamentMatchCb = useCallback((tournamentId: string, matchId: string) => commit((prev) => pauseTournamentMatch(prev, tournamentId, matchId, operatorId)), [commit, operatorId]);
-  const resumeTournamentMatchCb = useCallback((tournamentId: string, matchId: string) => commit((prev) => resumeTournamentMatch(prev, tournamentId, matchId, operatorId)), [commit, operatorId]);
-  const confirmTournamentMatchResultCb = useCallback((params: any) => commit((prev) => confirmTournamentMatchResult(prev, params, operatorId)), [commit, operatorId]);
-  const verifyTournamentMatchResultCb = useCallback((tournamentId: string, matchId: string) => commit((prev) => verifyTournamentMatchResult(prev, tournamentId, matchId, operatorId)), [commit, operatorId]);
-  const correctTournamentMatchResultCb = useCallback((params: any) => commit((prev) => correctTournamentMatchResult(prev, params, operatorId)), [commit, operatorId]);
-  const declareWalkoverCb = useCallback((tournamentId: string, matchId: string, winnerTeamId: string, reason: string) => commit((prev) => declareWalkover(prev, tournamentId, matchId, winnerTeamId, reason, operatorId)), [commit, operatorId]);
-  const disqualifyTeamCb = useCallback((tournamentId: string, teamId: string, reason: string) => commit((prev) => disqualifyTeam(prev, tournamentId, teamId, reason, operatorId)), [commit, operatorId]);
-  const abandonMatchCb = useCallback((tournamentId: string, matchId: string, reason: string) => commit((prev) => abandonMatch(prev, tournamentId, matchId, reason, operatorId)), [commit, operatorId]);
-  const advanceVerifiedWinnerCb = useCallback((tournamentId: string, matchId: string) => commit((prev) => advanceVerifiedWinner(prev, tournamentId, matchId, operatorId)), [commit, operatorId]);
-  const completeTournamentCb = useCallback((tournamentId: string, winnerTeamId: string) => commit((prev) => completeTournament(prev, tournamentId, winnerTeamId, operatorId)), [commit, operatorId]);
+  // Tournament callbacks — services authorise, validate and return { state, error }.
+  const createTournamentCb = useCallback((params: TournamentInput) => runResult((prev) => createTournament(prev, params, operatorId)), [runResult, operatorId]);
+  const assignTournamentTeamsCb = useCallback((tournamentId: string, teams: Array<{ id?: string; name: string }>) => runResult((prev) => assignTournamentTeams(prev, tournamentId, teams, operatorId)), [runResult, operatorId]);
+  const generateSingleEliminationBracketCb = useCallback((tournamentId: string) => runResult((prev) => generateSingleEliminationBracket(prev, tournamentId, operatorId)), [runResult, operatorId]);
+  const publishTournamentCb = useCallback((tournamentId: string) => runResult((prev) => publishTournament(prev, tournamentId, operatorId)), [runResult, operatorId]);
+  const assignMatchRefereeCb = useCallback((tournamentId: string, matchId: string, refereeId: string) => runResult((prev) => assignMatchReferee(prev, tournamentId, matchId, refereeId, operatorId)), [runResult, operatorId]);
+  const updateMatchReadinessCb = useCallback((tournamentId: string, matchId: string, status: "scheduled" | "ready") => runResult((prev) => updateMatchReadiness(prev, tournamentId, matchId, status, operatorId)), [runResult, operatorId]);
+  const startTournamentMatchCb = useCallback((tournamentId: string, matchId: string) => runResult((prev) => startTournamentMatch(prev, tournamentId, matchId, operatorId)), [runResult, operatorId]);
+  const pauseTournamentMatchCb = useCallback((tournamentId: string, matchId: string) => runResult((prev) => pauseTournamentMatch(prev, tournamentId, matchId, operatorId)), [runResult, operatorId]);
+  const resumeTournamentMatchCb = useCallback((tournamentId: string, matchId: string) => runResult((prev) => resumeTournamentMatch(prev, tournamentId, matchId, operatorId)), [runResult, operatorId]);
+  const confirmTournamentMatchResultCb = useCallback((params: MatchResultInput) => runResult((prev) => confirmTournamentMatchResult(prev, params, operatorId)), [runResult, operatorId]);
+  const verifyTournamentMatchResultCb = useCallback((tournamentId: string, matchId: string) => runResult((prev) => verifyTournamentMatchResult(prev, tournamentId, matchId, operatorId)), [runResult, operatorId]);
+  const correctTournamentMatchResultCb = useCallback((params: MatchCorrectionInput) => runResult((prev) => correctTournamentMatchResult(prev, params, operatorId)), [runResult, operatorId]);
+  const declareWalkoverCb = useCallback((tournamentId: string, matchId: string, winnerTeamId: string, reason: string) => runResult((prev) => declareWalkover(prev, tournamentId, matchId, winnerTeamId, reason, operatorId)), [runResult, operatorId]);
+  const disqualifyTeamCb = useCallback((tournamentId: string, teamId: string, reason: string) => runResult((prev) => disqualifyTeam(prev, tournamentId, teamId, reason, operatorId)), [runResult, operatorId]);
+  const abandonMatchCb = useCallback((tournamentId: string, matchId: string, reason: string) => runResult((prev) => abandonMatch(prev, tournamentId, matchId, reason, operatorId)), [runResult, operatorId]);
+  const completeTournamentCb = useCallback((tournamentId: string) => runResult((prev) => completeTournament(prev, tournamentId, operatorId)), [runResult, operatorId]);
 
-  // Safety Callbacks
-  const reportIncidentCb = useCallback((params: any) => commit((prev) => reportIncident(prev, params, operatorId)), [commit, operatorId]);
-  const acknowledgeIncidentCb = useCallback((incidentId: string) => commit((prev) => acknowledgeIncident(prev, incidentId, operatorId)), [commit, operatorId]);
-  const triageIncidentCb = useCallback((params: any) => commit((prev) => triageIncident(prev, params, operatorId)), [commit, operatorId]);
-  const assignInvestigatorCb = useCallback((incidentId: string, investigatorId: string) => commit((prev) => assignInvestigator(prev, incidentId, investigatorId, operatorId)), [commit, operatorId]);
-  const escalateIncidentCb = useCallback((incidentId: string, reason: string) => commit((prev) => escalateIncident(prev, incidentId, reason, operatorId)), [commit, operatorId]);
-  const updateInvestigationCb = useCallback((incidentId: string, summary: string) => commit((prev) => updateInvestigation(prev, incidentId, summary, operatorId)), [commit, operatorId]);
-  const resolveIncidentCb = useCallback((incidentId: string, resolution: string) => commit((prev) => resolveIncident(prev, incidentId, resolution, operatorId)), [commit, operatorId]);
-  const closeIncidentCb = useCallback((incidentId: string, notes: string) => commit((prev) => closeIncident(prev, incidentId, notes, operatorId)), [commit, operatorId]);
-  const addEvidencePlaceholderCb = useCallback((params: any) => commit((prev) => addEvidencePlaceholder(prev, params, operatorId)), [commit, operatorId]);
-  const createFollowUpCb = useCallback((incidentId: string, followUpOwnerId: string, dueAt: string) => commit((prev) => createFollowUp(prev, incidentId, followUpOwnerId, dueAt, operatorId)), [commit, operatorId]);
+  // Safety incident callbacks
+  const reportIncidentCb = useCallback((params: IncidentReportInput) => runResult((prev) => reportIncident(prev, params, operatorId)), [runResult, operatorId]);
+  const acknowledgeIncidentCb = useCallback((incidentId: string) => runResult((prev) => acknowledgeIncident(prev, incidentId, operatorId)), [runResult, operatorId]);
+  const triageIncidentCb = useCallback((params: IncidentTriageInput) => runResult((prev) => triageIncident(prev, params, operatorId)), [runResult, operatorId]);
+  const assignInvestigatorCb = useCallback((incidentId: string, investigatorId: string) => runResult((prev) => assignInvestigator(prev, incidentId, investigatorId, operatorId)), [runResult, operatorId]);
+  const escalateIncidentCb = useCallback((incidentId: string, reason: string) => runResult((prev) => escalateIncident(prev, incidentId, reason, operatorId)), [runResult, operatorId]);
+  const updateInvestigationCb = useCallback((incidentId: string, summary: string) => runResult((prev) => updateInvestigation(prev, incidentId, summary, operatorId)), [runResult, operatorId]);
+  const resolveIncidentCb = useCallback((incidentId: string, resolution: string) => runResult((prev) => resolveIncident(prev, incidentId, resolution, operatorId)), [runResult, operatorId]);
+  const closeIncidentCb = useCallback((incidentId: string, notes: string) => runResult((prev) => closeIncident(prev, incidentId, notes, operatorId)), [runResult, operatorId]);
+  const addEvidenceRecordCb = useCallback((params: EvidenceInput) => runResult((prev) => addEvidenceRecord(prev, params, operatorId)), [runResult, operatorId]);
+  const updateEvidenceStatusCb = useCallback((evidenceId: string, status: EvidenceStatus) => runResult((prev) => updateEvidenceStatus(prev, evidenceId, status, operatorId)), [runResult, operatorId]);
+  const createFollowUpCb = useCallback((incidentId: string, followUpOwnerId: string, dueAt: string) => runResult((prev) => createFollowUp(prev, incidentId, followUpOwnerId, dueAt, operatorId)), [runResult, operatorId]);
 
-  // Disputes Callbacks
-  const submitDisputeCb = useCallback((params: any) => commit((prev) => submitDispute(prev, params, operatorId)), [commit, operatorId]);
-  const assignDisputeReviewerCb = useCallback((disputeId: string, reviewerId: string) => commit((prev) => assignDisputeReviewer(prev, disputeId, reviewerId, operatorId)), [commit, operatorId]);
-  const requestDisputeEvidenceCb = useCallback((disputeId: string) => commit((prev) => requestDisputeEvidence(prev, disputeId, operatorId)), [commit, operatorId]);
-  const decideDisputeCb = useCallback((params: any) => commit((prev) => decideDispute(prev, params, operatorId)), [commit, operatorId]);
-  const closeDisputeCb = useCallback((disputeId: string) => commit((prev) => closeDispute(prev, disputeId, operatorId)), [commit, operatorId]);
+  // Dispute callbacks
+  const submitDisputeCb = useCallback((params: DisputeInput) => runResult((prev) => submitDispute(prev, params, operatorId)), [runResult, operatorId]);
+  const assignDisputeReviewerCb = useCallback((disputeId: string, reviewerId: string) => runResult((prev) => assignDisputeReviewer(prev, disputeId, reviewerId, operatorId)), [runResult, operatorId]);
+  const requestDisputeEvidenceCb = useCallback((disputeId: string, request: string) => runResult((prev) => requestDisputeEvidence(prev, disputeId, request, operatorId)), [runResult, operatorId]);
+  const decideDisputeCb = useCallback((params: DisputeDecisionInput) => runResult((prev) => decideDispute(prev, params, operatorId)), [runResult, operatorId]);
+  const closeDisputeCb = useCallback((disputeId: string) => runResult((prev) => closeDispute(prev, disputeId, operatorId)), [runResult, operatorId]);
 
-  // Moderation Callbacks
-  const createModerationCaseCb = useCallback((params: any) => commit((prev) => createModerationCase(prev, params, operatorId)), [commit, operatorId]);
-  const proposeModerationActionCb = useCallback((params: any) => commit((prev) => proposeModerationAction(prev, params, operatorId)), [commit, operatorId]);
-  const approveModerationActionCb = useCallback((actionId: string) => commit((prev) => approveModerationAction(prev, actionId, operatorId)), [commit, operatorId]);
-  const rejectModerationActionCb = useCallback((actionId: string, reason: string) => commit((prev) => rejectModerationAction(prev, actionId, reason, operatorId)), [commit, operatorId]);
-  const revokeModerationActionCb = useCallback((actionId: string, reason: string) => commit((prev) => revokeModerationAction(prev, actionId, reason, operatorId)), [commit, operatorId]);
+  // Moderation callbacks
+  const createModerationCaseCb = useCallback((params: ModerationCaseInput) => runResult((prev) => createModerationCase(prev, params, operatorId)), [runResult, operatorId]);
+  const proposeModerationActionCb = useCallback((params: ModerationProposalInput) => runResult((prev) => proposeModerationAction(prev, params, operatorId)), [runResult, operatorId]);
+  const approveModerationActionCb = useCallback((actionId: string) => runResult((prev) => approveModerationAction(prev, actionId, operatorId)), [runResult, operatorId]);
+  const rejectModerationActionCb = useCallback((actionId: string, reason: string) => runResult((prev) => rejectModerationAction(prev, actionId, reason, operatorId)), [runResult, operatorId]);
+  const revokeModerationActionCb = useCallback((actionId: string, reason: string) => runResult((prev) => revokeModerationAction(prev, actionId, reason, operatorId)), [runResult, operatorId]);
+  const closeModerationCaseCb = useCallback((caseId: string, note: string) => runResult((prev) => closeModerationCase(prev, caseId, note, operatorId)), [runResult, operatorId]);
 
   // Refund Exceptions Callbacks
-  const recommendRefundExceptionCb = useCallback((params: any) => commit((prev) => recommendRefundException(prev, params, operatorId)), [commit, operatorId]);
-  const approveRefundExceptionCb = useCallback((exceptionId: string) => commit((prev) => approveRefundException(prev, exceptionId, operatorId)), [commit, operatorId]);
-  const rejectRefundExceptionCb = useCallback((exceptionId: string, reason: string) => commit((prev) => rejectRefundException(prev, exceptionId, reason, operatorId)), [commit, operatorId]);
+  const recommendRefundExceptionCb = useCallback(
+    (params: Parameters<typeof recommendRefundException>[1]) => runResult((prev) => recommendRefundException(prev, params, operatorId)),
+    [runResult, operatorId]
+  );
+  const approveRefundExceptionCb = useCallback(
+    (exceptionId: string, bookingId?: string) => runResult((prev) => approveRefundException(prev, exceptionId, operatorId, { bookingId, actorRole: roleId })),
+    [runResult, operatorId, roleId]
+  );
+  const rejectRefundExceptionCb = useCallback(
+    (exceptionId: string, reason: string) => runResult((prev) => rejectRefundException(prev, exceptionId, reason, operatorId, { actorRole: roleId })),
+    [runResult, operatorId, roleId]
+  );
 
   /* ------------------------ incident / signal helpers ------------------------ */
 
@@ -1368,16 +1141,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const operator = account && account.status === "active" ? account : null;
     const role = ROLES.find((r) => r.id === (roleId ?? "coordinator")) ?? ROLES[6];
     actorRef.current = { id: operator?.id ?? "system", name: operator?.name ?? "System", roleId: roleId ?? "system" };
-    // Resolve territory: prototype state is the source of truth for the id/name;
-    // legacy meta (TERRITORIES) only supplies the shell's stats (time/venues/fill).
-    const territoryData = state.territories.find((t) => t.id === consolePrefs.territoryId) ?? state.territories[0] ?? SEED_TERRITORIES[0];
-    const legacy = territoryById(territoryData.id as never);
-    const resolvedTerritoryObj = {
-      ...legacy,
-      id: territoryData.id as TerritoryId,
-      name: territoryData.name,
-      code: territoryData.name.slice(0, 3).toUpperCase(),
-    };
+    // The console scope is a territory from workspace state; an empty workspace has none.
+    const territoryData = state.territories.find((t) => t.id === consolePrefs.territoryId) ?? state.territories[0];
+    const resolvedTerritoryObj: Territory = territoryData
+      ? { id: territoryData.id, name: territoryData.name, code: territoryData.name.slice(0, 3).toUpperCase() }
+      : { id: "", name: "No territory yet", code: "—" };
 
     const commands = {
       authed: !!auth && hydrated && !!operator,
@@ -1401,14 +1169,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setSignalOpen,
       markAllRead,
       markSignalRead,
+      markSignalUnread,
       canAccess: (href: string) => (auth && roleId && operator ? canAccess(href, roleId) : false),
       createFranchise: createFranchiseCb,
       createTerritory: createTerritoryCb,
       createCity: createCityCb,
       createVenue: createVenueCb,
       createPlayingArea: createPlayingAreaCb,
-      createCategory: createCategoryCb,
-      createTemplate: createTemplateCb,
       createActivityCategory: createActivityCategoryCb,
       updateActivityCategory: updateActivityCategoryCb,
       changeCategoryStatus: changeCategoryStatusCb,
@@ -1436,10 +1203,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       updatePlayingArea: updatePlayingAreaCb,
       changePlayingAreaStatus: changePlayingAreaStatusCb,
       addOperationalNote: addOperationalNoteCb,
-      updateBooking,
-      confirmBooking: confirmBookingCb,
       cancelBooking: cancelBookingCb,
-      promoteWaitlistUser: promoteWaitlistUserCb,
       generateTemporaryIds: generateTemporaryIdsCb,
       allocateTeams: allocateTeamsCb,
       completeSession: completeSessionCb,
@@ -1447,9 +1211,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       updateSessionStatus: updateSessionStatusCb,
       updateMatchScore: updateMatchScoreCb,
       strikeBooking: strikeBookingCb,
-      toggleTemplate: toggleTemplateCb,
-      simulateRefund: simulateRefundCb,
-      retryPayment: retryPaymentCb,
       createBookingReservation: createBookingReservationCb,
       confirmBookingPayment: confirmBookingPaymentCb,
       failBookingPayment: failBookingPaymentCb,
@@ -1464,6 +1225,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       completeRefund: completeRefundCb,
       reconcilePayment: reconcilePaymentCb,
       createIdentityPattern: createIdentityPatternCb,
+      setIdentityPatternStatus: setIdentityPatternStatusCb,
       generateTemporaryIdentities: generateTemporaryIdentitiesCb,
       lockTemporaryIdentities: lockTemporaryIdentitiesCb,
       revokeTemporaryIdentity: revokeTemporaryIdentityCb,
@@ -1482,6 +1244,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       createCrewMember: createCrewMemberCb,
       updateCrewMember: updateCrewMemberCb,
       assignCrewToSession: assignCrewToSessionCb,
+      unassignCrewFromSession: unassignCrewFromSessionCb,
+      recordStaffAttendance: recordStaffAttendanceCb,
       requestEmergencyIdentityAccess: requestEmergencyIdentityAccessCb,
       closeEmergencyIdentityAccess: closeEmergencyIdentityAccessCb,
       openSession: openSessionCb,
@@ -1516,7 +1280,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       declareWalkover: declareWalkoverCb,
       disqualifyTeam: disqualifyTeamCb,
       abandonMatch: abandonMatchCb,
-      advanceVerifiedWinner: advanceVerifiedWinnerCb,
       completeTournament: completeTournamentCb,
       reportIncident: reportIncidentCb,
       acknowledgeIncident: acknowledgeIncidentCb,
@@ -1526,7 +1289,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       updateInvestigation: updateInvestigationCb,
       resolveIncident: resolveIncidentCb,
       closeIncident: closeIncidentCb,
-      addEvidencePlaceholder: addEvidencePlaceholderCb,
+      addEvidenceRecord: addEvidenceRecordCb,
+      updateEvidenceStatus: updateEvidenceStatusCb,
       createFollowUp: createFollowUpCb,
       submitDispute: submitDisputeCb,
       assignDisputeReviewer: assignDisputeReviewerCb,
@@ -1538,6 +1302,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       approveModerationAction: approveModerationActionCb,
       rejectModerationAction: rejectModerationActionCb,
       revokeModerationAction: revokeModerationActionCb,
+      closeModerationCase: closeModerationCaseCb,
       recommendRefundException: recommendRefundExceptionCb,
       approveRefundException: approveRefundExceptionCb,
       rejectRefundException: rejectRefundExceptionCb,
@@ -1570,6 +1335,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     createCrewMemberCb,
     updateCrewMemberCb,
     assignCrewToSessionCb,
+    unassignCrewFromSessionCb,
+    recordStaffAttendanceCb,
     decideGovernanceCaseCb,
     setGovernanceEntityStatusCb,
     submitGovernanceIntakeCb,
@@ -1590,13 +1357,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     toggleSidebar,
     markAllRead,
     markSignalRead,
+    markSignalUnread,
     createFranchiseCb,
     createTerritoryCb,
     createCityCb,
     createVenueCb,
     createPlayingAreaCb,
-    createCategoryCb,
-    createTemplateCb,
     createActivityCategoryCb,
     updateActivityCategoryCb,
     changeCategoryStatusCb,
@@ -1624,10 +1390,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     updatePlayingAreaCb,
     changePlayingAreaStatusCb,
     addOperationalNoteCb,
-    updateBooking,
-    confirmBookingCb,
     cancelBookingCb,
-    promoteWaitlistUserCb,
     generateTemporaryIdsCb,
     allocateTeamsCb,
     completeSessionCb,
@@ -1635,9 +1398,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     updateSessionStatusCb,
     updateMatchScoreCb,
     strikeBookingCb,
-    toggleTemplateCb,
-    simulateRefundCb,
-    retryPaymentCb,
     createBookingReservationCb,
     confirmBookingPaymentCb,
     failBookingPaymentCb,
@@ -1701,7 +1461,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     declareWalkoverCb,
     disqualifyTeamCb,
     abandonMatchCb,
-    advanceVerifiedWinnerCb,
     completeTournamentCb,
     reportIncidentCb,
     acknowledgeIncidentCb,
@@ -1711,7 +1470,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     updateInvestigationCb,
     resolveIncidentCb,
     closeIncidentCb,
-    addEvidencePlaceholderCb,
+    addEvidenceRecordCb,
+    updateEvidenceStatusCb,
     createFollowUpCb,
     submitDisputeCb,
     assignDisputeReviewerCb,
@@ -1723,6 +1483,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     approveModerationActionCb,
     rejectModerationActionCb,
     revokeModerationActionCb,
+    closeModerationCaseCb,
     recommendRefundExceptionCb,
     approveRefundExceptionCb,
     rejectRefundExceptionCb,
@@ -1750,6 +1511,7 @@ const NOT_JOURNALLED = new Set([
   "toggleSidebar",
   "switchTerritory",
   "markSignalRead",
+  "markSignalUnread",
   "markAllRead",
   "setDemoStep",
   "exportWorkspace",
@@ -1796,12 +1558,6 @@ function journalled(
   }
   return out as unknown as StoreValue;
 }
-
-const SEED_TERRITORIES = [
-  { id: "hvd-central", name: "Hyderabad Central" },
-  { id: "blr-south", name: "Bengaluru South" },
-  { id: "mum-west", name: "Mumbai West" }
-];
 
 export function useStore(): StoreValue {
   const ctx = useContext(StoreContext);

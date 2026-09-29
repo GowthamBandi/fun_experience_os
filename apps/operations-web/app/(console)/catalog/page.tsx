@@ -1,235 +1,120 @@
 "use client";
 
-import { useMemo } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useMemo } from "react";
+import { ArrowRight, CalendarCheck2, FileClock, Layers, Plus, Shapes, Sparkles, TriangleAlert } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { selectCatalogHealth, selectExperienceReadiness } from "@/lib/prototype/selectors/catalog";
+import { catalogWarnings, selectCatalogHealth, templateViews } from "@/lib/prototype/repositories";
+import { geoCan } from "@/lib/geo/access";
+import { inr } from "@/lib/format";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { PermissionDenied } from "@/components/ui/panels";
-import { Button, StatusChip } from "@/components/ui/primitives";
-import { Stagger, Item } from "@/components/motion/Motion";
-import {
-  CategoryStatusBadge,
-  ExperienceStatusBadge,
-  CatalogHelpPanel,
-  CatalogEmptyState,
-} from "@/components/catalog";
-import { Sparkles, Layers, Calendar, Plus, ArrowRight, CheckCircle2 } from "lucide-react";
+import { MetricTile, PermissionDenied } from "@/components/ui/panels";
+import { StatusChip } from "@/components/ui/primitives";
+import { EmptyPanel, LinkButton, LinkRows, PageShell, Panel } from "@/components/setup/kit";
 
-export default function CatalogLandingPage() {
-  const router = useRouter();
-  const { state, territory, canAccess, role } = useStore();
+export default function CatalogPage() {
+  const { state, canAccess, role } = useStore();
+  const health = useMemo(() => selectCatalogHealth(state), [state]);
+  const warnings = useMemo(() => catalogWarnings(state), [state]);
+  const experiences = useMemo(() => templateViews(state), [state]);
 
-  const categories = state.categories ?? [];
-  const templates = state.templates ?? [];
-  const health = selectCatalogHealth(state);
-
-  if (!canAccess("/catalog")) {
-    return (
-      <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8">
-        <PermissionDenied module="Catalog" />
-      </div>
-    );
-  }
-
-  // Single primary action rule
-  let primaryActionLabel = "Create Experience";
-  let primaryActionHref = "/catalog/experiences/new";
-
-  if (categories.length === 0) {
-    primaryActionLabel = "Create Category";
-    primaryActionHref = "/catalog/categories/new";
-  } else if (health.blockedCount > 0) {
-    primaryActionLabel = "Review Readiness";
-    primaryActionHref = "/catalog/experiences";
-  }
+  if (!canAccess("/catalog")) return <PermissionDenied module="Catalog" />;
+  const canManage = geoCan(role.id, "manage-catalog");
+  const noCategories = state.categories.length === 0;
+  const recent = [...experiences].sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt))).slice(0, 6);
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-8">
-      {/* Header */}
+    <PageShell>
       <PageHeader
-        overline={`Catalog · ${territory.name}`}
-        title="Experiences"
-        sub="Create what customers can join, then schedule it at a venue. What experience do you want to offer?"
+        overline="Operations"
+        title="Catalog"
+        sub="What you sell: activity categories and the experiences built on them. An experience is a reusable plan — format, group size, price, staffing and reveal rules — that sessions are scheduled from."
         right={
-          <div className="flex items-center gap-3">
-            <ExperienceStatusBadge status={health.status} />
-            <Link href={primaryActionHref}>
-              <Button variant="primary" className="font-bold">
-                <Plus className="w-4 h-4 mr-1" />
-                {primaryActionLabel}
-              </Button>
-            </Link>
-          </div>
+          canManage && (
+            <>
+              <LinkButton href="/catalog/categories/new" variant="secondary"><Plus className="h-4 w-4" /> New category</LinkButton>
+              {!noCategories && <LinkButton href="/catalog/experiences/new"><Plus className="h-4 w-4" /> New experience</LinkButton>}
+            </>
+          )
         }
       />
 
-      {/* 4-Step Operator Workflow Bar */}
-      <div className="glass p-4 rounded-2xl border border-slate-200 space-y-3">
-        <div className="text-xs font-semibold text-ink-sec">Operator Mental Model Workflow:</div>
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-center text-xs">
-          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
-            <span className="font-bold text-brand block">1. Category</span>
-            <span className="text-[11px] text-ink-mut">Activity type</span>
+      {noCategories ? (
+        <EmptyPanel
+          icon={<Shapes className="h-5 w-5" />}
+          title="Start with an activity category"
+          line={canManage ? "Categories (badminton, board games, box cricket…) hold the defaults every experience starts from." : "A Platform Owner, Super Admin, City or Operations Manager sets up the catalog."}
+          actionHref={canManage ? "/catalog/categories/new" : undefined}
+          actionLabel="Add the first category"
+        />
+      ) : (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <MetricTile label="Categories" value={health.categoryCount} detail={`${state.categories.filter((c) => (c.status ?? "active") === "active").length} active`} icon={<Shapes className="h-4 w-4" />} />
+            <MetricTile label="Active experiences" value={health.activeCount} detail={`${health.experienceCount} in total`} icon={<Sparkles className="h-4 w-4" />} tone="emerald" />
+            <MetricTile label="Drafts" value={health.draftCount} detail="not yet schedulable" icon={<FileClock className="h-4 w-4" />} tone="sky" />
+            <MetricTile label="Blocked" value={health.blockedCount} detail="fail a readiness check" icon={<TriangleAlert className="h-4 w-4" />} tone="amber" />
           </div>
-          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
-            <span className="font-bold text-purple-600 block">2. Experience</span>
-            <span className="text-[11px] text-ink-mut">Reusable event plan</span>
+
+          <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
+            <Panel
+              title="Experiences"
+              sub="Most recently changed"
+              icon={<Layers className="h-4 w-4" />}
+              right={<LinkButton href="/catalog/experiences" variant="ghost" size="sm">All experiences <ArrowRight className="h-3.5 w-3.5" /></LinkButton>}
+            >
+              {recent.length === 0 ? (
+                <div className="py-6 text-center">
+                  <p className="text-sm text-ink-mut">No experiences yet.</p>
+                  {canManage && <LinkButton href="/catalog/experiences/new" size="sm" className="mt-3">Create the first experience</LinkButton>}
+                </div>
+              ) : (
+                <LinkRows
+                  empty=""
+                  rows={recent.map((t) => ({
+                    href: `/catalog/experiences/${t.id}`,
+                    title: t.name,
+                    meta: `${t.categoryName} · ${inr(t.basePrice)} · ${t.minParticipants}–${t.maxParticipants} people · ${t.scheduledCount} sessions`,
+                    right: <StatusChip value={t.status} />,
+                  }))}
+                />
+              )}
+            </Panel>
+            <Panel title="Needs attention" sub={warnings.length ? `${warnings.length} item${warnings.length === 1 ? "" : "s"}` : "Nothing outstanding"} icon={<TriangleAlert className="h-4 w-4" />}>
+              {warnings.length === 0 ? (
+                <p className="py-6 text-center text-sm text-ink-mut">Every category has experiences and every active experience can be scheduled.</p>
+              ) : (
+                <LinkRows
+                  empty=""
+                  rows={warnings.slice(0, 8).map((w) => ({
+                    href: w.scope === "category" ? `/catalog/categories/${w.entityId}` : `/catalog/experiences/${w.entityId}`,
+                    title: w.name,
+                    meta: w.message,
+                    right: <StatusChip value={w.level === "error" ? "blocked" : "review"} tone={w.level === "error" ? "danger" : "warn"} />,
+                  }))}
+                />
+              )}
+            </Panel>
           </div>
-          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
-            <span className="font-bold text-emerald-600 block">3. Readiness</span>
-            <span className="text-[11px] text-ink-mut">Review checklist</span>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            {[
+              { href: "/catalog/categories", title: "Categories", line: "Activity types and their defaults.", icon: Shapes },
+              { href: "/catalog/experiences", title: "Experiences", line: "Plans that sessions are scheduled from.", icon: Sparkles },
+              { href: "/missions/new", title: "Schedule a session", line: "Put an active experience on the calendar.", icon: CalendarCheck2 },
+            ].map((c) => (
+              <Link key={c.href} href={c.href} className="group flex items-center gap-4 rounded-panel border border-edge bg-white p-5 shadow-panel transition hover:-translate-y-0.5">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-subtle text-brand"><c.icon className="h-5 w-5" /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-ink-lum">{c.title}</span>
+                  <span className="block text-[13px] text-ink-mut">{c.line}</span>
+                </span>
+                <ArrowRight className="h-4 w-4 text-ink-mut transition group-hover:translate-x-0.5 group-hover:text-brand" />
+              </Link>
+            ))}
           </div>
-          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
-            <span className="font-bold text-emerald-700 block">4. Schedule</span>
-            <span className="text-[11px] text-ink-mut">Select venue & time</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Catalog Help Panel */}
-      <CatalogHelpPanel />
-
-      {/* SECTION 1 — Categories */}
-      <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-3">
-          <div>
-            <h2 className="text-lg font-bold text-ink-lum flex items-center gap-2">
-              <Layers className="w-5 h-5 text-brand" />
-              <span>1. Activity Categories</span>
-            </h2>
-            <p className="text-xs text-ink-sec">
-              Basic activity types such as Badminton, Box Cricket, Trekking, Social Games.
-            </p>
-          </div>
-          <Link href="/catalog/categories">
-            <Button variant="secondary" className="h-8 text-xs font-bold px-3">
-              View All Categories ({categories.length})
-              <ArrowRight className="w-3.5 h-3.5 ml-1" />
-            </Button>
-          </Link>
-        </div>
-
-        {categories.length === 0 ? (
-          <CatalogEmptyState
-            title="No Activity Categories"
-            message="Basic activity types must be created before adding reusable experiences."
-            actionLabel="Create Category"
-            actionHref="/catalog/categories/new"
-          />
-        ) : (
-          <Stagger className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {categories.slice(0, 3).map((c) => {
-              const catTemplates = templates.filter((t) => t.categoryId === c.id);
-              return (
-                <Item key={c.id}>
-                  <div className="glass p-5 rounded-2xl border border-slate-200 hover:border-slate-200 transition-all flex flex-col justify-between space-y-3">
-                    <div>
-                      <div className="flex justify-between items-start mb-2">
-                        <h3 className="font-bold text-base text-ink-lum">{c.name}</h3>
-                        <CategoryStatusBadge status={c.status ?? "active"} size="sm" />
-                      </div>
-                      <p className="text-xs text-ink-mut line-clamp-2">{c.description || "Activity category"}</p>
-                    </div>
-
-                    <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-xs">
-                      <span className="text-ink-sec font-medium">{catTemplates.length} Experiences</span>
-                      <Link href={`/catalog/categories/${c.id}`}>
-                        <Button variant="ghost" className="h-7 text-xs px-2 font-bold text-brand">
-                          Manage Category <ArrowRight className="w-3 h-3 ml-1" />
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                </Item>
-              );
-            })}
-          </Stagger>
-        )}
-      </div>
-
-      {/* SECTION 2 — Experiences (Templates) */}
-      <div className="space-y-4 pt-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-3">
-          <div>
-            <h2 className="text-lg font-bold text-ink-lum flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-purple-600" />
-              <span>2. Reusable Experiences</span>
-            </h2>
-            <p className="text-xs text-ink-sec">
-              Reusable event plans such as Saturday Mystery Badminton or Friday Box Cricket Night.
-            </p>
-          </div>
-          <Link href="/catalog/experiences">
-            <Button variant="secondary" className="h-8 text-xs font-bold px-3">
-              View All Experiences ({templates.length})
-              <ArrowRight className="w-3.5 h-3.5 ml-1" />
-            </Button>
-          </Link>
-        </div>
-
-        {templates.length === 0 ? (
-          <CatalogEmptyState
-            title="No Experiences Created"
-            message="Create your first reusable experience template to define group size, duration, and price defaults."
-            actionLabel="Create Experience"
-            actionHref="/catalog/experiences/new"
-          />
-        ) : (
-          <Stagger className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {templates.slice(0, 6).map((t) => {
-              const cat = categories.find((c) => c.id === t.categoryId);
-              const read = selectExperienceReadiness(t, state);
-              const sessionsCount = (state.sessions ?? []).filter((s) => s.templateId === t.id).length;
-
-              return (
-                <Item key={t.id}>
-                  <div className="glass p-5 rounded-2xl border border-slate-200 hover:border-slate-200 transition-all flex flex-col justify-between space-y-4">
-                    <div className="space-y-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <h3 className="font-bold text-base text-ink-lum">{t.name}</h3>
-                          <span className="text-xs text-purple-600 font-medium">{cat?.name || "Category"}</span>
-                        </div>
-                        <ExperienceStatusBadge status={read.status} size="sm" />
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-2 text-center text-xs border-t border-slate-200 pt-2">
-                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
-                          <span className="text-[10px] text-ink-mut block uppercase">Price</span>
-                          <span className="font-bold text-emerald-600">₹{t.basePrice}</span>
-                        </div>
-                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
-                          <span className="text-[10px] text-ink-mut block uppercase">Capacity</span>
-                          <span className="font-bold text-ink-lum">{t.targetParticipants} pax</span>
-                        </div>
-                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
-                          <span className="text-[10px] text-ink-mut block uppercase">Duration</span>
-                          <span className="font-bold text-ink-lum">{t.duration}m</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
-                      <span className="text-[11px] text-ink-sec">{sessionsCount} scheduled</span>
-                      <Link href={read.nextActionHref}>
-                        <Button
-                          variant={read.schedulable ? "primary" : "secondary"}
-                          className="h-7 text-xs font-bold px-3"
-                        >
-                          {read.nextActionLabel}
-                          <ArrowRight className="w-3 h-3 ml-1" />
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                </Item>
-              );
-            })}
-          </Stagger>
-        )}
-      </div>
-    </div>
+        </>
+      )}
+    </PageShell>
   );
 }

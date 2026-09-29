@@ -1,76 +1,62 @@
 "use client";
 
-import Link from "next/link";
+import { useMemo } from "react";
+import { CalendarClock } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { selectTodayStaffRoster } from "@/lib/prototype/selectors/staff";
+import { selectSessionsForStaffing } from "@/lib/prototype/selectors/staff";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { StaffBackNavigation, StaffStatusBadge } from "@/components/staff";
-import { Button } from "@/components/ui/primitives";
-import { ArrowRight, MapPin, Clock, Calendar } from "lucide-react";
+import { PermissionDenied } from "@/components/ui/panels";
+import { StatusChip } from "@/components/ui/primitives";
+import { EmptyPanel, LinkButton, PageShell } from "@/components/setup/kit";
+import { StaffingNav, useStaffScope } from "@/components/staff/StaffingNav";
+import { sessionDay } from "@/lib/prototype/services/staff";
 
 export default function TodaysWorkPage() {
-  const { state, territory } = useStore();
-  const roster = selectTodayStaffRoster(state);
+  const { state, canAccess } = useStore();
+  const scope = useStaffScope();
+  const today = sessionDay("Today");
+  const sessions = useMemo(() => selectSessionsForStaffing(state, scope.territoryId).filter((s) => sessionDay(s.date) === today).sort((a, b) => a.startTime.localeCompare(b.startTime)), [state, scope.territoryId, today]);
+
+  if (!canAccess("/staffing")) return <PermissionDenied module="Staffing" />;
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6">
-      <StaffBackNavigation label="Back to Staff Schedule" href="/staffing" />
-
-      <PageHeader
-        overline={`Staff Operations · ${territory.name}`}
-        title="Today’s Work"
-        sub="See where every staff member is working today. Where is everyone working today?"
-      />
-
-      <div className="glass p-6 rounded-2xl border border-slate-200 space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-          <h3 className="font-bold text-ink-lum text-sm">Operational Departures Board — Today&apos;s Roster</h3>
-          <span className="text-xs text-ink-mut font-mono">{roster.length} Staff On Roster</span>
+    <PageShell>
+      <PageHeader overline={`Staffing · ${scope.label}`} title="Today's work" sub="Every session running today and the people on it, in start-time order." />
+      <StaffingNav />
+      {sessions.length === 0 ? (
+        <EmptyPanel icon={<CalendarClock className="h-5 w-5" />} title="No sessions today" line="Nothing is scheduled for today in this territory." />
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {sessions.map((s) => (
+            <section key={s.sessionId} className="flex flex-col rounded-panel border border-edge bg-white shadow-panel">
+              <header className="flex items-start justify-between gap-3 border-b border-edge px-5 py-4">
+                <div className="min-w-0">
+                  <p className="font-display text-lg font-bold text-ink-lum tabular">{s.startTime}</p>
+                  <p className="truncate text-sm font-semibold text-ink-lum">{s.sessionTitle}</p>
+                  <p className="truncate text-xs text-ink-mut">{s.venueName}</p>
+                </div>
+                <StatusChip value={s.isFullyStaffed ? "staffed" : "short"} tone={s.isFullyStaffed ? "ok" : "warn"} />
+              </header>
+              <ul className="flex-1 divide-y divide-slate-100 px-5">
+                {s.slots.filter((x) => x.crewId || x.required).map((x) => (
+                  <li key={x.slot} className="flex items-center justify-between gap-3 py-2.5">
+                    <span className="text-[13px] text-ink-mut">{x.label}</span>
+                    {x.name ? (
+                      <span className="flex items-center gap-2 text-sm font-medium text-ink-lum">{x.name} <StatusChip value={x.checkedIn ? "checked-in" : "expected"} /></span>
+                    ) : (
+                      <span className="text-sm font-medium text-amber-700">Not assigned</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              <footer className="flex gap-2 border-t border-edge px-5 py-3">
+                <LinkButton href={`/staffing/assign?sessionId=${s.sessionId}`} size="sm" variant={s.isFullyStaffed ? "secondary" : "primary"}>{s.isFullyStaffed ? "Change staff" : "Assign staff"}</LinkButton>
+                <LinkButton href="/staffing/check-in" size="sm" variant="ghost">Check-in</LinkButton>
+              </footer>
+            </section>
+          ))}
         </div>
-
-        {/* Operational Roster Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-slate-200 text-ink-mut uppercase text-[10px] tracking-wider">
-                <th className="py-3 px-3">Staff Name</th>
-                <th className="py-3 px-3">Role</th>
-                <th className="py-3 px-3">Current Assignment</th>
-                <th className="py-3 px-3">Venue Location</th>
-                <th className="py-3 px-3">Shift Hours</th>
-                <th className="py-3 px-3">Check-In Status</th>
-                <th className="py-3 px-3 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {roster.map((s) => {
-                const isWorking = s.status === "assigned" || s.status === "checked-in";
-
-                return (
-                  <tr key={s.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="py-3.5 px-3 font-bold text-ink-lum">{s.name}</td>
-                    <td className="py-3.5 px-3 text-purple-700 font-semibold">{s.roleLabel}</td>
-                    <td className="py-3.5 px-3 text-ink-sec">{s.assignment}</td>
-                    <td className="py-3.5 px-3 text-ink-sec">{s.venueName}</td>
-                    <td className="py-3.5 px-3 font-mono text-ink-mut">{s.shiftFrom} - {s.shiftTo}</td>
-                    <td className="py-3.5 px-3">
-                      <StaffStatusBadge status={s.status} size="sm" />
-                    </td>
-                    <td className="py-3.5 px-3 text-right">
-                      <Link href={isWorking && s.currentSessionId ? `/missions/${s.currentSessionId}/overview` : `/people/staff/${s.id}`}>
-                        <Button variant="secondary" className="h-7 text-xs font-bold px-2.5">
-                          {isWorking ? "View Event" : "View Profile"}
-                          <ArrowRight className="w-3 h-3 ml-1" />
-                        </Button>
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+      )}
+    </PageShell>
   );
 }

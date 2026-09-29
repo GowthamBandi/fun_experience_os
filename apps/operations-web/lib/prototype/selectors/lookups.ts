@@ -41,3 +41,10 @@ export const territoryName = (state: PrototypeState, id: string): string =>
 
 export const franchiseName = (state: PrototypeState, id: string): string =>
   franchiseById(state, id)?.name ?? id;
+
+/** Display name of a console operator (or crew member) from workspace state. */
+export const operatorName = (state: PrototypeState, id: string | undefined): string => {
+  if (!id) return "Unassigned";
+  if (id === "system") return "System";
+  return (state.operators ?? []).find((o) => o.id === id)?.name ?? (state.crew ?? []).find((c) => c.id === id)?.name ?? id;
+};

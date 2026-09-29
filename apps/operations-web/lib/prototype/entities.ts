@@ -330,6 +330,8 @@ export interface ScheduledSession {
   equipmentChecklist: string[];
   weatherRisk: "low" | "medium" | "high";
   cancellationThreshold: number;
+  /** Session status captured when the reveal was triggered, so a cancelled reveal can be undone. */
+  statusBeforeReveal?: SessionStatus;
 }
 
 export type ReservationStatus =
@@ -405,13 +407,20 @@ export interface Booking {
   finalAmount?: number;
   method?: string;
   reservedAt?: string;
+  /** ISO timestamp. A payment-pending hold is released by `releaseExpiredHolds` after this time. */
   reservationExpiresAt?: string;
   confirmedAt?: string;
   cancelledAt?: string;
   cancellationReason?: string;
   waitlistOrder?: number;
   waitlistPosition?: number;
+  /** ISO timestamp. Set while a waitlist offer hold is active. */
   waitlistOfferExpiresAt?: string;
+  /** ISO timestamp when the current waitlist offer was made. */
+  waitlistOfferedAt?: string;
+  /** Reference recorded when the payment was confirmed manually (receipt, UTR, POS slip). */
+  paymentReference?: string;
+  cancelledBy?: string;
   checkedIn?: boolean;
   noShow?: boolean;
   createdAt: string;
@@ -441,6 +450,9 @@ export interface Payment {
   confirmedAt?: string;
   failedAt?: string;
   failureReason?: string;
+  /** Operator who recorded the payment as received (payment provider not connected). */
+  confirmedBy?: string;
+  cancelledAt?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -477,6 +489,15 @@ export interface Refund {
   failedAt?: string;
   failureReason?: string;
   approvedBy?: string;
+  requestedBy?: string;
+  rejectedBy?: string;
+  rejectedAt?: string;
+  /** Manual payout record: how and with which reference the money was returned. */
+  payoutMethod?: string;
+  payoutReference?: string;
+  completedBy?: string;
+  /** Set when the refund was created by approving a refund exception. */
+  refundExceptionId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -594,6 +615,10 @@ export interface EmergencyAccessLog {
   requestedAt: string;
   expiresAt: string;
   status: "active" | "expired" | "closed";
+  /** Role id of the requesting operator at the time of the request. */
+  operatorRole?: string;
+  closedAt?: string;
+  closedBy?: string;
 }
 
 export interface CrewMember {
@@ -604,6 +629,14 @@ export interface CrewMember {
   role: RoleId;
   status: "available" | "assigned" | "checked-in" | "off";
   assignment: string;
+  /** Contact details recorded by the operator who added the member (optional). */
+  phone?: string;
+  email?: string;
+  emergencyContact?: string;
+  skills?: string[];
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Shift {
@@ -633,6 +666,16 @@ export type TournamentStatus =
   | 'cancelled'
   | 'archived';
 
+/** A team entered into one tournament. Match slots and winners reference `id`, never the name. */
+export interface TournamentEntrant {
+  id: string;
+  name: string;
+  /** 1 = top seed. Used when the seeding method is "seeded". */
+  seed?: number;
+  status?: 'active' | 'disqualified' | 'withdrawn';
+  disqualifiedReason?: string;
+}
+
 export interface Tournament {
   id: TournamentId;
   name: string;
@@ -645,7 +688,10 @@ export interface Tournament {
   sessionIds?: SessionId[];
   format: string;
   status: TournamentStatus;
+  /** Entrant ids in seed order (see `entrants`). */
   teamIds: string[];
+  /** Entrant records (id → display name). */
+  entrants?: TournamentEntrant[];
   minimumTeams?: number;
   maximumTeams?: number;
   matchDuration: number;
@@ -759,6 +805,10 @@ export interface Transaction {
   method: string;
   status: "settled" | "pending" | "failed";
   at: string;
+  /** Present on ledger rows derived from a Payment / Refund record. */
+  paymentId?: string;
+  refundId?: string;
+  reference?: string;
 }
 
 /* ------------------------------------------------------------------
@@ -830,6 +880,14 @@ export interface Incident {
   triageProtectionActions?: string;
   triageFollowUp?: string;
   triageRecommendation?: string;
+  acknowledgedAt?: string;
+  acknowledgedBy?: string;
+  triagedAt?: string;
+  triagedBy?: string;
+  escalatedAt?: string;
+  escalationReason?: string;
+  resolvedAt?: string;
+  resolvedBy?: string;
   createdAt?: string;
   updatedAt?: string;
   /** @deprecated Use reportedBy */
@@ -912,8 +970,11 @@ export interface Dispute {
   matchId?: MatchId;
   sessionId?: SessionId;
   bookingId?: BookingId;
+  /** Who raised the dispute (team captain, customer, staff member) as recorded. */
   submittedBy: string;
   submittedAt: string;
+  /** Operator who logged the dispute in the console. */
+  recordedBy?: string;
   reviewerId?: string;
   assignedAt?: string;
   evidenceRequested?: boolean;
@@ -1302,6 +1363,10 @@ export interface SessionCompletionSnapshot {
   safetySignals: string[];
   followUpItems: string[];
   label: string;
+  /** Free-text closing note written by the operator who completed the session. */
+  closingNote?: string;
+  /** Present when the session was completed with unresolved checklist items. */
+  overrideReason?: string;
 }
 
 /* ------------------------------------------------------------------

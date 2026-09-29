@@ -15,11 +15,7 @@ import type {
   IncidentStatus
 } from "../entities";
 import type { PrototypeState } from "../scenarios";
-import {
-  bookedCount,
-  waitlistCount,
-  type SeatStatus
-} from "./status";
+import { bookedCount, waitlistCount } from "./status";
 import {
   categoryById,
   cityById,

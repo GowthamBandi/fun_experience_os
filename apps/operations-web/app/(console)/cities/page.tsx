@@ -1,154 +1,83 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Building2, CalendarClock, LayoutGrid, MapPin, Plus } from "lucide-react";
 import { useStore } from "@/lib/store";
+import { cityRows, type CityListRow } from "@/lib/prototype/repositories";
+import { geoCan } from "@/lib/geo/access";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { PermissionDenied } from "@/components/ui/panels";
-import { Button, StatusChip } from "@/components/ui/primitives";
-import { SearchInput } from "@/components/ui/fields";
-import { Stagger, Item } from "@/components/motion/Motion";
-import {
-  SetupBackNavigation,
-  SetupPrimaryAction,
-  SetupStatusBadge,
-  SetupEmptyState,
-} from "@/components/setup/shared";
-import { Building2, MapPin, ArrowRight } from "lucide-react";
+import { MetricTile, PermissionDenied } from "@/components/ui/panels";
+import { StatusChip } from "@/components/ui/primitives";
+import { FilterRail, SearchInput, Select } from "@/components/ui/fields";
+import { DataTable, type Column } from "@/components/ui/table";
+import { Crumbs, EmptyPanel, LinkButton, PageShell } from "@/components/setup/kit";
+
+const STATUSES = ["active", "ready", "draft", "paused"] as const;
 
 export default function CitiesPage() {
   const router = useRouter();
-  const { state, territory, canAccess } = useStore();
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const cities = state.cities ?? [];
-  const territories = state.territories ?? [];
-  const franchises = state.franchises ?? [];
-  const venues = state.venues ?? [];
-  const playingAreas = state.playingAreas ?? [];
-  const sessions = state.sessions ?? [];
-
-  const filteredCities = useMemo(() => {
-    const q = searchQuery.toLowerCase().trim();
-    if (!q) return cities;
-    return cities.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        c.state.toLowerCase().includes(q) ||
-        (territories.find((t) => t.id === c.territoryId)?.name ?? "").toLowerCase().includes(q)
+  const { state, canAccess, role } = useStore();
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState<(typeof STATUSES)[number] | "all">("all");
+  const [territoryId, setTerritoryId] = useState("all");
+  const rows = useMemo(() => cityRows(state), [state]);
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return rows.filter(
+      (r) => (status === "all" || r.status === status) && (territoryId === "all" || r.territoryId === territoryId) && (!q || `${r.name} ${r.state} ${r.managerName}`.toLowerCase().includes(q)),
     );
-  }, [cities, territories, searchQuery]);
+  }, [rows, query, status, territoryId]);
 
-  if (!canAccess("/cities")) {
-    return (
-      <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8">
-        <PermissionDenied module="Cities" />
-      </div>
-    );
-  }
+  if (!canAccess("/cities")) return <PermissionDenied module="Cities" />;
+  const canCreate = geoCan(role.id, "create-city");
+  const tName = (id: string) => state.territories.find((t) => t.id === id)?.name ?? id;
+
+  const columns: Column<CityListRow>[] = [
+    { key: "name", header: "City", render: (r) => <div><p className="font-semibold text-ink-lum">{r.name}</p><p className="text-xs text-ink-mut">{r.state}</p></div> },
+    { key: "territory", header: "Territory", render: (r) => <span className="text-ink-sec">{tName(r.territoryId)}</span> },
+    { key: "manager", header: "Manager", render: (r) => <span className="text-ink-sec">{r.managerName}</span> },
+    { key: "venues", header: "Venues", align: "right", render: (r) => r.venues },
+    { key: "areas", header: "Playing areas", align: "right", render: (r) => r.playingAreas },
+    { key: "upcoming", header: "Upcoming", align: "right", render: (r) => r.upcomingSessions },
+    { key: "launch", header: "Launch", render: (r) => <span className="text-ink-sec tabular">{r.launchDate}</span> },
+    { key: "status", header: "Status", render: (r) => <StatusChip value={r.status} /> },
+  ];
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6">
-      <SetupBackNavigation label="Back to Setup" href="/setup" />
-
+    <PageShell>
+      <Crumbs items={[{ label: "Setup", href: "/setup" }, { label: "Cities" }]} />
       <PageHeader
-        overline={`Setup · ${territory.name}`}
+        overline="Setup"
         title="Cities"
-        sub="See every city where your company operates. Which cities are ready to conduct events?"
-        right={
-          <SetupPrimaryAction
-            label="Add City"
-            href="/cities/new"
-            allowedRoles={["platform-owner", "super-admin", "regional-partner", "city-manager"]}
-          />
-        }
+        sub="Cities inside your territories. A city is bookable once it is active and has at least one open venue with a playing area."
+        right={canCreate && state.territories.length > 0 && <LinkButton href="/cities/new"><Plus className="h-4 w-4" /> New city</LinkButton>}
       />
-
-      <div className="glass p-5 rounded-2xl border border-slate-200 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h3 className="text-sm font-semibold text-ink-lum">Operating Cities</h3>
-            <p className="text-xs text-ink-mut">Cities divide local territories into event locations.</p>
-          </div>
-          <div className="w-full sm:w-72">
-            <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search city, state, territory..." />
-          </div>
-        </div>
-
-        {cities.length === 0 ? (
-          <SetupEmptyState
-            title="No operating cities created"
-            message="Add a city under an active territory to start setting up venues and scheduling events."
-            actionLabel="Add City"
-            actionHref="/cities/new"
-          />
-        ) : filteredCities.length === 0 ? (
-          <div className="p-8 text-center text-xs text-ink-mut">No cities match your search filter.</div>
+      {rows.length === 0 ? (
+        state.territories.length === 0 ? (
+          <EmptyPanel icon={<MapPin className="h-5 w-5" />} title="Add a territory first" line="Cities belong to territories. Create a territory, then add its cities." actionHref="/territories/new" actionLabel="Add a territory" />
         ) : (
-          <Stagger className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredCities.map((c) => {
-              const t = territories.find((tr) => tr.id === c.territoryId);
-              const f = franchises.find((fr) => fr.id === t?.franchiseId);
-              const cVenues = venues.filter((v) => v.cityId === c.id || v.territoryId === c.territoryId);
-              const cAreas = playingAreas.filter((pa) => cVenues.some((v) => v.id === pa.venueId));
-              const cSessions = sessions.filter((s) => cVenues.some((v) => v.id === s.venueId));
-
-              let status: "complete" | "needs-attention" | "incomplete" = "complete";
-              if (cVenues.length === 0) status = "incomplete";
-              else if (cAreas.length === 0) status = "needs-attention";
-
-              return (
-                <Item key={c.id}>
-                  <div className="glass p-5 rounded-2xl border border-slate-200 hover:border-slate-200 transition-all flex flex-col justify-between space-y-4">
-                    <div className="space-y-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="space-y-1">
-                          <h4 className="font-bold text-base text-ink-lum flex items-center gap-2">
-                            <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
-                            <Link href={`/cities/${c.id}`} className="hover:text-brand transition-colors">
-                              {c.name}
-                            </Link>
-                          </h4>
-                          <p className="text-xs text-ink-mut">
-                            {t?.name || "Territory"} · {f?.name || "Franchise"}
-                          </p>
-                        </div>
-                        <SetupStatusBadge status={status} size="sm" />
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200 text-center text-xs">
-                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
-                          <span className="text-[10px] text-ink-mut block uppercase">Venues</span>
-                          <span className="font-bold text-ink-lum">{cVenues.length}</span>
-                        </div>
-                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
-                          <span className="text-[10px] text-ink-mut block uppercase">Areas</span>
-                          <span className="font-bold text-ink-lum">{cAreas.length}</span>
-                        </div>
-                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
-                          <span className="text-[10px] text-ink-mut block uppercase">Events</span>
-                          <span className="font-bold text-ink-lum">{cSessions.length}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
-                      <StatusChip value={c.status} />
-                      <Link href={cVenues.length === 0 ? `/locations/venues/new?cityId=${c.id}` : `/cities/${c.id}`}>
-                        <Button variant={cVenues.length === 0 ? "primary" : "secondary"} className="h-7 text-xs font-bold px-3">
-                          {cVenues.length === 0 ? "Create Venue" : "Review City"}
-                          <ArrowRight className="w-3 h-3 ml-1" />
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                </Item>
-              );
-            })}
-          </Stagger>
-        )}
-      </div>
-    </div>
+          <EmptyPanel icon={<MapPin className="h-5 w-5" />} title="No cities yet" line="Add the first city where you will run sessions." actionHref={canCreate ? "/cities/new" : undefined} actionLabel="Add a city" />
+        )
+      ) : (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <MetricTile label="Cities" value={rows.length} detail={`${rows.filter((r) => r.status === "active").length} active`} icon={<MapPin className="h-4 w-4" />} />
+            <MetricTile label="Venues" value={rows.reduce((a, r) => a + r.venues, 0)} detail={`${rows.filter((r) => r.venues === 0).length} cities without one`} icon={<Building2 className="h-4 w-4" />} tone="amber" />
+            <MetricTile label="Playing areas" value={rows.reduce((a, r) => a + r.playingAreas, 0)} detail="bookable spaces" icon={<LayoutGrid className="h-4 w-4" />} tone="pink" />
+            <MetricTile label="Upcoming sessions" value={rows.reduce((a, r) => a + r.upcomingSessions, 0)} detail="today and tomorrow" icon={<CalendarClock className="h-4 w-4" />} tone="sky" />
+          </div>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="lg:w-72"><SearchInput value={query} onChange={setQuery} placeholder="Search city, state or manager" /></div>
+            <Select value={territoryId} onChange={(e) => setTerritoryId(e.target.value)} aria-label="Filter by territory" className="lg:w-56">
+              <option value="all">All territories</option>
+              {state.territories.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </Select>
+            <FilterRail options={STATUSES} value={status} onChange={setStatus} />
+          </div>
+          <DataTable columns={columns} rows={filtered} onRowClick={(r) => router.push(`/cities/${r.id}`)} emptyTitle="No cities match" emptyLine="Clear the search or filters." />
+        </>
+      )}
+    </PageShell>
   );
 }

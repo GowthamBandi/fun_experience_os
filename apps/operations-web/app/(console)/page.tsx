@@ -40,7 +40,18 @@ export default function Overview() {
   const sessions = useMemo(() => sessionViews(state, territory.id), [state, territory.id]);
   const today = sessions.filter((s) => s.date === "Today");
   const upcoming = (today.length ? today : sessions.filter((s) => !["completed", "cancelled", "archived"].includes(s.status))).slice(0, 6);
-  const alerts = useMemo(() => generateOperationsAlerts(state).filter((a) => a.status === "active").slice(0, 5), [state]);
+  const alerts = useMemo(() => {
+    const inTerritory = new Set<string>(sessions.map((s) => s.id));
+    const territoryVenues = new Set(state.venues.filter((v) => v.territoryId === territory.id).map((v) => v.id));
+    return generateOperationsAlerts(state)
+      .filter((a) => a.status === "active")
+      // Alerts tied to a session or venue show only in that session's territory; platform-wide alerts always show.
+      .filter((a) => {
+        const related = a.relatedEntityIds.filter((id) => state.sessions.some((s) => s.id === id) || state.venues.some((v) => v.id === id));
+        return related.length === 0 || related.some((id) => inTerritory.has(id) || territoryVenues.has(id));
+      })
+      .slice(0, 5);
+  }, [state, sessions, territory.id]);
   const money = useMemo(() => selectFinancialOperationsMetrics(state), [state]);
   const openIncidents = state.incidents.filter((i) => !["resolved", "closed"].includes(String(i.status))).length;
   const booked = today.reduce((a, s) => a + s.booked, 0);

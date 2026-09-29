@@ -1,155 +1,247 @@
 "use client";
 
 import { useMemo } from "react";
-import { useParams } from "next/navigation";
-import Link from "next/link";
+import { Printer } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { selectSessionSummary } from "@/lib/prototype/selectors/completion";
-import { sessionTitle } from "@/lib/prototype/selectors/lookups";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { StatusChip, Button } from "@/components/ui/primitives";
-import {
-  MissionWorkspaceHeader,
-  MissionStageNavigation,
-  MissionBackNavigation,
-} from "@/components/missions/shared";
+import { selectSessionSummary, formatDuration } from "@/lib/prototype/selectors/completion";
+import { sessionTitle, venueName } from "@/lib/prototype/selectors/lookups";
+import type { SegmentResult } from "@/lib/prototype/entities";
+import { inr } from "@/lib/format";
+import { Button } from "@/components/ui/primitives";
+import { MissionShell, formatWhen, useMissionId, useOperatorName } from "@/components/missions/shared";
 
-export default function SessionSummaryPage() {
-  const params = useParams();
-  const sessionId = params.id as string;
+/** Hide the console chrome and let the report flow across pages when printed. */
+const PRINT_CSS = `
+@media print {
+  @page { margin: 14mm; }
+  html, body { height: auto !important; overflow: visible !important; }
+  .dusk-field { display: block !important; height: auto !important; overflow: visible !important; }
+  #main { overflow: visible !important; }
+  body * { visibility: hidden; }
+  #session-report, #session-report * { visibility: visible; }
+  #session-report { position: absolute; inset: 0 auto auto 0; width: 100%; box-shadow: none !important; border: 0 !important; }
+}
+`;
 
+export default function SummaryPage() {
+  return (
+    <MissionShell
+      tab="summary"
+      sub="The session report: attendance, results, money, staff, equipment and safety."
+      actions={
+        <Button variant="secondary" onClick={() => window.print()}>
+          <Printer className="h-4 w-4" /> Print or save as PDF
+        </Button>
+      }
+    >
+      <ReportBody />
+    </MissionShell>
+  );
+}
+
+function ReportBody() {
+  const sessionId = useMissionId();
   const { state } = useStore();
-  const summary = useMemo(() => selectSessionSummary(state, sessionId), [state, sessionId]);
+  const opName = useOperatorName();
+  const s = useMemo(() => selectSessionSummary(state, sessionId), [state, sessionId]);
+  const session = s.session!;
+  const snap = s.snapshot;
+  const teams = (state.teams ?? []).filter((t) => t.sessionId === sessionId);
+  const segments = (state.activitySegments ?? []).filter((x) => x.sessionId === sessionId).sort((a, b) => a.sequence - b.sequence);
+  const notes = (state.liveOperationalNotes ?? []).filter((n) => n.sessionId === sessionId).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const teamName = (id?: string) => teams.find((t) => t.id === id)?.name ?? "—";
 
-  if (!summary.session) {
-    return <div className="p-8 text-xs font-mono text-slate-500">Session not found.</div>;
-  }
+  // A completed session reports its saved snapshot; otherwise the report is interim and live.
+  const attendance = snap?.attendanceTotals ?? {
+    expected: s.checkIn.expectedCount,
+    checkedIn: s.checkIn.checkedInCount,
+    late: s.checkIn.lateCount,
+    missing: s.checkIn.missingCount,
+    noShow: s.checkIn.noShowCount,
+    denied: s.checkIn.deniedCount,
+    fillRate: s.checkIn.checkInRate,
+  };
+  const money = snap?.financialSummary ?? { grossRevenue: s.money.grossCollected, refundsTotal: s.money.totalRefunded, netTake: s.money.netRevenue };
+  const results: SegmentResult[] = snap?.finalResults ?? s.results;
+  const duration = snap?.durationSeconds ?? s.durationSeconds;
+  const exceptions = snap?.equipmentExceptions ?? s.eq.items.filter((e) => e.missingCount > 0 || e.damagedCount > 0);
+  const followUps = snap?.followUpItems ?? notes.filter((n) => n.followUpRequired).map((n) => n.note);
+  const safety = notes.filter((n) => n.type === "safety" || n.severity === "critical");
 
-  const formatCurrency = (amount: number) => `₹${amount.toLocaleString()}`;
+  const describe = (r: SegmentResult) =>
+    r.resultType === "score" || r.resultType === "draw"
+      ? `${(r.teamScores ?? []).map((t) => `${teamName(t.teamId)} ${t.score}`).join(" – ")}${r.resultType === "draw" ? " (draw)" : r.winnerTeamId ? ` · winner ${teamName(r.winnerTeamId)}` : ""}`
+      : `${r.resultType}: ${r.outcome ?? "—"}`;
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6 font-mono text-xs">
-      {/* Back button & Breadcrumbs */}
-      <MissionBackNavigation currentStageName="Final Summary" />
+    <article id="session-report" className="rounded-panel border border-edge bg-white shadow-panel">
+      <style>{PRINT_CSS}</style>
+      <header className="flex flex-wrap items-start justify-between gap-4 border-b border-edge px-6 py-5">
+        <div>
+          <p className="overline text-brand">Session report</p>
+          <h2 className="mt-1 font-display text-2xl font-bold text-ink-lum">{sessionTitle(state, sessionId)}</h2>
+          <p className="mt-1 text-sm text-ink-sec">
+            {session.date} at {session.startTime} · {venueName(state, session.venueId)} · session {sessionId}
+          </p>
+        </div>
+        <div className="text-right text-sm">
+          {snap ? (
+            <>
+              <p className="font-semibold text-emerald-700">Final</p>
+              <p className="text-ink-mut">
+                Completed by {opName(snap.completedBy)}
+                <br />
+                {formatWhen(snap.completedAt)}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="font-semibold text-amber-700">Interim — session not completed</p>
+              <p className="text-ink-mut">Figures are live and may change.</p>
+            </>
+          )}
+        </div>
+      </header>
 
-      <PageHeader
-        overline={`Session Operations Summary · ${summary.session.id}`}
-        title={`Operational Summary: ${sessionTitle(state, summary.session.id)}`}
-        sub="Attendance totals, duration, match outcomes, revenue breakdown, staff attendance, equipment exceptions, and safety signals."
-      />
-
-      {/* Persistent global header */}
-      <MissionWorkspaceHeader />
-
-      {/* Progress navigation */}
-      <MissionStageNavigation />
-
-      {/* Mandatory Snapshot Banner */}
-      <div className="bg-purple-200 border border-purple-300 p-3 rounded text-[11px] text-purple-700 italic font-medium flex items-center justify-between">
-        <span>“Prototype completion snapshot — production reporting storage is not connected.”</span>
-        <span className="font-mono text-[10px] text-purple-600 border border-purple-200 px-2 py-0.5 rounded font-bold">
-          SNAPSHOT VERIFIED
-        </span>
+      <div className="grid grid-cols-2 gap-px bg-edge sm:grid-cols-4">
+        <Figure label="Present" value={`${attendance.checkedIn + attendance.late} / ${attendance.expected}`} detail={`${attendance.fillRate}% attendance`} />
+        <Figure label="Active time" value={formatDuration(duration)} detail={`${session.duration} min planned`} />
+        <Figure label="Results recorded" value={String(results.length)} detail={`${segments.length} planned steps`} />
+        <Figure label="Net collected" value={inr(money.netTake)} detail={`${inr(money.refundsTotal)} refunded`} />
       </div>
 
-      {/* Primary KPI Overview Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
-          <div className="text-[10px] text-slate-500 uppercase">Duration</div>
-          <div className="text-xl font-bold text-slate-800">{summary.formattedDuration}</div>
-        </div>
+      <div className="grid gap-x-8 gap-y-6 px-6 py-6 md:grid-cols-2">
+        <Section title="Attendance">
+          <Rows
+            rows={[
+              ["Expected", attendance.expected],
+              ["Checked in on time", attendance.checkedIn],
+              ["Arrived late", attendance.late],
+              ["No-show", attendance.noShow],
+              ["Denied entry", attendance.denied],
+              ["Not marked", attendance.missing],
+            ]}
+          />
+        </Section>
 
-        <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
-          <div className="text-[10px] text-slate-500 uppercase">Attendance Fill Rate</div>
-          <div className="text-xl font-bold text-emerald-600">
-            {summary.checkIn.expectedCount > 0
-              ? `${Math.round(((summary.checkIn.checkedInCount + summary.checkIn.lateCount) / summary.checkIn.expectedCount) * 100)}%`
-              : "0%"}
-          </div>
-          <div className="text-[10px] text-slate-500 font-mono mt-1">
-            {summary.checkIn.checkedInCount + summary.checkIn.lateCount} / {summary.checkIn.expectedCount} Present
-          </div>
-        </div>
+        <Section title="Money">
+          <Rows
+            rows={[
+              ["Gross collected", inr(money.grossRevenue)],
+              ["Refunded", inr(money.refundsTotal)],
+              ["Net collected", inr(money.netTake)],
+              ["Break-even target", inr(s.money.breakEvenRevenue)],
+            ]}
+          />
+        </Section>
 
-        <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
-          <div className="text-[10px] text-slate-500 uppercase">Gross Revenue</div>
-          <div className="text-xl font-bold text-amber-600">{formatCurrency(summary.money.grossCollected)}</div>
-          <div className="text-[10px] text-slate-500 font-mono mt-1">
-            Net: {formatCurrency(summary.money.netRevenue)}
-          </div>
-        </div>
+        <Section title="Results" className="md:col-span-2">
+          {results.length === 0 ? (
+            <p className="text-sm text-ink-mut">No results recorded.</p>
+          ) : (
+            <ul className="divide-y divide-edge text-sm">
+              {results.map((r) => {
+                const seg = segments.find((x) => x.id === r.segmentId);
+                return (
+                  <li key={r.id} className="flex flex-wrap justify-between gap-2 py-2">
+                    <span className="font-medium text-ink-lum">{seg ? `${seg.sequence}. ${seg.name}` : r.segmentId}</span>
+                    <span className="text-ink-sec">
+                      {describe(r)} <span className="text-xs text-ink-mut">({r.status.toLowerCase()}{r.correctionReason ? `: ${r.correctionReason}` : ""})</span>
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Section>
 
-        <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
-          <div className="text-[10px] text-slate-500 uppercase">Match Results</div>
-          <div className="text-xl font-bold text-purple-700">{summary.results.length} Recorded</div>
-        </div>
+        <Section title="Staff">
+          <Rows
+            rows={[
+              ["Lead coordinator", snap?.staffSummary.leadCoordinator ?? s.staff.leadCoordinator?.name ?? "Not assigned"],
+              ["Safety contact", snap?.staffSummary.safetyContact ?? s.staff.safetyContact?.name ?? "Not assigned"],
+              ["Checked in", `${snap?.staffSummary.staffCheckedIn ?? s.staff.presentCount} of 2`],
+            ]}
+          />
+        </Section>
+
+        <Section title="Equipment exceptions">
+          {exceptions.length === 0 ? (
+            <p className="text-sm text-ink-mut">All equipment returned.</p>
+          ) : (
+            <ul className="space-y-1 text-sm">
+              {exceptions.map((e) => (
+                <li key={e.id} className="text-ink-lum">
+                  {e.equipmentName}: {e.missingCount} missing, {e.damagedCount} damaged{e.note ? ` — ${e.note}` : ""}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Section>
+
+        <Section title="Safety" className="md:col-span-2">
+          {safety.length === 0 ? (
+            <p className="text-sm text-ink-mut">No safety events recorded.</p>
+          ) : (
+            <ul className="space-y-1 text-sm">
+              {safety.map((n) => (
+                <li key={n.id} className="text-ink-lum">
+                  <span className="text-ink-mut">{n.time}</span> — {n.note}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Section>
+
+        <Section title="Follow-ups">
+          {followUps.length === 0 ? (
+            <p className="text-sm text-ink-mut">None.</p>
+          ) : (
+            <ul className="list-disc space-y-1 pl-5 text-sm text-ink-lum">
+              {followUps.map((f, i) => (
+                <li key={i}>{f}</li>
+              ))}
+            </ul>
+          )}
+        </Section>
+
+        <Section title="Closing">
+          <p className="text-sm text-ink-lum">{snap?.closingNote ?? (snap ? "No closing note." : "Not completed yet.")}</p>
+          {snap?.overrideReason && <p className="mt-2 text-sm text-amber-800">Completed with override: {snap.overrideReason}</p>}
+        </Section>
       </div>
+    </article>
+  );
+}
 
-      {/* Detailed Breakdown Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Attendance Breakdown Card */}
-        <div className="bg-slate-50 border border-slate-200 rounded-lg p-5 space-y-3">
-          <h4 className="font-bold text-slate-800 uppercase tracking-wider text-xs border-b border-slate-200 pb-2">
-            Attendance & Door Roster
-          </h4>
-          <div className="space-y-1.5 text-slate-700">
-            <div className="flex justify-between"><span>Expected Roster:</span><strong className="text-slate-800">{summary.checkIn.expectedCount}</strong></div>
-            <div className="flex justify-between"><span>Checked In:</span><strong className="text-emerald-600">{summary.checkIn.checkedInCount}</strong></div>
-            <div className="flex justify-between"><span>Marked Late (Present):</span><strong className="text-amber-600">{summary.checkIn.lateCount}</strong></div>
-            <div className="flex justify-between"><span>Derived Missing:</span><strong className="text-purple-600">{summary.checkIn.missingCount}</strong></div>
-            <div className="flex justify-between"><span>No Show:</span><strong className="text-slate-500">{summary.checkIn.noShowCount}</strong></div>
-            <div className="flex justify-between"><span>Denied Entry:</span><strong className="text-red-600">{summary.checkIn.deniedCount}</strong></div>
-          </div>
-        </div>
-
-        {/* Operating Staff Card */}
-        <div className="bg-slate-50 border border-slate-200 rounded-lg p-5 space-y-3">
-          <h4 className="font-bold text-slate-800 uppercase tracking-wider text-xs border-b border-slate-200 pb-2">
-            Operating Crew & Staffing
-          </h4>
-          <div className="space-y-1.5 text-slate-700">
-            <div className="flex justify-between">
-              <span>Lead Coordinator:</span>
-              <strong className="text-slate-800">{summary.staff.leadCoordinator?.name || "Unassigned"} ({summary.staff.leadCoordinator?.status || "missing"})</strong>
-            </div>
-            <div className="flex justify-between">
-              <span>Safety Contact:</span>
-              <strong className="text-slate-800">{summary.staff.safetyContact?.name || "Unassigned"} ({summary.staff.safetyContact?.status || "missing"})</strong>
-            </div>
-            <div className="flex justify-between">
-              <span>Total Crew Present:</span>
-              <strong className="text-emerald-600">
-                {(summary.staff.leadCoordinator?.status === "checked-in" ? 1 : 0) + (summary.staff.safetyContact?.status === "checked-in" ? 1 : 0)} / 2
-              </strong>
-            </div>
-          </div>
-        </div>
-
-        {/* Financial Summary Card */}
-        <div className="bg-slate-50 border border-slate-200 rounded-lg p-5 space-y-3">
-          <h4 className="font-bold text-slate-800 uppercase tracking-wider text-xs border-b border-slate-200 pb-2">
-            Financial & Settlement Operations
-          </h4>
-          <div className="space-y-1.5 text-slate-700">
-            <div className="flex justify-between"><span>Gross Revenue:</span><strong className="text-emerald-600">{formatCurrency(summary.money.grossCollected)}</strong></div>
-            <div className="flex justify-between"><span>Total Refunded:</span><strong className="text-red-600">{formatCurrency(summary.money.totalRefunded)}</strong></div>
-            <div className="flex justify-between"><span>Net Revenue:</span><strong className="text-amber-600 font-bold text-sm">{formatCurrency(summary.money.netRevenue)}</strong></div>
-            <div className="flex justify-between"><span>Break-Even Target:</span><strong className="text-slate-500">{summary.money.ledger.breakEvenAttendance} Seats</strong></div>
-          </div>
-        </div>
-
-        {/* Equipment & Safety Signals Card */}
-        <div className="bg-slate-50 border border-slate-200 rounded-lg p-5 space-y-3">
-          <h4 className="font-bold text-slate-800 uppercase tracking-wider text-xs border-b border-slate-200 pb-2">
-            Equipment & Safety Status
-          </h4>
-          <div className="space-y-1.5 text-slate-700">
-            <div className="flex justify-between"><span>Equipment Return Status:</span><strong className={summary.eq.allReturnedOrResolved ? "text-emerald-600" : "text-amber-600"}>{summary.eq.allReturnedOrResolved ? "All Returned" : "Exceptions Recorded"}</strong></div>
-            <div className="flex justify-between"><span>Critical Missing:</span><strong className={summary.eq.criticalMissingCount === 0 ? "text-emerald-600" : "text-red-600"}>{summary.eq.criticalMissingCount}</strong></div>
-            <div className="flex justify-between"><span>Emergency Mode Triggered:</span><strong className={summary.lss.emergencyMode ? "text-red-600" : "text-slate-500"}>{summary.lss.emergencyMode ? "YES" : "No"}</strong></div>
-          </div>
-        </div>
-      </div>
+function Figure({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return (
+    <div className="bg-white px-6 py-4">
+      <p className="text-xs text-ink-mut">{label}</p>
+      <p className="mt-1 font-display text-xl font-bold tabular text-ink-lum">{value}</p>
+      <p className="text-xs text-ink-mut">{detail}</p>
     </div>
+  );
+}
+
+function Section({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) {
+  return (
+    <section className={className} style={{ breakInside: "avoid" }}>
+      <h3 className="mb-2 border-b border-edge pb-1.5 text-sm font-semibold text-ink-lum">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
+function Rows({ rows }: { rows: Array<[string, string | number]> }) {
+  return (
+    <dl className="divide-y divide-edge text-sm">
+      {rows.map(([k, v]) => (
+        <div key={k} className="flex justify-between gap-4 py-1.5">
+          <dt className="text-ink-sec">{k}</dt>
+          <dd className="font-medium tabular text-ink-lum">{v}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }

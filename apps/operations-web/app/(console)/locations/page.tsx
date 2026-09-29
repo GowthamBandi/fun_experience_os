@@ -1,87 +1,53 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
+import { ArrowRight, Building2, LayoutGrid, Plus, ShieldCheck, Wrench } from "lucide-react";
 import { useStore } from "@/lib/store";
+import { venueRows } from "@/lib/prototype/repositories";
+import { geoCan } from "@/lib/geo/access";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { SetupBackNavigation, SetupStatusBadge } from "@/components/setup/shared";
-import { selectSetupHealth } from "@/lib/prototype/selectors/setup";
-import { Building2, Layers, MapPin, ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/primitives";
+import { MetricTile, PermissionDenied } from "@/components/ui/panels";
+import { Crumbs, LinkButton, PageShell } from "@/components/setup/kit";
 
-export default function LocationsHubPage() {
-  const { state, territory } = useStore();
-
-  const venues = state.venues ?? [];
-  const playingAreas = state.playingAreas ?? [];
-  const cities = state.cities ?? [];
-  const health = selectSetupHealth(state);
-
+export default function LocationsPage() {
+  const { state, canAccess, role } = useStore();
+  const venues = useMemo(() => venueRows(state), [state]);
+  if (!canAccess("/locations")) return <PermissionDenied module="Locations" />;
+  const areas = state.playingAreas;
+  const cards = [
+    { href: "/locations/venues", title: "Venues", line: "Buildings and grounds: address, safe capacity, facilities, safety plan and verification.", count: venues.length, icon: Building2, add: geoCan(role.id, "create-venue") && state.cities.length ? "/locations/venues/new" : undefined },
+    { href: "/locations/playing-areas", title: "Playing areas", line: "Courts, pitches, tables and rooms inside venues. Sessions are booked onto these.", count: areas.length, icon: LayoutGrid, add: geoCan(role.id, "create-playing-area") && venues.length ? "/locations/playing-areas/new" : undefined },
+  ];
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6">
-      <SetupBackNavigation label="Back to Setup" href="/setup" />
-
-      <PageHeader
-        overline={`Locations · ${territory.name}`}
-        title="Locations Portal"
-        sub="Manage physical spaces, from broad city regions down to exact courts used for events."
-        right={<SetupStatusBadge status={health.status} />}
-      />
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="glass p-5 rounded-2xl border border-slate-200 space-y-1">
-          <p className="text-[10px] text-ink-mut uppercase font-semibold">Active Cities</p>
-          <p className="text-3xl font-bold text-ink-lum">{cities.length}</p>
-          <p className="text-xs text-ink-sec">Urban centers</p>
-        </div>
-        <div className="glass p-5 rounded-2xl border border-slate-200 space-y-1">
-          <p className="text-[10px] text-ink-mut uppercase font-semibold">Venues & Facilities</p>
-          <p className="text-3xl font-bold text-ink-lum">{venues.length}</p>
-          <p className="text-xs text-ink-sec">Physical locations</p>
-        </div>
-        <div className="glass p-5 rounded-2xl border border-slate-200 space-y-1">
-          <p className="text-[10px] text-ink-mut uppercase font-semibold">Playing Areas</p>
-          <p className="text-3xl font-bold text-ink-lum">{playingAreas.length}</p>
-          <p className="text-xs text-ink-sec">Courts, fields, or rooms</p>
-        </div>
+    <PageShell>
+      <Crumbs items={[{ label: "Setup", href: "/setup" }, { label: "Locations" }]} />
+      <PageHeader overline="Setup" title="Locations" sub="Where sessions physically happen." />
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricTile label="Venues" value={venues.length} detail={`${venues.filter((v) => v.status === "ready").length} open`} icon={<Building2 className="h-4 w-4" />} />
+        <MetricTile label="Verified" value={venues.filter((v) => v.verificationStatus === "verified").length} detail={`${venues.filter((v) => v.verificationStatus !== "verified").length} pending or failed`} icon={<ShieldCheck className="h-4 w-4" />} tone="emerald" />
+        <MetricTile label="Playing areas" value={areas.length} detail={`${areas.filter((a) => a.status === "active").length} active`} icon={<LayoutGrid className="h-4 w-4" />} tone="pink" />
+        <MetricTile label="Out of service" value={venues.filter((v) => v.status !== "ready").length + areas.filter((a) => a.status !== "active").length} detail="venues and areas in maintenance or closed" icon={<Wrench className="h-4 w-4" />} tone="amber" />
       </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Link href="/locations/venues" className="group block">
-          <div className="glass p-6 rounded-2xl border border-slate-200 hover:border-slate-200 transition-all h-full flex flex-col justify-between space-y-4">
-            <div className="space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-purple-200 border border-purple-300 flex items-center justify-center text-purple-600">
-                <Building2 className="w-5 h-5" />
+      <div className="grid gap-4 md:grid-cols-2">
+        {cards.map((c) => (
+          <div key={c.href} className="flex flex-col justify-between gap-5 rounded-panel border border-edge bg-white p-6 shadow-panel">
+            <div className="flex items-start gap-4">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-subtle text-brand"><c.icon className="h-5 w-5" /></span>
+              <div>
+                <h2 className="font-display text-lg font-bold text-ink-lum">{c.title} <span className="ml-1 text-ink-mut tabular">{c.count}</span></h2>
+                <p className="mt-1 text-sm leading-6 text-ink-mut">{c.line}</p>
               </div>
-              <h3 className="text-lg font-bold text-ink-lum group-hover:text-brand transition-colors">Venues</h3>
-              <p className="text-xs text-ink-sec leading-relaxed">
-                Manage physical facilities (arenas, clubs, turfs) where customers arrive for events.
-              </p>
             </div>
-            <div className="pt-3 border-t border-slate-200 flex items-center justify-between text-xs text-brand font-bold">
-              <span>View & Create Venues ({venues.length})</span>
-              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+            <div className="flex flex-wrap gap-2">
+              <Link href={c.href} className="inline-flex h-10 items-center gap-2 rounded-xl border border-edge-strong bg-white px-4 text-sm font-semibold text-ink-lum shadow-lift hover:bg-bg-sunken">
+                Open {c.title.toLowerCase()} <ArrowRight className="h-4 w-4" />
+              </Link>
+              {c.add && <LinkButton href={c.add}><Plus className="h-4 w-4" /> Add</LinkButton>}
             </div>
           </div>
-        </Link>
-
-        <Link href="/locations/playing-areas" className="group block">
-          <div className="glass p-6 rounded-2xl border border-slate-200 hover:border-slate-200 transition-all h-full flex flex-col justify-between space-y-4">
-            <div className="space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-200 border border-emerald-300 flex items-center justify-center text-emerald-600">
-                <Layers className="w-5 h-5" />
-              </div>
-              <h3 className="text-lg font-bold text-ink-lum group-hover:text-brand transition-colors">Playing Areas</h3>
-              <p className="text-xs text-ink-sec leading-relaxed">
-                Manage the exact courts, fields, rooms, halls, or pools used during sessions.
-              </p>
-            </div>
-            <div className="pt-3 border-t border-slate-200 flex items-center justify-between text-xs text-emerald-600 font-bold">
-              <span>View & Add Playing Areas ({playingAreas.length})</span>
-              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-            </div>
-          </div>
-        </Link>
+        ))}
       </div>
-    </div>
+    </PageShell>
   );
 }

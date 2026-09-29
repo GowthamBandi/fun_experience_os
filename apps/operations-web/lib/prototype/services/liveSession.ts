@@ -18,105 +18,107 @@ import {
   validateEmergencyRolePermission,
   validateSegmentActivation,
   validateResultEntry,
+  validateSessionOpenReadiness,
 } from "../validators/liveSessionValidation";
-import { selectLiveSessionState, selectElapsedActiveSeconds } from "../selectors/liveSession";
+import { selectLiveSessionState, selectEquipmentReadiness } from "../selectors/liveSession";
 import { selectCompletionChecklist, selectSessionSummary } from "../selectors/completion";
-import { selectCheckInSummary, selectStaffReadiness } from "../selectors/checkIn";
 import { pushAudit, pushSignal } from "./helpers";
 
-/** Correction 1: Live Clock Calculation & Transition Engine */
+const MIN_REASON = 5;
+const locked = (state: PrototypeState, sessionId: string) => {
+  const lss = selectLiveSessionState(state, sessionId);
+  const session = state.sessions.find((s) => s.id === sessionId);
+  return lss.status === "Completed" || session?.status === "completed" || session?.status === "cancelled";
+};
+const saveLss = (state: PrototypeState, lss: LiveSessionState): PrototypeState["liveSessionStates"] => [
+  ...(state.liveSessionStates ?? []).filter((l) => l.sessionId !== lss.sessionId),
+  lss,
+];
+
+/**
+ * Hand the session over to live operations (Ready → Opening).
+ * The handover checks must pass, or an audited override reason is given.
+ * Cancelled/completed sessions and missing critical equipment cannot be overridden.
+ */
 export function openSession(
   state: PrototypeState,
   sessionId: string,
-  operatorId: string = "op-master"
+  overrideReason?: string,
+  operatorId: string = "system"
 ): { state: PrototypeState; error?: string } {
+  if (!state.sessions.some((s) => s.id === sessionId)) return { state, error: "Session not found." };
   const lss = selectLiveSessionState(state, sessionId);
   const check = validateStateTransition(lss.status, "Opening");
   if (!check.isValid) return { state, error: check.error };
 
+  const readiness = validateSessionOpenReadiness(state, sessionId);
+  const override = overrideReason?.trim() ?? "";
+  if (!readiness.isValid) {
+    if (readiness.hardBlock) return { state, error: readiness.error };
+    if (!override) return { state, error: `${readiness.error} Give an override reason to open anyway.` };
+    if (override.length < MIN_REASON) return { state, error: `The override reason must be at least ${MIN_REASON} characters.` };
+  }
+
   const now = new Date().toISOString();
-  const updatedLss: LiveSessionState = {
-    ...lss,
-    status: "Opening",
-    updatedAt: now,
-  };
-
-  const updatedSessions = state.sessions.map((s) =>
-    s.id === sessionId ? { ...s, status: "live" as const } : s
-  );
-
   let next: PrototypeState = {
     ...state,
-    sessions: updatedSessions,
-    liveSessionStates: [
-      ...(state.liveSessionStates ?? []).filter((l) => l.sessionId !== sessionId),
-      updatedLss,
-    ],
+    sessions: state.sessions.map((s) => (s.id === sessionId ? { ...s, status: "live" as const } : s)),
+    liveSessionStates: saveLss(state, { ...lss, status: "Opening", currentStage: "Opening", updatedAt: now }),
   };
 
   next = pushAudit(next, {
     sessionId,
     action: "open-session",
     operatorId,
-    description: `Opened live session workspace for session ${sessionId}`,
+    description: readiness.isValid
+      ? `Opened session ${sessionId} for live operations.`
+      : `Opened session ${sessionId} with override (${readiness.error}). Reason: ${override}`,
   });
 
   return { state: next };
 }
 
+/** Start the session clock (Opening → Live). From Ready, the session is opened first. */
 export function startLiveSession(
   state: PrototypeState,
   sessionId: string,
-  operatorId: string = "op-master"
+  overrideReason?: string,
+  operatorId: string = "system"
 ): { state: PrototypeState; error?: string } {
-  const lss = selectLiveSessionState(state, sessionId);
-  const targetStatus = lss.status === "Ready" ? "Opening" : lss.status;
-
-  if (targetStatus === "Opening") {
-    const openRes = openSession(state, sessionId, operatorId);
-    if (openRes.error) return openRes;
-    state = openRes.state;
+  if (locked(state, sessionId)) return { state, error: "This session is closed." };
+  let working = state;
+  if (selectLiveSessionState(working, sessionId).status === "Ready") {
+    const opened = openSession(working, sessionId, overrideReason, operatorId);
+    if (opened.error) return { state, error: opened.error };
+    working = opened.state;
   }
 
-  const currentLss = selectLiveSessionState(state, sessionId);
+  const lss = selectLiveSessionState(working, sessionId);
+  const check = validateStateTransition(lss.status, "Live");
+  if (!check.isValid || lss.status !== "Opening") {
+    return { state, error: lss.status === "Paused" ? "The session is paused. Use Resume to continue the clock." : check.error ?? `The clock cannot start from '${lss.status}'.` };
+  }
+  if (!selectEquipmentReadiness(working, sessionId).isReady) {
+    return { state, error: "Critical equipment is missing. Update the equipment list before starting." };
+  }
+
   const now = new Date().toISOString();
-
-  const updatedLss: LiveSessionState = {
-    ...currentLss,
-    status: "Live",
-    activeStartedAt: now,
-    pausedAt: undefined,
-    resumedAt: now,
-    updatedAt: now,
-  };
-
-  const updatedSessions = state.sessions.map((s) =>
-    s.id === sessionId ? { ...s, status: "live" as const } : s
-  );
-
   let next: PrototypeState = {
-    ...state,
-    sessions: updatedSessions,
-    liveSessionStates: [
-      ...(state.liveSessionStates ?? []).filter((l) => l.sessionId !== sessionId),
-      updatedLss,
-    ],
+    ...working,
+    sessions: working.sessions.map((s) => (s.id === sessionId ? { ...s, status: "live" as const } : s)),
+    liveSessionStates: saveLss(working, {
+      ...lss,
+      status: "Live",
+      currentStage: "Live",
+      activeStartedAt: now,
+      pausedAt: undefined,
+      resumedAt: now,
+      updatedAt: now,
+    }),
   };
 
-  next = pushAudit(next, {
-    sessionId,
-    action: "start-live-session",
-    operatorId,
-    description: `Started live session clock for session ${sessionId}`,
-  });
-
-  next = pushSignal(next, {
-    kind: "system",
-    sessionId,
-    message: `Live session ${sessionId} clock started`,
-    at: "Just now",
-  });
-
+  next = pushAudit(next, { sessionId, action: "start-live-session", operatorId, description: `Started the clock for session ${sessionId}.` });
+  next = pushSignal(next, { kind: "system", sessionId, message: `Session ${sessionId} is live` });
   return { state: next };
 }
 
@@ -125,10 +127,10 @@ export function pauseLiveSession(
   state: PrototypeState,
   sessionId: string,
   reason: string,
-  operatorId: string = "op-master"
+  operatorId: string = "system"
 ): { state: PrototypeState; error?: string } {
   if (!reason || !reason.trim()) {
-    return { state, error: "Mandatory operational pause reason is required." };
+    return { state, error: "Give a reason for pausing." };
   }
 
   const lss = selectLiveSessionState(state, sessionId);
@@ -186,7 +188,7 @@ export function pauseLiveSession(
 export function resumeLiveSession(
   state: PrototypeState,
   sessionId: string,
-  operatorId: string = "op-master"
+  operatorId: string = "system"
 ): { state: PrototypeState; error?: string } {
   const lss = selectLiveSessionState(state, sessionId);
   const check = validateStateTransition(lss.status, "Live");
@@ -247,9 +249,8 @@ export function enterEmergencyMode(
   const roleCheck = validateEmergencyRolePermission(state, sessionId, operatorId, operatorRole);
   if (!roleCheck.isValid) return { state, error: roleCheck.error };
 
-  if (!reason || !reason.trim() || !immediateAction || !immediateAction.trim()) {
-    return { state, error: "Mandatory emergency reason and immediate action are required." };
-  }
+  if (!reason || reason.trim().length < MIN_REASON) return { state, error: "Describe what happened (at least 5 characters)." };
+  if (!immediateAction || immediateAction.trim().length < 3) return { state, error: "Record the immediate action taken." };
 
   const lss = selectLiveSessionState(state, sessionId);
   const check = validateStateTransition(lss.status, "Emergency");
@@ -287,6 +288,20 @@ export function enterEmergencyMode(
       : s
   );
 
+  // The emergency is also written to the session's notes so it survives exit and appears in the summary.
+  const emergencyNote: LiveOperationalNote = {
+    id: `note-${sessionId}-${now.getTime().toString(36)}`,
+    sessionId,
+    type: "safety",
+    severity: "critical",
+    time: now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
+    operatorId,
+    note: `Emergency: ${reason.trim()} — action: ${immediateAction.trim()}${safetyContactConfirmed ? " (safety contact informed)" : ""}`,
+    resolutionState: "open",
+    followUpRequired: true,
+    createdAt: nowStr,
+  };
+
   let next: PrototypeState = {
     ...state,
     liveSessionStates: [
@@ -294,21 +309,17 @@ export function enterEmergencyMode(
       updatedLss,
     ],
     activitySegments: updatedSegments,
+    liveOperationalNotes: [...(state.liveOperationalNotes ?? []), emergencyNote],
   };
 
   next = pushAudit(next, {
     sessionId,
     action: "enter-emergency-mode",
     operatorId,
-    description: `EMERGENCY MODE ACTIVATED: ${reason}. Action: ${immediateAction}`,
+    description: `Emergency declared: ${reason.trim()}. Immediate action: ${immediateAction.trim()}`,
   });
 
-  next = pushSignal(next, {
-    kind: "alert",
-    sessionId,
-    message: `SAFETY EMERGENCY SIGNAL: ${reason}`,
-    at: "Just now",
-  });
+  next = pushSignal(next, { kind: "alert", sessionId, message: `Emergency on session ${sessionId}: ${reason.trim()}` });
 
   return { state: next };
 }
@@ -328,8 +339,8 @@ export function exitEmergencyMode(
   const roleCheck = validateEmergencyRolePermission(state, sessionId, operatorId, operatorRole);
   if (!roleCheck.isValid) return { state, error: roleCheck.error };
 
-  if (!exitReason || !exitReason.trim()) {
-    return { state, error: "Mandatory emergency exit justification is required." };
+  if (!exitReason || exitReason.trim().length < MIN_REASON) {
+    return { state, error: "Explain why it is safe to continue (at least 5 characters)." };
   }
 
   const lss = selectLiveSessionState(state, sessionId);
@@ -344,7 +355,7 @@ export function exitEmergencyMode(
     emergencyMode: false,
     emergencyReason: undefined,
     emergencyAction: undefined,
-    pauseReason: `Post-Emergency Hold: ${exitReason.trim()}`,
+    pauseReason: `After emergency: ${exitReason.trim()}`,
     updatedAt: nowStr,
   };
 
@@ -360,65 +371,63 @@ export function exitEmergencyMode(
     sessionId,
     action: "exit-emergency-mode",
     operatorId,
-    description: `Exited emergency mode to Paused state: ${exitReason}`,
+    description: `Emergency closed; session paused. Reason: ${exitReason.trim()}`,
   });
 
   return { state: next };
 }
 
-/** Correction 12: End Session Workflow */
+/**
+ * End the session: Live/Paused → Ending → Ended. Both transitions are validated;
+ * the clock is banked and any open step is closed.
+ */
 export function endLiveSession(
   state: PrototypeState,
   sessionId: string,
-  operatorId: string = "op-master"
+  operatorId: string = "system"
 ): { state: PrototypeState; error?: string } {
   const lss = selectLiveSessionState(state, sessionId);
-  const check = validateStateTransition(lss.status, "Ending");
-  if (!check.isValid) return { state, error: check.error };
+  if (lss.status === "Emergency") return { state, error: "Close the emergency before ending the session." };
+  const toEnding = validateStateTransition(lss.status, "Ending");
+  if (!toEnding.isValid) return { state, error: toEnding.error };
+  const toEnded = validateStateTransition("Ending", "Ended");
+  if (!toEnded.isValid) return { state, error: toEnded.error };
 
   const now = new Date();
   const nowStr = now.toISOString();
-
   let activeDelta = 0;
   if (lss.activeStartedAt) {
     const startMs = new Date(lss.activeStartedAt).getTime();
-    if (!isNaN(startMs) && now.getTime() >= startMs) {
-      activeDelta = Math.floor((now.getTime() - startMs) / 1000);
-    }
+    if (!isNaN(startMs) && now.getTime() >= startMs) activeDelta = Math.floor((now.getTime() - startMs) / 1000);
   }
 
-  const updatedLss: LiveSessionState = {
+  const ended: LiveSessionState = {
     ...lss,
     status: "Ended",
+    currentStage: "Ended",
     accumulatedActiveSeconds: (lss.accumulatedActiveSeconds ?? 0) + activeDelta,
     activeStartedAt: undefined,
+    pausedAt: undefined,
     endedAt: nowStr,
     updatedAt: nowStr,
   };
 
-  // Close active or paused segments
-  const updatedSegments = (state.activitySegments ?? []).map((s) =>
-    s.sessionId === sessionId && (s.status === "Active" || s.status === "Paused")
-      ? { ...s, status: "Completed" as const, actualEnd: nowStr, updatedAt: nowStr }
-      : s
-  );
-
   let next: PrototypeState = {
     ...state,
-    liveSessionStates: [
-      ...(state.liveSessionStates ?? []).filter((l) => l.sessionId !== sessionId),
-      updatedLss,
-    ],
-    activitySegments: updatedSegments,
+    liveSessionStates: saveLss(state, ended),
+    activitySegments: (state.activitySegments ?? []).map((s) =>
+      s.sessionId === sessionId && (s.status === "Active" || s.status === "Paused")
+        ? { ...s, status: "Completed" as const, actualEnd: nowStr, updatedAt: nowStr }
+        : s
+    ),
   };
 
   next = pushAudit(next, {
     sessionId,
     action: "end-live-session",
     operatorId,
-    description: `Ended live session operations for session ${sessionId}. Total duration: ${updatedLss.accumulatedActiveSeconds}s`,
+    description: `Ended session ${sessionId} (Live → Ending → Ended). Active time ${ended.accumulatedActiveSeconds}s.`,
   });
-
   return { state: next };
 }
 
@@ -429,40 +438,37 @@ export function createActivitySegment(
   input: {
     sessionId: string;
     name: string;
-    type: any;
+    type: ActivitySegment["type"];
     teamIds?: string[];
     notes?: string;
   },
-  operatorId: string = "op-master"
+  operatorId: string = "system"
 ): { state: PrototypeState; segment?: ActivitySegment; error?: string } {
-  const existing = (state.activitySegments ?? []).filter((s) => s.sessionId === input.sessionId);
-  const seq = existing.length + 1;
+  if (!state.sessions.some((s) => s.id === input.sessionId)) return { state, error: "Session not found." };
+  if (locked(state, input.sessionId)) return { state, error: "This session is closed." };
+  const lss = selectLiveSessionState(state, input.sessionId);
+  if (lss.status === "Ended") return { state, error: "The session has ended; steps can no longer be added." };
+  const name = input.name?.trim() ?? "";
+  if (name.length < 2) return { state, error: "Give the step a name." };
 
+  const existing = (state.activitySegments ?? []).filter((s) => s.sessionId === input.sessionId);
+  const seq = existing.reduce((m, s) => Math.max(m, s.sequence), 0) + 1;
+  const now = new Date().toISOString();
   const newSeg: ActivitySegment = {
-    id: `seg-${input.sessionId}-${seq}-${Date.now()}`,
+    id: `seg-${input.sessionId}-${seq}-${Date.now().toString(36)}`,
     sessionId: input.sessionId,
-    name: input.name,
+    name,
     type: input.type,
     sequence: seq,
     status: "Planned",
     teamIds: input.teamIds,
     notes: input.notes,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    createdAt: now,
+    updatedAt: now,
   };
 
-  let next = {
-    ...state,
-    activitySegments: [...(state.activitySegments ?? []), newSeg],
-  };
-
-  next = pushAudit(next, {
-    sessionId: input.sessionId,
-    action: "create-activity-segment",
-    operatorId,
-    description: `Created run-of-show segment '${newSeg.name}' (#${seq})`,
-  });
-
+  let next = { ...state, activitySegments: [...(state.activitySegments ?? []), newSeg] };
+  next = pushAudit(next, { sessionId: input.sessionId, action: "create-activity-segment", operatorId, description: `Added step '${name}' (#${seq}).` });
   return { state: next, segment: newSeg };
 }
 
@@ -470,27 +476,24 @@ export function startActivitySegment(
   state: PrototypeState,
   sessionId: string,
   segmentId: string,
-  operatorId: string = "op-master"
+  operatorId: string = "system"
 ): { state: PrototypeState; error?: string } {
+  const lss = selectLiveSessionState(state, sessionId);
+  if (lss.status !== "Live") {
+    return { state, error: lss.status === "Paused" || lss.status === "Emergency" ? "Resume the session before starting a step." : "Start the session clock before starting a step." };
+  }
   const check = validateSegmentActivation(state, sessionId, segmentId);
   if (!check.isValid) return { state, error: check.error };
 
   const nowStr = new Date().toISOString();
-  const updatedSegments = (state.activitySegments ?? []).map((s) =>
-    s.id === segmentId && s.sessionId === sessionId
-      ? { ...s, status: "Active" as const, actualStart: s.actualStart || nowStr, updatedAt: nowStr }
-      : s
-  );
-
-  let next = { ...state, activitySegments: updatedSegments };
-
-  next = pushAudit(next, {
-    sessionId,
-    action: "start-activity-segment",
-    operatorId,
-    description: `Started activity segment ${segmentId}`,
-  });
-
+  let next = {
+    ...state,
+    activitySegments: (state.activitySegments ?? []).map((s) =>
+      s.id === segmentId && s.sessionId === sessionId ? { ...s, status: "Active" as const, actualStart: s.actualStart || nowStr, updatedAt: nowStr } : s
+    ),
+  };
+  const seg = (state.activitySegments ?? []).find((s) => s.id === segmentId);
+  next = pushAudit(next, { sessionId, action: "start-activity-segment", operatorId, description: `Started step '${seg?.name ?? segmentId}'.` });
   return { state: next };
 }
 
@@ -498,24 +501,20 @@ export function completeActivitySegment(
   state: PrototypeState,
   sessionId: string,
   segmentId: string,
-  operatorId: string = "op-master"
+  operatorId: string = "system"
 ): { state: PrototypeState; error?: string } {
+  const seg = (state.activitySegments ?? []).find((s) => s.id === segmentId && s.sessionId === sessionId);
+  if (!seg) return { state, error: "Step not found." };
+  if (seg.status !== "Active" && seg.status !== "Paused") return { state, error: `'${seg.name}' is not running.` };
+
   const nowStr = new Date().toISOString();
-  const updatedSegments = (state.activitySegments ?? []).map((s) =>
-    s.id === segmentId && s.sessionId === sessionId
-      ? { ...s, status: "Completed" as const, actualEnd: nowStr, updatedAt: nowStr }
-      : s
-  );
-
-  let next = { ...state, activitySegments: updatedSegments };
-
-  next = pushAudit(next, {
-    sessionId,
-    action: "complete-activity-segment",
-    operatorId,
-    description: `Completed activity segment ${segmentId}`,
-  });
-
+  let next = {
+    ...state,
+    activitySegments: (state.activitySegments ?? []).map((s) =>
+      s.id === segmentId ? { ...s, status: "Completed" as const, actualEnd: nowStr, updatedAt: nowStr } : s
+    ),
+  };
+  next = pushAudit(next, { sessionId, action: "complete-activity-segment", operatorId, description: `Finished step '${seg.name}'.` });
   return { state: next };
 }
 
@@ -524,28 +523,23 @@ export function skipActivitySegment(
   sessionId: string,
   segmentId: string,
   reason: string,
-  operatorId: string = "op-master"
+  operatorId: string = "system"
 ): { state: PrototypeState; error?: string } {
-  if (!reason || !reason.trim()) {
-    return { state, error: "Mandatory skip reason is required." };
-  }
+  if (!reason || reason.trim().length < MIN_REASON) return { state, error: `Give a reason (at least ${MIN_REASON} characters) for skipping the step.` };
+  const seg = (state.activitySegments ?? []).find((s) => s.id === segmentId && s.sessionId === sessionId);
+  if (!seg) return { state, error: "Step not found." };
+  if (seg.status === "Completed" || seg.status === "Skipped" || seg.status === "Cancelled") return { state, error: `'${seg.name}' is already ${seg.status.toLowerCase()}.` };
+  if (seg.status === "Active" || seg.status === "Paused") return { state, error: `'${seg.name}' is running. Finish it instead of skipping.` };
+  if (locked(state, sessionId)) return { state, error: "This session is closed." };
 
   const nowStr = new Date().toISOString();
-  const updatedSegments = (state.activitySegments ?? []).map((s) =>
-    s.id === segmentId && s.sessionId === sessionId
-      ? { ...s, status: "Skipped" as const, skipReason: reason.trim(), updatedAt: nowStr }
-      : s
-  );
-
-  let next = { ...state, activitySegments: updatedSegments };
-
-  next = pushAudit(next, {
-    sessionId,
-    action: "skip-activity-segment",
-    operatorId,
-    description: `Skipped activity segment ${segmentId}: ${reason}`,
-  });
-
+  let next = {
+    ...state,
+    activitySegments: (state.activitySegments ?? []).map((s) =>
+      s.id === segmentId ? { ...s, status: "Skipped" as const, skipReason: reason.trim(), updatedAt: nowStr } : s
+    ),
+  };
+  next = pushAudit(next, { sessionId, action: "skip-activity-segment", operatorId, description: `Skipped step '${seg.name}'. Reason: ${reason.trim()}` });
   return { state: next };
 }
 
@@ -563,9 +557,10 @@ export function createDraftResult(
     operatorId?: string;
   }
 ): { state: PrototypeState; error?: string } {
-  const { sessionId, segmentId, resultType, teamScores, winnerTeamId, outcome, operatorId = "op-master" } = params;
+  const { sessionId, segmentId, resultType, teamScores, winnerTeamId, outcome, operatorId = "system" } = params;
 
-  const val = validateResultEntry(state, { sessionId, segmentId, resultType, teamScores, winnerTeamId });
+  if (locked(state, sessionId)) return { state, error: "This session is closed; results are read-only." };
+  const val = validateResultEntry(state, { sessionId, segmentId, resultType, teamScores, winnerTeamId, outcome });
   if (!val.isValid) return { state, error: val.error };
 
   const nowStr = new Date().toISOString();
@@ -582,7 +577,7 @@ export function createDraftResult(
 
   const existing = (state.segmentResults ?? []).find((r) => r.segmentId === segmentId);
   if (existing && existing.status === "Confirmed") {
-    return { state, error: "Confirmed result cannot be silently overwritten. Use Correct Result workflow." };
+    return { state, error: "This result is confirmed. Use Correct result and give a reason." };
   }
 
   const newResult: SegmentResult = {
@@ -622,10 +617,12 @@ export function confirmResult(
   state: PrototypeState,
   sessionId: string,
   segmentId: string,
-  operatorId: string = "op-master"
+  operatorId: string = "system"
 ): { state: PrototypeState; error?: string } {
+  if (locked(state, sessionId)) return { state, error: "This session is closed; results are read-only." };
   const existing = (state.segmentResults ?? []).find((r) => r.segmentId === segmentId && r.sessionId === sessionId);
-  if (!existing) return { state, error: "No draft result found to confirm." };
+  if (!existing) return { state, error: "Save a draft result before confirming it." };
+  if (existing.status !== "Draft") return { state, error: "This result is already confirmed." };
 
   const nowStr = new Date().toISOString();
   const updatedResult: SegmentResult = {
@@ -664,22 +661,24 @@ export function correctResult(
     operatorId?: string;
   }
 ): { state: PrototypeState; error?: string } {
-  const { sessionId, segmentId, resultType, teamScores, winnerTeamId, outcome, reason, operatorId = "op-master" } = params;
+  const { sessionId, segmentId, resultType, teamScores, winnerTeamId, outcome, reason, operatorId = "system" } = params;
 
+  if (locked(state, sessionId)) return { state, error: "This session is closed; results are read-only." };
   const val = validateResultEntry(state, {
     sessionId,
     segmentId,
     resultType,
     teamScores,
     winnerTeamId,
+    outcome,
     isCorrection: true,
     correctionReason: reason,
   });
-
   if (!val.isValid) return { state, error: val.error };
 
   const existing = (state.segmentResults ?? []).find((r) => r.segmentId === segmentId && r.sessionId === sessionId);
-  if (!existing) return { state, error: "No existing result record found to correct." };
+  if (!existing) return { state, error: "No result to correct." };
+  if (existing.status === "Draft") return { state, error: "Draft results can be edited directly; corrections are for confirmed results." };
 
   const nowStr = new Date().toISOString();
   const nextRevNumber = existing.revisions.length + 1;
@@ -737,11 +736,11 @@ export function addLiveOperationalNote(
     relatedSegmentId?: string;
     followUpRequired?: boolean;
   },
-  operatorId: string = "op-master"
+  operatorId: string = "system"
 ): { state: PrototypeState; note?: LiveOperationalNote; error?: string } {
-  if (!input.note || !input.note.trim()) {
-    return { state, error: "Operational note content is required." };
-  }
+  if (!input.note || input.note.trim().length < 3) return { state, error: "Write the note before saving it." };
+  if (!state.sessions.some((s) => s.id === input.sessionId)) return { state, error: "Session not found." };
+  if (locked(state, input.sessionId)) return { state, error: "This session is closed; notes are read-only." };
 
   const newNote: LiveOperationalNote = {
     id: `note-${input.sessionId}-${Date.now()}`,
@@ -787,10 +786,14 @@ export function updateEquipmentStatus(
     operatorId?: string;
   }
 ): { state: PrototypeState; error?: string } {
-  const { sessionId, equipmentId, status, issuedCount, missingCount, damagedCount, returnedCount, note, operatorId = "op-master" } = params;
+  const { sessionId, equipmentId, status, issuedCount, missingCount, damagedCount, returnedCount, note, operatorId = "system" } = params;
 
   const existing = (state.equipmentCheckItems ?? []).find((e) => e.id === equipmentId && e.sessionId === sessionId);
   if (!existing) return { state, error: "Equipment item not found." };
+  if (locked(state, sessionId)) return { state, error: "This session is closed; equipment records are read-only." };
+  for (const [label, v] of [["Issued", issuedCount], ["Missing", missingCount], ["Damaged", damagedCount], ["Returned", returnedCount]] as const) {
+    if (v !== undefined && (!Number.isInteger(v) || v < 0)) return { state, error: `${label} count must be a whole number of zero or more.` };
+  }
 
   const newIssued = issuedCount ?? existing.issuedCount;
   const newMissing = missingCount ?? existing.missingCount;
@@ -804,8 +807,8 @@ export function updateEquipmentStatus(
   if (newReturned > newIssued) {
     return { state, error: `Returned count (${newReturned}) cannot exceed issued count (${newIssued}).` };
   }
-  if (newMissing < 0 || newDamaged < 0) {
-    return { state, error: "Missing and damaged counts cannot be negative." };
+  if (newReturned + newMissing + newDamaged > newIssued) {
+    return { state, error: `Returned, missing and damaged (${newReturned + newMissing + newDamaged}) cannot exceed issued (${newIssued}).` };
   }
 
   const nowStr = new Date().toISOString();
@@ -838,27 +841,35 @@ export function updateEquipmentStatus(
 
 /* ------------------- Session Completion & Snapshot ------------------- */
 
-/** Correction 14 & 15: Session Completion & Snapshot Creation */
+/**
+ * Close the session and write its completion snapshot. The session must have
+ * ended (Ended → Completed); unresolved checklist items need an audited reason.
+ */
 export function completeLiveSession(
   state: PrototypeState,
   sessionId: string,
   overrideReason?: string,
-  operatorId: string = "op-master"
+  operatorId: string = "system",
+  closingNote?: string
 ): { state: PrototypeState; error?: string } {
+  if (!state.sessions.some((s) => s.id === sessionId)) return { state, error: "Session not found." };
   const lss = selectLiveSessionState(state, sessionId);
+  if (lss.status !== "Ended") {
+    const t = validateStateTransition(lss.status, "Completed");
+    return { state, error: lss.status === "Completed" ? "This session is already completed." : `End the session before completing it. ${t.error ?? ""}`.trim() };
+  }
   const checklist = selectCompletionChecklist(state, sessionId);
-
-  if (!checklist.isReadyToComplete && (!overrideReason || !overrideReason.trim())) {
-    return {
-      state,
-      error: `Completion blocked by checklist items: ${checklist.criticalBlockers.join("; ")}. Provide an audited override reason to proceed.`,
-    };
+  const override = overrideReason?.trim() ?? "";
+  if (!checklist.isReadyToComplete) {
+    if (!override) {
+      return { state, error: `Completion blocked by checklist items: ${checklist.criticalBlockers.join("; ")}. Give an override reason to complete anyway.` };
+    }
+    if (override.length < MIN_REASON) return { state, error: `The override reason must be at least ${MIN_REASON} characters.` };
   }
 
   const summary = selectSessionSummary(state, sessionId);
   const nowStr = new Date().toISOString();
 
-  // Create Prototype Completion Snapshot per Correction 15
   const snapshot: SessionCompletionSnapshot = {
     sessionId,
     completedAt: nowStr,
@@ -882,12 +893,16 @@ export function completeLiveSession(
     staffSummary: {
       leadCoordinator: summary.staff.leadCoordinator?.name || "Unassigned",
       safetyContact: summary.staff.safetyContact?.name || "Unassigned",
-      staffCheckedIn: (summary.staff.leadCoordinator?.status === "checked-in" ? 1 : 0) + (summary.staff.safetyContact?.status === "checked-in" ? 1 : 0),
+      staffCheckedIn: summary.staff.presentCount,
     },
     equipmentExceptions: summary.eq.items.filter((e) => e.missingCount > 0 || e.damagedCount > 0),
-    safetySignals: lss.emergencyReason ? [lss.emergencyReason] : [],
+    safetySignals: (state.liveOperationalNotes ?? [])
+      .filter((n) => n.sessionId === sessionId && (n.type === "safety" || n.severity === "critical"))
+      .map((n) => `${n.time} — ${n.note}`),
     followUpItems: (state.liveOperationalNotes ?? []).filter((n) => n.sessionId === sessionId && n.followUpRequired).map((n) => n.note),
-    label: "Prototype completion snapshot — production reporting storage is not connected.",
+    label: "Completion snapshot recorded in this workspace",
+    closingNote: closingNote?.trim() || undefined,
+    overrideReason: !checklist.isReadyToComplete ? override : undefined,
   };
 
   const updatedLss: LiveSessionState = {
@@ -918,9 +933,9 @@ export function completeLiveSession(
     sessionId,
     action: "complete-session",
     operatorId,
-    description: overrideReason
-      ? `Completed session ${sessionId} with audited override: ${overrideReason}`
-      : `Completed session ${sessionId} and generated immutable completion snapshot`,
+    description: !checklist.isReadyToComplete
+      ? `Completed session ${sessionId} with override (${checklist.criticalBlockers.join("; ")}). Reason: ${override}`
+      : `Completed session ${sessionId} and saved its completion snapshot.`,
   });
 
   return { state: next };

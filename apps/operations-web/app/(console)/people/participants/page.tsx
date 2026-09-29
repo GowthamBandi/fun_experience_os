@@ -2,137 +2,100 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Lock, UserCheck, Users } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { selectParticipantDirectory } from "@/lib/prototype/selectors/staff";
+import { selectParticipantRows } from "@/lib/prototype/selectors/identity";
+import { sessionTitle } from "@/lib/prototype/selectors/lookups";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { PermissionDenied } from "@/components/ui/panels";
-import { Button, StatusChip } from "@/components/ui/primitives";
-import { SearchInput, FilterRail } from "@/components/ui/fields";
-import { Stagger, Item } from "@/components/motion/Motion";
-import { StaffBackNavigation, StaffHelpPanel } from "@/components/staff";
-import { Ticket, Lock, ArrowRight, CheckCircle2, ShieldAlert } from "lucide-react";
+import { StatusChip } from "@/components/ui/primitives";
+import { MetricTile, PermissionDenied } from "@/components/ui/panels";
+import { FilterRail, SearchInput } from "@/components/ui/fields";
+import { DataTable, type Column } from "@/components/ui/table";
+
+type Row = ReturnType<typeof selectParticipantRows>[number];
+const FILTERS = ["confirmed", "arrived", "not-confirmed"] as const;
 
 export default function ParticipantsDirectoryPage() {
   const { state, territory, canAccess } = useStore();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const router = useRouter();
+  const [q, setQ] = useState("");
+  const [filter, setFilter] = useState<(typeof FILTERS)[number] | "all">("all");
 
-  const participants = selectParticipantDirectory(state);
+  const all = useMemo(() => selectParticipantRows(state).filter((r) => r.session?.territoryId === territory.id), [state, territory.id]);
+  const rows = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return all.filter((r) => {
+      if (filter === "confirmed" && !r.isEligible) return false;
+      if (filter === "not-confirmed" && r.isEligible) return false;
+      if (filter === "arrived" && r.checkInStatus !== "checked-in" && r.checkInStatus !== "late") return false;
+      if (!needle) return true;
+      return `${r.booking.alias} ${r.temporaryCode} ${r.teamName ?? ""} ${r.session ? sessionTitle(state, r.session.id) : ""}`.toLowerCase().includes(needle);
+    });
+  }, [all, q, filter, state]);
 
-  const filtered = useMemo(() => {
-    let list = participants;
+  if (!canAccess("/people/participants")) return <PermissionDenied module="Participants" />;
 
-    if (statusFilter !== "all") {
-      if (statusFilter === "checked-in") {
-        list = list.filter((p) => p.isCheckedIn);
-      } else if (statusFilter === "revealed") {
-        list = list.filter((p) => p.isRevealed);
-      }
-    }
+  const columns: Column<Row>[] = [
+    { key: "code", header: "Code", render: (r) => (r.temporaryCode ? <span className="whitespace-nowrap font-mono text-sm font-semibold text-ink-lum">{r.temporaryCode}</span> : <span className="text-ink-mut">—</span>) },
+    {
+      key: "alias",
+      header: "Participant",
+      render: (r) => (
+        <Link href={`/people/participants/${r.booking.id}`} className="font-medium text-ink-lum hover:text-brand" onClick={(e) => e.stopPropagation()}>
+          {r.booking.alias}
+        </Link>
+      ),
+    },
+    {
+      key: "session",
+      header: "Session",
+      render: (r) => (
+        <div className="min-w-0">
+          <p className="truncate text-ink-sec">{r.session ? sessionTitle(state, r.session.id) : r.booking.sessionId}</p>
+          <p className="text-xs text-ink-mut">{r.session ? `${r.session.date} · ${r.session.startTime}` : ""}</p>
+        </div>
+      ),
+    },
+    { key: "team", header: "Team", render: (r) => <span className="text-ink-sec">{r.teamName ?? "—"}</span> },
+    { key: "place", header: "Place", render: (r) => <StatusChip value={r.isEligible ? "confirmed" : r.booking.status} /> },
+    { key: "door", header: "Door", render: (r) => <StatusChip value={r.checkInStatus} /> },
+  ];
 
-    const q = searchQuery.toLowerCase().trim();
-    if (q) {
-      list = list.filter(
-        (p) =>
-          p.alias.toLowerCase().includes(q) ||
-          p.tempId.toLowerCase().includes(q) ||
-          p.sessionTitle.toLowerCase().includes(q) ||
-          (p.teamName || "").toLowerCase().includes(q)
-      );
-    }
-
-    return list;
-  }, [participants, statusFilter, searchQuery]);
-
-  if (!canAccess("/people")) {
-    return (
-      <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8">
-        <PermissionDenied module="Participants Directory" />
-      </div>
-    );
-  }
+  const confirmed = all.filter((r) => r.isEligible).length;
+  const arrived = all.filter((r) => r.checkInStatus === "checked-in" || r.checkInStatus === "late").length;
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6">
-      <StaffBackNavigation label="Back to People" href="/people" />
-
+    <div className="mx-auto w-full max-w-[1440px] space-y-6 px-5 py-7 lg:px-8">
+      <Link href="/people" className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-mut hover:text-ink-lum">
+        <ArrowLeft className="h-4 w-4" /> People
+      </Link>
       <PageHeader
-        overline={`Participants Directory · ${territory.name}`}
+        overline={`People · ${territory.name}`}
         title="Participants"
-        sub="See people who joined events using privacy-safe operational identities. Who has joined our events?"
+        sub="Everyone booked on sessions in this territory, shown by alias and temporary code. Contact details stay protected."
       />
 
-      <StaffHelpPanel />
-
-      <div className="glass p-5 rounded-2xl border border-slate-200 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="w-full sm:w-80">
-            <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search alias, temp ID, event..." />
-          </div>
-
-          <FilterRail
-            options={["all", "checked-in", "revealed"] as const}
-            value={statusFilter as any}
-            onChange={setStatusFilter as any}
-          />
-        </div>
-
-        {filtered.length === 0 ? (
-          <div className="p-8 text-center text-xs text-ink-mut">No participants match your search criteria.</div>
-        ) : (
-          <Stagger className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map((p) => (
-              <Item key={p.id}>
-                <div className="glass p-5 rounded-2xl border border-slate-200 hover:border-purple-200 transition-all flex flex-col justify-between space-y-3">
-                  <div className="space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <span className="font-mono text-xs font-bold text-brand block">{p.tempId}</span>
-                        <h4 className="font-bold text-base text-ink-lum flex items-center gap-1.5">
-                          <Link href={`/people/participants/${p.id}`} className="hover:text-brand transition-colors">
-                            {p.alias}
-                          </Link>
-                        </h4>
-                      </div>
-                      <StatusChip
-                        value={p.isCheckedIn ? "Checked In" : p.isRevealed ? "Revealed" : "Booked"}
-                      />
-                    </div>
-
-                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5 text-xs">
-                      <div className="flex justify-between text-ink-sec">
-                        <span>Event:</span>
-                        <span className="font-bold text-ink-lum truncate max-w-[160px]">{p.sessionTitle}</span>
-                      </div>
-                      <div className="flex justify-between text-ink-sec">
-                        <span>Team:</span>
-                        <span className="font-bold text-purple-700">{p.teamName}</span>
-                      </div>
-                      <div className="flex justify-between text-ink-mut text-[11px] pt-1 border-t border-slate-200">
-                        <span className="flex items-center gap-1">
-                          <Lock className="w-3 h-3 text-emerald-600" />
-                          <span>Protected Phone:</span>
-                        </span>
-                        <span className="font-mono">{p.maskedPhone}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
-                    <span className="text-[11px] text-ink-mut font-mono">Joined {p.joinedAt}</span>
-                    <Link href={`/people/participants/${p.id}`}>
-                      <Button variant="secondary" className="h-7 text-xs font-bold px-3">
-                        View Details
-                        <ArrowRight className="w-3 h-3 ml-1" />
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-              </Item>
-            ))}
-          </Stagger>
-        )}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
+        <MetricTile label="Bookings" value={all.length} detail="excluding the waitlist" icon={<Users className="h-4 w-4" />} tone="violet" />
+        <MetricTile label="Confirmed places" value={confirmed} detail={`${all.length - confirmed} not confirmed`} icon={<Lock className="h-4 w-4" />} tone="sky" />
+        <MetricTile label="Arrived" value={arrived} detail="checked in or late" icon={<UserCheck className="h-4 w-4" />} tone="emerald" />
       </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="sm:w-80">
+          <SearchInput value={q} onChange={setQ} placeholder="Search alias, code, team or session…" />
+        </div>
+        <FilterRail options={FILTERS} value={filter} onChange={setFilter} />
+      </div>
+
+      <DataTable
+        columns={columns}
+        rows={rows}
+        onRowClick={(r) => router.push(`/people/participants/${r.booking.id}`)}
+        emptyTitle={all.length ? "Nobody matches" : "No participants yet"}
+        emptyLine={all.length ? "Try a different search or filter." : `No bookings on ${territory.name} sessions yet.`}
+      />
     </div>
   );
 }

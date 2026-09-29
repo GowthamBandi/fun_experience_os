@@ -1,134 +1,81 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
-import { selectStaffDirectory } from "@/lib/prototype/selectors/staff";
+import { selectStaffDirectory, type StaffViewItem } from "@/lib/prototype/selectors/staff";
+import { geoCan } from "@/lib/geo/access";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { StaffBackNavigation, StaffStatusBadge } from "@/components/staff";
-import { Button } from "@/components/ui/primitives";
-import { FilterRail } from "@/components/ui/fields";
-import { Calendar as CalendarIcon, List, UserCheck, MapPin, Clock } from "lucide-react";
+import { MetricTile, PermissionDenied } from "@/components/ui/panels";
+import { Button, StatusChip } from "@/components/ui/primitives";
+import { FilterRail, SearchInput } from "@/components/ui/fields";
+import { DataTable, type Column } from "@/components/ui/table";
+import { useCommandFeedback } from "@/components/ui/toast";
+import { PageShell } from "@/components/setup/kit";
+import { StaffingNav, useStaffScope } from "@/components/staff/StaffingNav";
+import { CalendarClock, UserCheck, UserX, Users } from "lucide-react";
+
+const FILTERS = ["available", "assigned", "checked-in", "off"] as const;
 
 export default function StaffAvailabilityPage() {
-  const { state, territory } = useStore();
-  const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar");
+  const router = useRouter();
+  const { state, canAccess, role, updateCrewMember } = useStore();
+  const feedback = useCommandFeedback();
+  const scope = useStaffScope();
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<(typeof FILTERS)[number] | "all">("all");
+  const staff = useMemo(() => selectStaffDirectory(state, scope.territoryId), [state, scope.territoryId]);
+  const rows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return staff.filter((r) => (filter === "all" || r.status === filter) && (!q || `${r.name} ${r.roleLabel} ${r.venueName}`.toLowerCase().includes(q)));
+  }, [staff, query, filter]);
 
-  const staffList = selectStaffDirectory(state);
+  if (!canAccess("/staffing")) return <PermissionDenied module="Staffing" />;
+  const canManage = geoCan(role.id, "manage-staff");
+
+  const columns: Column<StaffViewItem>[] = [
+    { key: "name", header: "Name", render: (r) => <div><p className="font-semibold text-ink-lum">{r.name}</p><p className="text-xs text-ink-mut">{r.roleLabel}</p></div> },
+    { key: "venue", header: "Based at", render: (r) => <span className="text-ink-sec">{r.venueName}</span> },
+    { key: "shift", header: "Shift", render: (r) => <span className="tabular text-ink-sec">{r.shiftFrom ? `${r.shiftFrom}–${r.shiftTo}` : "—"}</span> },
+    { key: "sessions", header: "Upcoming sessions", render: (r) => (r.sessions.length ? <span className="text-ink-sec">{r.sessions.map((s) => `${s.date} ${s.startTime}`).join(", ")}</span> : <span className="text-ink-mut">None</span>) },
+    { key: "conflict", header: "Overlap", render: (r) => (r.doubleBooked ? <StatusChip value="overlapping" tone="danger" /> : <span className="text-ink-mut">—</span>) },
+    { key: "status", header: "Status", render: (r) => <StatusChip value={r.status} /> },
+    {
+      key: "act",
+      header: "",
+      align: "right",
+      render: (r) =>
+        canManage && (r.status === "available" || r.status === "off") ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={(e) => {
+              e.stopPropagation();
+              const to = r.status === "off" ? "available" : "off";
+              feedback(updateCrewMember(r.id, { status: to }), `${r.name} marked ${to}`);
+            }}
+          >
+            {r.status === "off" ? "Mark available" : "Mark off"}
+          </Button>
+        ) : null,
+    },
+  ];
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6">
-      <StaffBackNavigation label="Back to Staff Schedule" href="/staffing" />
-
-      <PageHeader
-        overline={`Staff Operations · ${territory.name}`}
-        title="Availability"
-        sub="See who is free, assigned, off, or unavailable. Who is free at this time?"
-        right={
-          <div className="flex items-center gap-3">
-            <div className="flex items-center bg-slate-50 border border-slate-200 p-1 rounded-xl">
-              <button
-                type="button"
-                onClick={() => setViewMode("calendar")}
-                className={`px-3 py-1 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors ${
-                  viewMode === "calendar" ? "bg-brand text-slate-950" : "text-ink-sec hover:text-ink-lum"
-                }`}
-              >
-                <CalendarIcon className="w-3.5 h-3.5" />
-                Calendar
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode("list")}
-                className={`px-3 py-1 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors ${
-                  viewMode === "list" ? "bg-brand text-slate-950" : "text-ink-sec hover:text-ink-lum"
-                }`}
-              >
-                <List className="w-3.5 h-3.5" />
-                List
-              </button>
-            </div>
-
-            <Link href="/staffing/assign">
-              <Button variant="primary" className="font-bold text-xs">
-                <UserCheck className="w-3.5 h-3.5 mr-1" />
-                Assign Available Staff
-              </Button>
-            </Link>
-          </div>
-        }
-      />
-
-      {/* Legend */}
-      <div className="glass p-4 rounded-2xl border border-slate-200 flex flex-wrap items-center justify-between gap-4 text-xs">
-        <div className="flex items-center gap-4">
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full bg-emerald-500" />
-            <span className="font-medium text-emerald-600">Available</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full bg-blue-500" />
-            <span className="font-medium text-blue-600">Assigned</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full bg-rose-500" />
-            <span className="font-medium text-rose-600">Off Duty</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full bg-slate-200" />
-            <span className="font-medium text-ink-mut">Outside Shift</span>
-          </span>
-        </div>
+    <PageShell>
+      <PageHeader overline={`Staffing · ${scope.label}`} title="Availability" sub="Who is free, who is working, and who is off. People on upcoming sessions must be removed from them before they can be marked off." />
+      <StaffingNav />
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricTile label="Available" value={staff.filter((s) => s.status === "available").length} icon={<Users className="h-4 w-4" />} tone="emerald" />
+        <MetricTile label="Assigned" value={staff.filter((s) => s.status === "assigned").length} icon={<CalendarClock className="h-4 w-4" />} tone="sky" />
+        <MetricTile label="Checked in" value={staff.filter((s) => s.status === "checked-in").length} icon={<UserCheck className="h-4 w-4" />} />
+        <MetricTile label="Off" value={staff.filter((s) => s.status === "off").length} icon={<UserX className="h-4 w-4" />} tone="amber" />
       </div>
-
-      {viewMode === "calendar" ? (
-        <div className="glass p-6 rounded-2xl border border-slate-200 space-y-4">
-          <h3 className="text-sm font-bold text-ink-lum">Today&apos;s Shift Availability Timeline</h3>
-
-          <div className="space-y-3">
-            {staffList.map((s) => (
-              <div key={s.id} className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-ink-lum text-sm">{s.name}</span>
-                    <span className="text-purple-700 font-semibold">{s.roleLabel}</span>
-                  </div>
-                  <StaffStatusBadge status={s.status} size="sm" />
-                </div>
-
-                <div className="grid grid-cols-6 gap-1.5 pt-1 text-center font-mono text-[11px]">
-                  <div className="p-2 rounded bg-slate-50 text-ink-mut">17:00</div>
-                  <div className={`p-2 rounded font-bold ${s.status === "available" ? "bg-emerald-200 text-emerald-700 border border-emerald-300" : "bg-blue-200 text-blue-700 border border-blue-300"}`}>
-                    18:00 (Shift Start)
-                  </div>
-                  <div className={`p-2 rounded font-bold ${s.status === "available" ? "bg-emerald-200 text-emerald-700 border border-emerald-300" : "bg-blue-200 text-blue-700 border border-blue-300"}`}>
-                    19:00
-                  </div>
-                  <div className={`p-2 rounded font-bold ${s.status === "available" ? "bg-emerald-200 text-emerald-700 border border-emerald-300" : "bg-blue-200 text-blue-700 border border-blue-300"}`}>
-                    20:00
-                  </div>
-                  <div className={`p-2 rounded font-bold ${s.status === "available" ? "bg-emerald-200 text-emerald-700 border border-emerald-300" : "bg-blue-200 text-blue-700 border border-blue-300"}`}>
-                    21:00
-                  </div>
-                  <div className="p-2 rounded bg-slate-50 text-ink-mut">22:00 (Shift End)</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div className="glass p-6 rounded-2xl border border-slate-200 space-y-3">
-          {staffList.map((s) => (
-            <div key={s.id} className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
-              <div>
-                <span className="font-bold text-ink-lum block text-sm">{s.name}</span>
-                <span className="text-purple-700">{s.roleLabel} · {s.venueName}</span>
-              </div>
-              <StaffStatusBadge status={s.status} />
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+      <div className="flex flex-col gap-3 md:flex-row md:items-center">
+        <div className="md:w-72"><SearchInput value={query} onChange={setQuery} placeholder="Search name, role or venue" /></div>
+        <FilterRail options={FILTERS} value={filter} onChange={setFilter} />
+      </div>
+      <DataTable columns={columns} rows={rows} onRowClick={(r) => router.push(`/people/staff/${r.id}`)} emptyTitle={staff.length ? "No one matches" : "No staff yet"} emptyLine={staff.length ? "Clear the search or filter." : "Add staff from the Staff list."} />
+    </PageShell>
   );
 }

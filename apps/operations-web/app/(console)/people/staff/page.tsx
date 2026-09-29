@@ -1,192 +1,69 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { UserPlus, Users } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { selectStaffDirectory, selectStaffHealth } from "@/lib/prototype/selectors/staff";
+import { selectStaffDirectory, type StaffViewItem } from "@/lib/prototype/selectors/staff";
+import { geoCan } from "@/lib/geo/access";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PermissionDenied } from "@/components/ui/panels";
-import { Button } from "@/components/ui/primitives";
-import { SearchInput, FilterRail } from "@/components/ui/fields";
-import { Stagger, Item } from "@/components/motion/Motion";
-import {
-  StaffBackNavigation,
-  StaffCard,
-  StaffEmptyState,
-} from "@/components/staff";
-import { UserPlus, Filter, ChevronDown } from "lucide-react";
+import { Avatar, StatusChip } from "@/components/ui/primitives";
+import { FilterRail, SearchInput, Select } from "@/components/ui/fields";
+import { DataTable, type Column } from "@/components/ui/table";
+import { Crumbs, EmptyPanel, LinkButton, PageShell } from "@/components/setup/kit";
 
-export default function StaffDirectoryPage() {
-  const { state, territory, canAccess } = useStore();
+const FILTERS = ["available", "assigned", "checked-in", "off"] as const;
+const initials = (n: string) => n.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 
-  const [searchQuery, setSearchQuery] = useState("");
-  const [roleFilter, setRoleFilter] = useState("all");
-  const [availabilityFilter, setAvailabilityFilter] = useState("all");
-  const [showMoreFilters, setShowMoreFilters] = useState(false);
+export default function StaffListPage() {
+  const router = useRouter();
+  const { state, canAccess, role } = useStore();
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<(typeof FILTERS)[number] | "all">("all");
+  const [territoryId, setTerritoryId] = useState("all");
+  const staff = useMemo(() => selectStaffDirectory(state), [state]);
+  const rows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return staff.filter((r) => (filter === "all" || r.status === filter) && (territoryId === "all" || r.territoryId === territoryId) && (!q || `${r.name} ${r.roleLabel} ${r.venueName} ${r.skills.join(" ")}`.toLowerCase().includes(q)));
+  }, [staff, query, filter, territoryId]);
 
-  const staffList = selectStaffDirectory(state);
-  const health = selectStaffHealth(state);
+  if (!canAccess("/people")) return <PermissionDenied module="People" />;
+  const canManage = geoCan(role.id, "manage-staff");
+  const noVenues = state.venues.length === 0;
 
-  const filteredStaff = useMemo(() => {
-    let list = staffList;
-
-    if (roleFilter !== "all") {
-      list = list.filter((s) => s.role === roleFilter);
-    }
-
-    if (availabilityFilter !== "all") {
-      if (availabilityFilter === "working") {
-        list = list.filter((s) => s.status === "assigned" || s.status === "checked-in");
-      } else if (availabilityFilter === "available") {
-        list = list.filter((s) => s.status === "available");
-      } else if (availabilityFilter === "checked-in") {
-        list = list.filter((s) => s.status === "checked-in");
-      } else if (availabilityFilter === "off") {
-        list = list.filter((s) => s.status === "off");
-      }
-    }
-
-    const q = searchQuery.toLowerCase().trim();
-    if (q) {
-      list = list.filter(
-        (s) =>
-          s.name.toLowerCase().includes(q) ||
-          s.roleLabel.toLowerCase().includes(q) ||
-          s.venueName.toLowerCase().includes(q) ||
-          s.cityName.toLowerCase().includes(q)
-      );
-    }
-
-    return list;
-  }, [staffList, roleFilter, availabilityFilter, searchQuery]);
-
-  if (!canAccess("/people")) {
-    return (
-      <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8">
-        <PermissionDenied module="Staff Directory" />
-      </div>
-    );
-  }
+  const columns: Column<StaffViewItem>[] = [
+    { key: "name", header: "Name", render: (r) => <div className="flex items-center gap-3"><Avatar initials={initials(r.name)} size="sm" /><div><p className="font-semibold text-ink-lum">{r.name}</p><p className="text-xs text-ink-mut">{r.roleLabel}</p></div></div> },
+    { key: "where", header: "Territory · venue", render: (r) => <div><p className="text-ink-sec">{r.territoryName}</p><p className="text-xs text-ink-mut">{r.venueName}</p></div> },
+    { key: "next", header: "Next session", render: (r) => <span className="text-ink-sec">{r.currentSessionTitle ?? "—"}</span> },
+    { key: "phone", header: "Phone", render: (r) => <span className="text-ink-sec">{r.phone ?? "—"}</span> },
+    { key: "done", header: "Sessions worked", align: "right", render: (r) => r.attendanceCount },
+    { key: "status", header: "Status", render: (r) => <StatusChip value={r.status} /> },
+  ];
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6">
-      <StaffBackNavigation label="Back to People" href="/people" />
-
-      <PageHeader
-        overline={`Staff Directory · ${territory.name}`}
-        title="Staff"
-        sub="See who is available, assigned, checked in, or needs attention. Who can work today?"
-        right={
-          <Link href="/people/staff/new">
-            <Button variant="primary" className="font-bold">
-              <UserPlus className="w-4 h-4 mr-1" />
-              Add Staff Member
-            </Button>
-          </Link>
-        }
-      />
-
-      {/* Top Operational Metrics */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 text-center text-xs">
-        <div className="glass p-3 rounded-xl border border-slate-200 space-y-0.5">
-          <span className="text-[10px] text-ink-mut uppercase block">Total</span>
-          <span className="font-bold text-ink-lum text-base">{health.totalStaff}</span>
-        </div>
-        <div className="glass p-3 rounded-xl border border-slate-200 space-y-0.5">
-          <span className="text-[10px] text-ink-mut uppercase block">Working</span>
-          <span className="font-bold text-blue-600 text-base">{health.workingToday}</span>
-        </div>
-        <div className="glass p-3 rounded-xl border border-slate-200 space-y-0.5">
-          <span className="text-[10px] text-ink-mut uppercase block">Available</span>
-          <span className="font-bold text-emerald-600 text-base">{health.availableCount}</span>
-        </div>
-        <div className="glass p-3 rounded-xl border border-slate-200 space-y-0.5">
-          <span className="text-[10px] text-ink-mut uppercase block">Assigned</span>
-          <span className="font-bold text-ink-lum text-base">{health.assignedCount}</span>
-        </div>
-        <div className="glass p-3 rounded-xl border border-slate-200 space-y-0.5">
-          <span className="text-[10px] text-ink-mut uppercase block">Checked In</span>
-          <span className="font-bold text-emerald-600 text-base">{health.checkedInCount}</span>
-        </div>
-        <div className="glass p-3 rounded-xl border border-slate-200 space-y-0.5">
-          <span className="text-[10px] text-ink-mut uppercase block">Late</span>
-          <span className="font-bold text-amber-600 text-base">{health.lateCount}</span>
-        </div>
-        <div className="glass p-3 rounded-xl border border-slate-200 space-y-0.5">
-          <span className="text-[10px] text-ink-mut uppercase block">Safety Staff</span>
-          <span className="font-bold text-purple-700 text-base">{health.safetyStaffCount}</span>
-        </div>
-        <div className="glass p-3 rounded-xl border border-slate-200 space-y-0.5">
-          <span className="text-[10px] text-ink-mut uppercase block">Leads</span>
-          <span className="font-bold text-brand text-base">{health.leadCoordinatorCount}</span>
-        </div>
-      </div>
-
-      {/* Filter Rail */}
-      <div className="glass p-5 rounded-2xl border border-slate-200 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="w-full sm:w-80">
-            <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search staff name, role, venue..." />
-          </div>
-
-          <div className="flex items-center gap-2">
-            <FilterRail
-              options={["all", "working", "available", "checked-in", "off"] as const}
-              value={availabilityFilter as any}
-              onChange={setAvailabilityFilter as any}
-            />
-
-            <Button
-              variant="ghost"
-              className="h-8 text-xs text-ink-sec px-2"
-              onClick={() => setShowMoreFilters(!showMoreFilters)}
-            >
-              <Filter className="w-3.5 h-3.5 mr-1" />
-              More Filters
-              <ChevronDown className="w-3.5 h-3.5 ml-1" />
-            </Button>
-          </div>
-        </div>
-
-        {showMoreFilters && (
-          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-            <div className="space-y-1">
-              <label className="text-[11px] text-ink-mut">Filter by Role</label>
-              <select
-                value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value)}
-                className="w-full h-8 px-2 rounded-lg bg-slate-50 border border-slate-200 text-xs text-ink-lum"
-              >
-                <option value="all">All Roles</option>
-                <option value="coordinator">Lead Coordinator</option>
-                <option value="safety">Safety Officer</option>
-                <option value="venue-manager">Venue Manager</option>
-                <option value="staff">Event Staff</option>
-              </select>
-            </div>
-          </div>
-        )}
-
-        {/* Staff Grid */}
-        {staffList.length === 0 ? (
-          <StaffEmptyState
-            title="No Staff Members Added"
-            message="Add staff members to assign them to upcoming events and manage shifts."
-            actionLabel="Add Staff Member"
-            actionHref="/people/staff/new"
-          />
-        ) : filteredStaff.length === 0 ? (
-          <div className="p-8 text-center text-xs text-ink-mut">No staff members match your filter criteria.</div>
+    <PageShell>
+      <Crumbs items={[{ label: "People", href: "/people" }, { label: "Staff" }]} />
+      <PageHeader overline="People" title="Staff" sub="Everyone who can be assigned to run a session." right={canManage && !noVenues && <LinkButton href="/people/staff/new"><UserPlus className="h-4 w-4" /> Add staff</LinkButton>} />
+      {staff.length === 0 ? (
+        noVenues ? (
+          <EmptyPanel icon={<Users className="h-5 w-5" />} title="Set up a venue first" line="Staff are based at a venue inside a territory. Finish Setup up to a venue, then add staff." actionHref="/setup" actionLabel="Go to setup" />
         ) : (
-          <Stagger className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredStaff.map((s) => (
-              <Item key={s.id}>
-                <StaffCard staff={s} />
-              </Item>
-            ))}
-          </Stagger>
-        )}
-      </div>
-    </div>
+          <EmptyPanel icon={<Users className="h-5 w-5" />} title="No staff yet" line="Add the coordinators, safety officers and floor staff who run sessions." actionHref={canManage ? "/people/staff/new" : undefined} actionLabel="Add a staff member" />
+        )
+      ) : (
+        <>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="lg:w-72"><SearchInput value={query} onChange={setQuery} placeholder="Search name, role, venue or skill" /></div>
+            <Select value={territoryId} onChange={(e) => setTerritoryId(e.target.value)} aria-label="Filter by territory" className="lg:w-56">
+              <option value="all">All territories</option>
+              {state.territories.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </Select>
+            <FilterRail options={FILTERS} value={filter} onChange={setFilter} />
+          </div>
+          <DataTable columns={columns} rows={rows} onRowClick={(r) => router.push(`/people/staff/${r.id}`)} emptyTitle="No one matches" emptyLine="Clear the search or filters." />
+        </>
+      )}
+    </PageShell>
   );
 }

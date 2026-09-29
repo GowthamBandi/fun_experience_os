@@ -1,21 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useMissionId, useRedirectTo } from "@/components/missions/shared";
 
+/** /missions/[id] opens the session's overview. */
 export default function MissionRedirect() {
-  const params = useParams();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (params.id) {
-      router.replace(`/missions/${params.id}/overview`);
-    }
-  }, [params.id, router]);
-
+  const sessionId = useMissionId();
+  useRedirectTo(`/missions/${sessionId}/overview`);
   return (
-    <div className="flex h-screen items-center justify-center font-mono text-xs text-ink-mut">
-      Redirecting to event overview...
+    <div className="flex min-h-[40vh] items-center justify-center text-sm text-ink-mut" aria-busy>
+      Opening session…
     </div>
   );
 }

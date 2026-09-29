@@ -2,392 +2,193 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { ArrowRight, CalendarPlus, PlayCircle, Radio, Users, Wallet } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { sessionViews, venueName, type SessionView } from "@/lib/prototype/repositories";
-import { fillRate, inr } from "@/lib/format";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { PermissionDenied } from "@/components/ui/panels";
-import { FilterRail, SearchInput } from "@/components/ui/fields";
-import { StatusChip, FillMeter, Button } from "@/components/ui/primitives";
-import { Drawer } from "@/components/ui/overlays";
-import { Stagger, Item } from "@/components/motion/Motion";
-import { getOperationalStatusLabel } from "@/components/missions/shared";
+import { sessionViews } from "@/lib/prototype/selectors/views";
 import { selectLiveSessionState } from "@/lib/prototype/selectors/liveSession";
 import { sessionCapacityLedger } from "@/lib/prototype/selectors/capacity";
 import { selectCheckInSummary } from "@/lib/prototype/selectors/checkIn";
-import { selectCompletionChecklist } from "@/lib/prototype/selectors/completion";
-import { selectSessionSegmentResults } from "@/lib/prototype/selectors/results";
+import { selectResultsProgress } from "@/lib/prototype/selectors/results";
 import { selectSessionFinancialSummary } from "@/lib/prototype/selectors/money";
-import { ArrowRight, Landmark, Calendar, MapPin, Users, Coins } from "lucide-react";
+import { fillRate, inr } from "@/lib/format";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Button, FillMeter, StatusChip } from "@/components/ui/primitives";
+import { MetricTile, PermissionDenied } from "@/components/ui/panels";
+import { FilterRail, SearchInput } from "@/components/ui/fields";
+import { DataTable, type Column } from "@/components/ui/table";
+import { sessionStage } from "@/components/missions/shared";
 
-const STATUSES = ["live", "check-in-open", "booking-open", "full", "scheduled", "draft", "cancelled"] as const;
+const BUCKETS = ["selling", "ready", "running", "finished", "draft", "cancelled"] as const;
+type Bucket = (typeof BUCKETS)[number];
 
-export default function MissionsPage() {
-  const { territory, canAccess, state, role } = useStore();
-  const [status, setStatus] = useState<(typeof STATUSES)[number] | "all">("all");
+export default function SessionsPage() {
+  const { territory, canAccess, state } = useStore();
+  const router = useRouter();
+  const [bucket, setBucket] = useState<Bucket | "all">("all");
   const [query, setQuery] = useState("");
-  const [openSession, setOpenSession] = useState<any | null>(null);
 
-  const rawSessions = useMemo(() => {
-    return sessionViews(state, territory.id)
-      .filter((s) => (status === "all" ? true : s.status === status))
-      .filter((s) => !query || s.title.toLowerCase().includes(query.toLowerCase()));
-  }, [state, territory.id, status, query]);
-
-  // Derive extra reactive fields dynamically for each row
   const rows = useMemo(() => {
-    return rawSessions.map((s) => {
-      const sessionId = s.id;
-      const lss = selectLiveSessionState(state, sessionId);
-      const ledger = sessionCapacityLedger(state, sessionId);
-      const checkIn = selectCheckInSummary(state, sessionId);
-      const segments = (state.activitySegments ?? []).filter((seg) => seg.sessionId === sessionId);
-      const results = selectSessionSegmentResults(state, sessionId);
-      const confirmedCount = results.filter((r) => r.status === "Confirmed" || r.status === "Corrected").length;
+    return sessionViews(state, territory.id).map((v) => {
+      const session = state.sessions.find((s) => s.id === v.id)!;
+      const lss = selectLiveSessionState(state, v.id);
+      const ledger = sessionCapacityLedger(state, v.id);
+      const checkIn = selectCheckInSummary(state, v.id);
+      const money = selectSessionFinancialSummary(state, v.id);
+      const results = selectResultsProgress(state, v.id);
+      const stage = sessionStage(session, lss);
+      const joined = ledger.confirmedPaidBookings + ledger.confirmedComplimentaryBookings;
 
-      let nextAction = "Run Event";
-      let actionRoute = `/missions/${sessionId}/live`;
+      let b: Bucket = "selling";
+      if (session.status === "draft") b = "draft";
+      else if (session.status === "cancelled" || session.status === "archived") b = "cancelled";
+      else if (session.status === "completed" || lss.status === "Completed") b = "finished";
+      else if (lss.status !== "Ready") b = "running";
+      else if (["revealed", "check-in-open", "live"].includes(session.status)) b = "ready";
 
-      if (s.status === "draft") {
-        nextAction = "Review and Publish";
-        actionRoute = `/missions/${sessionId}/overview`;
-      } else if (s.status === "booking-open") {
-        nextAction = "Monitor Bookings";
-        actionRoute = `/missions/${sessionId}/overview`;
-      } else if (s.status === "check-in-open") {
-        nextAction = "Open Check-In";
-        actionRoute = `/missions/${sessionId}/overview`;
-      } else if (lss.status === "Ready") {
-        nextAction = "Run Event";
-        actionRoute = `/missions/${sessionId}/live`;
-      } else if (lss.status === "Live" || lss.status === "Paused" || lss.status === "Emergency") {
-        nextAction = "Run Event";
-        actionRoute = `/missions/${sessionId}/live`;
-      } else if (lss.status === "Ended") {
-        if (confirmedCount < segments.length) {
-          nextAction = "Record Results";
-          actionRoute = `/missions/${sessionId}/results`;
-        } else {
-          nextAction = "Finish Event";
-          actionRoute = `/missions/${sessionId}/completion`;
-        }
-      } else if (s.status === "completed" || lss.status === "Completed") {
-        nextAction = "View Summary";
-        actionRoute = `/missions/${sessionId}/summary`;
-      }
+      const base = `/missions/${v.id}`;
+      const next =
+        b === "draft" ? { label: "Review", href: `${base}/overview` }
+        : b === "cancelled" ? { label: "View", href: `${base}/overview` }
+        : b === "finished" ? { label: "Report", href: `${base}/summary` }
+        : lss.status === "Ended" ? (results.isComplete ? { label: "Finish", href: `${base}/completion` } : { label: "Results", href: `${base}/results` })
+        : b === "running" ? { label: "Run", href: `${base}/live` }
+        : b === "ready" ? (session.status === "revealed" ? { label: "Check-in", href: `${base}/check-in` } : { label: "Run", href: `${base}/live` })
+        : { label: "Prepare", href: `${base}/overview` };
 
-      // Money details
-      const finance = selectSessionFinancialSummary(state, sessionId);
-      const pendingRefundAmt = (state.refundExceptions ?? [])
-        .filter((re) => re.sessionId === sessionId && re.status === "recommended")
-        .reduce((sum, r) => sum + r.amount, 0);
-
-      const totalRefunded = finance.totalRefunded || 0;
-      const grossCollected = finance.grossCollected;
-      const netRevenue = grossCollected - totalRefunded - pendingRefundAmt;
-
-      const totalJoined = ledger.confirmedPaidBookings + ledger.confirmedComplimentaryBookings;
-
-      // Booking health: payment problems
-      const sessionBookings = state.bookings.filter((b) => b.sessionId === sessionId);
-      const paymentProblems = sessionBookings.filter((b) => (b.status as string) === "payment-failed" || b.paymentStatus === "failed").length;
-
-      return {
-        ...s,
-        lssStatus: lss.status,
-        nextAction,
-        actionRoute,
-        sellableCapacity: ledger.sellableCapacity,
-        joinedCount: totalJoined,
-        remainingSlots: ledger.remainingSellableCapacity,
-        waitlistCount: ledger.waitlistCount,
-        grossCollected,
-        totalRefunded: totalRefunded + pendingRefundAmt,
-        netRevenue,
-        checkedIn: checkIn.checkedInCount + checkIn.lateCount,
-        venueName: venueName(state, s.venueId),
-        paymentProblems,
-      };
+      return { ...v, session, lss, stage, bucket: b, joined, sellable: ledger.sellableCapacity, waitlistCount: ledger.waitlistCount, present: checkIn.presentCount, expected: checkIn.expectedCount, net: money.netRevenue, next };
     });
-  }, [rawSessions, state]);
+  }, [state, territory.id]);
 
-  if (!canAccess("/missions")) return <PageFrame><PermissionDenied module="Missions" /></PageFrame>;
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return rows.filter((r) => (bucket === "all" || r.bucket === bucket) && (!q || `${r.title} ${r.activity} ${r.venueName} ${r.id}`.toLowerCase().includes(q)));
+  }, [rows, bucket, query]);
+
+  if (!canAccess("/missions")) return <PermissionDenied module="Sessions" />;
+
+  type Row = (typeof rows)[number];
+  const columns: Column<Row>[] = [
+    {
+      key: "session",
+      header: "Session",
+      render: (r) => (
+        <div className="min-w-[200px]">
+          <Link href={`/missions/${r.id}/overview`} onClick={(e) => e.stopPropagation()} className="font-medium text-ink-lum hover:text-brand">
+            {r.title}
+          </Link>
+          <p className="text-xs text-ink-mut">
+            {r.activity} · {r.venueName}
+          </p>
+        </div>
+      ),
+    },
+    { key: "when", header: "When", render: (r) => <span className="whitespace-nowrap text-ink-sec">{r.date} · {r.time}</span> },
+    {
+      key: "booked",
+      header: "Booked",
+      width: "180px",
+      render: (r) => (
+        <div className="space-y-1">
+          <FillMeter value={fillRate(r.joined, r.sellable)} />
+          <p className="text-xs tabular text-ink-mut">
+            {r.joined}/{r.sellable}
+            {r.waitlistCount ? ` · ${r.waitlistCount} waiting` : ""}
+          </p>
+        </div>
+      ),
+    },
+    { key: "present", header: "Present", align: "right", render: (r) => <span className="tabular text-ink-sec">{r.expected ? `${r.present}/${r.expected}` : "—"}</span> },
+    { key: "net", header: "Net", align: "right", render: (r) => <span className="tabular font-medium text-ink-lum">{inr(r.net)}</span> },
+    { key: "status", header: "Status", render: (r) => <StatusChip value={r.stage.label} tone={r.stage.tone} /> },
+    {
+      key: "next",
+      header: "",
+      align: "right",
+      render: (r) => (
+        <Link href={r.next.href} onClick={(e) => e.stopPropagation()}>
+          <Button size="sm" variant={r.bucket === "running" ? "primary" : "secondary"}>
+            {r.next.label} <ArrowRight className="h-3.5 w-3.5" />
+          </Button>
+        </Link>
+      ),
+    },
+  ];
+
+  const running = rows.filter((r) => r.bucket === "running").length;
+  const readyCount = rows.filter((r) => r.bucket === "ready").length;
+  const seats = rows.filter((r) => r.bucket !== "cancelled" && r.bucket !== "draft");
+  const seatFill = fillRate(seats.reduce((a, r) => a + r.joined, 0), seats.reduce((a, r) => a + r.sellable, 0));
 
   return (
-    <PageFrame>
+    <div className="mx-auto w-full max-w-[1440px] space-y-6 px-5 py-7 lg:px-8">
       <PageHeader
-        overline={`Missions Center · ${territory.name}`}
-        title="Event Operations Command"
-        sub="Scheduled active sessions, booking fill status, live event timers, and outcome recording desks."
+        overline={`Operations · ${territory.name}`}
+        title="Sessions"
+        sub="Every scheduled session from bookings to the final report. Open one to prepare codes and teams, run it, and close it out."
         right={
-          <div className="flex flex-wrap items-center gap-2">
-            <FilterRail options={STATUSES} value={status} onChange={setStatus} />
-            <div className="w-52"><SearchInput value={query} onChange={setQuery} placeholder="Find an event…" /></div>
-          </div>
+          <Link href="/missions/new">
+            <Button>
+              <CalendarPlus className="h-4 w-4" /> Schedule session
+            </Button>
+          </Link>
         }
       />
 
-      <Stagger className="mt-6">
-        <Item>
-          {/* Desktop Table View (hidden on mobile) */}
-          <div className="hidden md:block overflow-hidden rounded-panel border border-slate-200 bg-slate-50">
-            <table className="w-full border-collapse text-left text-xs font-mono">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 text-ink-mut select-none uppercase tracking-wider text-[10px]">
-                  <th className="p-4 font-semibold">Event</th>
-                  <th className="p-4 font-semibold">Time & Venue</th>
-                  <th className="p-4 font-semibold">Capacity Fill</th>
-                  <th className="p-4 font-semibold text-right">Net Revenue</th>
-                  <th className="p-4 font-semibold">Status</th>
-                  <th className="p-4 font-semibold text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {rows.map((r) => {
-                  const fill = fillRate(r.joinedCount, r.sellableCapacity);
-                  return (
-                    <tr
-                      key={r.id}
-                      onClick={() => setOpenSession(r)}
-                      className="hover:bg-slate-50 transition-colors cursor-pointer group"
-                    >
-                      <td className="p-4">
-                        <p className="font-semibold text-sm text-ink-lum group-hover:text-brand transition-colors">
-                          {r.title}
-                        </p>
-                        <p className="text-[10px] text-ink-mut mt-0.5">{r.activity} · {r.format}</p>
-                      </td>
-                      <td className="p-4 text-ink-sec space-y-0.5">
-                        <p className="font-semibold flex items-center gap-1">
-                          <Calendar className="h-3.5 w-3.5 text-ink-mut" />
-                          {r.time}
-                        </p>
-                        <p className="text-[10px] text-ink-mut flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {r.venueName}
-                        </p>
-                      </td>
-                      <td className="p-4 w-[200px]">
-                        <div className="space-y-1">
-                          <FillMeter value={fill} />
-                          <p className="text-[10px] text-ink-mut flex items-center justify-between">
-                            <span>{r.joinedCount} / {r.sellableCapacity} Joined</span>
-                            <span>{r.remainingSlots} left {r.waitlistCount > 0 && `· ${r.waitlistCount} waiting`}</span>
-                          </p>
-                          {r.paymentProblems > 0 && (
-                            <p className="text-[10px] text-red-700">{r.paymentProblems} payment problem{r.paymentProblems > 1 ? 's' : ''}</p>
-                          )}
-                        </div>
-                      </td>
-                      <td className="p-4 text-right">
-                        <p className="font-semibold text-ink-lum">{inr(r.netRevenue)}</p>
-                        {r.totalRefunded > 0 && (
-                          <p className="text-[10px] text-danger">-{inr(r.totalRefunded)} refunded</p>
-                        )}
-                      </td>
-                      <td className="p-4">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border ${
-                          r.lssStatus === "Live"
-                            ? "bg-emerald-200 border-emerald-200 text-emerald-700"
-                            : r.lssStatus === "Paused"
-                            ? "bg-amber-200 border-amber-200 text-amber-700"
-                            : "bg-slate-50 border-slate-200 text-ink-sec"
-                        }`}>
-                          {getOperationalStatusLabel(r.lssStatus || r.status)}
-                        </span>
-                      </td>
-                      <td className="p-4 text-right" onClick={(e) => e.stopPropagation()}>
-                        <Link href={r.actionRoute}>
-                          <Button variant="lamp" className="h-7 px-3 text-[11px] font-bold">
-                            {r.nextAction}
-                            <ArrowRight className="ml-1 h-3 w-3" />
-                          </Button>
-                        </Link>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {rows.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="p-8 text-center text-ink-mut">
-                      <p className="text-sm font-semibold">No active events tonight.</p>
-                      <p className="text-[11px] mt-1">Adjust filters or search queries to look up other sessions.</p>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+        <MetricTile label="Sessions" value={rows.length} detail={`${rows.filter((r) => r.bucket === "selling").length} selling`} icon={<CalendarPlus className="h-4 w-4" />} tone="violet" onClick={() => setBucket("all")} />
+        <MetricTile label="Running now" value={running} detail="open, live or paused" icon={<Radio className="h-4 w-4" />} tone={running ? "emerald" : "sky"} onClick={() => setBucket("running")} />
+        <MetricTile label="Ready to start" value={readyCount} detail="revealed, waiting for the door" icon={<PlayCircle className="h-4 w-4" />} tone="amber" onClick={() => setBucket("ready")} />
+        <MetricTile label="Seats filled" value={`${seatFill}%`} detail="across active sessions" icon={<Users className="h-4 w-4" />} tone="pink" />
+      </div>
 
-          {/* Mobile Card View (hidden on desktop) */}
-          <div className="block md:hidden space-y-4">
-            {rows.map((r) => {
-              const fill = fillRate(r.joinedCount, r.sellableCapacity);
-              return (
-                <div
-                  key={r.id}
-                  onClick={() => setOpenSession(r)}
-                  className="glass rounded-panel border border-slate-200 p-4 space-y-3 cursor-pointer hover:border-brand/40 transition-colors"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <h3 className="font-bold text-sm text-ink-lum">{r.title}</h3>
-                      <p className="text-[10px] text-ink-mut">{r.activity} · {r.format}</p>
-                    </div>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border ${
-                      r.lssStatus === "Live"
-                        ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                        : "bg-slate-50 border-slate-200 text-ink-sec"
-                    }`}>
-                      {getOperationalStatusLabel(r.lssStatus || r.status)}
-                    </span>
-                  </div>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <FilterRail options={BUCKETS} value={bucket} onChange={setBucket} />
+        <div className="lg:w-72">
+          <SearchInput value={query} onChange={setQuery} placeholder="Search sessions…" />
+        </div>
+      </div>
 
-                  <div className="grid grid-cols-2 gap-3 text-[11px]">
-                    <div className="space-y-1">
-                      <span className="text-[10px] text-ink-mut flex items-center gap-1">
-                        <Calendar className="h-3 w-3" /> Time & Venue
-                      </span>
-                      <p className="font-semibold text-ink-lum">{r.time}</p>
-                      <p className="text-[10px] text-ink-mut truncate">{r.venueName}</p>
-                    </div>
-                    <div className="space-y-1 text-right">
-                      <span className="text-[10px] text-ink-mut flex items-center gap-1 justify-end">
-                        <Coins className="h-3 w-3" /> Collected Take
-                      </span>
-                      <p className="font-semibold text-emerald-700">{inr(r.netRevenue)}</p>
-                      {r.totalRefunded > 0 && (
-                        <p className="text-[9px] text-danger">-{inr(r.totalRefunded)} refunds</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-1 border-t border-slate-200 pt-3">
-                    <div className="flex justify-between text-[10px] text-ink-mut">
-                      <span>Joined Capacity</span>
-                      <span>{r.joinedCount} / {r.sellableCapacity} slots occupied</span>
-                    </div>
-                    <FillMeter value={fill} />
-                  </div>
-
-                  <div className="flex flex-col gap-2 border-t border-slate-200 pt-3">
-                    <div className="flex items-center justify-between text-[10px] text-ink-mut">
-                      <span>{r.remainingSlots} spaces left · {r.waitlistCount} waiting</span>
-                      {r.paymentProblems > 0 && (
-                        <span className="text-red-700">{r.paymentProblems} payment problem{r.paymentProblems > 1 ? 's' : ''}</span>
-                      )}
-                    </div>
-                    <div className="flex items-center justify-between gap-2" onClick={(e) => e.stopPropagation()}>
-                      <Link href={`/missions/${r.id}/bookings`}>
-                        <button className="text-[10px] text-ink-mut hover:text-ink-sec underline underline-offset-2">
-                          Review Bookings
-                        </button>
-                      </Link>
-                      <Link href={r.actionRoute}>
-                        <Button variant="lamp" className="h-8 px-3 text-xs font-bold">
-                          {r.nextAction}
-                          <ArrowRight className="ml-1 h-3.5 w-3.5" />
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
+      <ul className="space-y-3 md:hidden" aria-label="Sessions">
+        {filtered.map((r) => (
+          <li key={r.id}>
+            <Link href={`/missions/${r.id}/overview`} className="block rounded-panel border border-edge bg-white p-4 shadow-lift">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-medium text-ink-lum">{r.title}</p>
+                  <p className="text-xs text-ink-mut">
+                    {r.date} · {r.time} · {r.venueName}
+                  </p>
                 </div>
-              );
-            })}
-            {rows.length === 0 && (
-              <div className="p-8 text-center text-ink-mut border border-slate-200 rounded-panel glass">
-                <p className="text-sm font-semibold">No active events tonight.</p>
+                <StatusChip value={r.stage.label} tone={r.stage.tone} />
               </div>
-            )}
-          </div>
-        </Item>
-      </Stagger>
-
-      <Drawer
-        open={!!openSession}
-        onClose={() => setOpenSession(null)}
-        title={openSession?.title ?? ""}
-        sub={openSession ? `${openSession.time} · ${openSession.joinedCount}/${openSession.sellableCapacity} reserved` : undefined}
-      >
-        {openSession && <SessionDetail session={openSession} />}
-      </Drawer>
-    </PageFrame>
-  );
-}
-
-function PageFrame({ children }: { children: React.ReactNode }) {
-  return <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8">{children}</div>;
-}
-
-function SessionDetail({ session }: { session: any }) {
-  const { state, strikeBooking } = useStore();
-  const bookings = useMemo(() => state.bookings.filter((b) => b.sessionId === session.id), [state, session.id]);
-  const fill = fillRate(session.joinedCount, session.sellableCapacity);
-
-  return (
-    <div className="space-y-5 font-mono text-xs">
-      <div className="flex flex-wrap items-center justify-between border-b border-slate-200 pb-3 gap-3">
-        <div className="flex items-center gap-3">
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-50 border border-slate-200 text-ink-sec">
-            {getOperationalStatusLabel(session.lssStatus || session.status)}
-          </span>
-          <span className="text-xs text-ink-mut">{session.venueName}</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <Link href={`/missions/${session.id}/overview`}>
-            <Button variant="lamp" className="h-7 px-3 text-[11px] font-bold">
-              ⚡ Open Event Desk
-            </Button>
-          </Link>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-3 gap-3">
-        <div className="solid rounded-xl p-3">
-          <p className="overline">Joined</p>
-          <p className="mt-1 text-lg font-semibold tabular text-ink-lum">{fill}%</p>
-        </div>
-        <div className="solid rounded-xl p-3">
-          <p className="overline">Waiting</p>
-          <p className="mt-1 text-lg font-semibold tabular text-ink-lum">{session.waitlistCount}</p>
-        </div>
-        <div className="solid rounded-xl p-3">
-          <p className="overline">Collected</p>
-          <p className="mt-1 text-lg font-semibold tabular text-ink-lum">{inr(session.netRevenue)}</p>
-        </div>
-      </div>
-
-      <div>
-        <div className="flex justify-between items-center mb-2">
-           <p className="overline">Bookings</p>
-          <span className="text-[10px] text-ink-mut">({session.checkedIn} Checked In)</span>
-        </div>
-        <div className="space-y-1.5">
-          {bookings.map((b) => (
-            <div key={b.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
-              <div className="min-w-0">
-                <p className="truncate text-sm text-ink-lum">
-                  {b.alias} <span className="text-ink-mut">· {b.tempId}</span>
-                </p>
-                <p className="text-[11px] text-ink-mut">{b.phoneMask}</p>
+              <div className="mt-3 flex items-center gap-3">
+                <FillMeter value={fillRate(r.joined, r.sellable)} />
+                <span className="whitespace-nowrap text-xs tabular text-ink-mut">
+                  {r.joined}/{r.sellable} · {inr(r.net)}
+                </span>
               </div>
-              <div className="flex items-center gap-2">
-                <StatusChip value={b.status} />
-                {b.status === "payment-confirmed" && (
-                  <Button
-                    variant="lamp"
-                    className="h-8 px-3 text-xs"
-                    onClick={() => strikeBooking(b.id)}
-                  >
-                    Strike Check-In
-                  </Button>
-                )}
-              </div>
-            </div>
-          ))}
-          {bookings.length === 0 && <p className="text-sm text-ink-mut">No bookings yet on this event.</p>}
-        </div>
+              <p className="mt-2 text-sm font-semibold text-brand">
+                {r.next.label} <ArrowRight className="inline h-3.5 w-3.5" />
+              </p>
+            </Link>
+          </li>
+        ))}
+        {filtered.length === 0 && <li className="rounded-panel border border-dashed border-edge-strong bg-white/70 px-6 py-10 text-center text-sm text-ink-mut">{rows.length ? "No sessions match." : "No sessions in this territory."}</li>}
+      </ul>
+
+      <div className="hidden md:block">
+      <DataTable
+        columns={columns}
+        rows={filtered}
+        onRowClick={(r) => router.push(`/missions/${r.id}/overview`)}
+        emptyTitle={rows.length ? "No sessions match" : "No sessions in this territory"}
+        emptyLine={rows.length ? "Try another filter or search." : "Schedule a session from a ready experience to get started."}
+      />
       </div>
+      <p className="flex items-center gap-2 text-xs text-ink-mut">
+        <Wallet className="h-3.5 w-3.5" /> Net is collected payments minus refunds for each session.
+      </p>
     </div>
   );
 }

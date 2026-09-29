@@ -1,846 +1,654 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import {
+  ArrowLeft,
+  CalendarClock,
+  ClipboardCheck,
+  GitFork,
+  ListOrdered,
+  MapPin,
+  Radio,
+  ShieldAlert,
+  Trophy,
+  Users,
+} from "lucide-react";
 import { useStore } from "@/lib/store";
 import {
   tournamentDetail,
   tournamentProgress,
-  tournamentCompletionReadiness
+  tournamentCompletionReadiness,
+  tournamentPlacings,
+  matchTitle,
 } from "@/lib/prototype/selectors/tournament";
+import { entrantName } from "@/lib/prototype/services/tournament";
+import { operatorName } from "@/lib/prototype/selectors/lookups";
+import { formatAgo, formatWhen } from "@/lib/safety/time";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Card, PanelHeader, PermissionDenied } from "@/components/ui/panels";
-import { Button, StatusChip, Badge } from "@/components/ui/primitives";
-import { Field, Input, Select } from "@/components/ui/fields";
-import { Stagger, Item, Tide } from "@/components/motion/Motion";
 import {
-  ArrowLeft,
-  Users,
-  GitFork,
-  Activity,
-  Play,
-  Pause,
-  Award,
-  AlertTriangle,
-  FileText,
-  CheckCircle,
-  Plus
-} from "lucide-react";
-import Link from "next/link";
+  EmptyState,
+  MetricTile,
+  PermissionDenied,
+} from "@/components/ui/panels";
+import { Button, StatusChip } from "@/components/ui/primitives";
+import { useCommandFeedback } from "@/components/ui/toast";
+import { cn } from "@/lib/format";
+import {
+  CommandDialog,
+  GatedButton,
+  PermissionNote,
+  SeverityBadge,
+  TabBar,
+  useTournamentGate,
+  useSafetyGate,
+} from "@/components/safety/shared";
+import {
+  ReportIncidentDialog,
+  LogDisputeDialog,
+} from "@/components/safety/intake";
+import { Bracket } from "@/components/tournaments/Bracket";
+import { MatchDrawer } from "@/components/tournaments/MatchDrawer";
+import { TeamsPanel } from "@/components/tournaments/TeamsPanel";
 
-export default function TournamentWorkspacePage() {
+type Tab = "bracket" | "matches" | "teams" | "safety";
+
+export default function TournamentDetailPage() {
   const params = useParams();
-  const router = useRouter();
-  const tournamentId = params.id as string;
-
+  const id = String(params.id);
   const {
     state,
-    hydrated,
-    role,
     canAccess,
-    assignTournamentTeams,
+    hydrated,
     generateSingleEliminationBracket,
     publishTournament,
-    assignMatchReferee,
-    updateMatchReadiness,
-    startTournamentMatch,
-    pauseTournamentMatch,
-    resumeTournamentMatch,
-    confirmTournamentMatchResult,
-    verifyTournamentMatchResult,
-    declareWalkover,
-    disqualifyTeam,
-    abandonMatch,
     completeTournament,
-    reportIncident,
-    submitDispute
   } = useStore();
+  const gate = useTournamentGate();
+  const safetyGate = useSafetyGate();
+  const feedback = useCommandFeedback();
+  const [tab, setTab] = useState<Tab>("bracket");
+  const [matchId, setMatchId] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<
+    null | "publish" | "complete" | "regenerate" | "incident" | "dispute"
+  >(null);
 
-  const [activeTab, setActiveTab] = useState<"bracket" | "teams" | "matches" | "ops" | "summary">("bracket");
+  const detail = useMemo(() => tournamentDetail(state, id), [state, id]);
+  const progress = useMemo(() => tournamentProgress(state, id), [state, id]);
+  const completion = useMemo(
+    () => tournamentCompletionReadiness(state, id),
+    [state, id],
+  );
+  const placings = useMemo(() => tournamentPlacings(state, id), [state, id]);
 
-  // Local dialog / action states
-  const [assignRefMatchId, setAssignRefMatchId] = useState<string | null>(null);
-  const [selectedRefId, setSelectedRefId] = useState("");
-
-  const [recordScoreMatchId, setRecordScoreMatchId] = useState<string | null>(null);
-  const [scoreA, setScoreA] = useState("0");
-  const [scoreB, setScoreB] = useState("0");
-  const [matchWinnerId, setMatchWinnerId] = useState("");
-
-  const [walkoverMatchId, setWalkoverMatchId] = useState<string | null>(null);
-  const [walkoverWinnerId, setWalkoverWinnerId] = useState("");
-  const [walkoverReason, setWalkoverReason] = useState("");
-
-  const [disqualifyTeamId, setDisqualifyTeamId] = useState("");
-  const [disqualifyReason, setDisqualifyReason] = useState("");
-
-  const [abandonMatchId, setAbandonMatchId] = useState<string | null>(null);
-  const [abandonReason, setAbandonReason] = useState("");
-
-  const [addTeamName, setAddTeamName] = useState("");
-
-  // Safety Incident Local Form
-  const [showIncidentForm, setShowIncidentForm] = useState(false);
-  const [incidentCategory, setIncidentCategory] = useState<any>("injury");
-  const [incidentSeverity, setIncidentSeverity] = useState<any>("medium");
-  const [incidentNotes, setIncidentNotes] = useState("");
-  const [incidentAction, setIncidentAction] = useState("");
-
-  // Dispute Local Form
-  const [showDisputeForm, setShowDisputeForm] = useState(false);
-  const [disputeType, setDisputeType] = useState<any>("match-result");
-  const [disputeReason, setDisputeReason] = useState("");
-  const [disputeMatchId, setDisputeMatchId] = useState("");
-
-  const detail = useMemo(() => tournamentDetail(state, tournamentId), [state, tournamentId]);
-  const progress = useMemo(() => tournamentProgress(state, tournamentId), [state, tournamentId]);
-  const completion = useMemo(() => tournamentCompletionReadiness(state, tournamentId), [state, tournamentId]);
-
-  if (!hydrated) return <div className="p-8 text-center"><Tide /></div>;
-  if (!canAccess("/tournaments")) return <div className="p-8 text-center"><PermissionDenied module="Tournaments" /></div>;
+  if (!canAccess("/tournaments"))
+    return <PermissionDenied module="Tournaments" />;
+  if (!hydrated) return null;
   if (!detail) {
     return (
-      <div className="p-8 text-center">
-        <p className="text-lg text-ink-sec">Tournament not found</p>
-        <Link href="/tournaments" className="mt-4 inline-block text-brand">Back to Tournaments</Link>
+      <div className="mx-auto w-full max-w-[1440px] px-5 py-7 lg:px-8">
+        <EmptyState
+          title="Tournament not found"
+          line={`There is no tournament with the id "${id}". It may have been removed when the workspace was reset.`}
+          action={
+            <Link href="/tournaments">
+              <Button variant="secondary">
+                <ArrowLeft className="h-4 w-4" /> All tournaments
+              </Button>
+            </Link>
+          }
+        />
       </div>
     );
   }
 
-  const crew = state.crew ?? [];
-  const incidents = state.incidents.filter((i) => i.tournamentId === tournamentId);
-  const disputes = state.disputes.filter((d) => d.tournamentId === tournamentId);
-
-  // Teams in the pool to assign
-  const availableTeamsPool = [
-    "Ravi's XI", "Midnight Drive", "Net Runners", "Smash Order",
-    "Net Kings", "Featherstorm", "Backline", "Court Pirates",
-    "Gully Boyz", "Super Strikers", "Apex Smashers", "Spin Kings"
-  ];
-
-  const handleAddTeam = (teamName: string) => {
-    if (!teamName || detail.teamIds.includes(teamName)) return;
-    const newTeamIds = [...detail.teamIds, teamName];
-    assignTournamentTeams(tournamentId, newTeamIds);
-    setAddTeamName("");
+  const t = detail;
+  const terr = t.territoryId;
+  const g = {
+    bracket: gate("tournament.bracket", terr),
+    publish: gate("tournament.publish", terr),
+    complete: gate("tournament.complete", terr),
   };
-
-  const handleRemoveTeam = (teamName: string) => {
-    const newTeamIds = detail.teamIds.filter((t) => t !== teamName);
-    assignTournamentTeams(tournamentId, newTeamIds);
-  };
-
-  const handleGenerateBracket = () => {
-    generateSingleEliminationBracket(tournamentId);
-  };
-
-  const handlePublish = () => {
-    publishTournament(tournamentId);
-  };
-
-  const handleAssignReferee = () => {
-    if (!assignRefMatchId || !selectedRefId) return;
-    assignMatchReferee(tournamentId, assignRefMatchId, selectedRefId);
-    setAssignRefMatchId(null);
-    setSelectedRefId("");
-  };
-
-  const handleRecordResult = () => {
-    if (!recordScoreMatchId || !matchWinnerId) return;
-    confirmTournamentMatchResult({
-      tournamentId,
-      matchId: recordScoreMatchId,
-      scoreA: parseInt(scoreA, 10) || 0,
-      scoreB: parseInt(scoreB, 10) || 0,
-      winnerTeamId: matchWinnerId,
-      resultType: "score"
-    });
-    setRecordScoreMatchId(null);
-    setMatchWinnerId("");
-  };
-
-  const handleDeclareWalkoverSubmit = () => {
-    if (!walkoverMatchId || !walkoverWinnerId || !walkoverReason) return;
-    declareWalkover(tournamentId, walkoverMatchId, walkoverWinnerId, walkoverReason);
-    setWalkoverMatchId(null);
-    setWalkoverWinnerId("");
-    setWalkoverReason("");
-  };
-
-  const handleDisqualifySubmit = () => {
-    if (!disqualifyTeamId || !disqualifyReason) return;
-    disqualifyTeam(tournamentId, disqualifyTeamId, disqualifyReason);
-    setDisqualifyTeamId("");
-    setDisqualifyReason("");
-  };
-
-  const handleAbandonSubmit = () => {
-    if (!abandonMatchId || !abandonReason) return;
-    abandonMatch(tournamentId, abandonMatchId, abandonReason);
-    setAbandonMatchId(null);
-    setAbandonReason("");
-  };
-
-  const handleCompleteTournamentSubmit = () => {
-    if (!completion.canComplete || !detail.matches.length) return;
-    // Find final match winner
-    const finalMatch = detail.matches.find((m) => m.roundLabel === "Final" || m.round === "Final");
-    if (finalMatch?.winnerTeamId) {
-      completeTournament(tournamentId, finalMatch.winnerTeamId);
-    }
-  };
-
-  const handleReportIncidentSubmit = () => {
-    if (!incidentNotes || !incidentAction) return;
-    reportIncident({
-      category: incidentCategory,
-      severity: incidentSeverity,
-      tournamentId,
-      notes: incidentNotes,
-      immediateAction: incidentAction,
-      medicalAssistance: false,
-      reportedBy: "op-master"
-    });
-    setShowIncidentForm(false);
-    setIncidentNotes("");
-    setIncidentAction("");
-  };
-
-  const handleReportDisputeSubmit = () => {
-    if (!disputeReason || !disputeMatchId) return;
-    submitDispute({
-      type: disputeType,
-      reason: disputeReason,
-      relatedEntityType: "tournament-match",
-      relatedEntityId: disputeMatchId,
-      tournamentId,
-      matchId: disputeMatchId,
-      submittedBy: "Crew Member"
-    });
-    setShowDisputeForm(false);
-    setDisputeReason("");
-    setDisputeMatchId("");
-  };
-
-  return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 space-y-6">
-      {/* Header section */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <Link href="/tournaments" className="inline-flex items-center gap-1.5 text-xs text-ink-mut hover:text-ink-lum transition-colors mb-2">
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Back to knockouts
-          </Link>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-ink-lum">{detail.name}</h1>
-            <StatusChip value={detail.status} />
-          </div>
-          <p className="text-xs text-ink-mut mt-1">Code: {detail.code} · Format: {detail.format} · Seeding: {detail.seedingMethod}</p>
-        </div>
-
-        <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl p-3">
-          <div>
-            <span className="block text-[10px] text-ink-mut overline">Progress</span>
-            <span className="text-sm font-semibold text-amber-700">{progress.progressPercent}% resolved</span>
-          </div>
-          <div className="h-8 w-px bg-slate-100" />
-          <div>
-            <span className="block text-[10px] text-ink-mut overline">Entrants</span>
-            <span className="text-sm font-semibold text-ink-sec">{detail.teamIds.length} Teams</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex border-b border-slate-200 overflow-x-auto gap-4">
-        {[
-          { id: "bracket", label: "Bracket", icon: GitFork },
-          { id: "teams", label: "Teams", icon: Users },
-          { id: "matches", label: "Matches", icon: Activity },
-          { id: "ops", label: "Ops & Safety", icon: AlertTriangle },
-          { id: "summary", label: "Summary", icon: Award }
-        ].map((t) => {
-          const Icon = t.icon;
-          const active = activeTab === t.id;
-          return (
-            <button
-              key={t.id}
-              onClick={() => setActiveTab(t.id as any)}
-              className={`flex items-center gap-2 px-3 py-2 border-b-2 text-xs font-semibold transition-all ${
-                active ? "border-brand text-brand" : "border-transparent text-ink-mut hover:text-ink-sec"
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              {t.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Tab Contents */}
-      <div className="mt-4">
-        {activeTab === "bracket" && (
-          <div className="space-y-6">
-            <PanelHeader title="Tournament Bracket" sub="Visual bracket flow for the knockout matches." />
-
-            {detail.matches.length === 0 ? (
-              <div className="solid rounded-panel p-8 text-center">
-                <p className="text-sm font-semibold text-ink-lum">Bracket is not generated yet</p>
-                <p className="text-xs text-ink-mut mt-1">Assign teams and generate bracket to start the tournament.</p>
-                {detail.status === "teams-ready" && (
-                  <Button onClick={handleGenerateBracket} className="mt-4">Generate Bracket</Button>
-                )}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 overflow-x-auto py-4">
-                {/* Round-by-round columns */}
-                {[1, 2, 3].map((rNum) => {
-                  const rMatches = detail.matches.filter((m) => m.roundNumber === rNum);
-                  if (rMatches.length === 0) return null;
-                  return (
-                    <div key={rNum} className="space-y-6 min-w-[220px]">
-                      <h3 className="text-xs font-bold text-ink-mut overline border-b border-slate-200 pb-2">
-                        {rMatches[0].roundLabel || `Round ${rNum}`}
-                      </h3>
-                      <div className="space-y-4">
-                        {rMatches.map((m) => {
-                          const ready = m.teamAId && m.teamBId;
-                          return (
-                            <div key={m.id} className="solid rounded-xl p-3 space-y-2 border border-slate-200 relative">
-                              <div className="flex items-center justify-between text-[10px] text-ink-mut">
-                                <span>Match {m.matchNumber}</span>
-                                <StatusChip value={m.status} />
-                              </div>
-                              <div className="space-y-1">
-                                <div className="flex justify-between items-center text-xs">
-                                  <span className={m.winnerTeamId === m.teamAId ? "font-semibold text-brand" : "text-ink-sec"}>
-                                    {m.teamAId || <span className="italic text-ink-mut">TBD</span>}
-                                  </span>
-                                  <span className="font-mono text-ink-lum">{m.scoreA ?? "—"}</span>
-                                </div>
-                                <div className="flex justify-between items-center text-xs">
-                                  <span className={m.winnerTeamId === m.teamBId ? "font-semibold text-brand" : "text-ink-sec"}>
-                                    {m.teamBId || <span className="italic text-ink-mut">TBD</span>}
-                                  </span>
-                                  <span className="font-mono text-ink-lum">{m.scoreB ?? "—"}</span>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === "teams" && (
-          <div className="space-y-6">
-            <PanelHeader title="Assigned Teams" sub="Manage participating teams in this bracket." />
-
-            <div className="grid md:grid-cols-[1fr_300px] gap-6">
-              <Card className="p-4 space-y-4">
-                <h3 className="text-sm font-semibold text-ink-lum">Entrants ({detail.teamIds.length})</h3>
-                {detail.teamIds.length === 0 ? (
-                  <p className="text-xs text-ink-mut">No teams assigned yet.</p>
-                ) : (
-                  <div className="grid grid-cols-2 gap-2">
-                    {detail.teamIds.map((t) => (
-                      <div key={t} className="flex justify-between items-center bg-slate-50 p-2 rounded-lg border border-slate-200 text-xs text-ink-sec">
-                        <span>{t}</span>
-                        {(detail.status === "draft" || detail.status === "registration-open") && (
-                          <button onClick={() => handleRemoveTeam(t)} className="text-danger hover:underline">Remove</button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </Card>
-
-              {/* Add team panel */}
-              {(detail.status === "draft" || detail.status === "registration-open") && (
-                <Card className="p-4 space-y-4">
-                  <h3 className="text-sm font-semibold text-ink-lum">Add Team</h3>
-                  <div className="space-y-2">
-                    <Field label="Custom Team Name">
-                      <Input
-                        placeholder="Enter team name"
-                        value={addTeamName}
-                        onChange={(e) => setAddTeamName(e.target.value)}
-                      />
-                    </Field>
-                    <Button onClick={() => handleAddTeam(addTeamName)} className="w-full">Add Custom Team</Button>
-                  </div>
-
-                  <div className="border-t border-slate-200 pt-4 space-y-2">
-                    <span className="block text-xs font-semibold text-ink-mut">Quick Selection Pool</span>
-                    <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
-                      {availableTeamsPool.map((teamName) => {
-                        const added = detail.teamIds.includes(teamName);
-                        return (
-                          <button
-                            key={teamName}
-                            onClick={() => !added && handleAddTeam(teamName)}
-                            disabled={added}
-                            className={`text-[10px] px-2 py-1 rounded-md border transition-all ${
-                              added ? "border-transparent bg-slate-50 text-ink-mut" : "border-slate-200 text-ink-sec hover:border-brand hover:text-brand"
-                            }`}
-                          >
-                            {teamName}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </Card>
-              )}
-            </div>
-
-            {/* Bracket Generation Area */}
-            {(detail.status === "draft" || detail.status === "teams-ready") && (
-              <div className="solid rounded-panel p-4 flex justify-between items-center gap-4 bg-brand/5 border border-brand/20">
-                <div>
-                  <span className="block text-sm font-semibold text-ink-lum">Ready to generate brackets?</span>
-                  <span className="text-xs text-ink-mut">Make sure all teams are locked in. This will generate single elimination rounds.</span>
-                </div>
-                <Button onClick={handleGenerateBracket} disabled={detail.teamIds.length < 2}>Generate Bracket Structure</Button>
-              </div>
-            )}
-
-            {detail.status === "bracket-ready" && (
-              <div className="solid rounded-panel p-4 flex justify-between items-center gap-4 bg-emerald-50 border border-emerald-200">
-                <div>
-                  <span className="block text-sm font-semibold text-ink-lum">Bracket is ready. Publish now?</span>
-                  <span className="text-xs text-ink-mut">Publishing opens scheduling, referee assignment, and match execution.</span>
-                </div>
-                <Button onClick={handlePublish} className="bg-emerald-500 hover:bg-[#10a35e] text-white">Publish Tournament</Button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === "matches" && (
-          <div className="space-y-6">
-            <PanelHeader title="Match Execution Workspace" sub="Assign referees, start matches, and record confirmed scores." />
-
-            {detail.matches.length === 0 ? (
-              <p className="text-xs text-ink-mut">No matches generated yet.</p>
-            ) : (
-              <div className="space-y-4">
-                {detail.matches.map((m) => {
-                  const ready = m.teamAId && m.teamBId;
-                  return (
-                    <Card key={m.id} className="p-4 flex flex-wrap items-center justify-between gap-4 border border-slate-200 bg-slate-50">
-                      <div className="space-y-1 min-w-[200px]">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-ink-mut">{m.roundLabel || `Round ${m.roundNumber}`}</span>
-                          <StatusChip value={m.status} />
-                        </div>
-                        <div className="flex items-center gap-3 text-sm">
-                          <span className={m.winnerTeamId === m.teamAId ? "font-semibold text-brand" : "text-ink-sec"}>
-                            {m.teamAId || <span className="italic text-ink-mut">TBD</span>}
-                          </span>
-                          <span className="text-ink-mut">vs</span>
-                          <span className={m.winnerTeamId === m.teamBId ? "font-semibold text-brand" : "text-ink-sec"}>
-                            {m.teamBId || <span className="italic text-ink-mut">TBD</span>}
-                          </span>
-                        </div>
-                        <div className="text-[10px] text-ink-mut">
-                          Referee: {m.refereeId ? crew.find((c) => c.id === m.refereeId)?.name || m.refereeId : <span className="italic text-danger">Unassigned</span>}
-                        </div>
-                      </div>
-
-                      {/* Score Board */}
-                      {(m.status === "completed" || m.status === "awaiting-verification" || m.status === "verified") && (
-                        <div className="bg-slate-50 rounded-xl px-4 py-2 text-center border border-slate-200 min-w-[80px]">
-                          <span className="block text-[9px] text-ink-mut overline">Final Score</span>
-                          <span className="font-mono text-base font-semibold text-ink-lum">{m.scoreA} – {m.scoreB}</span>
-                        </div>
-                      )}
-
-                      {/* Commands */}
-                      <div className="flex flex-wrap items-center gap-2">
-                        {/* Assign Referee option */}
-                        {(!m.refereeId && !m.isBye) && (
-                          <Button variant="secondary" onClick={() => setAssignRefMatchId(m.id)} className="h-8 text-xs rounded-lg px-3">
-                            Assign Referee
-                          </Button>
-                        )}
-
-                        {/* Match Execution Actions */}
-                        {m.status === "scheduled" && ready && (
-                          <Button variant="secondary" onClick={() => startTournamentMatch(tournamentId, m.id)} className="h-8 text-xs rounded-lg px-3 gap-1 bg-brand/10 text-brand border border-brand/20">
-                            <Play className="h-3.5 w-3.5 fill-current" />
-                            Start Match
-                          </Button>
-                        )}
-
-                        {m.status === "live" && (
-                          <Button variant="secondary" onClick={() => pauseTournamentMatch(tournamentId, m.id)} className="h-8 text-xs rounded-lg px-3 gap-1 border-warning/20 text-warning bg-warning/5">
-                            <Pause className="h-3.5 w-3.5 fill-current" />
-                            Pause
-                          </Button>
-                        )}
-
-                        {m.status === "paused" && (
-                          <Button variant="secondary" onClick={() => resumeTournamentMatch(tournamentId, m.id)} className="h-8 text-xs rounded-lg px-3 gap-1 border-brand/20 text-brand bg-brand/5">
-                            <Play className="h-3.5 w-3.5 fill-current" />
-                            Resume
-                          </Button>
-                        )}
-
-                        {/* Record Result */}
-                        {(m.status === "live" || m.status === "paused") && (
-                          <Button onClick={() => {
-                            setRecordScoreMatchId(m.id);
-                            setScoreA("0");
-                            setScoreB("0");
-                            setMatchWinnerId(m.teamAId || "");
-                          }} className="h-8 text-xs rounded-lg px-3">
-                            Confirm Score
-                          </Button>
-                        )}
-
-                        {/* Verify Result */}
-                        {m.status === "awaiting-verification" && (
-                          <Button onClick={() => verifyTournamentMatchResult(tournamentId, m.id)} className="h-8 text-xs rounded-lg px-3 bg-emerald-500 hover:bg-[#10a35e] text-white">
-                            Verify Result
-                          </Button>
-                        )}
-                      </div>
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Referee Assignment Modal/Overlay simulator */}
-            {assignRefMatchId && (
-              <Card className="p-4 border border-brand bg-brand/5 max-w-md mx-auto space-y-4">
-                <PanelHeader title="Assign Match Referee" sub="Choose a crew member to officiate this match." />
-                <Field label="Select Official">
-                  <Select value={selectedRefId} onChange={(e) => setSelectedRefId(e.target.value)}>
-                    <option value="">Choose referee...</option>
-                    {crew.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} ({c.role})
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-                <div className="flex gap-2 justify-end">
-                  <Button variant="secondary" onClick={() => setAssignRefMatchId(null)}>Cancel</Button>
-                  <Button onClick={handleAssignReferee} disabled={!selectedRefId}>Assign</Button>
-                </div>
-              </Card>
-            )}
-
-            {/* Score Recording Modal/Overlay simulator */}
-            {recordScoreMatchId && (
-              <Card className="p-4 border border-brand bg-brand/5 max-w-md mx-auto space-y-4">
-                <PanelHeader title="Submit Match Scores" sub="Submit match results to verification queue." />
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label="Score A">
-                    <Input type="number" value={scoreA} onChange={(e) => setScoreA(e.target.value)} />
-                  </Field>
-                  <Field label="Score B">
-                    <Input type="number" value={scoreB} onChange={(e) => setScoreB(e.target.value)} />
-                  </Field>
-                </div>
-
-                <Field label="Declared Winner">
-                  <Select value={matchWinnerId} onChange={(e) => setMatchWinnerId(e.target.value)}>
-                    <option value="">Select winner...</option>
-                    <option value={detail.matches.find((m) => m.id === recordScoreMatchId)?.teamAId}>
-                      {detail.matches.find((m) => m.id === recordScoreMatchId)?.teamAId}
-                    </option>
-                    <option value={detail.matches.find((m) => m.id === recordScoreMatchId)?.teamBId}>
-                      {detail.matches.find((m) => m.id === recordScoreMatchId)?.teamBId}
-                    </option>
-                  </Select>
-                </Field>
-
-                <div className="flex gap-2 justify-end">
-                  <Button variant="secondary" onClick={() => setRecordScoreMatchId(null)}>Cancel</Button>
-                  <Button onClick={handleRecordResult} disabled={!matchWinnerId}>Submit Result</Button>
-                </div>
-              </Card>
-            )}
-          </div>
-        )}
-
-        {activeTab === "ops" && (
-          <div className="space-y-6">
-            <PanelHeader title="Operational Exceptions & Incidents" sub="Manage disputes, injuries, walkovers, and team disqualifications." />
-
-            <div className="grid md:grid-cols-2 gap-6">
-              {/* Left Column: Exceptions Form */}
-              <div className="space-y-6">
-                <Card className="p-4 space-y-4">
-                  <h3 className="text-sm font-semibold text-danger flex items-center gap-1.5">
-                    <AlertTriangle className="h-4 w-4" />
-                    Declare Administrative Walkover
-                  </h3>
-                  <div className="space-y-3">
-                    <Field label="Match">
-                      <Select value={walkoverMatchId || ""} onChange={(e) => setWalkoverMatchId(e.target.value || null)}>
-                        <option value="">Select match...</option>
-                        {detail.matches.filter((m) => m.status === "scheduled" || m.status === "live").map((m) => (
-                          <option key={m.id} value={m.id}>
-                            Match {m.matchNumber}: {m.teamAId} vs {m.teamBId}
-                          </option>
-                        ))}
-                      </Select>
-                    </Field>
-
-                    <Field label="Award Win To">
-                      <Select value={walkoverWinnerId} onChange={(e) => setWalkoverWinnerId(e.target.value)}>
-                        <option value="">Select team...</option>
-                        {walkoverMatchId && (
-                          <>
-                            <option value={detail.matches.find((m) => m.id === walkoverMatchId)?.teamAId}>
-                              {detail.matches.find((m) => m.id === walkoverMatchId)?.teamAId}
-                            </option>
-                            <option value={detail.matches.find((m) => m.id === walkoverMatchId)?.teamBId}>
-                              {detail.matches.find((m) => m.id === walkoverMatchId)?.teamBId}
-                            </option>
-                          </>
-                        )}
-                      </Select>
-                    </Field>
-
-                    <Field label="Walkover Reason">
-                      <Input placeholder="e.g. Opponent team failed to check-in within 15 mins" value={walkoverReason} onChange={(e) => setWalkoverReason(e.target.value)} />
-                    </Field>
-
-                    <Button variant="danger" onClick={handleDeclareWalkoverSubmit} disabled={!walkoverMatchId || !walkoverWinnerId || !walkoverReason} className="w-full">
-                      Declare Walkover
-                    </Button>
-                  </div>
-                </Card>
-
-                <Card className="p-4 space-y-4">
-                  <h3 className="text-sm font-semibold text-danger flex items-center gap-1.5">
-                    <AlertTriangle className="h-4 w-4" />
-                    Disqualify Team
-                  </h3>
-                  <div className="space-y-3">
-                    <Field label="Select Team">
-                      <Select value={disqualifyTeamId} onChange={(e) => setDisqualifyTeamId(e.target.value)}>
-                        <option value="">Select team...</option>
-                        {detail.teamIds.map((t) => (
-                          <option key={t} value={t}>{t}</option>
-                        ))}
-                      </Select>
-                    </Field>
-
-                    <Field label="Reason">
-                      <Input placeholder="e.g. Misconduct during play" value={disqualifyReason} onChange={(e) => setDisqualifyReason(e.target.value)} />
-                    </Field>
-
-                    <Button variant="danger" onClick={handleDisqualifySubmit} disabled={!disqualifyTeamId || !disqualifyReason} className="w-full">
-                      Disqualify Team
-                    </Button>
-                  </div>
-                </Card>
-              </div>
-
-              {/* Right Column: Incidents & Disputes Log */}
-              <div className="space-y-6">
-                <Card className="p-4 space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-sm font-semibold text-ink-lum">Safety Incidents ({incidents.length})</h3>
-                    <Button onClick={() => setShowIncidentForm(true)} className="h-7 text-xs px-2.5 rounded-lg gap-1">
-                      <Plus className="h-3.5 w-3.5" /> Report Incident
-                    </Button>
-                  </div>
-
-                  {incidents.length === 0 ? (
-                    <p className="text-xs text-ink-mut">No incidents logged for this tournament.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {incidents.map((inc) => (
-                        <div key={inc.id} className="bg-slate-50 p-2 rounded-lg border border-slate-200 text-xs">
-                          <div className="flex justify-between items-center">
-                            <span className="font-semibold text-ink-sec">{inc.incidentCode || inc.id}</span>
-                            <StatusChip value={inc.status || "reported"} />
-                          </div>
-                          <p className="text-[10px] text-ink-mut mt-0.5">Category: {inc.category} · Severity: {inc.severity}</p>
-                          <p className="text-ink-sec mt-1">{inc.notes}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </Card>
-
-                <Card className="p-4 space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-sm font-semibold text-ink-lum">Active Disputes ({disputes.length})</h3>
-                    <Button onClick={() => setShowDisputeForm(true)} className="h-7 text-xs px-2.5 rounded-lg gap-1">
-                      <Plus className="h-3.5 w-3.5" /> Submit Dispute
-                    </Button>
-                  </div>
-
-                  {disputes.length === 0 ? (
-                    <p className="text-xs text-ink-mut">No active disputes logged.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {disputes.map((disp) => (
-                        <div key={disp.id} className="bg-slate-50 p-2 rounded-lg border border-slate-200 text-xs">
-                          <div className="flex justify-between items-center">
-                            <span className="font-semibold text-ink-sec">{disp.id}</span>
-                            <StatusChip value={disp.status || "submitted"} />
-                          </div>
-                          <p className="text-[10px] text-ink-mut mt-0.5">Type: {disp.type} · By: {disp.submittedBy}</p>
-                          <p className="text-ink-sec mt-1">{disp.reason}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </Card>
-              </div>
-            </div>
-
-            {/* Simulated Incident Form */}
-            {showIncidentForm && (
-              <Card className="p-4 border border-brand bg-brand/5 max-w-md mx-auto space-y-4">
-                <PanelHeader title="Report Safety Incident" sub="Create a safety log entry for this tournament." />
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label="Category">
-                    <Select value={incidentCategory} onChange={(e) => setIncidentCategory(e.target.value as any)}>
-                      <option value="injury">Injury</option>
-                      <option value="misconduct">Misconduct</option>
-                      <option value="equipment">Equipment failure</option>
-                      <option value="other">Other</option>
-                    </Select>
-                  </Field>
-                  <Field label="Severity">
-                    <Select value={incidentSeverity} onChange={(e) => setIncidentSeverity(e.target.value as any)}>
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                      <option value="critical">Critical</option>
-                    </Select>
-                  </Field>
-                </div>
-                <Field label="Description Notes">
-                  <Input placeholder="Describe what happened..." value={incidentNotes} onChange={(e) => setIncidentNotes(e.target.value)} />
-                </Field>
-                <Field label="Immediate Action Taken">
-                  <Input placeholder="e.g. Applied ice, warned participant" value={incidentAction} onChange={(e) => setIncidentAction(e.target.value)} />
-                </Field>
-                <div className="flex gap-2 justify-end">
-                  <Button variant="secondary" onClick={() => setShowIncidentForm(false)}>Cancel</Button>
-                  <Button onClick={handleReportIncidentSubmit} disabled={!incidentNotes || !incidentAction}>Report</Button>
-                </div>
-              </Card>
-            )}
-
-            {/* Simulated Dispute Form */}
-            {showDisputeForm && (
-              <Card className="p-4 border border-brand bg-brand/5 max-w-md mx-auto space-y-4">
-                <PanelHeader title="Submit Dispute Log" sub="Submit participant dispute concerning a match result." />
-                <Field label="Dispute Type">
-                  <Select value={disputeType} onChange={(e) => setDisputeType(e.target.value as any)}>
-                    <option value="match-result">Match score count dispute</option>
-                    <option value="participant-conduct">Unsportsmanlike conduct</option>
-                    <option value="eligibility">Eligibility</option>
-                  </Select>
-                </Field>
-                <Field label="Match">
-                  <Select value={disputeMatchId} onChange={(e) => setDisputeMatchId(e.target.value)}>
-                    <option value="">Select match...</option>
-                    {detail.matches.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        Match {m.matchNumber}: {m.teamAId} vs {m.teamBId}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-                <Field label="Reason & Description">
-                  <Input placeholder="Describe dispute reason..." value={disputeReason} onChange={(e) => setDisputeReason(e.target.value)} />
-                </Field>
-                <div className="flex gap-2 justify-end">
-                  <Button variant="secondary" onClick={() => setShowDisputeForm(false)}>Cancel</Button>
-                  <Button onClick={handleReportDisputeSubmit} disabled={!disputeReason || !disputeMatchId}>Submit</Button>
-                </div>
-              </Card>
-            )}
-          </div>
-        )}
-
-        {activeTab === "summary" && (
-          <div className="space-y-6">
-            <PanelHeader title="Tournament Closure Summary" sub="Declare champions and wrap up bracket operations." />
-
-            <div className="grid md:grid-cols-2 gap-6">
-              <Card className="p-4 space-y-4">
-                <h3 className="text-sm font-semibold text-ink-lum">Final Summary Status</h3>
-                <div className="solid rounded-xl p-4 space-y-2 text-xs">
-                  <div className="flex justify-between border-b border-slate-200 pb-2">
-                    <span className="text-ink-mut">Matches Complete:</span>
-                    <span className="font-semibold text-ink-sec">{progress.completed} / {progress.total}</span>
-                  </div>
-                  <div className="flex justify-between border-b border-slate-200 pb-2">
-                    <span className="text-ink-mut">Champion Declared:</span>
-                    <span className="font-semibold text-brand">{detail.winnerTeamId || "TBD"}</span>
-                  </div>
-                </div>
-
-                {detail.status !== "completed" && (
-                  <div className="space-y-3">
-                    <div className="text-xs text-ink-mut bg-slate-50 p-3 rounded-lg border border-slate-200">
-                      <strong>Completion Check:</strong> {completion.reason || "All matches verified! Ready to close."}
-                    </div>
-                    <Button
-                      onClick={handleCompleteTournamentSubmit}
-                      disabled={!completion.canComplete}
-                      className="w-full bg-emerald-500 hover:bg-[#10a35e] text-white"
-                    >
-                      Complete & Declare Champion
-                    </Button>
-                  </div>
-                )}
-              </Card>
-
-              {detail.status === "completed" && (
-                <Card className="p-4 text-center space-y-3 border border-brand bg-brand/5">
-                  <CheckCircle className="h-12 w-12 text-brand mx-auto" />
-                  <h3 className="text-lg font-bold text-ink-lum">Tournament Closed</h3>
-                  <p className="text-xs text-ink-mut">This tournament has completed. The champion has been announced and all brackets are finalized.</p>
-                  <p className="text-sm font-semibold text-brand">Champion: {detail.winnerTeamId}</p>
-                </Card>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+  const playable = t.matches.filter((m) => !m.isBye);
+  const awaiting = playable.filter((m) => m.status === "awaiting-verification");
+  const live = playable.filter(
+    (m) => m.status === "live" || m.status === "paused",
   );
-}
+  const incidents = state.incidents.filter((i) => i.tournamentId === t.id);
+  const disputes = state.disputes.filter((d) => d.tournamentId === t.id);
+  const canGenerate = [
+    "draft",
+    "registration-open",
+    "registration-closed",
+    "teams-ready",
+  ].includes(t.status);
+  const minTeams = Math.max(2, t.minimumTeams ?? 2);
+  const championId = t.winnerTeamId;
 
-function PageFrame({ children }: { children: React.ReactNode }) {
-  return <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8">{children}</div>;
-}
+  let primary: React.ReactNode = null;
+  if (canGenerate) {
+    const tooFew = t.teamIds.length < minTeams;
+    primary = (
+      <GatedButton
+        gate={
+          tooFew
+            ? {
+                allowed: false,
+                reason: `Enter at least ${minTeams} teams first.`,
+              }
+            : g.bracket
+        }
+        onClick={() =>
+          feedback(
+            generateSingleEliminationBracket(t.id),
+            "Bracket generated",
+            "Check the draw, then publish.",
+          )
+        }
+      >
+        <GitFork className="h-4 w-4" /> Generate bracket
+      </GatedButton>
+    );
+  } else if (t.status === "bracket-ready") {
+    primary = (
+      <>
+        <GatedButton
+          gate={g.bracket}
+          variant="secondary"
+          onClick={() => setDialog("regenerate")}
+        >
+          Redraw
+        </GatedButton>
+        <GatedButton gate={g.publish} onClick={() => setDialog("publish")}>
+          Publish tournament
+        </GatedButton>
+      </>
+    );
+  } else if (
+    ["published", "live", "paused", "awaiting-verification"].includes(t.status)
+  ) {
+    primary = (
+      <GatedButton
+        gate={
+          completion.canComplete
+            ? g.complete
+            : { allowed: false, reason: completion.reason }
+        }
+        variant="success"
+        onClick={() => setDialog("complete")}
+      >
+        <Trophy className="h-4 w-4" /> Complete tournament
+      </GatedButton>
+    );
+  }
 
-function IconButton({
-  label,
-  children,
-  ...rest
-}: {
-  label: string;
-  children: React.ReactNode;
-} & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
-    <button
-      className="inline-flex h-10 w-10 items-center justify-center rounded-xl glass hover:bg-slate-50 border border-slate-200 text-ink-sec hover:text-ink-lum transition-all duration-200"
-      title={label}
-      {...rest}
-    >
-      {children}
-    </button>
+    <>
+      <div className="mx-auto w-full max-w-[1440px] space-y-6 px-5 py-7 lg:px-8">
+        <Link
+          href="/tournaments"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-mut hover:text-ink-lum"
+        >
+          <ArrowLeft className="h-4 w-4" /> Tournaments
+        </Link>
+        <PageHeader
+          overline={`${t.code} · Single elimination`}
+          title={t.name}
+          sub={`${t.venueName} · ${t.scheduledStart ? `starts ${formatWhen(t.scheduledStart)}` : "start time not set"} · ${t.verificationRequirement === "dual" ? "results verified by a second person" : "results verified before advancing"}`}
+          right={
+            <>
+              <StatusChip value={t.status} className="h-8 px-3" />
+              {primary}
+            </>
+          }
+        />
+
+        {championId && (
+          <div className="relative overflow-hidden rounded-panel border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-violet-50 p-6 shadow-panel">
+            <div className="flex flex-wrap items-center gap-5">
+              <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-lift">
+                <Trophy className="h-7 w-7" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="overline text-amber-700">Champion</p>
+                <p className="font-display text-2xl font-bold text-ink-lum">
+                  {entrantName(t, championId)}
+                </p>
+                <p className="mt-1 text-sm text-ink-mut">
+                  {placings?.runnerUp && (
+                    <>Runner-up {entrantName(t, placings.runnerUp)}</>
+                  )}
+                  {placings?.semiFinalists.length
+                    ? ` · Semi-finalists ${placings.semiFinalists.map((x) => entrantName(t, x)).join(", ")}`
+                    : ""}
+                  {t.endedAt ? ` · Completed ${formatWhen(t.endedAt)}` : ""}
+                </p>
+              </div>
+              {t.prizePlaceholder && (
+                <p className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm text-ink-sec">
+                  Prize: {t.prizePlaceholder}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricTile
+            label="Teams"
+            value={t.teamIds.length}
+            detail={`${minTeams}–${t.maximumTeams ?? 64} allowed · ${t.seedingMethod === "seeded" ? "seeded" : "random draw"}`}
+            icon={<Users className="h-4 w-4" />}
+            tone="violet"
+            onClick={() => setTab("teams")}
+          />
+          <MetricTile
+            label="Matches decided"
+            value={`${progress.completed}/${progress.total}`}
+            detail={
+              progress.total
+                ? `${progress.progressPercent}% of the bracket`
+                : "bracket not generated"
+            }
+            icon={<ListOrdered className="h-4 w-4" />}
+            tone="emerald"
+            onClick={() => setTab("matches")}
+          />
+          <MetricTile
+            label="Live now"
+            value={live.length}
+            detail={
+              live[0]
+                ? `${entrantName(t, live[0].teamAId)} v ${entrantName(t, live[0].teamBId)}`
+                : "no match in play"
+            }
+            icon={<Radio className="h-4 w-4" />}
+            tone="sky"
+            onClick={() => setTab("matches")}
+          />
+          <MetricTile
+            label="Awaiting verification"
+            value={awaiting.length}
+            detail={
+              awaiting.length
+                ? "verify so winners advance"
+                : "nothing to verify"
+            }
+            icon={<ClipboardCheck className="h-4 w-4" />}
+            tone={awaiting.length ? "amber" : "emerald"}
+            onClick={() => awaiting[0] && setMatchId(awaiting[0].id)}
+          />
+        </div>
+
+        {awaiting.length > 0 && (
+          <div className="rounded-panel border border-amber-200 bg-amber-50/60 p-4">
+            <p className="text-sm font-semibold text-amber-800">
+              Results waiting for verification
+            </p>
+            <ul className="mt-2 flex flex-wrap gap-2">
+              {awaiting.map((m) => (
+                <li key={m.id}>
+                  <button
+                    onClick={() => setMatchId(m.id)}
+                    className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-left text-sm hover:border-amber-400"
+                  >
+                    <span className="font-semibold text-ink-lum">
+                      {entrantName(t, m.teamAId)} {m.scoreA}–{m.scoreB}{" "}
+                      {entrantName(t, m.teamBId)}
+                    </span>
+                    <span className="block text-xs text-ink-mut">
+                      {matchTitle(m)} · recorded{" "}
+                      {formatAgo(m.resultRevisions?.at(-1)?.recordedAt)} by{" "}
+                      {operatorName(
+                        state,
+                        m.resultRevisions?.at(-1)?.recordedBy,
+                      )}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div className="rounded-panel border border-edge bg-white shadow-panel">
+          <TabBar<Tab>
+            value={tab}
+            onChange={setTab}
+            tabs={[
+              { id: "bracket", label: "Bracket", icon: GitFork },
+              {
+                id: "matches",
+                label: "Matches",
+                icon: ListOrdered,
+                count: playable.length,
+              },
+              {
+                id: "teams",
+                label: "Teams",
+                icon: Users,
+                count: t.teamIds.length,
+              },
+              {
+                id: "safety",
+                label: "Incidents & disputes",
+                icon: ShieldAlert,
+                count: incidents.length + disputes.length,
+              },
+            ]}
+          />
+
+          {tab === "bracket" && (
+            <div className="p-4 md:p-5">
+              {t.rounds.length === 0 ? (
+                <EmptyState
+                  title="No bracket yet"
+                  line={
+                    t.teamIds.length < minTeams
+                      ? `Enter at least ${minTeams} teams, then generate the bracket.`
+                      : "Generate the bracket to draw the first round."
+                  }
+                  action={
+                    canGenerate ? (
+                      <Button
+                        variant="secondary"
+                        onClick={() => setTab("teams")}
+                      >
+                        Manage teams
+                      </Button>
+                    ) : undefined
+                  }
+                />
+              ) : (
+                <>
+                  <Bracket
+                    tournament={t}
+                    rounds={t.rounds}
+                    onSelect={(m) => setMatchId(m.id)}
+                    selectedId={matchId ?? undefined}
+                  />
+                  <p className="mt-3 text-xs text-ink-mut">
+                    Select a match to assign a referee, start it, record or
+                    verify the result.
+                  </p>
+                  {t.status === "bracket-ready" && (
+                    <div className="mt-3">
+                      <PermissionNote reason="This bracket is a draft. Publish the tournament to lock teams and start match day." />
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {tab === "matches" && (
+            <div className="overflow-x-auto">
+              {playable.length === 0 ? (
+                <div className="p-6">
+                  <EmptyState
+                    title="No matches yet"
+                    line="Matches appear once the bracket is generated."
+                  />
+                </div>
+              ) : (
+                <table className="w-full min-w-[760px] text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-edge bg-bg-sunken text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-mut">
+                      <th className="px-5 py-3">Match</th>
+                      <th className="px-5 py-3">Teams</th>
+                      <th className="px-5 py-3">Score</th>
+                      <th className="px-5 py-3">Scheduled</th>
+                      <th className="px-5 py-3">Referee</th>
+                      <th className="px-5 py-3">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {playable.map((m) => (
+                      <tr
+                        key={m.id}
+                        onClick={() => setMatchId(m.id)}
+                        className="cursor-pointer border-b border-slate-100 last:border-0 hover:bg-brand-subtle/30"
+                      >
+                        <td className="px-5 py-3 text-ink-sec">
+                          <button
+                            className="text-left font-medium text-ink-lum hover:underline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMatchId(m.id);
+                            }}
+                          >
+                            {matchTitle(m)}
+                          </button>
+                        </td>
+                        <td className="px-5 py-3">
+                          <span
+                            className={cn(
+                              m.winnerTeamId === m.teamAId &&
+                                m.status !== "awaiting-verification" &&
+                                "font-semibold text-ink-lum",
+                            )}
+                          >
+                            {entrantName(t, m.teamAId)}
+                          </span>
+                          <span className="px-1.5 text-ink-mut">v</span>
+                          <span
+                            className={cn(
+                              m.winnerTeamId === m.teamBId &&
+                                m.status !== "awaiting-verification" &&
+                                "font-semibold text-ink-lum",
+                            )}
+                          >
+                            {entrantName(t, m.teamBId)}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3 font-display tabular text-ink-lum">
+                          {m.scoreA !== undefined && m.scoreB !== undefined
+                            ? `${m.scoreA}–${m.scoreB}`
+                            : "—"}
+                        </td>
+                        <td className="px-5 py-3 text-ink-sec">
+                          {formatWhen(m.scheduledAt)}
+                        </td>
+                        <td className="px-5 py-3 text-ink-sec">
+                          {m.refereeId ? (
+                            operatorName(state, m.refereeId)
+                          ) : (
+                            <span className="text-amber-700">Not assigned</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3">
+                          <StatusChip value={m.status} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+
+          {tab === "teams" && (
+            <TeamsPanel tournament={t} entrants={t.entrants} />
+          )}
+
+          {tab === "safety" && (
+            <div className="grid gap-5 p-4 md:p-5 lg:grid-cols-2">
+              <section>
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <h3 className="text-sm font-semibold text-ink-lum">
+                    Incidents ({incidents.length})
+                  </h3>
+                  <GatedButton
+                    gate={safetyGate("incident.report", terr)}
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setDialog("incident")}
+                  >
+                    Report incident
+                  </GatedButton>
+                </div>
+                {incidents.length === 0 ? (
+                  <p className="rounded-2xl border border-dashed border-edge-strong px-4 py-8 text-center text-sm text-ink-mut">
+                    No incidents recorded for this tournament.
+                  </p>
+                ) : (
+                  <ul className="space-y-2">
+                    {incidents.map((i) => (
+                      <li
+                        key={i.id}
+                        className="rounded-xl border border-edge p-3"
+                      >
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-mono text-xs font-semibold text-ink-sec">
+                            {i.incidentCode ?? i.id}
+                          </span>
+                          <SeverityBadge severity={i.severity ?? "medium"} />
+                          <StatusChip value={i.status ?? "reported"} />
+                        </div>
+                        <p className="mt-1 text-sm text-ink-lum">{i.notes}</p>
+                        <p className="mt-1 text-xs text-ink-mut">
+                          {formatWhen(i.reportedAt)} · handled on the Safety
+                          page
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+              <section>
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <h3 className="text-sm font-semibold text-ink-lum">
+                    Disputes ({disputes.length})
+                  </h3>
+                  <GatedButton
+                    gate={safetyGate("dispute.submit", terr)}
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setDialog("dispute")}
+                  >
+                    Log dispute
+                  </GatedButton>
+                </div>
+                {disputes.length === 0 ? (
+                  <p className="rounded-2xl border border-dashed border-edge-strong px-4 py-8 text-center text-sm text-ink-mut">
+                    No disputes raised for this tournament.
+                  </p>
+                ) : (
+                  <ul className="space-y-2">
+                    {disputes.map((d) => (
+                      <li
+                        key={d.id}
+                        className="rounded-xl border border-edge p-3"
+                      >
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-mono text-xs font-semibold text-ink-sec">
+                            {d.id}
+                          </span>
+                          <StatusChip value={d.status} />
+                        </div>
+                        <p className="mt-1 text-sm text-ink-lum">{d.reason}</p>
+                        <p className="mt-1 text-xs text-ink-mut">
+                          Raised by {d.submittedBy} ·{" "}
+                          {formatWhen(d.submittedAt)}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {canAccess("/safety") && (
+                  <Link
+                    href="/safety"
+                    className="mt-3 inline-block text-sm font-semibold text-brand-ink hover:underline"
+                  >
+                    Open Safety & disputes →
+                  </Link>
+                )}
+              </section>
+            </div>
+          )}
+        </div>
+
+        <div className="grid gap-4 text-sm text-ink-sec md:grid-cols-3">
+          <p className="flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-ink-mut" /> {t.venueName}
+          </p>
+          <p className="flex items-center gap-2">
+            <CalendarClock className="h-4 w-4 text-ink-mut" /> {t.matchDuration}{" "}
+            min matches · {t.breakDuration} min breaks
+          </p>
+          <p className="flex items-center gap-2">
+            <Trophy className="h-4 w-4 text-ink-mut" />{" "}
+            {t.prizePlaceholder || "No prize recorded"}
+          </p>
+        </div>
+      </div>
+
+      <MatchDrawer
+        tournament={t}
+        matchId={matchId}
+        onClose={() => setMatchId(null)}
+      />
+
+      <CommandDialog
+        open={dialog === "publish"}
+        onClose={() => setDialog(null)}
+        title="Publish tournament?"
+        confirmLabel="Publish"
+        success="Tournament published — match day is open"
+        onSubmit={() => publishTournament(t.id)}
+      >
+        <p className="text-sm leading-6 text-ink-sec">
+          Publishing locks the {t.teamIds.length} teams and the draw. After
+          this, teams can only leave by walkover or disqualification.
+        </p>
+      </CommandDialog>
+      <CommandDialog
+        open={dialog === "regenerate"}
+        onClose={() => setDialog(null)}
+        title="Redraw the bracket?"
+        confirmLabel="Redraw"
+        variant="warning"
+        success="Bracket redrawn"
+        onSubmit={() => generateSingleEliminationBracket(t.id)}
+      >
+        <p className="text-sm leading-6 text-ink-sec">
+          The current draft draw and any referee assignments are replaced with a
+          new draw.
+        </p>
+      </CommandDialog>
+      <CommandDialog
+        open={dialog === "complete"}
+        onClose={() => setDialog(null)}
+        title="Complete tournament?"
+        confirmLabel="Complete and crown champion"
+        variant="success"
+        success={() =>
+          `Tournament complete — champion ${entrantName(t, completion.championId)}`
+        }
+        onSubmit={() => completeTournament(t.id)}
+      >
+        <p className="text-sm leading-6 text-ink-sec">
+          {completion.championId ? (
+            <>
+              The final&apos;s winner,{" "}
+              <strong>{entrantName(t, completion.championId)}</strong>, is
+              recorded as champion.
+            </>
+          ) : null}{" "}
+          Results can no longer be corrected afterwards.
+        </p>
+      </CommandDialog>
+      <ReportIncidentDialog
+        open={dialog === "incident"}
+        onClose={() => setDialog(null)}
+        tournamentId={t.id}
+      />
+      <LogDisputeDialog
+        open={dialog === "dispute"}
+        onClose={() => setDialog(null)}
+        tournamentId={t.id}
+      />
+    </>
   );
 }
