@@ -296,7 +296,7 @@ export async function saveEventCommand(uid: string, data: unknown) {
       requestId: rid,
     });
     return { eventId, status: nextStatus };
-  });
+  }, { authorize: (tx) => requirePermission(uid, orgId, "events.edit", { tx, eventId: existingId ?? undefined }) });
 }
 
 // ----------------------------------------------------------------- submit
@@ -355,7 +355,7 @@ export async function submitEventCommand(uid: string, data: unknown) {
       before: { status: ev.status }, after: { status: "submitted", governanceCaseId: caseRef.id, risk }, requestId: rid,
     });
     return { eventId, status: "submitted", caseId: caseRef.id };
-  });
+  }, { authorize: (tx) => requirePermission(uid, orgId, "events.submit", { tx, eventId }) });
 }
 
 // ---------------------------------------------------------------- publish
@@ -421,7 +421,7 @@ export async function publishEventCommand(uid: string, data: unknown) {
       requestId: rid,
     });
     return { eventId, status: "published", commissionBps: agreement.commissionBps as number, publishedAt: now.toDate().toISOString() };
-  });
+  }, { authorize: (tx) => requirePermission(uid, orgId, "events.publish", { tx, eventId }) });
 }
 
 // ---------------------------------------------------------- responsibility
@@ -446,7 +446,7 @@ export async function setEventResponsibilityCommand(uid: string, data: unknown) 
       before: { responsibility: ev.responsibility ?? null }, after: { responsibility: { primaryUid, staffUids } }, requestId: rid,
     });
     return { eventId, primaryUid, staffUids };
-  });
+  }, { authorize: (tx) => requirePermission(uid, orgId, "events.edit", { tx, eventId }) });
 }
 
 // ------------------------------------------------------------------ phase
@@ -480,7 +480,7 @@ export async function setEventPhaseCommand(uid: string, data: unknown) {
       before: { status: ev.status }, after: { status: phase }, requestId: rid,
     });
     return { eventId, status: phase };
-  });
+  }, { authorize: (tx) => requirePermission(uid, orgId, "events.operate", { tx, eventId }) });
 }
 
 // ----------------------------------------------------------------- cancel
@@ -534,7 +534,7 @@ export async function cancelEventCommand(uid: string, data: unknown) {
     const m = await requirePermission(uid, orgId, "events.cancel", { tx, eventId });
     const { ev } = await loadEvent(tx, orgId, eventId);
     return cancelInTx(tx, now, eventId, ev, { uid, role: actorRole(m), by: "organizer" }, reason, rid);
-  });
+  }, { authorize: (tx) => requirePermission(uid, orgId, "events.cancel", { tx, eventId }) });
 }
 
 export async function adminCancelEventCommand(admin: { uid: string; roleId: string }, data: unknown) {

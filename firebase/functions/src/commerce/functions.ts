@@ -22,6 +22,7 @@ import {
   requestRefund as requestRefundSvc,
 } from "./refunds";
 import { scanTicket as scanTicketSvc } from "./scan";
+import { checkInManually as checkInManuallySvc, listEventAttendees as listEventAttendeesSvc } from "./checkin";
 import { buildSettlement as buildSettlementSvc, decideSettlement as decideSettlementSvc } from "./settlements";
 import { releaseExpiredHolds as releaseExpiredHoldsSvc } from "./holds";
 import { retryApprovedRefunds } from "./refundCore";
@@ -142,6 +143,26 @@ export const scanTicket = callable(
   },
   { secrets: TICKET }
 );
+
+export const checkInManually = callable(async (data, context) => {
+  const actor = requireUser(context);
+  const d = obj(data);
+  return checkInManuallySvc(actor.uid, {
+    requestId: requestId(d.requestId),
+    eventId: docId(d.eventId, "eventId"),
+    ticketId: docId(d.ticketId, "ticketId"),
+    reason: str(d.reason, "Reason", 10, 300),
+  });
+});
+
+export const listEventAttendees = callable(async (data, context) => {
+  const actor = requireUser(context);
+  const d = obj(data);
+  return listEventAttendeesSvc(actor.uid, {
+    orgId: docId(d.orgId, "orgId"),
+    eventId: docId(d.eventId, "eventId"),
+  });
+});
 
 /* ----------------------------------------------------------------- admins */
 

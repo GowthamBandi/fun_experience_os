@@ -199,7 +199,7 @@ export async function saveExperienceCommand(uid: string, data: unknown) {
       requestId: rid,
     });
     return { experienceId: target.id, status: "draft", previousVersionId: target.previousVersionId };
-  });
+  }, { authorize: (tx) => requirePermission(uid, orgId, "experiences.edit", { tx }) });
 }
 
 // ---------------------------------------------------------- submitExperience
@@ -259,7 +259,7 @@ export async function submitExperienceCommand(uid: string, data: unknown) {
       requestId: rid,
     });
     return { experienceId, status: "submitted", caseId: caseRef.id };
-  });
+  }, { authorize: (tx) => requirePermission(uid, orgId, "experiences.submit", { tx }) });
 }
 
 // ------------------------------------------------ revision approval (trigger)

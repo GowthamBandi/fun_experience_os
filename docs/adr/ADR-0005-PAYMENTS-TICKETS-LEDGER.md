@@ -51,7 +51,8 @@ No credentials exist in this repository or environment, and none are fabricated.
   - then, in a transaction, changes `valid → used` (with `checkedInAt`, `checkedInBy` and `scanRequestId`).
 - A second scan returns `already-used` with the first check-in time. It is not an error and never double-counts.
 - An offline retry with the same `scanRequestId` is idempotent.
-- States returned: `valid-checked-in`, `already-used`, `cancelled`, `refunded`, `expired`, `wrong-event`, `invalid`, `not-permitted`.
+- Results returned: `checked-in`, `already-used`, `cancelled`, `refunded`, `expired`, `wrong-event`, `invalid`. A scanner without `tickets.scan` for the event gets a `NOT_PERMITTED` error rather than a result.
+- `checkInManually(eventId, ticketId, reason)` is the fallback when a QR can't be scanned. It needs the same `tickets.scan` permission, shares the scanner's rate limit, requires a 10–300 character reason, returns the same results, and is audited as `ticket.checked-in-manually`.
 
 ## Ledger
 - `ledgerEntries` is append-only. Each money movement writes balanced entries in integer minor units, all sharing a `txnId`.
@@ -71,7 +72,8 @@ No credentials exist in this repository or environment, and none are fabricated.
 ## Refunds
 - **Customer cancellation.** `cancelBooking` computes the refund from the event's cancellation policy (the same presets PULSE shows).
   - Within policy, the refund is `approved` automatically and processed immediately through the provider.
-  - Anything outside policy becomes a `refund-exception` governance case.
+  - Outside the policy window the customer can still cancel, but the quote is 0% and no refund is issued (the booking records `outside-policy:<policy>`).
+  - Exceptions go through the organizer's `requestRefund`, which creates an `under-review` refund for an admin to decide.
 - **Organizer or admin cancelling an event:** 100% refunds for all confirmed bookings, as a batch.
 - **Organizer-requested discretionary refunds** (`refunds.request`) create an `under-review` refund that needs an admin decision. Organizers can never approve refunds.
 - The provider is called with an idempotency key equal to `refundId`. `refund.processed` webhooks complete it.

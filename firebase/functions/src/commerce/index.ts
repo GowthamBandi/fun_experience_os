@@ -8,6 +8,8 @@ export {
   cancelBooking,
   requestRefund,
   scanTicket,
+  checkInManually,
+  listEventAttendees,
   decideRefund,
   buildSettlement,
   decideSettlement,

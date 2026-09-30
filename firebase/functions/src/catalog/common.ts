@@ -2,7 +2,7 @@
  * Catalog command plumbing: idempotency receipts, timestamps and small
  * shared validators. Every catalog mutation runs as ONE Firestore transaction:
  *
- *   read receipt → (replay | authorize + validate + read state) → write state
+ *   authorize → read receipt → (replay | validate + read state) → write state
  *   → writeAudit → write receipt
  *
  * The receipt is bound to (action, actorUid): the same requestId reused for a
@@ -20,10 +20,19 @@ export async function runCommand<T extends Json>(
   action: string,
   actorUid: string,
   requestId: string,
-  body: (tx: Transaction, now: Timestamp) => Promise<T>
+  body: (tx: Transaction, now: Timestamp) => Promise<T>,
+  opts: {
+    /**
+     * Authorization that must hold on EVERY call, including idempotent
+     * replays: a revoked member replaying an old requestId is refused, so
+     * revocation is immediate even for read-back of past results.
+     */
+    authorize?: (tx: Transaction) => Promise<unknown>;
+  } = {}
 ): Promise<T & { replayed: boolean }> {
   return db().runTransaction(async (tx) => {
     const ref = receiptRef(requestId);
+    if (opts.authorize) await opts.authorize(tx);
     const snap = await tx.get(ref);
     if (snap.exists) {
       const r = snap.data()!;
