@@ -14,7 +14,7 @@ const marketplace: RoleId[] = [...owners, "regional-partner", "city-manager", "o
 
 /** Organizers run events. This console verifies, governs and controls risk. */
 export const NAV: NavItem[] = [
-  { href: "/", label: "Overview", keyword: "governance overview decisions exposure", group: "Marketplace", roles: marketplace },
+  { href: "/", label: "Command Center", keyword: "command center overview attention queue decisions exposure", group: "Marketplace", roles: marketplace },
   { href: "/approvals", label: "Approvals", keyword: "applications kyc review approve reject", group: "Marketplace", roles: marketplace },
   { href: "/partners", label: "Organizers", keyword: "organizers partners event managers verification", group: "Marketplace", roles: marketplace },
   { href: "/arenas", label: "Arenas", keyword: "arenas venues verification blocked paused", group: "Marketplace", roles: marketplace },
