@@ -68,13 +68,15 @@ Every scheduled run also writes `jobRuns/{job}_{YYYY-MM-DD}`. Its fields are `ru
 
 ## 3. Metrics and alerts
 
-Create the metrics with `firebase/scripts/create-log-metrics.sh <project-id>`. It is idempotent. Then create one alert policy per row in Cloud Monitoring → Alerting:
+Both steps are scripted and idempotent:
 
-1. Set the condition type to *Logs-based metric*.
-2. Choose the metric `logging/user/<name>`.
-3. Set the aligner to *sum*.
+```sh
+firebase/scripts/create-log-metrics.sh <project-id>
+# Owner, once: Cloud Monitoring → Alerting → Edit notification channels → add the on-call email; copy its id.
+firebase/scripts/create-alert-policies.sh <project-id> <notification-channel-id>
+```
 
-Send notifications to the on-call email or chat channel.
+The second script creates one policy per row below, named `Experience OS: …`. That includes the three absence alerts for the scheduled jobs.
 
 | Metric | Filter (all also include `resource.type="cloud_function"`) | Alert when | Action |
 | --- | --- | --- | --- |
