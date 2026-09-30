@@ -113,3 +113,14 @@ describe("callable failure logging", () => {
     }
   });
 });
+
+describe("long numbers", () => {
+  test("card, Aadhaar and account-shaped numbers are redacted; ids and dates are not", () => {
+    expect(redactPhones("card 4111 1111 1111 1111 ok")).toBe("card [redacted] ok");
+    expect(redactPhones("aadhaar 1234-5678-9012")).toBe("aadhaar [redacted]");
+    expect(redactPhones("acct 001234567890123")).toBe("acct [redacted]");
+    expect(redactPhones("on 2026-09-30T10:00:00Z")).toBe("on 2026-09-30T10:00:00Z");
+    expect(redactPhones("trace 105445aa7843bc8bf206b12000100000")).toBe("trace 105445aa7843bc8bf206b12000100000");
+    expect(redactPhones("amount 99900 paise")).toBe("amount 99900 paise");
+  });
+});

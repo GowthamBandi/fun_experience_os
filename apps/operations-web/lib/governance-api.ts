@@ -26,7 +26,7 @@ import {
   adaptAudit,
   adaptEvent,
   adaptGeneric,
-  adaptOperator,
+  adaptOperator, adaptJobRun, adaptLegalHold,
   adaptOrganizerApplication,
   adaptRefund,
   adaptReview,
@@ -75,6 +75,8 @@ const ADAPTERS: Partial<Record<GovernanceCollection, (id: string, data: Document
   organizerApplications: adaptOrganizerApplication,
   auditEvents: adaptAudit,
   operators: adaptOperator,
+  jobRuns: adaptJobRun,
+  legalHolds: adaptLegalHold,
 };
 
 /** Collections whose Firestore path or filter differs from the key. Single-field filters only (no composite index). */

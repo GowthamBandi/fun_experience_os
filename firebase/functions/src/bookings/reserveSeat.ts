@@ -129,6 +129,12 @@ export interface BookingDoc {
   paymentId: string | null;
   ticketIds: string[];
   refundedMinor: number;
+  /**
+   * Commission agreed for this event, snapshotted at reservation (from the
+   * private eventCommercials doc). Capture uses it, so a later change to the
+   * event (revert to draft, new terms) never changes what this booking pays.
+   */
+  commissionBps?: number | null;
   createdAt: Timestamp;
   updatedAt: Timestamp;
   createdBy: string;
@@ -303,6 +309,7 @@ export async function reserveSeat(cmd: ReserveSeatCommand): Promise<ReserveSeatR
       }
       const isComp = cmd.kind === "complimentary";
       const amountMinor = isComp ? 0 : priceMinor * spots;
+      let commissionBps: number | null = null;
       if (amountMinor > 0) {
         const commercial = await tx.get(db().collection(COLLECTIONS.eventCommercials).doc(cmd.eventId));
         const bps = commercial.data()?.commissionBps;
@@ -313,6 +320,7 @@ export async function reserveSeat(cmd: ReserveSeatCommand): Promise<ReserveSeatR
             detail: { reason: "no-commission-terms" },
           });
         }
+        commissionBps = bps;
       }
 
       let occupancy: OccupancyCounters = { ...EMPTY_OCCUPANCY, ...(event.occupancy ?? {}) };
@@ -425,6 +433,7 @@ export async function reserveSeat(cmd: ReserveSeatCommand): Promise<ReserveSeatR
         paymentId: null,
         ticketIds,
         refundedMinor: 0,
+        commissionBps,
         createdAt: now,
         updatedAt: now,
         createdBy: cmd.actor.uid,

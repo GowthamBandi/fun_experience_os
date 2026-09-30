@@ -38,6 +38,16 @@ jest.setTimeout(180_000);
 type Refund = { status: string; amountMinor: number; reason: string; approvals: string[]; providerRefundId: string | null; orgId: string };
 type Occ = { occupancy: { confirmedPaidBookings: number; activeReservationHolds: number }; remainingSellableCapacity: number };
 
+/** Polls until `check` passes (a live trigger may still be finishing). */
+async function waitUntil(check: () => Promise<boolean>, timeoutMs = 20_000) {
+  const end = Date.now() + timeoutMs;
+  while (Date.now() < end) {
+    if (await check()) return;
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  throw new Error("condition not reached in time");
+}
+
 describe("pure policy math", () => {
   test.each([
     ["flexible", 24, 100], ["flexible", 23.99, 50], ["flexible", 0.1, 50], ["flexible", -1, 0],
@@ -325,8 +335,16 @@ describe("event cancellation", () => {
 
     await db().collection("events").doc(eventId).update({ status: "cancelled", cancelledBy: "owner-x" });
     const s1 = await refundCancelledEvent(eventId, { uid: "owner-x", role: "org:owner" });
-    expect(s1.refundsIssued).toBe(3);
-    expect(s1.bookingsCancelled).toBe(4);
+    // Where the Functions emulator runs (CI), the deployed onEventCancelled
+    // trigger fires on the update above and races this direct call. Per-booking
+    // transactions mean they share the work and never duplicate it, so assert
+    // the combined outcome, not which caller did it.
+    expect(s1.refundsIssued).toBeLessThanOrEqual(3);
+    expect(s1.bookingsCancelled).toBeLessThanOrEqual(4);
+    await waitUntil(async () => {
+      const rs = await db().collection("refunds").where("eventId", "==", eventId).get();
+      return rs.size === 3 && rs.docs.every((d) => d.data().status === "processing");
+    });
 
     // Again, and via the deployed Firestore trigger: nothing new.
     const s2 = await refundCancelledEvent(eventId, { uid: "owner-x", role: "org:owner" });

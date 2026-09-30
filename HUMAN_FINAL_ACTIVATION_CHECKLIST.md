@@ -40,6 +40,8 @@ Your Firebase / Google Cloud account: **frameingos@gmail.com**. Repositories:
 | F12 | **Monitoring:** create one notification channel (on-call email), then run the scripts | Cloud Monitoring → Alerting → Edit notification channels | channel id | `firebase/scripts/create-log-metrics.sh <id>` and `firebase/scripts/create-alert-policies.sh <id> <channel-id>` | `gcloud monitoring policies list --project <id>` | 15 "Experience OS: …" policies |
 | F13 | **Console hosting:** create the App Hosting backend `operations-console`, root `apps/operations-web`, env `staging` / `production`. Connect the custom domain (D3). | Firebase → App Hosting | fill `apps/operations-web/apphosting.<env>.yaml` with the web app config (F5) and the reCAPTCHA key (F6) | `apphosting*.yaml`, `DEPLOYMENT.md`; the pre-build check refuses mismatched or placeholder values | open the console URL | login page with the correct environment badge |
 
+> **Data migrations: none needed.** No staging or production environment has ever been deployed, so there is no existing data in an old format. For example, commission terms now live only in the private `eventCommercials` documents, never on public events. If data is ever imported from elsewhere, it has to be written in the current format (`docs/API_CONTRACT.md`).
+
 ## 2. Google Play
 
 | # | Action | Where | Already prepared | Verify |

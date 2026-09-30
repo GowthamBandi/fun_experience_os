@@ -311,8 +311,22 @@ export async function settleCapturedPayment(input: CaptureInput): Promise<Settle
       return { ...base, outcome: "order-mismatch" };
     }
 
-    const commissionBps = commSnap.data()?.commissionBps as number | undefined;
-    const bps = Number.isSafeInteger(commissionBps) ? Math.min(10_000, Math.max(0, commissionBps!)) : 0;
+    // The booking's reservation-time snapshot is authoritative; the event's
+    // current commercial doc is only a fallback for bookings made before
+    // snapshots existed. Money has already moved at the provider, so a
+    // missing rate can't block the capture — but it is never silent.
+    const validBps = (v: unknown): v is number => typeof v === "number" && Number.isSafeInteger(v) && v >= 0 && v <= 10_000;
+    const snapshotBps = validBps(booking.commissionBps) ? booking.commissionBps : validBps(commSnap.data()?.commissionBps) ? (commSnap.data()!.commissionBps as number) : null;
+    if (snapshotBps === null) {
+      raiseRiskAlert(tx, `commission-missing_${payment.id}`, {
+        kind: "capture-without-commission-terms",
+        severity: "high",
+        orgId: payment.orgId,
+        summary: "A payment was captured with no agreed commission on the booking or event; it was recorded at 0% and needs an admin correction.",
+        detail: { paymentId: payment.id, bookingId: booking.id, eventId: payment.eventId, amountMinor: payment.amountMinor },
+      });
+    }
+    const bps = snapshotBps ?? 0;
     const commissionMinor = commissionFor(payment.amountMinor, bps);
     const captured: PaymentDoc = {
       ...payment,

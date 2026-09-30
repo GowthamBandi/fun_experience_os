@@ -23,6 +23,10 @@ jobs:
   guardrails:
     name: Secrets & forbidden config
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # gitleaks-action lists a pull request's commits on pull_request events.
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -105,4 +109,6 @@ jobs:
       - name: Production dependency audit (fails on high/critical)
         run: npm audit --omit=dev --audit-level=high
       - run: npm run build
+      # The smoke test drives a headless Chromium via Playwright.
+      - run: npx playwright install --with-deps chromium
       - run: npm run smoke

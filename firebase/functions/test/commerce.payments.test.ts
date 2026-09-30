@@ -117,6 +117,35 @@ describe("confirmPayment", () => {
     ).toBe("NOT_FOUND");
   });
 
+  test("capture uses the commission snapshotted at reservation, even if the event's terms later disappear", async () => {
+    const { eventId } = await world({ priceMinor: 80_000, commissionBps: 1_500 });
+    const uid = await newCustomer();
+    const r = await reserve(uid, eventId, 1);
+    expect((await getDoc<{ commissionBps: number }>(`bookings/${r.bookingId}`))!.commissionBps).toBe(1_500);
+    const o = await order(uid, r.bookingId);
+    // e.g. the event reverted to draft (saveEvent deletes the commercial doc) while checkout was open
+    await db().collection("eventCommercials").doc(eventId).delete();
+    const payId = fakePayId();
+    await call(commerce.confirmPayment, { paymentId: o.paymentId, providerPaymentId: payId, providerSignature: paymentSignature(o.providerOrderId, payId) }, phoneCtx(uid));
+    const pay = (await getDoc<Payment>(`payments/${o.paymentId}`))!;
+    expect(pay).toMatchObject({ status: "captured", commissionBps: 1_500, commissionMinor: 12_000 });
+    expect(await getDoc(`riskAlerts/commission-missing_${o.paymentId}`)).toBeUndefined();
+  });
+
+  test("a capture with no commission anywhere is recorded but raises a high risk alert (never silently 0%)", async () => {
+    const { eventId } = await world({ priceMinor: 50_000, commissionBps: 1_000 });
+    const uid = await newCustomer();
+    const r = await reserve(uid, eventId, 1);
+    const o = await order(uid, r.bookingId);
+    // a legacy booking without a snapshot, on an event whose terms are gone
+    await db().collection("bookings").doc(r.bookingId).update({ commissionBps: null });
+    await db().collection("eventCommercials").doc(eventId).delete();
+    const payId = fakePayId();
+    await call(commerce.confirmPayment, { paymentId: o.paymentId, providerPaymentId: payId, providerSignature: paymentSignature(o.providerOrderId, payId) }, phoneCtx(uid));
+    expect((await getDoc<Payment>(`payments/${o.paymentId}`))!).toMatchObject({ status: "captured", commissionMinor: 0 });
+    expect(await getDoc(`riskAlerts/commission-missing_${o.paymentId}`)).toMatchObject({ kind: "capture-without-commission-terms", severity: "high", status: "open" });
+  });
+
   test("valid confirmation → confirmed, N tickets, balanced ledger with floor commission, notification", async () => {
     const { eventId, orgId } = await world({ priceMinor: 99_999, commissionBps: 1_250 });
     const uid = await newCustomer();

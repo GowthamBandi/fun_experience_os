@@ -294,4 +294,4 @@ export async function retryApprovedRefunds(
 }
 
 /** Worst-case duration of one provider call (provider.ts AbortSignal timeout) plus its transactions. */
-export const REFUND_ATTEMPT_WORST_MS = 20_000;
+export const REFUND_ATTEMPT_WORST_MS = 30_000; // 15 s provider timeout + up to 3 transactions with contention retries

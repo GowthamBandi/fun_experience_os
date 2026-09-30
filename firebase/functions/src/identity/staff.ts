@@ -250,10 +250,12 @@ export async function redeemStaffCode(command: { code: string }, actor: PhoneAct
       // (the retention sweep marks it `expired` but keeps its hash for this):
       // the owner deserves "This code has expired", and a known-but-expired
       // code is not a guess, so no pending invite is charged an attempt.
-      const expired = await tx.get(
-        col(COLLECTIONS.staffInvites).where("phone", "==", actor.phone).where("status", "==", "expired").limit(20)
+      // Looked up by the (peppered) hash itself, so the matching invite is
+      // found however many expired invites this phone has accumulated.
+      const expired = await tx.get(col(COLLECTIONS.staffInvites).where("codeHash", "==", attemptedHash).limit(5));
+      const lapsed = expired.docs.find(
+        (d) => d.data().status === "expired" && d.data().phone === actor.phone && typeof d.data().codeHash === "string" && safeEqual(d.data().codeHash, attemptedHash)
       );
-      const lapsed = expired.docs.find((d) => typeof d.data().codeHash === "string" && safeEqual(d.data().codeHash, attemptedHash));
       if (lapsed) return fail("expired", { orgId: String(lapsed.data().orgId ?? ""), inviteId: lapsed.id });
       // Every pending invite for this phone is a target: count the miss on
       // each and lock any that has absorbed too many guesses.

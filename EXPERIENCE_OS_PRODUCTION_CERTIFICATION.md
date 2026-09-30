@@ -1,5 +1,7 @@
 # Experience OS — Production Certification
 
+> **SUPERSEDED** by [`EXPERIENCE_OS_FINAL_PRODUCTION_READINESS.md`](EXPERIENCE_OS_FINAL_PRODUCTION_READINESS.md) and [`HUMAN_FINAL_ACTIVATION_CHECKLIST.md`](HUMAN_FINAL_ACTIVATION_CHECKLIST.md). Kept for history.
+
 **Date:** 2026-09-30
 **Scope:** PULSE mobile app (`exprerience_os`), Operations Console (`fun_experience_os/apps/operations-web`), Firebase backend (`fun_experience_os/firebase`).
 **Branch:** `claude/zen-keller-hrjluw` in both repositories.

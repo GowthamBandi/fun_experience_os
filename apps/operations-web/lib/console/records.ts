@@ -319,3 +319,62 @@ export function adaptOperator(id: string, data: Data): DisplayRecord {
     raw: { ...data },
   };
 }
+
+/** jobRuns/{job}_{date}: one summary per scheduled job per IST day (platform/jobs.ts). */
+export function adaptJobRun(id: string, data: Data): DisplayRecord {
+  const last = String(data.lastStatus ?? "");
+  const failures = typeof data.failures === "number" ? data.failures : 0;
+  return {
+    id,
+    primary: text(data, "job"),
+    secondary: text(data, "date"),
+    // "Blocked" reads as failed in the shared status chip; "Approved" as healthy.
+    status: last === "ok" ? "Approved" : last ? "Blocked" : "Pending",
+    value: `${typeof data.runs === "number" ? data.runs : 0} runs · ${failures} failed`,
+    meta: [`Last: ${last || "—"}`, `Updated ${formatDateTime(data.updatedAt)}`].join(" · "),
+    version: versionOf(data),
+    raw: { ...data },
+  };
+}
+
+/** Readable error lines from a jobRuns doc ({step, message} objects). */
+export function jobErrorLines(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((e) => {
+    if (e && typeof e === "object") {
+      const o = e as { step?: unknown; message?: unknown };
+      const step = typeof o.step === "string" ? o.step : "job";
+      const message = typeof o.message === "string" ? o.message : JSON.stringify(e);
+      return `${step}: ${message}`;
+    }
+    return String(e);
+  });
+}
+
+/** Newest summary per job: the health metric counts only each job's latest day. */
+export function latestJobRuns(records: DisplayRecord[]): DisplayRecord[] {
+  const latest = new Map<string, DisplayRecord>();
+  for (const r of records) {
+    const job = String(r.raw.job ?? r.id);
+    const cur = latest.get(job);
+    const key = (x: DisplayRecord) => String(x.raw.date ?? "");
+    if (!cur || key(r) > key(cur)) latest.set(job, r);
+  }
+  return [...latest.values()];
+}
+
+/** legalHolds/{subjectType}_{subjectId}. */
+export function adaptLegalHold(id: string, data: Data): DisplayRecord {
+  const status = String(data.status ?? "");
+  return {
+    id,
+    primary: `${text(data, "subjectType")} ${text(data, "subjectId")}`,
+    secondary: text(data, "reference", "reason"),
+    // Active hold = deletion blocked ("On hold"); released = no longer in force ("Hidden").
+    status: status === "active" ? "On hold" : "Hidden",
+    value: status || "—",
+    meta: [`Placed ${formatDateTime(data.placedAt)}`, status === "released" ? `Released ${formatDateTime(data.releasedAt)}` : ""].filter(Boolean).join(" · "),
+    version: versionOf(data),
+    raw: { ...data },
+  };
+}

@@ -51,8 +51,18 @@ const PHONE_LIKE = /(?<![A-Za-z0-9_+-])(?:\+91[\s-]?|91[\s-]?|0)?[6-9]\d{4}[\s-]
 const ID_KEY = /^(?:correlationId|requestId|trace|traceId|time|timestamp|uid|at)$|[a-z0-9](?:Id|Ids|At)$/;
 
 /** Replaces phone-number-shaped substrings. Exported for jobs.ts and tests. */
+/**
+ * Standalone 12–19 digit numbers (optionally grouped by spaces or dashes):
+ * Aadhaar, card and bank-account shapes. No server path should log these;
+ * this is defence in depth. Id/timestamp keys are exempt (see ID_KEY).
+ */
+// 12 digits (Aadhaar) or 15–19 (cards, bank accounts); 13–14 are left alone
+// because epoch-millisecond timestamps have that shape. Not part of a longer
+// token (letters, digits, "_" or "-" on either side).
+const LONG_NUMBER = /(?<![A-Za-z0-9_-])\d(?:(?:[\s-]?\d){11}|(?:[\s-]?\d){14,18})(?![A-Za-z0-9_-]|[\s-]\d)/g;
+
 export function redactPhones(s: string): string {
-  return s.replace(PHONE_LIKE, "[redacted]");
+  return s.replace(PHONE_LIKE, "[redacted]").replace(LONG_NUMBER, "[redacted]");
 }
 
 function scrub(value: unknown, depth: number, key = ""): unknown {

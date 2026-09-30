@@ -5,7 +5,7 @@ import { GovernanceModulePage } from "./GovernanceModulePage";
 import { Drawer, FieldList, InfoNote } from "./controls";
 import type { LiveGovernanceRecord } from "@/lib/governance-api";
 import { useGovernanceCollection } from "@/lib/use-governance";
-import { formatDateTime, text } from "@/lib/console/records";
+import { formatDateTime, jobErrorLines, latestJobRuns, text } from "@/lib/console/records";
 
 /**
  * Read-only view of scheduled-job summaries (jobRuns: one document per job per
@@ -17,7 +17,7 @@ export function SystemHealthWorkspace() {
   const { records, loading, error, truncated, refresh } = useGovernanceCollection("jobRuns");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = selectedId ? records.find((record) => record.id === selectedId) ?? null : null;
-  const failing = records.filter((record) => record.raw.lastStatus && record.raw.lastStatus !== "ok").length;
+  const failing = latestJobRuns(records).filter((record) => record.raw.lastStatus && record.raw.lastStatus !== "ok").length;
   return <>
     <GovernanceModulePage
       eyebrow="Control"
@@ -42,7 +42,7 @@ export function SystemHealthWorkspace() {
 function JobDrawer({ record, onClose }: { record: LiveGovernanceRecord | null; onClose: () => void }) {
   if (!record) return <Drawer label="Job run unavailable" eyebrow="Job run" title="Job run unavailable" onClose={onClose}><InfoNote tone="warn">This job run is no longer in the live list.</InfoNote></Drawer>;
   const raw = record.raw;
-  const errors = Array.isArray(raw.lastErrors) ? (raw.lastErrors as unknown[]).map(String) : [];
+  const errors = jobErrorLines(raw.lastErrors);
   const steps = raw.lastSteps && typeof raw.lastSteps === "object" ? JSON.stringify(raw.lastSteps, null, 2) : "—";
   return (
     <Drawer label={`Job run ${record.id}`} eyebrow={`Job run · ${record.id}`} title={`${text(raw, "job")} · ${text(raw, "date")}`} subtitle={`Last status ${String(raw.lastStatus ?? "—")}`} onClose={onClose}>
