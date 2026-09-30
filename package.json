@@ -6,8 +6,9 @@
   "scripts": {
     "firebase:emulators": "firebase emulators:start --project demo-experience-os",
     "firebase:emulators:exec": "firebase emulators:exec --project demo-experience-os",
-    "test:rules": "firebase emulators:exec --project demo-experience-os --only firestore \"npm --prefix firebase/firestore test\"",
-    "test:functions": "npm --prefix firebase/functions run build && firebase emulators:exec --project demo-experience-os --only firestore,functions \"npm --prefix firebase/functions test\"",
-    "verify": "npm --prefix firebase/functions run typecheck && npm --prefix apps/operations-web run verify"
+    "test:rules": "firebase emulators:exec --project demo-experience-os --only firestore,storage \"npm --prefix firebase/firestore test\"",
+    "test:functions": "npm --prefix firebase/functions run build && firebase emulators:exec --project demo-experience-os --only firestore,auth,functions \"npm --prefix firebase/functions test\"",
+    "verify": "npm --prefix firebase/functions run typecheck && npm --prefix apps/operations-web run verify",
+    "bootstrap:platform-owner": "node firebase/scripts/bootstrap-platform-owner.mjs"
   }
 }

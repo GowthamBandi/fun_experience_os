@@ -39,6 +39,17 @@ firebase functions:secrets:set RAZORPAY_WEBHOOK_SECRET --project production
 
 **Rotating `TICKET_SIGNING_KEY` invalidates every issued QR.** Rotate only with a planned re-issue. Rotating `CODE_PEPPER` invalidates unredeemed codes; re-issue them.
 
+### First platform owner (once per project)
+
+`setOperatorAccess` can only be called by an existing platform owner, so the first one is granted with a guarded one-off script. It uses the project owner's own login, asks you to type the project id again, and refuses to run once any platform owner exists:
+
+```sh
+gcloud auth application-default login
+npm run bootstrap:platform-owner -- --project <exact project id> --uid <Firebase Auth uid> --reason "Initial platform owner"
+```
+
+The user must already exist in Firebase Auth with a verified email. Then grant a **second** admin from the console (Access page): refunds above ₹10,000, settlements above ₹50,000 and every commercial-terms change need two different admins.
+
 ## 4. Deploy (backend)
 
 ```sh
@@ -59,6 +70,7 @@ firebase deploy --project production --only firestore:rules,firestore:indexes,st
     --dart-define=FIREBASE_PROJECT_ID=… --dart-define=FIREBASE_MESSAGING_SENDER_ID=… \
     --dart-define=FIREBASE_STORAGE_BUCKET=…
   ```
+  App Check activates automatically for `staging` and `production` (Play Integrity / App Attest; every callable rejects un-attested calls). For staging testers only, add `--dart-define=APP_CHECK_DEBUG=true` and register each device's debug token in the Firebase console; production builds refuse this flag.
 - **Console:**
   ```sh
   NEXT_PUBLIC_DATA_MODE=firebase-live … npm run build:production
@@ -67,6 +79,8 @@ firebase deploy --project production --only firestore:rules,firestore:indexes,st
 
 ## 6. Post-deploy smoke tests (staging, then production)
 
+The full list below must pass on staging, on physical Android and iOS devices with release builds, before production is deployed. It is the only place Firestore triggers, FCM delivery, App Check attestation and Razorpay are exercised for real; the local emulator suites can't cover them.
+
 1. `checkHealth` returns ok.
 2. A console admin signs in and the Command Center loads.
 3. PULSE test phone (a Firebase Auth test number):
@@ -74,7 +88,8 @@ firebase deploy --project production --only firestore:rules,firestore:indexes,st
 4. **Organizer path:**
    - test organizer applies → admin approves → code shown once → redeemed → Command Center.
 5. **Event path:**
-   - create experience → submit → approve → create event → submit → approve → publish.
+   - admin A proposes commercial terms for the organizer → admin B approves them (Console → Commercial terms);
+   - create experience → submit → approve → create event → submit → approve → Publish (PULSE host workspace).
 6. **Booking path (Razorpay test mode):**
    - book → pay with a test UPI/card → webhook `payment.captured` → ticket QR.
 7. **Door:**
