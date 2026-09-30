@@ -22,7 +22,7 @@ db.settings({ ignoreUndefinedProperties: true });
 const SESSION = "s-measure";
 
 async function wipe() {
-  for (const c of ["bookings", "scheduledSessions"]) {
+  for (const c of ["bookings", "events"]) {
     const snap = await db.collection(c).get();
     if (snap.empty) continue;
     const batch = db.batch();
@@ -32,7 +32,7 @@ async function wipe() {
 }
 
 async function seed(capacity) {
-  await db.collection("scheduledSessions").doc(SESSION).set({
+  await db.collection("events").doc(SESSION).set({
     capacity,
     taken: 0,
     status: "booking-open",
@@ -42,7 +42,7 @@ async function seed(capacity) {
 /** Strategy A — single hot counter document, guarded transaction. */
 async function claimViaCounter(i, maxAttempts) {
   const t0 = Date.now();
-  const ref = db.collection("scheduledSessions").doc(SESSION);
+  const ref = db.collection("events").doc(SESSION);
   const bookingRef = db.collection("bookings").doc();
   try {
     await db.runTransaction(
@@ -76,7 +76,7 @@ async function claimViaCounter(i, maxAttempts) {
 async function seedSeats(capacity) {
   const batch = db.batch();
   for (let s = 0; s < capacity; s++) {
-    batch.set(db.collection("scheduledSessions").doc(SESSION).collection("seats").doc(`seat-${s}`), {
+    batch.set(db.collection("events").doc(SESSION).collection("seats").doc(`seat-${s}`), {
       index: s,
       claimed: false,
     });
@@ -86,7 +86,7 @@ async function seedSeats(capacity) {
 
 async function claimViaSeatDoc(i, capacity, maxAttempts) {
   const t0 = Date.now();
-  const seats = db.collection("scheduledSessions").doc(SESSION).collection("seats");
+  const seats = db.collection("events").doc(SESSION).collection("seats");
   // Probe seats in a caller-specific rotation so clients spread across documents
   // instead of all colliding on seat-0.
   const order = Array.from({ length: capacity }, (_, k) => (k + i) % capacity);
@@ -149,7 +149,7 @@ async function runCounter(capacity, clients, maxAttempts) {
   );
   const wall = Date.now() - t0;
   const docs = await countBookings();
-  const taken = (await db.collection("scheduledSessions").doc(SESSION).get()).data().taken;
+  const taken = (await db.collection("events").doc(SESSION).get()).data().taken;
   return summarise(
     `A) single hot counter doc      (maxAttempts=${maxAttempts})`,
     capacity, clients, results, wall, docs, { taken }
@@ -166,7 +166,7 @@ async function runSeats(capacity, clients, maxAttempts) {
   );
   const wall = Date.now() - t0;
   const docs = await countBookings();
-  const seats = await db.collection("scheduledSessions").doc(SESSION).collection("seats").get();
+  const seats = await db.collection("events").doc(SESSION).collection("seats").get();
   const claimed = seats.docs.filter((d) => d.data().claimed).length;
   return summarise(
     `B) per-seat documents          (maxAttempts=${maxAttempts})`,

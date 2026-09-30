@@ -79,10 +79,28 @@ export const COLLECTIONS = {
   settlementControls: "settlementControls",
   policyVersions: "policyVersions",
   customers: "customers",
+  /** Canonical marketplace model (ADR-0003). */
+  publicProfiles: "publicProfiles",
+  customerSafety: "customerSafety",
+  organizerApplications: "organizerApplications",
+  organizerActivations: "organizerActivations",
+  memberships: "memberships",
+  staffInvites: "staffInvites",
+  experiences: "experiences",
+  tickets: "tickets",
+  paymentEvents: "paymentEvents",
+  ledgerEntries: "ledgerEntries",
+  settlements: "settlements",
+  reviews: "reviews",
+  userNotifications: "userNotifications",
+  rateLimits: "rateLimits",
 } as const;
 
-export const sessionRef = (sessionId: string) =>
-  db().collection(COLLECTIONS.scheduledSessions).doc(sessionId);
+export const membershipId = (orgId: string, uid: string) => `${orgId}__${uid}`;
+
+/** The bookable unit is the event (ADR-0003; formerly `scheduledSessions`). */
+export const sessionRef = (eventId: string) =>
+  db().collection(COLLECTIONS.events).doc(eventId);
 
 export const bookingRef = (bookingId: string) =>
   db().collection(COLLECTIONS.bookings).doc(bookingId);

@@ -38,7 +38,7 @@ afterAll(async () => {
 });
 
 async function wipe() {
-  for (const c of ["bookings", "auditEvents", "commandReceipts", "scheduledSessions"]) {
+  for (const c of ["bookings", "auditEvents", "commandReceipts", "events"]) {
     const snap = await db.collection(c).get();
     if (snap.empty) continue;
     const batch = db.batch();
@@ -48,7 +48,7 @@ async function wipe() {
 }
 
 async function seed() {
-  await db.collection("scheduledSessions").doc(SESSION_ID).set({
+  await db.collection("events").doc(SESSION_ID).set({
     id: SESSION_ID,
     status: "booking-open",
     territoryId: "hvd-central",
@@ -95,7 +95,7 @@ async function sweep(maxAttempts: number) {
   const wall = Date.now() - t0;
   const by = outcomes.reduce<Record<string, number>>((a, o) => ((a[o] = (a[o] || 0) + 1), a), {});
   const docs = (await db.collection("bookings").where("sessionId", "==", SESSION_ID).get()).size;
-  const sess = (await db.collection("scheduledSessions").doc(SESSION_ID).get()).data()!;
+  const sess = (await db.collection("events").doc(SESSION_ID).get()).data()!;
 
   return {
     maxAttempts,

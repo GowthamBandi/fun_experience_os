@@ -45,7 +45,7 @@ afterAll(async () => {
 });
 
 async function wipe() {
-  for (const c of ["bookings", "auditEvents", "commandReceipts", "scheduledSessions"]) {
+  for (const c of ["bookings", "auditEvents", "commandReceipts", "events"]) {
     const snap = await db.collection(c).get();
     if (snap.empty) continue;
     const batch = db.batch();
@@ -60,7 +60,7 @@ async function seedSession(opts: {
   compSlots?: number;
   status?: string;
 }) {
-  await db.collection("scheduledSessions").doc(SESSION_ID).set({
+  await db.collection("events").doc(SESSION_ID).set({
     id: SESSION_ID,
     status: opts.status ?? "booking-open",
     territoryId: "hvd-central",
@@ -104,7 +104,7 @@ async function attempt(c: ReserveSeatCommand): Promise<Outcome> {
 }
 
 async function readState() {
-  const s = await db.collection("scheduledSessions").doc(SESSION_ID).get();
+  const s = await db.collection("events").doc(SESSION_ID).get();
   const bookings = await db.collection("bookings").where("sessionId", "==", SESSION_ID).get();
   const data = s.data() as {
     occupancy: OccupancyCounters;

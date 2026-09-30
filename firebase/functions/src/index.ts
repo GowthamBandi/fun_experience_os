@@ -1,6 +1,9 @@
 import * as functions from "firebase-functions";
 export { decideCase, setMarketplaceEntityStatus } from "./governance/callables";
 export { setOperatorAccess } from "./auth/operatorAccess";
+export * from "./identity";
+export * from "./catalog";
+export * from "./commerce";
 
 /**
  * checkHealth — callable Cloud Function.

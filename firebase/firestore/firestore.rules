@@ -1,21 +1,197 @@
 rules_version = '2';
+
+// Experience OS — canonical security rules (ADR-0003, ADR-0004, ADR-0005).
+//
+// PRINCIPLES
+// * Clients never write authoritative state. Every mutation of money,
+//   capacity, roles, tickets, reviews, refunds or settlements goes through a
+//   Cloud Function that enforces authorization, validation, idempotency and
+//   audit. The ONLY client write is a user editing whitelisted fields of their
+//   own public profile, and marking their own notifications read.
+// * Organizer/staff reads are authorized live from `memberships`
+//   (WHAT = permissions, WHERE = event scope), so revocation is immediate.
+// * Private data (phone, birth date, gender, codes, QR secrets, payment
+//   events, rate limits, receipts) has no client read path except its owner.
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() { return request.auth != null; }
-    function verified() { return signedIn() && request.auth.token.email_verified == true; }
-    function enabled() { return verified() && request.auth.token.disabled != true; }
-    function role() { return request.auth.token.roleId; }
-    function isAdmin() { return enabled() && role() in ['platform-owner', 'super-admin']; }
-    function isAuditor() { return enabled() && role() == 'auditor'; }
 
-    // Clients have no authoritative write path. Cloud Functions use the Admin
-    // SDK after enforcing claims, validation, idempotency and audit logging.
-    match /users/{uid} {
-      allow get: if enabled() && (request.auth.uid == uid || isAdmin());
-      allow list: if isAdmin();
-      allow create, update, delete: if false;
+    // ---------------------------------------------------------------- identity
+    function signedIn() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+    function notDisabled() { return request.auth.token.disabled != true; }
+    function user() { return signedIn() && notDisabled(); }
+
+    // Operations Console operators (email + custom claim; ADR-0004).
+    function verifiedOperator() { return signedIn() && request.auth.token.email_verified == true && notDisabled(); }
+    function platformRole() { return request.auth.token.roleId; }
+    function isAdmin() { return verifiedOperator() && platformRole() in ['platform-owner', 'super-admin']; }
+    function isAuditor() { return verifiedOperator() && platformRole() == 'auditor'; }
+
+    // -------------------------------------------------------------- membership
+    function membershipPath(orgId) {
+      return /databases/$(database)/documents/memberships/$(orgId + '__' + uid());
+    }
+    function membership(orgId) { return get(membershipPath(orgId)).data; }
+    function activeMember(orgId) {
+      return user() && exists(membershipPath(orgId)) && membership(orgId).status == 'active';
+    }
+    // Event-scoped permission (WHAT × WHERE).
+    function can(orgId, perm, eventId) {
+      let m = membership(orgId);
+      return activeMember(orgId) && (
+        m.role == 'owner' ||
+        (perm in m.permissions && (m.eventScope.all == true || eventId in m.eventScope.eventIds))
+      );
+    }
+    // Organization-wide permission: owner, or permission + all-events scope.
+    function canOrgWide(orgId, perm) {
+      let m = membership(orgId);
+      return activeMember(orgId) && (
+        m.role == 'owner' || (perm in m.permissions && m.eventScope.all == true)
+      );
     }
 
+    // ------------------------------------------------------------------ people
+    match /users/{userId} {
+      allow get: if (user() && uid() == userId) || isAdmin();
+      allow list: if isAdmin();
+      allow write: if false;
+    }
+
+    // Online identity. Public to signed-in users; the owner may edit only the
+    // whitelisted, validated fields.
+    match /publicProfiles/{userId} {
+      allow read: if user() || isAdmin();
+      allow create, update: if user() && uid() == userId
+        && request.resource.data.keys().hasOnly(['displayName', 'bio', 'avatarSeed', 'updatedAt'])
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() >= 2
+        && request.resource.data.displayName.size() <= 30
+        && (!('bio' in request.resource.data) || (request.resource.data.bio is string && request.resource.data.bio.size() <= 160))
+        && (!('avatarSeed' in request.resource.data) || (request.resource.data.avatarSeed is string && request.resource.data.avatarSeed.size() <= 64))
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    // Age & gender for eligibility/safety. Owner-only; never organizers.
+    match /customerSafety/{userId} {
+      allow get: if user() && uid() == userId;
+      allow list, write: if false;
+    }
+
+    match /organizerApplications/{userId} {
+      allow get: if (user() && uid() == userId) || isAdmin();
+      allow list: if isAdmin();
+      allow write: if false;
+    }
+
+    // Public organizer projection (no commission, no KYC, no contact data).
+    match /publicOrganizers/{orgId} {
+      allow read: if user() || isAdmin();
+      allow write: if false;
+    }
+
+    match /organizers/{orgId} {
+      allow read: if isAdmin() || activeMember(orgId);
+      allow write: if false;
+    }
+
+    match /memberships/{membershipId} {
+      allow get: if isAdmin()
+        || (user() && resource.data.uid == uid())
+        || canOrgWide(resource.data.orgId, 'staff.manage');
+      allow list: if isAdmin()
+        || (user() && resource.data.uid == uid())
+        || canOrgWide(resource.data.orgId, 'staff.manage');
+      allow write: if false;
+    }
+
+    // Code hashes and invites are server-only; staff lists come from callables.
+    match /organizerActivations/{userId} { allow read, write: if false; }
+    match /staffInvites/{inviteId} { allow read, write: if false; }
+
+    // ----------------------------------------------------------------- catalog
+    match /experiences/{experienceId} {
+      allow read: if isAdmin()
+        || resource.data.status == 'approved'
+        || canOrgWide(resource.data.orgId, 'experiences.view');
+      allow write: if false;
+    }
+
+    match /events/{eventId} {
+      allow read: if isAdmin()
+        || resource.data.status in ['published', 'booking-closed', 'live', 'completed', 'cancelled']
+        || can(resource.data.orgId, 'events.view', eventId);
+      allow write: if false;
+    }
+
+    match /arenas/{arenaId} {
+      allow read: if isAdmin() || resource.data.status in ['active', 'approved'];
+      allow write: if false;
+    }
+
+    // --------------------------------------------------------- bookings & money
+    match /bookings/{bookingId} {
+      allow read: if isAdmin()
+        || (user() && resource.data.customerUid == uid())
+        || can(resource.data.orgId, 'attendees.view', resource.data.eventId);
+      allow write: if false;
+    }
+
+    match /tickets/{ticketId} {
+      allow read: if isAdmin()
+        || (user() && resource.data.customerUid == uid())
+        || can(resource.data.orgId, 'tickets.scan', resource.data.eventId);
+      allow write: if false;
+    }
+
+    // Signed QR payloads: only the ticket holder.
+    match /ticketSecrets/{ticketId} {
+      allow get: if user() && resource.data.customerUid == uid();
+      allow list, write: if false;
+    }
+
+    match /payments/{paymentId} {
+      allow read: if isAdmin() || (user() && resource.data.customerUid == uid());
+      allow write: if false;
+    }
+
+    match /refunds/{refundId} {
+      allow read: if isAdmin()
+        || (user() && resource.data.customerUid == uid())
+        || canOrgWide(resource.data.orgId, 'refunds.view');
+      allow write: if false;
+    }
+
+    match /ledgerEntries/{entryId} {
+      allow read: if isAdmin() || isAuditor()
+        || (resource.data.orgId != null && canOrgWide(resource.data.orgId, 'earnings.view'));
+      allow write: if false;
+    }
+
+    match /settlements/{settlementId} {
+      allow read: if isAdmin() || isAuditor() || canOrgWide(resource.data.orgId, 'earnings.view');
+      allow write: if false;
+    }
+
+    // ------------------------------------------------------- reviews & inbox
+    match /reviews/{reviewId} {
+      allow read: if isAdmin()
+        || resource.data.status == 'published'
+        || (user() && resource.data.authorUid == uid());
+      allow write: if false;
+    }
+
+    match /userNotifications/{notificationId} {
+      allow read: if user() && resource.data.recipientUid == uid();
+      // The recipient may only flip `read`.
+      allow update: if user() && resource.data.recipientUid == uid()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
+        && request.resource.data.read is bool;
+      allow create, delete: if false;
+    }
+
+    // ------------------------------------------------------------- governance
     match /governanceCases/{id} {
       allow read: if isAdmin();
       allow write: if false;
@@ -23,10 +199,8 @@ service cloud.firestore {
 
     match /{collection}/{id} {
       allow read: if isAdmin() && collection in [
-        'organizers', 'arenas', 'events', 'commercialAgreements',
-        'riskAlerts', 'refundCases', 'settlementControls', 'policyVersions',
-        'franchises', 'territories', 'cities', 'venues', 'playingAreas',
-        'activityCategories', 'experienceTemplates', 'scheduledSessions', 'bookings', 'customers'
+        'commercialAgreements', 'riskAlerts', 'refundCases', 'settlementControls',
+        'policyVersions', 'customers'
       ];
       allow write: if false;
     }
@@ -36,7 +210,11 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Server-only stores.
     match /commandReceipts/{id} { allow read, write: if false; }
+    match /paymentEvents/{id} { allow read, write: if false; }
+    match /rateLimits/{id} { allow read, write: if false; }
+
     match /{document=**} { allow read, write: if false; }
   }
 }

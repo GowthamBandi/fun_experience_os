@@ -1,0 +1,50 @@
+rules_version = '2';
+
+// Experience OS — Storage rules.
+// * KYC / verification documents: private to the applicant and platform admins.
+// * Experience media: written by organizer members with experiences.edit,
+//   readable by anyone signed in (it is shown on published listings).
+// * Profile avatars: owner writes, signed-in users read.
+// Size and content-type limits stop the bucket being used as free hosting.
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() { return request.auth != null && request.auth.token.disabled != true; }
+    function isAdmin() {
+      return request.auth != null && request.auth.token.email_verified == true
+        && request.auth.token.roleId in ['platform-owner', 'super-admin'];
+    }
+    function membership(orgId) {
+      return firestore.get(/databases/(default)/documents/memberships/$(orgId + '__' + request.auth.uid)).data;
+    }
+    function canEditExperiences(orgId) {
+      let m = membership(orgId);
+      return signedIn() && m.status == 'active'
+        && (m.role == 'owner' || ('experiences.edit' in m.permissions && m.eventScope.all == true));
+    }
+    function isImage() { return request.resource.contentType.matches('image/(jpeg|png|webp)'); }
+    function isDocument() { return request.resource.contentType.matches('image/(jpeg|png)|application/pdf'); }
+
+    match /kyc/{userId}/{fileName} {
+      allow read: if (signedIn() && request.auth.uid == userId) || isAdmin();
+      allow create: if signedIn() && request.auth.uid == userId
+        && request.resource.size < 10 * 1024 * 1024 && isDocument();
+      allow update, delete: if false;
+    }
+
+    match /orgMedia/{orgId}/{fileName} {
+      allow read: if signedIn() || isAdmin();
+      allow create: if canEditExperiences(orgId) && request.resource.size < 8 * 1024 * 1024 && isImage();
+      allow delete: if canEditExperiences(orgId);
+      allow update: if false;
+    }
+
+    match /avatars/{userId}/{fileName} {
+      allow read: if signedIn();
+      allow create, update: if signedIn() && request.auth.uid == userId
+        && request.resource.size < 2 * 1024 * 1024 && isImage();
+      allow delete: if signedIn() && request.auth.uid == userId;
+    }
+
+    match /{allPaths=**} { allow read, write: if false; }
+  }
+}

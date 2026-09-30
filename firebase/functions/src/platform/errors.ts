@@ -17,6 +17,10 @@ export type DomainErrorCode =
   | "NOT_PERMITTED"
   | "CONFLICT"
   | "CONTENTION"
+  | "RATE_LIMITED"
+  | "NOT_FOUND"
+  | "NOT_ELIGIBLE"
+  | "PRECONDITION"
   | "INTERNAL";
 
 /** How a DomainError maps onto a callable-function error code. */
@@ -31,6 +35,10 @@ const HTTPS_CODE: Record<DomainErrorCode, string> = {
   NOT_PERMITTED: "permission-denied",
   CONFLICT: "aborted",
   CONTENTION: "aborted",
+  RATE_LIMITED: "resource-exhausted",
+  NOT_FOUND: "not-found",
+  NOT_ELIGIBLE: "failed-precondition",
+  PRECONDITION: "failed-precondition",
   INTERNAL: "internal",
 };
 
@@ -94,3 +102,9 @@ export const notAuthenticated = () =>
 
 export const invalidInput = (message: string, detail?: Record<string, unknown>) =>
   new DomainError("INVALID_INPUT", message, { detail });
+
+export const notFound = (message: string, nextStep = "Go back and refresh.") =>
+  new DomainError("NOT_FOUND", message, { nextStep });
+
+export const precondition = (message: string, nextStep?: string, detail?: Record<string, unknown>) =>
+  new DomainError("PRECONDITION", message, { nextStep, detail });
