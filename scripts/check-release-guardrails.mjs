@@ -71,7 +71,8 @@ if (existsSync(".firebaserc")) {
 }
 
 // 4. Debug switches that must never reach a production build script.
-for (const f of tracked.filter((p) => /\.(sh|ya?ml|json|mjs|md)$/.test(p) && !SKIP_DIRS.test(p))) {
+const SELF = "scripts/check-release-guardrails.mjs";
+for (const f of tracked.filter((p) => /\.(sh|ya?ml|json|mjs|md)$/.test(p) && !SKIP_DIRS.test(p) && p !== SELF)) {
   const text = readFileSync(f, "utf8");
   for (const line of text.split("\n")) {
     if (/PULSE_ENV=production/.test(line) && /APP_CHECK_DEBUG=true/.test(line)) fail(f, "production build line enables APP_CHECK_DEBUG");
