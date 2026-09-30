@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { subscribeDocument, subscribeGovernanceCollection, type GovernanceCollection, type LiveGovernanceRecord } from "./governance-api";
+import { subscribeDocument, subscribeGovernanceCollection, type GovernanceCollection, type LiveGovernanceRecord, type PageCursor } from "./governance-api";
 import { describeReadError } from "./console/errors";
 
 export function useGovernanceCollection(name: GovernanceCollection) {
@@ -10,6 +10,8 @@ export function useGovernanceCollection(name: GovernanceCollection) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  /** Last document of the live page — the startAfter cursor for older pages. */
+  const [cursor, setCursor] = useState<PageCursor | null>(null);
   useEffect(() => {
     setLoading(true);
     setError(null);
@@ -17,7 +19,7 @@ export function useGovernanceCollection(name: GovernanceCollection) {
     try {
       unsubscribe = subscribeGovernanceCollection(
         name,
-        (next, more) => { setRecords(next); setTruncated(more); setLoading(false); setError(null); },
+        (next, more, last) => { setRecords(next); setTruncated(more); setCursor(last); setLoading(false); setError(null); },
         (message) => { setError(describeReadError(message)); setLoading(false); },
       );
     } catch (cause) {
@@ -28,7 +30,7 @@ export function useGovernanceCollection(name: GovernanceCollection) {
   }, [name, attempt]);
   /** Re-subscribes (fresh read) — used by the conflict "refresh" action. */
   const refresh = useCallback(() => setAttempt((n) => n + 1), []);
-  return { records, loading, error, truncated, refresh };
+  return { records, loading, error, truncated, refresh, cursor };
 }
 
 export function useLiveDocument(collectionName: string | null, id: string | null) {

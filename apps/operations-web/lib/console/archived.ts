@@ -22,6 +22,7 @@ export const GOVERNANCE_ROUTES = [
   "/commercials",
   "/policies",
   "/audit",
+  "/operators",
 ] as const;
 
 function normalize(pathname: string): string {
@@ -42,9 +43,17 @@ export function isArchivedRoute(pathname: string): boolean {
   return !isGovernanceRoute(path);
 }
 
-/** Only the exact string "true" enables the archived pages (fail closed). */
-export function archivedPrototypeEnabled(flag: string | undefined = process.env.NEXT_PUBLIC_SHOW_ARCHIVED_PROTOTYPE): boolean {
-  return flag === "true";
+/**
+ * Only the exact string "true" enables the archived pages (fail closed), and
+ * never in a firebase-live build: production/staging operators must not be
+ * able to reach the localStorage prototype even if the flag leaks into the
+ * deployed environment (scripts/verify-production-env.mjs also refuses it).
+ */
+export function archivedPrototypeEnabled(
+  flag: string | undefined = process.env.NEXT_PUBLIC_SHOW_ARCHIVED_PROTOTYPE,
+  dataMode: string | undefined = process.env.NEXT_PUBLIC_DATA_MODE,
+): boolean {
+  return flag === "true" && dataMode !== "firebase-live";
 }
 
 export const ARCHIVED_BANNER =

@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, Building2, Compass, Fingerprint } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { NAV } from "@/lib/nav";
+import { consoleNav } from "@/lib/nav";
+import { useAdminSession } from "@/lib/firebase/auth";
 import { territoryViews } from "@/lib/prototype/repositories";
 import { useHotkey } from "@/lib/hooks";
 import { cn } from "@/lib/format";
@@ -19,8 +20,9 @@ interface Entry {
   icon: typeof Compass;
 }
 
-export function CommandPalette() {
-  const { paletteOpen, setPaletteOpen, role, switchTerritory, state } = useStore();
+export function CommandPalette({ prototype = false }: { prototype?: boolean }) {
+  const { paletteOpen, setPaletteOpen, switchTerritory, state } = useStore();
+  const { consoleRole } = useAdminSession();
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [index, setIndex] = useState(0);
@@ -38,7 +40,7 @@ export function CommandPalette() {
 
   const entries = useMemo<Entry[]>(() => {
     const q = query.toLowerCase();
-    const pages: Entry[] = NAV.filter((n) => n.roles.includes(role.id) && (!q || n.label.toLowerCase().includes(q) || n.keyword.includes(q))).map((n) => ({
+    const pages: Entry[] = consoleNav(consoleRole).filter((n) => !q || n.label.toLowerCase().includes(q) || n.keyword.includes(q)).map((n) => ({
       kind: "page",
       label: n.label,
       sub: "Module",
@@ -63,8 +65,9 @@ export function CommandPalette() {
         icon: Fingerprint,
       },
     ];
-    return [...pages, ...territories, ...roles];
-  }, [query, role.id, switchTerritory, setPaletteOpen, state]);
+    // Territories and the position simulator are archived-prototype sample data only.
+    return prototype ? [...pages, ...territories, ...roles] : pages;
+  }, [query, consoleRole, prototype, switchTerritory, setPaletteOpen, state]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -120,7 +123,7 @@ export function CommandPalette() {
                   setQuery(e.target.value);
                   setIndex(0);
                 }}
-                placeholder="Where in the building?"
+                placeholder="Go to a module…"
                 className="flex-1 bg-transparent text-sm text-ink-lum placeholder:text-ink-mut/70 focus:outline-none"
                 aria-label="Search"
               />
@@ -128,7 +131,7 @@ export function CommandPalette() {
             </div>
             <div className="max-h-[320px] overflow-y-auto p-1.5">
               {entries.length === 0 && (
-                <p className="px-3 py-8 text-center text-sm text-ink-mut">Nothing in this part of the building.</p>
+                <p className="px-3 py-8 text-center text-sm text-ink-mut">No module matches.</p>
               )}
               {entries.map((e, i) => {
                 const Icon = e.icon;

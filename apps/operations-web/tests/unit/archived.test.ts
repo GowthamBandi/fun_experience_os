@@ -39,3 +39,11 @@ describe("archived route detection", () => {
     expect(canAccess("/reviews", "platform-owner")).toBe(true);
   });
 });
+
+describe("archived prototype in firebase-live", () => {
+  it("is never enabled in a firebase-live build, even with the flag set", () => {
+    expect(archivedPrototypeEnabled("true", "firebase-live")).toBe(false);
+    expect(archivedPrototypeEnabled("true", "firebase-emulator")).toBe(true);
+    expect(archivedPrototypeEnabled("false", "firebase-emulator")).toBe(false);
+  });
+});

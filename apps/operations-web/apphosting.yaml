@@ -1,0 +1,34 @@
+# Firebase App Hosting — Operations Console (shared settings for every environment).
+#
+# Inert until an App Hosting backend is created with root directory
+# `apps/operations-web` (see DEPLOYMENT.md). It is NOT referenced by the
+# repository's firebase.json, so `firebase deploy --only firestore,functions,...`
+# is unaffected.
+#
+# Environment-specific values live in apphosting.<environment>.yaml
+# (apphosting.staging.yaml / apphosting.production.yaml); set the backend's
+# "Environment name" to `staging` or `production` so App Hosting merges the
+# right file over this one.
+
+runConfig:
+  minInstances: 0
+  maxInstances: 4
+  concurrency: 80
+  cpu: 1
+  memoryMiB: 512
+
+scripts:
+  # Fails the rollout before `next build` if the environment is incomplete,
+  # still has template placeholders, or points at the wrong project.
+  buildCommand: npm run build:production
+
+env:
+  - variable: NEXT_PUBLIC_DATA_MODE
+    value: firebase-live
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_SHOW_ARCHIVED_PROTOTYPE
+    value: "false"
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_TELEMETRY_DISABLED
+    value: "1"
+    availability: [BUILD, RUNTIME]

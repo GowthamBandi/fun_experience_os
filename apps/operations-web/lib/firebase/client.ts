@@ -66,7 +66,7 @@ let _client: FirebaseClient | null = null;
  * Returns the initialized Firebase client.
  * Throws if called in prototype mode.
  *
- * Only call this function when NEXT_PUBLIC_DATA_MODE=firebase-emulator.
+ * Only call this function when NEXT_PUBLIC_DATA_MODE is firebase-emulator or firebase-live.
  */
 export function getFirebaseClient(): FirebaseClient {
   const mode = resolveDataMode();

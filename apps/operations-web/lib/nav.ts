@@ -1,5 +1,6 @@
 import type { RoleId } from "@/lib/types";
 import { archivedPrototypeEnabled, isArchivedRoute } from "@/lib/console/archived";
+import { canViewRoute, type ConsoleRole } from "@/lib/console/capabilities";
 
 export interface NavItem {
   href: string;
@@ -27,7 +28,11 @@ export const NAV: NavItem[] = [
   { href: "/commercials", label: "Commercials", keyword: "commission terms percentages contracts negotiation", group: "Finance", roles: [...owners, "finance"] },
   { href: "/policies", label: "Policies", keyword: "rules policies standards governance", group: "Control", roles: owners },
   { href: "/audit", label: "Audit", keyword: "audit decisions history access evidence", group: "Control", roles: [...owners, "finance", "safety", "analyst"] },
+  { href: "/operators", label: "Operator access", keyword: "operators access roles super admin auditor suspend disable", group: "Control", roles: owners },
 ];
+
+/** Governance navigation for a signed-in console role (live console). */
+export const consoleNav = (role: ConsoleRole | null | undefined): NavItem[] => NAV.filter((n) => canViewRoute(role, n.href));
 
 export const navFor = (role: RoleId): NavItem[] => NAV.filter((n) => n.roles.includes(role));
 

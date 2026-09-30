@@ -279,3 +279,43 @@ export function caseTargetFields(kind: string, target: Data | null): KeyField[] 
     { label: "Status", value: text(target, "status") },
   ];
 }
+
+/* ----------------------------------------------------------------- audit */
+
+/** actorRole ("platform:super-admin", schema v2) or actorRoleId (governance, schema v1). */
+export function auditActorRole(data: Data): string {
+  return text(data, "actorRole", "actorRoleId");
+}
+
+export function adaptAudit(id: string, data: Data): DisplayRecord {
+  const resource = [text(data, "resourceType"), text(data, "resourceId")].filter((part) => part !== "—").join("/") || "—";
+  const org = text(data, "orgId");
+  const reasonText = text(data, "reason");
+  return {
+    id,
+    primary: text(data, "action"),
+    secondary: [resource, org !== "—" ? `org ${org}` : null].filter(Boolean).join(" · "),
+    // Audit events are immutable facts; the status column reflects the recorded outcome when there is one.
+    status: displayStatus((data.after as Data | null | undefined)?.status ?? data.status ?? "completed"),
+    value: formatDateTime(data.at),
+    meta: [`${text(data, "actorUid")} (${auditActorRole(data)})`, reasonText !== "—" ? `“${reasonText}”` : null].filter(Boolean).join(" · "),
+    version: versionOf(data),
+    raw: { ...data },
+  };
+}
+
+/* ------------------------------------------------------------- operators */
+
+export function adaptOperator(id: string, data: Data): DisplayRecord {
+  const status = String(data.status ?? "active");
+  return {
+    id,
+    primary: text(data, "displayName", "email"),
+    secondary: text(data, "email"),
+    status: status === "suspended" ? "Paused" : status === "disabled" ? "Blocked" : displayStatus(status),
+    value: text(data, "roleId"),
+    meta: [`Status: ${status}`, `Updated ${formatDateTime(data.updatedAt)}`].join(" · "),
+    version: versionOf(data),
+    raw: { ...data },
+  };
+}

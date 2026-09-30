@@ -35,6 +35,8 @@ export function GovernanceModulePage({
   truncated = false,
   onRetry,
   emptyMessage = "No records match these filters.",
+  truncatedMessage,
+  footer,
   children,
 }: {
   eyebrow: string;
@@ -52,6 +54,10 @@ export function GovernanceModulePage({
   truncated?: boolean;
   onRetry?: () => void;
   emptyMessage?: string;
+  /** Replaces the default "older records are not loaded" notice (e.g. when paging is available). */
+  truncatedMessage?: ReactNode;
+  /** Rendered under the table (e.g. a "load older" control). */
+  footer?: ReactNode;
   children?: ReactNode;
 }) {
   const [query, setQuery] = useState("");
@@ -92,7 +98,8 @@ export function GovernanceModulePage({
           {loading && <div className="p-12 text-center text-sm text-slate-500">Loading verified records…</div>}
           {error && <div role="alert" className="m-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-400/20 bg-red-400/5 p-4 text-sm text-red-200"><span>{error}</span>{onRetry && <button onClick={onRetry} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-red-300/30 px-3 text-xs font-semibold text-red-100 hover:bg-red-400/10"><RefreshCw className="h-3.5 w-3.5" />Retry</button>}</div>}
           {!loading && !error && filtered.length === 0 && <div className="p-12 text-center text-sm text-slate-500">{records.length === 0 ? emptyMessage : "No records match these filters."}</div>}
-          {truncated && !loading && <p className="border-t border-white/8 px-5 py-3 text-xs text-slate-500">Showing the latest {records.length} records. Narrow with search; older records are not loaded.</p>}
+          {truncated && !loading && <p className="border-t border-white/8 px-5 py-3 text-xs text-slate-500">{truncatedMessage ?? <>Showing the latest {records.length} records. Narrow with search; older records are not loaded.</>}</p>}
+          {footer}
         </div>
       </section>
     </div>

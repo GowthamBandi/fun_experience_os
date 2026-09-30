@@ -8,11 +8,14 @@ import { Drawer, FieldList, InfoNote } from "./controls";
 import { decideCommercialAgreement, proposeCommercialAgreement, type LiveGovernanceRecord } from "@/lib/governance-api";
 import { useGovernanceCollection } from "@/lib/use-governance";
 import { useAdminSession } from "@/lib/firebase/auth";
+import { can } from "@/lib/console/capabilities";
 import { formatDateTime, text } from "@/lib/console/records";
 
 const percent = (bps: unknown) => (typeof bps === "number" ? `${(bps / 100).toFixed(2).replace(/\.?0+$/, "")}%` : "—");
 
 export function CommercialsWorkspace() {
+  const { consoleRole } = useAdminSession();
+  const canDecide = can(consoleRole, "governance.decide");
   const { records, loading, error, truncated, refresh } = useGovernanceCollection("commercialAgreements");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [proposing, setProposing] = useState(false);
@@ -34,7 +37,7 @@ export function CommercialsWorkspace() {
       actionLabel={(record) => (record.raw.status === "pending-approval" ? "Decide" : "Open")}
       onAction={(record) => setSelectedId(record.id)}
       emptyMessage="No commercial terms yet. Propose terms for an organizer once the agreement is signed."
-      headerAction={<button onClick={() => setProposing(true)} className="inline-flex h-11 items-center gap-2 rounded-xl bg-indigo-500 px-4 text-sm font-semibold text-white hover:bg-indigo-400"><Plus className="h-4 w-4" />Propose terms</button>}
+      headerAction={canDecide && <button onClick={() => setProposing(true)} className="inline-flex h-11 items-center gap-2 rounded-xl bg-indigo-500 px-4 text-sm font-semibold text-white hover:bg-indigo-400"><Plus className="h-4 w-4" />Propose terms</button>}
     />
     {proposing && <ProposeDrawer onClose={() => setProposing(false)} onRefresh={refresh} />}
     {selectedId && <AgreementDrawer record={selected} onRefresh={refresh} onClose={() => setSelectedId(null)} />}

@@ -1,2 +1,2 @@
-import { GovernanceRoutePage } from "@/components/governance/GovernanceRoutePage";
-export default function Page(){return <GovernanceRoutePage config={{collection:"auditEvents",readOnly:true,eyebrow:"Control",title:"Audit trail",description:"Immutable decision history with actor, reason, policy version and evidence context for every privileged action.",metricLabel:"Audit records",primaryAction:"Inspect record"}}/>}
+import { AuditWorkspace } from "@/components/governance/AuditWorkspace";
+export default function Page(){return <AuditWorkspace/>}

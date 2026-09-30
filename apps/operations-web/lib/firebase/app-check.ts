@@ -1,18 +1,17 @@
 /**
  * firebase/app-check.ts
  *
- * App Check boundary — PR-0B placeholder only.
+ * App Check (reCAPTCHA Enterprise) for firebase-live builds.
  *
- * App Check is NOT initialized in emulator mode or prototype mode.
- * This file documents the future integration point without activating anything.
- *
- * Rules for future phases:
- * - Never call initializeAppCheck() until a real reCAPTCHA site key is configured.
- * - Never use a debug/fake provider in production code.
- * - App Check must not be initialized in firebase-emulator mode (emulators bypass it).
- * - In firebase-live mode, App Check will be mandatory before launch.
- *
- * DO NOT add any implementation to this file until the App Check phase is approved.
+ * - Called only from client.ts in firebase-live mode; never in firebase-emulator
+ *   mode (emulators do not enforce App Check and the callables skip it there).
+ * - Fails closed: no site key → the console refuses to initialize Firebase
+ *   (and scripts/verify-production-env.mjs refuses the build).
+ * - No debug provider is ever installed; the backend callables run with
+ *   enforceAppCheck outside the emulator, so an unattested console cannot act.
+ * - The site key is public; restrict its allowed domains in reCAPTCHA
+ *   Enterprise to the console's domain(s) and register it for the web app in
+ *   Firebase Console → App Check.
  */
 
 import type { FirebaseApp } from "firebase/app";

@@ -4,6 +4,8 @@ import { useState, type ReactNode } from "react";
 import { isConfirmed } from "@/lib/console/actions";
 import { ActionButton, ActionError, InfoNote, ReasonField, SuccessNote, TextField, TypedConfirmation, useCommand } from "./controls";
 import { OrganizerCodeModal } from "./OrganizerCodeModal";
+import { useAdminSession } from "@/lib/firebase/auth";
+import { ROLE_LABEL, can, type Capability } from "@/lib/console/capabilities";
 
 export interface ActionOutcome {
   message: ReactNode;
@@ -43,7 +45,16 @@ export interface PrivilegedAction {
  * phrase for high-risk actions) → server callable with an idempotent
  * requestId. The server writes the audit record.
  */
-export function ActionPanel({ actions, commandPrefix, onRefresh, emptyMessage }: { actions: PrivilegedAction[]; commandPrefix: string; onRefresh?: () => void; emptyMessage?: string }) {
+export function ActionPanel({ actions, commandPrefix, onRefresh, emptyMessage, capability = "governance.decide" }: {
+  actions: PrivilegedAction[];
+  commandPrefix: string;
+  onRefresh?: () => void;
+  emptyMessage?: string;
+  /** Capability the backing callable requires (lib/console/capabilities). Roles without it see a read-only note. */
+  capability?: Capability;
+}) {
+  const { consoleRole } = useAdminSession();
+  const permitted = can(consoleRole, capability);
   const command = useCommand(commandPrefix);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [reason, setReason] = useState("");
@@ -90,6 +101,14 @@ export function ActionPanel({ actions, commandPrefix, onRefresh, emptyMessage }:
   }
 
   const available = actions.filter((action) => !action.disabledReason);
+
+  if (!permitted) {
+    return (
+      <InfoNote>
+        <span data-testid="actions-read-only">Read-only for your role ({consoleRole ? ROLE_LABEL[consoleRole] : "no console role"}). {capability === "access.manage" ? "Only a Platform Owner can change operator access." : "Only a Platform Owner or Super Admin can act on this record."} The server enforces the same rule.</span>
+      </InfoNote>
+    );
+  }
 
   return (
     <div className="space-y-4">

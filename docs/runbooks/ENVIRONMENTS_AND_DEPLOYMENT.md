@@ -48,7 +48,7 @@ gcloud auth application-default login
 npm run bootstrap:platform-owner -- --project <exact project id> --uid <Firebase Auth uid> --reason "Initial platform owner"
 ```
 
-The user must already exist in Firebase Auth with a verified email. Then grant a **second** admin from the console (Access page): refunds above ₹10,000, settlements above ₹50,000 and every commercial-terms change need two different admins.
+The user must already exist in Firebase Auth with a verified email. Then grant a **second** admin from the console (**Operator access**, `/operators`): refunds above ₹10,000, settlements above ₹50,000 and every commercial-terms change need two different admins.
 
 ## 4. Deploy (backend)
 

@@ -59,8 +59,18 @@ const server = spawn(process.execPath, ["node_modules/next/dist/bin/next", "star
 let browser;
 try {
   await waitForServer(Date.now() + 60_000);
+  const res = await fetch(`${BASE}/login`);
+  const csp = res.headers.get("content-security-policy") ?? "";
+  if (!csp.includes("frame-ancestors 'none'") || !csp.includes("https://firestore.googleapis.com")) throw new Error(`CSP missing or incomplete: ${csp}`);
+  if (res.headers.get("x-frame-options") !== "DENY") throw new Error("X-Frame-Options must be DENY");
+  if (res.headers.get("x-content-type-options") !== "nosniff") throw new Error("X-Content-Type-Options must be nosniff");
+  if (res.headers.get("x-powered-by")) throw new Error("X-Powered-By must not be sent");
+  console.log("✓ security headers (CSP, X-Frame-Options, nosniff) are served");
+
   browser = await chromium.launch({ executablePath: browserPath() });
   const page = await browser.newPage();
+  const cspViolations = [];
+  page.on("console", (message) => { if (/Content Security Policy/i.test(message.text())) cspViolations.push(message.text()); });
 
   await page.goto(`${BASE}/login`);
   const notice = page.getByTestId("configuration-notice");
@@ -73,6 +83,8 @@ try {
   await page.goto(`${BASE}/missions`);
   await page.waitForURL(`${BASE}/login`, { timeout: 15_000 });
   console.log("✓ console routes redirect to /login when misconfigured (fail closed)");
+  if (cspViolations.length) throw new Error(`CSP violations: ${cspViolations.join(" | ")}`);
+  console.log("✓ no Content-Security-Policy violations while rendering");
 } finally {
   await browser?.close();
   try { process.kill(-server.pid, "SIGTERM"); } catch { server.kill("SIGTERM"); }

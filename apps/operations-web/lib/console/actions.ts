@@ -201,6 +201,9 @@ export const CONFIRM_PHRASES = {
   largeRefund: "APPROVE REFUND",
   markPaid: "MARK PAID",
   blockEntity: "BLOCK",
+  grantPlatformOwner: "GRANT PLATFORM OWNER",
+  suspendOperator: "SUSPEND OPERATOR",
+  disableOperator: "DISABLE OPERATOR",
 } as const;
 
 export function isConfirmed(typed: string, phrase: string): boolean {
@@ -237,4 +240,26 @@ export function buildProposeAgreementPayload(input: { requestId: string; orgId: 
 
 export function buildDecideAgreementPayload(input: { requestId: string; agreementId: string; action: "approve" | "reject"; note: string }) {
   return { requestId: requireRequestId(input.requestId), agreementId: input.agreementId, action: input.action, note: reason(input.note, 10, 500) };
+}
+
+/* ------------------------------------------------------- operator access */
+
+export const OPERATOR_ROLES = ["platform-owner", "super-admin", "auditor"] as const;
+export type OperatorRole = (typeof OPERATOR_ROLES)[number];
+export const OPERATOR_STATUSES = ["active", "suspended", "disabled"] as const;
+export type OperatorStatus = (typeof OPERATOR_STATUSES)[number];
+
+/**
+ * setOperatorAccess (us-central1, platform-owner only). Mirrors
+ * firebase/functions/src/auth/operatorAccess.ts parse(): uid [A-Za-z0-9_-]{8,128},
+ * a supported role, a supported status and a 10–1000 character reason.
+ * The server takes no requestId; re-sending the same command re-applies the same state.
+ */
+export function buildSetOperatorAccessPayload(input: { uid: string; roleId: string; status: string; reason: string; actorUid?: string | null }) {
+  const uid = input.uid.trim();
+  if (!/^[A-Za-z0-9_-]{8,128}$/.test(uid)) throw new CommandValidationError("Enter the operator's Firebase Auth UID (8–128 letters, digits, - or _).");
+  if (!(OPERATOR_ROLES as readonly string[]).includes(input.roleId)) throw new CommandValidationError("Choose Platform Owner, Super Admin or Auditor.");
+  if (!(OPERATOR_STATUSES as readonly string[]).includes(input.status)) throw new CommandValidationError("Choose active, suspended or disabled.");
+  if (input.actorUid && uid === input.actorUid && input.status !== "active") throw new CommandValidationError("You cannot suspend or disable your own account.");
+  return { uid, roleId: input.roleId as OperatorRole, status: input.status as OperatorStatus, reason: reason(input.reason, 10, 1000) };
 }

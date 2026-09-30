@@ -4,22 +4,32 @@ import { useRouter } from "next/navigation";
 import { LogOut, Search } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { SignalCenter } from "@/components/shell/SignalCenter";
+import { EnvironmentBadge } from "@/components/console/EnvironmentBadge";
 import { useAdminSession } from "@/lib/firebase/auth";
+import { ROLE_LABEL } from "@/lib/console/capabilities";
 import { Avatar } from "@/components/ui/primitives";
 
-export function Topbar() {
+export function Topbar({ prototype = false }: { prototype?: boolean }) {
   const { operator, signOut: clearPrototypeSession, setPaletteOpen } = useStore();
-  const { user, signOut } = useAdminSession();
+  const { user, consoleRole, signOut } = useAdminSession();
   const router = useRouter();
+  const identity = user?.displayName || user?.email || "Signed-in operator";
 
   return (
     <header className="glass-surface relative z-20 flex h-16 shrink-0 items-center gap-3 border-b border-white/5 px-4 md:px-6">
-      {/* the night context */}
+      <EnvironmentBadge />
       <div className="min-w-0 flex-1">
-        <p className="overline hidden md:block">29 September 2026 · 18:42 · Asia/Calcutta</p>
-        <p className="hidden truncate text-sm text-ink-sec md:block">
-          {operator?.name} · {operator?.title}
-        </p>
+        {prototype ? (
+          <>
+            <p className="overline hidden md:block">Archived prototype · sample data</p>
+            <p className="hidden truncate text-sm text-ink-sec md:block">{operator?.name} · {operator?.title}</p>
+          </>
+        ) : (
+          <>
+            <p className="overline hidden md:block">{consoleRole ? ROLE_LABEL[consoleRole] : "Operator"}</p>
+            <p className="hidden truncate text-sm text-ink-sec md:block">{identity}</p>
+          </>
+        )}
       </div>
 
       <button
@@ -28,14 +38,14 @@ export function Topbar() {
         aria-label="Open command"
       >
         <Search className="h-4 w-4" />
-        <span className="text-xs">Search organizers, arenas, events, payouts…</span>
+        <span className="text-xs">Go to a module…</span>
         <kbd className="rounded-md border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] text-ink-mut">⌘K</kbd>
       </button>
 
-      <SignalCenter />
+      {prototype && <SignalCenter />}
       <span className="h-8 w-px bg-white/8" />
 
-      {operator && (
+      {user && (
         <button
           onClick={() => {
             void signOut().finally(() => {
@@ -45,9 +55,9 @@ export function Topbar() {
           }}
           className="flex items-center gap-2 rounded-xl px-1.5 py-1 transition-colors hover:bg-white/5"
           aria-label="Sign out"
-          title="Wrap — sign out"
+          title={`Sign out ${identity}`}
         >
-          <Avatar initials={(user?.displayName ?? user?.email ?? operator.name).slice(0, 2).toUpperCase()} />
+          <Avatar initials={identity.slice(0, 2).toUpperCase()} />
           <LogOut className="h-4 w-4 text-ink-mut" />
         </button>
       )}

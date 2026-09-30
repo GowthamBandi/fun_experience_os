@@ -44,5 +44,20 @@
   },
   "storage": {
     "rules": "firebase/storage/storage.rules"
-  }
+  },
+  "apphosting": [
+    {
+      "backendId": "operations-console",
+      "rootDir": "apps/operations-web",
+      "ignore": [
+        "node_modules",
+        ".git",
+        ".next",
+        ".next-smoke",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "functions"
+      ]
+    }
+  ]
 }

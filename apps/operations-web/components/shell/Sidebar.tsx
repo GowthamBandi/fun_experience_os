@@ -11,6 +11,7 @@ import {
   CircleGauge,
   ClipboardCheck,
   FileClock,
+  KeyRound,
   ReceiptIndianRupee,
   Scale,
   SearchCheck,
@@ -21,7 +22,9 @@ import {
   Users,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { navFor } from "@/lib/nav";
+import { consoleNav } from "@/lib/nav";
+import { useAdminSession } from "@/lib/firebase/auth";
+import { ROLE_LABEL } from "@/lib/console/capabilities";
 import { cn } from "@/lib/format";
 import { useIsMobile } from "@/lib/hooks";
 import { TerritorySwitcher } from "@/components/shell/TerritorySwitcher";
@@ -41,16 +44,20 @@ const ICONS: Record<string, typeof CircleGauge> = {
   "/commercials": BadgeIndianRupee,
   "/policies": Scale,
   "/audit": FileClock,
+  "/operators": KeyRound,
 };
 
 const LIGHT = [0.19, 1, 0.22, 1] as const;
 
-export function Sidebar() {
+export function Sidebar({ prototype = false }: { prototype?: boolean }) {
   const { role, sidebarCollapsed, toggleSidebar, operator } = useStore();
+  const { user, consoleRole } = useAdminSession();
   const pathname = usePathname();
   const isMobile = useIsMobile();
   const collapsed = isMobile || sidebarCollapsed;
-  const items = navFor(role.id);
+  // Navigation follows the signed-in console role (server-enforced), not the prototype store.
+  const items = consoleNav(consoleRole);
+  const identity = user?.displayName || user?.email || "Operator";
 
   return (
     <motion.aside
@@ -70,10 +77,12 @@ export function Sidebar() {
         )}
       </div>
 
-      {/* territory scope */}
-      <div className={cn("px-3 pt-3", collapsed && "px-2")}>
-        <TerritorySwitcher collapsed={collapsed} />
-      </div>
+      {/* territory scope — archived prototype only (sample data) */}
+      {prototype && (
+        <div className={cn("px-3 pt-3", collapsed && "px-2")}>
+          <TerritorySwitcher collapsed={collapsed} />
+        </div>
+      )}
 
       {/* navigation */}
       <nav className="mt-4 flex-1 space-y-0.5 overflow-y-auto px-3 pb-4" aria-label="Modules">
@@ -123,12 +132,21 @@ export function Sidebar() {
 
       {/* footer */}
       <div className="shrink-0 border-t border-white/5 p-3">
-        {!collapsed && operator && (
+        {!collapsed && prototype && operator && (
           <div className="mb-3 flex items-center gap-2.5 px-1">
             <Avatar initials={operator.initials} size="sm" />
             <div className="min-w-0">
               <p className="truncate text-xs font-medium text-ink-lum">{operator.name}</p>
               <p className="truncate text-[11px] text-ink-mut">{role.name}</p>
+            </div>
+          </div>
+        )}
+        {!collapsed && !prototype && user && (
+          <div className="mb-3 flex items-center gap-2.5 px-1">
+            <Avatar initials={identity.slice(0, 2).toUpperCase()} size="sm" />
+            <div className="min-w-0">
+              <p className="truncate text-xs font-medium text-ink-lum">{identity}</p>
+              <p className="truncate text-[11px] text-ink-mut">{consoleRole ? ROLE_LABEL[consoleRole] : "—"}</p>
             </div>
           </div>
         )}

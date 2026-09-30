@@ -8,12 +8,15 @@ import { Drawer, FieldList, InfoNote } from "./controls";
 import { buildSettlement, decideSettlement, type LiveGovernanceRecord } from "@/lib/governance-api";
 import { useGovernanceCollection } from "@/lib/use-governance";
 import { useAdminSession } from "@/lib/firebase/auth";
+import { can } from "@/lib/console/capabilities";
 import { CONFIRM_PHRASES, settlementActionsFor, type SettlementAction } from "@/lib/console/actions";
 import { formatPaise, needsSettlementDualControl } from "@/lib/console/money";
 import { formatDate, formatDateTime, text } from "@/lib/console/records";
 import { settlementOutcome } from "@/lib/console/outcomes";
 
 export function SettlementsWorkspace() {
+  const { consoleRole } = useAdminSession();
+  const canDecide = can(consoleRole, "governance.decide");
   const { records, loading, error, truncated, refresh } = useGovernanceCollection("settlements");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [building, setBuilding] = useState(false);
@@ -32,10 +35,10 @@ export function SettlementsWorkspace() {
       truncated={truncated}
       onRetry={refresh}
       primaryAction="Open"
-      actionLabel={(record) => (settlementActionsFor(record.raw.status).length ? "Decide" : "Open")}
+      actionLabel={(record) => (canDecide && settlementActionsFor(record.raw.status).length ? "Decide" : "Open")}
       onAction={(record) => setSelectedId(record.id)}
       emptyMessage="No settlements yet. Build one for an organizer once their events are completed."
-      headerAction={<button onClick={() => setBuilding(true)} className="inline-flex h-11 items-center gap-2 rounded-xl bg-indigo-500 px-4 text-sm font-semibold text-white hover:bg-indigo-400"><Plus className="h-4 w-4" />Build settlement</button>}
+      headerAction={canDecide && <button onClick={() => setBuilding(true)} className="inline-flex h-11 items-center gap-2 rounded-xl bg-indigo-500 px-4 text-sm font-semibold text-white hover:bg-indigo-400"><Plus className="h-4 w-4" />Build settlement</button>}
     />
     {building && <BuildSettlementDrawer onClose={() => setBuilding(false)} onRefresh={refresh} />}
     {selectedId && <SettlementDrawer record={selected} onRefresh={refresh} onClose={() => setSelectedId(null)} />}

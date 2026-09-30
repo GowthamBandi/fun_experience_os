@@ -1,6 +1,6 @@
 "use client";
 
-import { collection, doc, limit, onSnapshot, orderBy, query, type DocumentData, type QueryConstraint } from "firebase/firestore";
+import { collection, doc, getDocs, limit, onSnapshot, orderBy, query, startAfter, where, type DocumentData, type QueryConstraint, type QueryDocumentSnapshot } from "firebase/firestore";
 import { httpsCallable, type Functions } from "firebase/functions";
 import { getFirebaseClient } from "./firebase/client";
 import {
@@ -14,6 +14,7 @@ import {
   buildEntityStatusPayload,
   buildModerateReviewPayload,
   buildReissueOrganizerCodePayload,
+  buildSetOperatorAccessPayload,
   newRequestId,
   type CaseOutcome,
   type EntityStatus,
@@ -21,8 +22,10 @@ import {
   type SettlementAction,
 } from "./console/actions";
 import {
+  adaptAudit,
   adaptEvent,
   adaptGeneric,
+  adaptOperator,
   adaptOrganizerApplication,
   adaptRefund,
   adaptReview,
@@ -47,6 +50,8 @@ export type GovernanceCollection =
   | "auditEvents"
   | "customers"
   | "users"
+  /** users where scope == "platform" (console operator accounts; excludes PULSE customers). */
+  | "operators"
   | "refunds"
   | "settlements"
   | "experiences"
@@ -63,6 +68,13 @@ const ADAPTERS: Partial<Record<GovernanceCollection, (id: string, data: Document
   reviews: adaptReview,
   events: adaptEvent,
   organizerApplications: adaptOrganizerApplication,
+  auditEvents: adaptAudit,
+  operators: adaptOperator,
+};
+
+/** Collections whose Firestore path or filter differs from the key. Single-field filters only (no composite index). */
+const SOURCE: Partial<Record<GovernanceCollection, { path: string; filter: QueryConstraint }>> = {
+  operators: { path: "users", filter: where("scope", "==", "platform") },
 };
 
 /** Newest-first ordering where the collection has a reliable timestamp field. */
@@ -78,17 +90,37 @@ export function adaptRecord(name: GovernanceCollection, id: string, data: Docume
 
 export function subscribeGovernanceCollection(
   name: GovernanceCollection,
-  observer: (records: LiveGovernanceRecord[], truncated: boolean) => void,
+  observer: (records: LiveGovernanceRecord[], truncated: boolean, cursor: PageCursor | null) => void,
   onError: (message: string) => void,
 ) {
   const ordering = ORDERING[name];
-  const constraints = ordering ? [ordering, limit(QUERY_LIMIT)] : [limit(QUERY_LIMIT)];
-  const source = query(collection(getFirebaseClient().firestore, name), ...constraints);
+  const special = SOURCE[name];
+  const constraints: QueryConstraint[] = [...(special ? [special.filter] : []), ...(ordering ? [ordering] : []), limit(QUERY_LIMIT)];
+  const source = query(collection(getFirebaseClient().firestore, special?.path ?? name), ...constraints);
   return onSnapshot(
     source,
-    (snapshot) => observer(snapshot.docs.map((d) => adaptRecord(name, d.id, d.data())), snapshot.size >= QUERY_LIMIT),
+    (snapshot) => observer(
+      snapshot.docs.map((d) => adaptRecord(name, d.id, d.data())),
+      snapshot.size >= QUERY_LIMIT,
+      snapshot.docs.length ? snapshot.docs[snapshot.docs.length - 1]! : null,
+    ),
     (error) => onError(error.message),
   );
+}
+
+export type PageCursor = QueryDocumentSnapshot<DocumentData>;
+
+/**
+ * One older page of the audit trail (newest first), after `cursor`.
+ * Uses only the automatic single-field index on `at` — no composite index.
+ */
+export async function fetchOlderAuditEvents(cursor: PageCursor, pageSize = QUERY_LIMIT) {
+  const snapshot = await getDocs(query(collection(getFirebaseClient().firestore, "auditEvents"), orderBy("at", "desc"), startAfter(cursor), limit(pageSize)));
+  return {
+    records: snapshot.docs.map((d) => adaptRecord("auditEvents", d.id, d.data())),
+    cursor: snapshot.docs.length ? snapshot.docs[snapshot.docs.length - 1]! : null,
+    hasMore: snapshot.size >= pageSize,
+  };
 }
 
 /** Live view of a single document (e.g. a governance case's target). */
@@ -192,4 +224,10 @@ export async function proposeCommercialAgreement(input: { requestId: string; org
 
 export async function decideCommercialAgreement(input: { requestId: string; agreementId: string; action: "approve" | "reject"; note: string }) {
   return call<{ agreementId: string; status: string; supersededId: string | null }>(regional(), "decideCommercialAgreement", buildDecideAgreementPayload(input));
+}
+
+/* ------------------------------------------------ operator access (us-central1) */
+
+export async function setOperatorAccess(input: { uid: string; roleId: string; status: string; reason: string; actorUid?: string | null }) {
+  return call<{ uid: string; roleId: string; status: string }>(legacy(), "setOperatorAccess", buildSetOperatorAccessPayload(input));
 }
