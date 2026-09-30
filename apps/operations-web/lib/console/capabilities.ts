@@ -71,6 +71,7 @@ export const CALLABLE_CAPABILITY = {
   proposeCommercialAgreement: "governance.decide",
   decideCommercialAgreement: "governance.decide",
   setOperatorAccess: "access.manage",
+  setLegalHold: "governance.decide",
 } as const satisfies Record<string, Capability>;
 
 export type ConsoleCallable = keyof typeof CALLABLE_CAPABILITY;
@@ -95,6 +96,9 @@ export const ROUTE_CAPABILITY: Record<string, Capability> = {
   "/policies": "governance.read",
   "/audit": "audit.read",
   "/operators": "access.read",
+  /** Admins and auditors read legalHolds / jobRuns (firestore.rules). */
+  "/legal-holds": "audit.read",
+  "/system": "audit.read",
 };
 
 function normalize(pathname: string): string {

@@ -28,6 +28,8 @@ export const NAV: NavItem[] = [
   { href: "/commercials", label: "Commercials", keyword: "commission terms percentages contracts negotiation", group: "Finance", roles: [...owners, "finance"] },
   { href: "/policies", label: "Policies", keyword: "rules policies standards governance", group: "Control", roles: owners },
   { href: "/audit", label: "Audit", keyword: "audit decisions history access evidence", group: "Control", roles: [...owners, "finance", "safety", "analyst"] },
+  { href: "/legal-holds", label: "Legal holds", keyword: "legal hold retention deletion compliance dpdp evidence", group: "Control", roles: owners },
+  { href: "/system", label: "System health", keyword: "jobs scheduler health retention holds sweeper reminders failures", group: "Control", roles: owners },
   { href: "/operators", label: "Operator access", keyword: "operators access roles super admin auditor suspend disable", group: "Control", roles: owners },
 ];
 

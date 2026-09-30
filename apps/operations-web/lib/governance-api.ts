@@ -11,6 +11,7 @@ import {
   buildDecideSettlementPayload,
   buildProposeAgreementPayload,
   buildDecideAgreementPayload,
+  buildLegalHoldPayload,
   buildEntityStatusPayload,
   buildModerateReviewPayload,
   buildReissueOrganizerCodePayload,
@@ -56,7 +57,11 @@ export type GovernanceCollection =
   | "settlements"
   | "experiences"
   | "organizerApplications"
-  | "reviews";
+  | "reviews"
+  /** Retention legal holds (admins + auditors read; setLegalHold writes). */
+  | "legalHolds"
+  /** One summary doc per scheduled job per day (platform/jobs.ts). */
+  | "jobRuns";
 
 export type LiveGovernanceRecord = DisplayRecord;
 
@@ -82,6 +87,8 @@ const ORDERING: Partial<Record<GovernanceCollection, QueryConstraint>> = {
   auditEvents: orderBy("at", "desc"),
   refunds: orderBy("createdAt", "desc"),
   settlements: orderBy("createdAt", "desc"),
+  legalHolds: orderBy("updatedAt", "desc"),
+  jobRuns: orderBy("updatedAt", "desc"),
 };
 
 export function adaptRecord(name: GovernanceCollection, id: string, data: DocumentData): DisplayRecord {
@@ -230,4 +237,11 @@ export async function decideCommercialAgreement(input: { requestId: string; agre
 
 export async function setOperatorAccess(input: { uid: string; roleId: string; status: string; reason: string; actorUid?: string | null }) {
   return call<{ uid: string; roleId: string; status: string }>(legacy(), "setOperatorAccess", buildSetOperatorAccessPayload(input));
+}
+
+export interface SetLegalHoldResult { holdId: string; status: "active" | "released"; version: number }
+
+/** setLegalHold (asia-south1, admins). Blocks retention deletion for the subject while active. */
+export async function setLegalHold(input: { requestId: string; subjectId: string; action: "place" | "release"; reason: string; reference?: string }) {
+  return call<SetLegalHoldResult>(regional(), "setLegalHold", buildLegalHoldPayload(input));
 }

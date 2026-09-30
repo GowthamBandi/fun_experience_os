@@ -111,12 +111,12 @@ describe("route guard", () => {
     for (const route of GOVERNANCE_ROUTES) expect(ROUTE_CAPABILITY[route]).toBeDefined();
     expect(Object.keys(ROUTE_CAPABILITY).sort()).toEqual([...GOVERNANCE_ROUTES].sort());
   });
-  it("admins see every governance route; auditors only audit and settlements", () => {
+  it("admins see every governance route; auditors only audit, settlements and compliance/health views", () => {
     for (const item of NAV) {
       expect(canViewRoute("platform-owner", item.href)).toBe(true);
       expect(canViewRoute("super-admin", item.href)).toBe(true);
     }
-    expect(consoleNav("auditor").map((item) => item.href)).toEqual(["/settlements", "/audit"]);
+    expect(consoleNav("auditor").map((item) => item.href)).toEqual(["/settlements", "/audit", "/legal-holds", "/system"]);
     expect(canViewRoute("auditor", "/")).toBe(false);
     expect(canViewRoute("auditor", "/refunds")).toBe(false);
     expect(canViewRoute("auditor", "/operators")).toBe(false);
@@ -166,5 +166,18 @@ describe("verification email cooldown", () => {
     expect(verificationCooldownRemaining(null, 1_000)).toBe(0);
     expect(verificationCooldownRemaining(1_000, 1_000)).toBe(VERIFICATION_EMAIL_COOLDOWN_MS);
     expect(verificationCooldownRemaining(1_000, 1_000 + VERIFICATION_EMAIL_COOLDOWN_MS)).toBe(0);
+  });
+});
+
+describe("compliance and system routes", () => {
+  it("legal holds and system health are readable by admins and auditors; only admins place holds", async () => {
+    const { canViewRoute, rolesAllowedFor } = await import("@/lib/console/capabilities");
+    for (const route of ["/legal-holds", "/system"]) {
+      expect(canViewRoute("platform-owner", route)).toBe(true);
+      expect(canViewRoute("super-admin", route)).toBe(true);
+      expect(canViewRoute("auditor", route)).toBe(true);
+      expect(canViewRoute(null, route)).toBe(false);
+    }
+    expect(rolesAllowedFor("setLegalHold")).toEqual(["platform-owner", "super-admin"]);
   });
 });

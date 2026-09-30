@@ -141,3 +141,16 @@ describe("commercial agreements", () => {
       .toEqual({ requestId, agreementId: "ca_1", action: "approve", note: "Checked against MSA" });
   });
 });
+
+describe("legal holds", () => {
+  it("builds the setLegalHold payload the callable expects", async () => {
+    const { buildLegalHoldPayload } = await import("@/lib/console/actions");
+    const requestId = rid();
+    expect(buildLegalHoldPayload({ requestId, subjectId: " uid_123 ", action: "place", reason: "Dispute #42 opened by customer", reference: " CASE-42 " }))
+      .toEqual({ requestId, subjectType: "user", subjectId: "uid_123", action: "place", reason: "Dispute #42 opened by customer", reference: "CASE-42" });
+    expect(buildLegalHoldPayload({ requestId, subjectId: "uid_123", action: "release", reason: "Dispute closed, no action" })).not.toHaveProperty("reference");
+    expect(() => buildLegalHoldPayload({ requestId, subjectId: "", action: "place", reason: "Dispute #42 opened" })).toThrow(/uid/);
+    expect(() => buildLegalHoldPayload({ requestId, subjectId: "uid_1", action: "place", reason: "short" })).toThrow(CommandValidationError);
+    expect(() => buildLegalHoldPayload({ requestId, subjectId: "uid_1", action: "place", reason: "Dispute #42 opened", reference: "x".repeat(201) })).toThrow(/200/);
+  });
+});

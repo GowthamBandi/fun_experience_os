@@ -21,6 +21,8 @@ export const GOVERNANCE_ROUTES = [
   "/settlements",
   "/commercials",
   "/policies",
+  "/legal-holds",
+  "/system",
   "/audit",
   "/operators",
 ] as const;

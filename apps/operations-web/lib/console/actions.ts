@@ -263,3 +263,21 @@ export function buildSetOperatorAccessPayload(input: { uid: string; roleId: stri
   if (input.actorUid && uid === input.actorUid && input.status !== "active") throw new CommandValidationError("You cannot suspend or disable your own account.");
   return { uid, roleId: input.roleId as OperatorRole, status: input.status as OperatorStatus, reason: reason(input.reason, 10, 1000) };
 }
+
+/* ------------------------------------------------------------ legal holds */
+
+export function buildLegalHoldPayload(input: { requestId: string; subjectId: string; action: "place" | "release"; reason: string; reference?: string }) {
+  const subjectId = input.subjectId.trim();
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(subjectId)) throw new CommandValidationError("Enter the user's uid.");
+  const payload: { requestId: string; subjectType: "user"; subjectId: string; action: "place" | "release"; reason: string; reference?: string } = {
+    requestId: requireRequestId(input.requestId),
+    subjectType: "user",
+    subjectId,
+    action: input.action,
+    reason: reason(input.reason, 10, 1000),
+  };
+  const ref = (input.reference ?? "").trim();
+  if (ref.length > 200) throw new CommandValidationError("The reference can be at most 200 characters.");
+  if (ref) payload.reference = ref;
+  return payload;
+}
