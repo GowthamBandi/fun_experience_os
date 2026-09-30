@@ -20,7 +20,16 @@ export const SECRET_NAMES = {
 
 export type SecretName = (typeof SECRET_NAMES)[keyof typeof SECRET_NAMES];
 
-export const isEmulator = (): boolean => process.env.FUNCTIONS_EMULATOR === "true" || !!process.env.FIRESTORE_EMULATOR_HOST;
+/**
+ * True only for local emulator/test runs. A deployed Cloud Function always
+ * has K_SERVICE / FUNCTION_TARGET set, so a stray FIRESTORE_EMULATOR_HOST in
+ * production can never unlock development secrets or the fake provider.
+ */
+export const isEmulator = (): boolean => {
+  const deployed = !!process.env.K_SERVICE || !!process.env.FUNCTION_TARGET;
+  if (process.env.FUNCTIONS_EMULATOR === "true") return true;
+  return !deployed && !!process.env.FIRESTORE_EMULATOR_HOST;
+};
 
 /** Reads a secret. Emulator/test runs get a deterministic dev value. */
 export function secret(name: SecretName): string {

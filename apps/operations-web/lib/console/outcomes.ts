@@ -32,6 +32,9 @@ export function caseOutcome(kind: string, outcome: string, result: CaseResultLik
     if (typeof result.organizerCode === "string" && result.organizerCode) {
       return { tone: "success", showCode: true, message: "Organizer approved. The one-time Organizer Code is displayed now and will not be shown again." };
     }
+    if (!result.codeAlreadyIssued) {
+      return { tone: "success", showCode: false, message: "Organizer approved. No Organizer Code was issued because this case is not linked to an organizer application (legacy record)." };
+    }
     return {
       tone: "info",
       showCode: false,

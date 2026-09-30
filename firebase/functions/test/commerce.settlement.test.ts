@@ -167,7 +167,7 @@ describe("decideSettlement", () => {
     // hold / release-hold returns to the prior state
     await call(commerce.decideSettlement, { requestId: rid(), settlementId: id, action: "hold", note: "KYC query" }, adminCtx("admin-b"));
     expect((await getDoc<Settlement>(`settlements/${id}`))!.status).toBe("held");
-    expect(await callCode(commerce.decideSettlement, { requestId: rid(), settlementId: id, action: "mark-paid", note: "x", payoutReference: "UTR1" }, adminCtx("admin-b"))).toBe("PRECONDITION");
+    expect(await callCode(commerce.decideSettlement, { requestId: rid(), settlementId: id, action: "mark-paid", note: "while held", payoutReference: "UTR111" }, adminCtx("admin-b"))).toBe("PRECONDITION");
     await call(commerce.decideSettlement, { requestId: rid(), settlementId: id, action: "release-hold", note: "resolved" }, adminCtx("admin-b"));
     expect((await getDoc<Settlement>(`settlements/${id}`))!.status).toBe("approved");
 
@@ -186,8 +186,8 @@ describe("decideSettlement", () => {
     await book(await newCustomer(), eventId, 1);
     await db().collection("events").doc(eventId).update({ status: "completed" });
     const built = await buildSettlement({ uid: "admin-a", roleId: "super-admin" }, { requestId: rid(), orgId, periodEnd: new Date() });
-    await call(commerce.decideSettlement, { requestId: rid(), settlementId: built.settlementId, action: "approve", note: "ok" }, adminCtx("admin-a"));
-    const paid = await call<{ status: string }>(commerce.decideSettlement, { requestId: rid(), settlementId: built.settlementId, action: "mark-paid", note: "ok", payoutReference: "UTR42" }, adminCtx("admin-a"));
+    await call(commerce.decideSettlement, { requestId: rid(), settlementId: built.settlementId, action: "approve", note: "all good" }, adminCtx("admin-a"));
+    const paid = await call<{ status: string }>(commerce.decideSettlement, { requestId: rid(), settlementId: built.settlementId, action: "mark-paid", note: "paid out", payoutReference: "UTR42" }, adminCtx("admin-a"));
     expect(paid.status).toBe("paid");
   });
 });

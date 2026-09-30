@@ -269,7 +269,7 @@ export async function reissueOrganizerActivationCode(command: ReissueOrganizerCo
       action: "governance.organizer-code-reissued", actorUid: actor.uid, actorRoleId: actor.roleId,
       resourceType: "organizerActivation", resourceId: command.applicantUid, orgId: String(act.orgId),
       before: { status: act.status, version: asVersion(act.version) }, after: { status: "issued", version, codeExpiresAt: iso(expiresAt) },
-      reason: "Organizer code re-issued.",
+      reason: command.reason ?? "Organizer code re-issued.",
     });
     transaction.create(receiptRef(command.requestId), { action: "governance.organizer-code-reissued", actorUid: actor.uid, result: receiptSafe(result), createdAt: now });
     return result;

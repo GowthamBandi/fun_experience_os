@@ -31,7 +31,7 @@ This is the canonical callable API used by PULSE (Flutter) and the Operations Co
 
 **Console (admin claims):**
 - `decideCase` is extended. For an `organizer-kyc` case with outcome `approved`, the response includes `{ organizerCode, orgId, codeExpiresAt }`, returned **once**.
-- `reissueOrganizerCode({ requestId, applicantUid })` returns a new code and invalidates the old one.
+- `reissueOrganizerCode({ requestId, applicantUid, reason })` (reason ≥ 10 chars, audited) returns a new code and invalidates the old one.
 
 ## Catalog (`src/catalog`)
 

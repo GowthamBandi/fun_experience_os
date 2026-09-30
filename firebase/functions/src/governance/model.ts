@@ -86,11 +86,16 @@ export function parseEntityStatusCommand(value: unknown): EntityStatusCommand {
 export interface ReissueOrganizerCodeCommand {
   requestId: string;
   applicantUid: string;
+  /** Why the code is being re-issued (audited). */
+  reason?: string;
 }
 
 export function parseReissueOrganizerCodeCommand(value: unknown): ReissueOrganizerCodeCommand {
   const data = object(value);
   const applicantUid = text(data.applicantUid, "applicantUid", 4, 128);
   if (!/^[A-Za-z0-9_-]+$/.test(applicantUid)) throw new Error("applicantUid contains unsupported characters.");
-  return { requestId: id(data.requestId, "requestId"), applicantUid };
+  const reason = typeof data.reason === "string" && data.reason.trim().length >= 10
+    ? data.reason.trim().slice(0, 1000)
+    : "Organizer code re-issued.";
+  return { requestId: id(data.requestId, "requestId"), applicantUid, reason };
 }

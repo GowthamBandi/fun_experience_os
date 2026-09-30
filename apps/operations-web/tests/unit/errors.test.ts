@@ -55,6 +55,7 @@ describe("outcomes", () => {
     const replay = caseOutcome("organizer-kyc", "approved", { codeAlreadyIssued: true, replayed: true });
     expect(replay.showCode).toBe(false);
     expect(replay.message).toMatch(/Re-issue/);
+    expect(caseOutcome("organizer-kyc", "approved", {}).message).toMatch(/legacy/);
     expect(caseOutcome("event-approval", "approved", {}).showCode).toBe(false);
   });
 });

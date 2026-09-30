@@ -11,7 +11,8 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "verify": "npm run typecheck && npm run test && npm run build"
+    "verify": "npm run typecheck && npm run test && npm run build",
+    "smoke": "node tests/smoke/login-config.smoke.mjs"
   },
   "dependencies": {
     "firebase": "^12.17.1",
