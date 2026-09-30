@@ -20,8 +20,10 @@ import {
   uniq,
   world,
   anonEmailCtx,
+  Timestamp,
 } from "./commerce-helpers";
-import { recomputeOccupancyFromBookings, occupancyDrift, type OccupancyCounters } from "../src/domain/capacity";
+import { EMPTY_OCCUPANCY, recomputeOccupancyFromBookings, occupancyDrift, type OccupancyCounters } from "../src/domain/capacity";
+import { couldReclaimCover } from "../src/bookings/reserveSeat";
 import { releaseExpiredHolds } from "../src/commerce/holds";
 
 jest.setTimeout(180_000);
@@ -33,6 +35,45 @@ async function eventState(eventId: string) {
   );
   return { ...e, bookings };
 }
+
+describe("reserveSeat — lapsed-hold reclaim is only attempted when it could help", () => {
+  const cap = (max: number) => ({ maxPhysicalCapacity: max, blockedSlots: 0, compSlots: 0, minParticipants: 1, targetParticipants: max });
+  const occ = (o: Partial<OccupancyCounters>): OccupancyCounters => ({ ...EMPTY_OCCUPANCY, ...o });
+
+  test("couldReclaimCover: only when releasing every counted hold would admit the request", () => {
+    expect(couldReclaimCover(cap(3), occ({ confirmedPaidBookings: 3 }), "sellable", 1)).toBe(false); // no holds at all
+    expect(couldReclaimCover(cap(3), occ({ confirmedPaidBookings: 2, activeReservationHolds: 1 }), "sellable", 1)).toBe(true);
+    expect(couldReclaimCover(cap(4), occ({ confirmedPaidBookings: 2, activeReservationHolds: 1 }), "sellable", 3)).toBe(false); // 1 hold can't free 3
+    expect(couldReclaimCover(cap(4), occ({ confirmedPaidBookings: 1, activeReservationHolds: 3 }), "sellable", 3)).toBe(true);
+    expect(couldReclaimCover(cap(2), occ({ confirmedComplimentaryBookings: 1, activeReservationHolds: 1 }), "complimentary", 1)).toBe(true);
+  });
+
+  test("a sold-out event with only confirmed seats refuses without scanning held bookings", async () => {
+    const { orgId, eventId } = await world({ capacity: 2, priceMinor: 0 });
+    const a = await newCustomer();
+    expect((await reserve(a, eventId, 2)).status).toBe("confirmed"); // free: confirmed directly
+    // A lapsed `held` doc the counters don't account for (drift). Had the
+    // scan run, the refused reservation would have expired it inline.
+    const stray = uniq("stray");
+    await db().collection("bookings").doc(stray).set({
+      id: stray, eventId, orgId, customerUid: uniq("cust"), status: "held", spots: 1, kind: "sellable",
+      holdExpiresAt: Timestamp.fromMillis(Date.now() - 60_000),
+    });
+    const b = await newCustomer();
+    expect(await callCode(commerce.reserveSeat, { requestId: rid(), eventId, spots: 1, alias: "Late comer" }, phoneCtx(b))).toBe("SOLD_OUT");
+    expect((await getDoc<{ status: string }>(`bookings/${stray}`))!.status).toBe("held");
+  });
+
+  test("when counted holds could cover the shortfall, lapsed ones are still reclaimed inline", async () => {
+    const { eventId } = await world({ capacity: 2 });
+    const a = await newCustomer();
+    const held = await reserve(a, eventId, 2);
+    await lapseHold(held.bookingId);
+    const b = await newCustomer();
+    expect((await reserve(b, eventId, 1)).status).toBe("held");
+    expect((await getDoc<{ status: string }>(`bookings/${held.bookingId}`))!.status).toBe("expired");
+  });
+});
 
 describe("reserveSeat — attacks on capacity", () => {
   test("oversell storm: 30 customers asking for 1–4 spots each on 10 seats never exceed 10", async () => {

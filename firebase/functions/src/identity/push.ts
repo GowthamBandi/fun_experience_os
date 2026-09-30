@@ -34,10 +34,18 @@ export async function registerPushTokenService(uid: string, data: unknown) {
   const ref = db().collection("users").doc(uid);
   const count = await db().runTransaction(async (tx) => {
     const current = ((await tx.get(ref)).data()?.pushTokens as unknown[] | undefined) ?? [];
+    // A device token belongs to ONE account at a time: on a shared phone the
+    // previous account must stop receiving pushes the moment someone else
+    // registers the same device. (Automatic single-field array index.)
+    const others = await tx.get(db().collection("users").where("pushTokens", "array-contains", token).limit(MAX_PUSH_TOKENS));
     // Most-recent last; a re-registered token moves to the end. Cap the list
     // so a buggy or hostile client can't grow the fan-out without bound.
     const tokens = [...current.filter((t): t is string => typeof t === "string" && t !== token), token].slice(-MAX_PUSH_TOKENS);
-    tx.set(ref, { pushTokens: tokens, pushPlatform: platform, pushUpdatedAt: serverNow() }, { merge: true });
+    const now = serverNow();
+    for (const o of others.docs) {
+      if (o.id !== uid) tx.update(o.ref, { pushTokens: FieldValue.arrayRemove(token), pushUpdatedAt: now });
+    }
+    tx.set(ref, { pushTokens: tokens, pushPlatform: platform, pushUpdatedAt: now }, { merge: true });
     return tokens.length;
   });
   return { ok: true, tokens: count };
@@ -71,6 +79,21 @@ export const unregisterPushToken = callable(async (data, context) => {
 /** FCM errors that mean the token will never work again. */
 const DEAD_TOKEN = new Set(["messaging/registration-token-not-registered", "messaging/invalid-registration-token"]);
 
+/**
+ * The FCM data payload: flat string values only (FCM rejects anything else).
+ * `linkType` / `linkId` let PULSE route a cold-start tap; omitted when the
+ * notification has no link.
+ */
+export function pushData(notificationId: string, data: Record<string, unknown>): Record<string, string> {
+  const out: Record<string, string> = { notificationId, kind: String(data.kind ?? "") };
+  const link = data.link as { type?: unknown; id?: unknown } | null | undefined;
+  if (link && typeof link.type === "string" && link.type && typeof link.id === "string" && link.id) {
+    out.linkType = link.type;
+    out.linkId = link.id;
+  }
+  return out;
+}
+
 export async function deliverNotification(notificationId: string, data: Record<string, unknown>) {
   const ref = db().collection("userNotifications").doc(notificationId);
   const recipient = String(data.recipientUid ?? "");
@@ -90,7 +113,7 @@ export async function deliverNotification(notificationId: string, data: Record<s
     res = await getMessaging(app()).sendEachForMulticast({
       tokens,
       notification: { title: String(data.title ?? ""), body: String(data.body ?? "") },
-      data: { notificationId, kind: String(data.kind ?? "") },
+      data: pushData(notificationId, data),
     });
   } catch (e) {
     // Whole-request failure (FCM outage, bad credentials). The inbox entry

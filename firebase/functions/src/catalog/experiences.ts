@@ -289,9 +289,14 @@ export async function applyApprovedRevision(revisionId: string): Promise<"merged
     const content: Json = {};
     for (const f of EXPERIENCE_CONTENT_FIELDS) content[f] = r[f] ?? null;
     const o = orig.data()!;
+    // Content only: the ORIGINAL's governance state is never changed here. A
+    // revision is always cut from an approved original, but by the time it
+    // is approved the original may have been suspended, blocked or archived
+    // by an operator; approving the revision's content must not re-approve
+    // (re-list) it. An approved original simply stays approved.
+    const preservedStatus = o.status !== "approved";
     tx.update(origRef, {
       ...content,
-      status: "approved",
       revision: r.revision ?? (o.revision ?? 1) + 1,
       lastRevisionId: revisionId,
       version: (o.version ?? 0) + 1,
@@ -306,8 +311,9 @@ export async function applyApprovedRevision(revisionId: string): Promise<"merged
       resourceType: "experience",
       resourceId: r.previousVersionId,
       orgId: r.orgId,
-      before: { revision: o.revision ?? 1, title: o.title },
-      after: { revision: r.revision, title: r.title, revisionId },
+      before: { revision: o.revision ?? 1, title: o.title, status: o.status ?? null },
+      after: { revision: r.revision, title: r.title, revisionId, status: o.status ?? null },
+      ...(preservedStatus ? { reason: `Revision content merged; the original's "${String(o.status)}" status was kept.` } : {}),
       source: "system",
     });
     return "merged";

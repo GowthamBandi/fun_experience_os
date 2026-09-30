@@ -46,11 +46,18 @@ export function callable<T>(
         return await handler(data, context);
       } catch (error) {
         if (!(error instanceof functions.https.HttpsError)) {
-          logCallableFailure(functionName(), error, {
-            uid: context?.auth?.uid ?? null,
-            requestId: safeRequestId(data),
-            correlationId: correlationIdOf(context),
-          });
+          // Logging is best-effort: a logger failure (serialization, a bad
+          // getter on the error, transport) must never replace the mapped
+          // business error the caller is owed.
+          try {
+            logCallableFailure(functionName(), error, {
+              uid: context?.auth?.uid ?? null,
+              requestId: safeRequestId(data),
+              correlationId: correlationIdOf(context),
+            });
+          } catch {
+            /* swallowed on purpose; see above */
+          }
         }
         throw toHttpsError(error);
       }

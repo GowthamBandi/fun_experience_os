@@ -18,7 +18,7 @@
 
 import { FieldValue } from "firebase-admin/firestore";
 import { db, serverNow } from "./firestore";
-import { log } from "./log";
+import { log, redactPhones } from "./log";
 
 export const JOB_RUNS = "jobRuns";
 
@@ -41,9 +41,10 @@ export function istDate(at: Date = new Date()): string {
 
 export const jobRunId = (job: string, at: Date = new Date()) => `${job}_${istDate(at)}`;
 
-function errorMessage(e: unknown): string {
+/** Error text safe for jobRuns and logs (phone-shaped runs redacted, truncated). Exported for tests. */
+export function errorMessage(e: unknown): string {
   const m = e instanceof Error ? e.message : String(e);
-  return m.replace(/\+?\d[\d\s-]{8,14}\d/g, "[redacted]").slice(0, 300);
+  return redactPhones(m).slice(0, 300);
 }
 
 /**

@@ -35,16 +35,33 @@ export interface LogFields {
 
 /** Keys whose values are never written, whatever they contain. */
 const DENY_KEY = /phone|token|secret|signature|password|passcode|pepper|codeHash|organizerCode|staffCode|^body$|^rawBody$|^payload$|^data$/i;
-/** E.164-ish or bare 10–13 digit runs: Indian mobiles, card-like numbers. */
-const PHONE_LIKE = /\+?\d[\d\s-]{8,14}\d/g;
+/**
+ * A plausible Indian mobile number: optional `+91` / `91` / `0` prefix, then
+ * exactly 10 digits starting 6–9 (optionally split 5+5 by a space or dash),
+ * and NOT part of a longer token (letters, digits, `_`, `-`). Deliberately narrow: trace ids
+ * (hex), ISO timestamps, request ids and document ids contain long digit runs
+ * and must stay readable, so they are never matched.
+ */
+const PHONE_LIKE = /(?<![A-Za-z0-9_+-])(?:\+91[\s-]?|91[\s-]?|0)?[6-9]\d{4}[\s-]?\d{5}(?![A-Za-z0-9_])/g;
+/**
+ * Keys whose values are identifiers or timestamps: exempt from value-shape
+ * scrubbing (a phone can't legitimately live there, and redacting them breaks
+ * correlation). Key-name denial (DENY_KEY) still applies first.
+ */
+const ID_KEY = /^(?:correlationId|requestId|trace|traceId|time|timestamp|uid|at)$|[a-z0-9](?:Id|Ids|At)$/;
+
+/** Replaces phone-number-shaped substrings. Exported for jobs.ts and tests. */
+export function redactPhones(s: string): string {
+  return s.replace(PHONE_LIKE, "[redacted]");
+}
 
 function scrub(value: unknown, depth: number, key = ""): unknown {
   if (value === null || value === undefined) return value;
-  if (typeof value === "string") return value.replace(PHONE_LIKE, "[redacted]").slice(0, key === "stack" ? 4000 : 500);
+  if (typeof value === "string") return (ID_KEY.test(key) ? value : redactPhones(value)).slice(0, key === "stack" ? 4000 : 500);
   if (typeof value === "number" || typeof value === "boolean") return value;
   if (value instanceof Date) return value.toISOString();
   if (depth > 3) return "[truncated]";
-  if (Array.isArray(value)) return value.slice(0, 20).map((v) => scrub(v, depth + 1));
+  if (Array.isArray(value)) return value.slice(0, 20).map((v) => scrub(v, depth + 1, key));
   if (typeof value === "object") {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value as Record<string, unknown>).slice(0, 30)) {

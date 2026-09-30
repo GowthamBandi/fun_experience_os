@@ -115,6 +115,25 @@ describe("experiences", () => {
     expect((await db().doc(`experiences/${r.experienceId}`).get()).data()).toMatchObject({ status: "archived", mergedInto: expId });
   });
 
+  test.each(["suspended", "blocked", "archived"])(
+    "approving a revision merges content but never re-approves a %s original",
+    async (governance) => {
+      const r = await call(saveExperience, experienceInput({ experienceId: expId, title: "Sunday Football v2" }), owner);
+      await call(submitExperience, { requestId: rid(), orgId: ORG, experienceId: r.experienceId }, owner);
+      // An operator took the original down while the revision was in review.
+      await db().doc(`experiences/${expId}`).update({ status: governance });
+      await db().doc(`experiences/${r.experienceId}`).update({ status: "approved" });
+      expect(await applyApprovedRevision(r.experienceId)).toBe("merged");
+      const merged = (await db().doc(`experiences/${expId}`).get()).data()!;
+      expect(merged).toMatchObject({ title: "Sunday Football v2", status: governance, lastRevisionId: r.experienceId });
+      const audit = (await db().collection("auditEvents").where("resourceId", "==", expId).get()).docs
+        .map((d) => d.data())
+        .find((a) => a.action === "catalog.experience-revision-merged")!;
+      expect(audit.after).toMatchObject({ status: governance });
+      expect(audit.reason).toMatch(governance);
+    }
+  );
+
   test("category config: unknown field rejected; required field enforced; movies A forces 18+; overnight trips need ID", async () => {
     expect(await messageOf(call(saveExperience, experienceInput({ config: { teamSize: 5, ownerPhone: "x" } }), owner))).toMatch(/ownerPhone/);
     expect(await codeOf(call(saveExperience, experienceInput({ config: { teamSize: 5.5 } }), owner))).toBe("INVALID_INPUT");

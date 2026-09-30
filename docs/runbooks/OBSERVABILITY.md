@@ -33,7 +33,7 @@ Every entry is written through the firebase-functions logger as JSON, so Cloud L
 - secrets
 - request and response bodies
 
-`sanitize()` enforces this twice. It redacts by key name (`phone`, `token`, `secret`, `signature`, `codeHash`, `organizerCode`, `body`, `payload`, `data`, …) and by value shape (any 10–15-digit run, which covers Indian mobile numbers). It also truncates strings, arrays and nesting depth, which keeps log volume in check.
+`sanitize()` enforces this twice. It redacts by key name (`phone`, `token`, `secret`, `signature`, `codeHash`, `organizerCode`, `body`, `payload`, `data`, …) and by value shape (a plausible Indian mobile: optional `+91` / `91` / `0`, then 10 digits starting 6–9, not embedded in a longer token). Values under id and timestamp keys (`correlationId`, `requestId`, `trace`, `uid`, `time`, `*Id`, `*Ids`, `*At`) are exempt from the value-shape check so trace ids, request ids and ISO dates stay readable. The `security.code-failed` line is written once per refused attempt, after its audit entry commits (never from inside a transaction callback, which can run more than once). It also truncates strings, arrays and nesting depth, which keeps log volume in check.
 
 **Volume.** Routine user mistakes are logged at INFO, one line per failed call:
 

@@ -18,6 +18,8 @@ import {
   cancelBooking as cancelBookingSvc,
   decideRefund as decideRefundSvc,
   quoteCancellation as quoteCancellationSvc,
+  EventRefundIncompleteError,
+  raiseEventCancelDropped,
   refundCancelledEvent,
   requestRefund as requestRefundSvc,
 } from "./refunds";
@@ -26,7 +28,7 @@ import { checkInManually as checkInManuallySvc, listEventAttendees as listEventA
 import { buildSettlement as buildSettlementSvc, decideSettlement as decideSettlementSvc } from "./settlements";
 import { releaseExpiredHolds as releaseExpiredHoldsSvc } from "./holds";
 import { PAYOUT_CADENCES, decideCommercialAgreement as decideCommercialAgreementSvc, proposeCommercialAgreement as proposeCommercialAgreementSvc } from "./agreements";
-import { retryApprovedRefunds } from "./refundCore";
+import { REFUND_ATTEMPT_WORST_MS, retryApprovedRefunds } from "./refundCore";
 import { sendEventReminders as sendEventRemindersSvc } from "./reminders";
 import { handleRazorpayWebhook } from "./webhook";
 import { isStaleEvent, runJob } from "../platform/jobs";
@@ -167,7 +169,7 @@ export const checkInManually = callable(async (data, context) => {
 export const listEventAttendees = callable(async (data, context) => {
   const actor = requireUser(context);
   const d = obj(data);
-  await consumeRateLimit({ bucket: `attendees_${actor.uid}`, ...RATE_LIMITS.attendees });
+  // Deliberately not rate-limited (see RATE_LIMITS in ./config).
   return listEventAttendeesSvc(actor.uid, {
     orgId: docId(d.orgId, "orgId"),
     eventId: docId(d.eventId, "eventId"),
@@ -250,22 +252,45 @@ export const razorpayWebhook = functions
 // 15 minutes away and every step resumes where the last one stopped. Each run
 // is summarised in jobRuns/{job}_{date} and logged (platform/jobs.ts).
 
+const HOLDS_TIMEOUT_S = 240;
+/** The refund-retry step never starts an attempt more than this long after it began. */
+export const REFUND_RETRY_BUDGET_MS = 120_000;
+
+/**
+ * The releaseExpiredHolds job body. The refund-retry step is time-boxed: it
+ * stops starting provider attempts after REFUND_RETRY_BUDGET_MS, or earlier
+ * if the function's own timeout (less one worst-case attempt and a margin
+ * for the jobRuns write) is closer, and reports `stoppedForTime`.
+ */
+export async function runReleaseExpiredHoldsJob(
+  opts: { startedAtMs?: number; timeoutMs?: number; refundBudgetMs?: number; now?: () => number } = {}
+) {
+  const clock = opts.now ?? Date.now;
+  const started = opts.startedAtMs ?? clock();
+  const hardStop = started + (opts.timeoutMs ?? HOLDS_TIMEOUT_S * 1000) - REFUND_ATTEMPT_WORST_MS - 15_000;
+  return runJob("releaseExpiredHolds", {
+    holds: async () => {
+      const out = await releaseExpiredHoldsSvc();
+      if (out.failed > 0) throw new Error(`${out.failed} of ${out.scanned} holds could not be released`);
+      return out;
+    },
+    // Approved refunds whose provider call failed: retried here so a
+    // provider outage heals without an operator.
+    refundRetry: async () => {
+      const deadlineMs = Math.min(clock() + (opts.refundBudgetMs ?? REFUND_RETRY_BUDGET_MS), hardStop);
+      const out = await retryApprovedRefunds(50, 200, { deadlineMs, now: clock });
+      return { retried: out.retried, due: out.due, stoppedForTime: out.stoppedForTime };
+    },
+  });
+}
+
 export const releaseExpiredHolds = functions
   .region(REGION)
-  .runWith({ secrets: bind(RZP), timeoutSeconds: 240 })
+  .runWith({ secrets: bind(RZP), timeoutSeconds: HOLDS_TIMEOUT_S })
   .pubsub.schedule("every 5 minutes")
   .timeZone("Asia/Kolkata")
   .onRun(async () => {
-    await runJob("releaseExpiredHolds", {
-      holds: async () => {
-        const out = await releaseExpiredHoldsSvc();
-        if (out.failed > 0) throw new Error(`${out.failed} of ${out.scanned} holds could not be released`);
-        return out;
-      },
-      // Approved refunds whose provider call failed: retried here so a
-      // provider outage heals without an operator.
-      refundRetry: async () => ({ retried: await retryApprovedRefunds() }),
-    });
+    await runReleaseExpiredHoldsJob();
   });
 
 export const sendEventReminders = functions
@@ -284,8 +309,11 @@ export const sendEventReminders = functions
  * RETRIED (failurePolicy): refundCancelledEvent is idempotent (deterministic
  * refund ids, per-booking transactions that skip already-cancelled bookings),
  * so a crash or timeout part-way resumes on retry instead of stranding
- * customers. Events older than 24 h are dropped with an ERROR log rather than
- * retried forever.
+ * customers. One booking that keeps failing never blocks the others: each is
+ * isolated, alerted (`riskAlerts/evc-failed_{bookingId}`) and the aggregate
+ * error makes the trigger retry. Events older than 24 h are dropped with an
+ * ERROR log and a high-severity alert (`riskAlerts/evc-dropped_{eventId}`)
+ * rather than retried forever.
  */
 export const onEventCancelled = functions
   .region(REGION)
@@ -296,7 +324,14 @@ export const onEventCancelled = functions
     const after = change.after.data() as { status?: string; cancelledBy?: string; orgId?: string } | undefined;
     if (before?.status === "cancelled" || after?.status !== "cancelled") return;
     const eventId = context.params.eventId as string;
-    if (isStaleEvent(context.timestamp, 24 * 3_600_000, { job: "onEventCancelled", eventId, orgId: after.orgId ?? null })) return;
+    if (isStaleEvent(context.timestamp, 24 * 3_600_000, { job: "onEventCancelled", eventId, orgId: after.orgId ?? null })) {
+      // Retries have run out: bookings may still be live and unrefunded.
+      // Dropping silently would strand customers, so the console gets an alert.
+      await raiseEventCancelDropped(eventId, after.orgId ?? null, Date.now() - Date.parse(context.timestamp)).catch((e: unknown) =>
+        logError({ event: "job.failed", job: "onEventCancelled", reason: "stale-alert-write-failed", eventId, error: String((e as Error)?.message ?? e) })
+      );
+      return;
+    }
     try {
       const out = await refundCancelledEvent(eventId, {
         uid: typeof after.cancelledBy === "string" ? after.cancelledBy : "system",
@@ -311,7 +346,16 @@ export const onEventCancelled = functions
         refundsIssued: out.refundsIssued,
       });
     } catch (e) {
-      logError({ event: "job.failed", job: "onEventCancelled", eventId, orgId: after.orgId ?? null, error: String((e as Error)?.message ?? e), willRetry: true });
+      logError({
+        event: "job.failed",
+        job: "onEventCancelled",
+        eventId,
+        orgId: after.orgId ?? null,
+        error: String((e as Error)?.message ?? e),
+        failedBookingIds: e instanceof EventRefundIncompleteError ? e.summary.failedBookingIds.slice(0, 20) : null,
+        bookingsCancelled: e instanceof EventRefundIncompleteError ? e.summary.bookingsCancelled : null,
+        willRetry: true,
+      });
       throw e;
     }
   });

@@ -15,6 +15,7 @@ import {
   CODE_POLICY,
   codeBucket,
   codeFailureAudit,
+  logCodeFailure,
   codeRefused,
   consumeCodeAttempt,
   auditCodeFailure,
@@ -237,7 +238,11 @@ export async function redeemOrganizerCode(command: { code: string }, actor: Phon
     return { ok: true, orgId };
   });
 
-  if (!outcome.ok) throw codeRefused(outcome.reason);
+  if (!outcome.ok) {
+    // Logged here, once, from the committed outcome (not inside the tx callback).
+    logCodeFailure(actor, "organizer", outcome.reason, outcome.orgId ?? null);
+    throw codeRefused(outcome.reason);
+  }
   await resetRateLimit(codeBucket("organizer", actor.uid));
   return { orgId: outcome.orgId };
 }

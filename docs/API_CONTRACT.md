@@ -24,11 +24,11 @@ This is the canonical callable API used by PULSE (Flutter) and the Operations Co
 | `redeemOrganizerCode` | phone user | `{ code }` | Rate limited to 5 per hour. On success: `memberships/{orgId}__{uid}` (owner), `publicOrganizers/{orgId}`, and the activation is burned. Returns `{ orgId }` |
 | `inviteStaff` | member with `staff.manage` | `{ requestId, orgId, phone, title, permissions: string[], eventScope: "all"\|string[] }` | `{ inviteId, code, expiresAt }`. **The code is returned only here, only once.** Grants are capped by the caller's own grants |
 | `listStaff` | `staff.manage` | `{ orgId }` | `{ members: [{ uid, displayName, title, role, status, permissions, eventScope }], invites: [{ inviteId, phoneMasked, title, permissions, eventScope, expiresAt, status }] }` |
-| `redeemStaffCode` | phone user | `{ code }` | Must match the caller's **verified phone** and an unexpired invite. Rate limited to 5 per hour. Returns `{ orgId }` |
+| `redeemStaffCode` | phone user | `{ code }` | Must match the caller's **verified phone** and an unexpired invite. Rate limited to 5 per hour. Returns `{ orgId }`. The real code of a lapsed invite (including one the retention sweep marked `expired`) is refused `PRECONDITION` "This code has expired." and charges no pending invite an attempt |
 | `updateStaff` | `staff.manage` | `{ requestId, orgId, uid, permissions?, eventScope?, title? }` | Updated membership. You can't edit owners or grant beyond your own permissions |
 | `revokeStaff` | `staff.manage` | `{ requestId, orgId, uid? , inviteId?, reason }` | Membership becomes `revoked` (or the invite is cancelled). **Refused** if the member is the primary responsible person for a published event |
 | `reissueStaffCode` | `staff.manage` | `{ requestId, orgId, inviteId }` | `{ code, expiresAt }`; the old code dies. Works for `pending` (incl. lapsed, for 7 days) and `locked` invites; after the retention sweep marks an invite `expired`, send a new invite |
-| `registerPushToken` | phone user | `{ token (20–4096 chars), platform: "android"\|"ios" }` | Adds the FCM token to `users/{uid}.pushTokens`, most-recent last, **capped at 10** (oldest dropped; re-registering moves a token to the end). Returns `{ ok: true, tokens }` |
+| `registerPushToken` | phone user | `{ token (20–4096 chars), platform: "android"\|"ios" }` | Adds the FCM token to `users/{uid}.pushTokens`, most-recent last, **capped at 10** (oldest dropped; re-registering moves a token to the end). In the same transaction the token is removed from every OTHER user's `pushTokens`, so a shared device stops receiving the previous account's pushes. Push payloads carry FCM data `{ notificationId, kind, linkType?, linkId? }` (all strings; the link fields mirror the inbox entry's `link` and are omitted when it has none). Returns `{ ok: true, tokens }` |
 | `unregisterPushToken` | any signed-in user | `{ token }` | Removes the token (call on sign-out / notification opt-out). Idempotent. Returns `{ ok: true }` |
 
 **Console (admin claims):**
@@ -96,7 +96,7 @@ This is the canonical callable API used by PULSE (Flutter) and the Operations Co
 | `reserveSeat` / `createPaymentOrder` / `cancelBooking` | 20 per 10 min each |
 | `confirmPayment` | 30 per 10 min |
 | `scanTicket` + `checkInManually` (shared) | 120 per minute |
-| `quoteCancellation`, `listEventAttendees` | 60 per 10 min each |
+| `quoteCancellation` | 120 per 10 min |
 | `requestRefund` | 20 per hour |
 | `redeemOrganizerCode`, `redeemStaffCode` | 5 per hour each (reset on success) |
 | `submitOrganizerApplication` | 5 per day |
@@ -104,14 +104,14 @@ This is the canonical callable API used by PULSE (Flutter) and the Operations Co
 | `reissueStaffCode` | 30 per hour |
 | `updateStaff` + `revokeStaff` (shared) | 60 per hour |
 | `submitReview` | 10 per hour |
-| `saveExperience` + `saveEvent` (shared) | 120 per 10 min |
+| `saveExperience` + `saveEvent` (shared) | 600 per 10 min (sized for PULSE autosave, ~700 ms after each edit) |
 | `submitExperience` + `submitEvent` (shared) | 30 per hour |
 | `publishEvent` + `setEventPhase` + `setEventResponsibility` (shared) | 60 per 10 min |
 | `cancelEvent` | 10 per hour |
 | `updateMyProfile` | 20 per hour |
 | `registerPushToken` + `unregisterPushToken` (shared) | 30 per hour |
 
-Admin-only callables are not rate limited (few, audited, behind verified-email claims). `razorpayWebhook` verifies the HMAC signature first (cheap, constant-time) and does no other work for an unsigned request.
+`listEventAttendees` is not rate limited: it is a read gated by `attendees.view` and bounded to one event, and the PULSE host workspace calls it once per event on every refresh (a per-uid budget locked hosts out and serialised the parallel calls on one bucket document). Admin-only callables are not rate limited (few, audited, behind verified-email claims). `razorpayWebhook` verifies the HMAC signature first (cheap, constant-time) and does no other work for an unsigned request.
 
 ---
 

@@ -17,6 +17,7 @@ import {
   CODE_POLICY,
   codeBucket,
   codeFailureAudit,
+  logCodeFailure,
   codeRefused,
   consumeCodeAttempt,
   auditCodeFailure,
@@ -137,7 +138,9 @@ export async function inviteStaff(command: InviteStaffCommand, actor: PhoneActor
           nextStep: "Re-issue the code for that invite, or cancel it first.",
         });
       }
-      tx.update(inv.ref, { status: "expired", codeHash: FieldValue.delete(), updatedAt: now });
+      // Lapsed and superseded: `expired`, hash kept so redeeming the old code
+      // says "expired" rather than "invalid" (redeemStaffCode).
+      tx.update(inv.ref, { status: "expired", expiredAt: now, updatedAt: now });
     }
 
     const { code, codeHash, expiresAt } = newStaffCode();
@@ -243,6 +246,15 @@ export async function redeemStaffCode(command: { code: string }, actor: PhoneAct
     };
     const match = invites.docs.find((d) => typeof d.data().codeHash === "string" && safeEqual(d.data().codeHash, attemptedHash));
     if (!match) {
+      // Not a live code. It may still be a REAL code whose invite has lapsed
+      // (the retention sweep marks it `expired` but keeps its hash for this):
+      // the owner deserves "This code has expired", and a known-but-expired
+      // code is not a guess, so no pending invite is charged an attempt.
+      const expired = await tx.get(
+        col(COLLECTIONS.staffInvites).where("phone", "==", actor.phone).where("status", "==", "expired").limit(20)
+      );
+      const lapsed = expired.docs.find((d) => typeof d.data().codeHash === "string" && safeEqual(d.data().codeHash, attemptedHash));
+      if (lapsed) return fail("expired", { orgId: String(lapsed.data().orgId ?? ""), inviteId: lapsed.id });
       // Every pending invite for this phone is a target: count the miss on
       // each and lock any that has absorbed too many guesses.
       const now = serverNow();
@@ -308,7 +320,11 @@ export async function redeemStaffCode(command: { code: string }, actor: PhoneAct
     return { ok: true, orgId };
   });
 
-  if (!outcome.ok) throw codeRefused(outcome.reason);
+  if (!outcome.ok) {
+    // Logged here, once, from the committed outcome (not inside the tx callback).
+    logCodeFailure(actor, "staff", outcome.reason, outcome.orgId ?? null);
+    throw codeRefused(outcome.reason);
+  }
   await resetRateLimit(codeBucket("staff", actor.uid));
   return { orgId: outcome.orgId };
 }

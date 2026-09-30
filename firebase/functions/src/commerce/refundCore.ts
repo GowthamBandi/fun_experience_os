@@ -265,9 +265,14 @@ export async function completeRefundFromProvider(
  * memory to avoid a composite index; the `scan` window only matters beyond
  * 200 simultaneously stuck refunds, which is itself an incident.
  */
-export async function retryApprovedRefunds(limit = 50, scan = 200): Promise<number> {
+export async function retryApprovedRefunds(
+  limit = 50,
+  scan = 200,
+  opts: { deadlineMs?: number; now?: () => number } = {}
+): Promise<{ retried: number; due: number; stoppedForTime: boolean }> {
+  const clock = opts.now ?? Date.now;
   const snap = await db().collection(C.refunds).where("status", "==", "approved").limit(scan).get();
-  const now = Date.now();
+  const now = clock();
   const due = snap.docs
     .map((d) => d.data() as RefundDoc)
     .filter((r) => !r.providerRefundId && !(r.executingUntil && r.executingUntil.toMillis() > now))
@@ -275,8 +280,18 @@ export async function retryApprovedRefunds(limit = 50, scan = 200): Promise<numb
     .slice(0, limit);
   let n = 0;
   for (const r of due) {
+    // Time budget: each attempt can take up to the provider timeout (15 s)
+    // during an outage. Never START one past the deadline, so the scheduled
+    // function finishes (and records its summary) before its own timeout.
+    // What's left is retried by the next run, least-recently-touched first.
+    if (opts.deadlineMs !== undefined && clock() >= opts.deadlineMs) {
+      return { retried: n, due: due.length, stoppedForTime: true };
+    }
     await executeRefund(r.id);
     n++;
   }
-  return n;
+  return { retried: n, due: due.length, stoppedForTime: false };
 }
+
+/** Worst-case duration of one provider call (provider.ts AbortSignal timeout) plus its transactions. */
+export const REFUND_ATTEMPT_WORST_MS = 20_000;

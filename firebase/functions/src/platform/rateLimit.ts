@@ -54,8 +54,8 @@ export const LIMITS = {
   profileUpdate: { limit: 20, windowSeconds: 60 * 60 },
   /** registerPushToken + unregisterPushToken (one shared bucket). */
   pushToken: { limit: 30, windowSeconds: 60 * 60 },
-  /** saveExperience / saveEvent drafts. */
-  catalogSave: { limit: 120, windowSeconds: 10 * 60 },
+  /** saveExperience / saveEvent drafts. PULSE autosaves ~700 ms after each edit, so this is sized for autosave bursts. */
+  catalogSave: { limit: 600, windowSeconds: 10 * 60 },
   /** submitExperience / submitEvent: each opens a governance case. */
   catalogSubmit: { limit: 30, windowSeconds: 60 * 60 },
   /** publishEvent / setEventPhase / setEventResponsibility. */

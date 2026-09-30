@@ -29,7 +29,9 @@ import { cancellationPercent, refundAmount } from "../src/commerce/policy";
 import { refundSplit } from "../src/commerce/ledger";
 import { emulatorProvider } from "../src/commerce/provider";
 import { retryApprovedRefunds } from "../src/commerce/refundCore";
-import { refundCancelledEvent } from "../src/commerce/refunds";
+import { EventRefundIncompleteError, refundCancelledEvent } from "../src/commerce/refunds";
+import { REFUND_RETRY_BUDGET_MS, runReleaseExpiredHoldsJob } from "../src/commerce/functions";
+import { jobRunId } from "../src/platform/jobs";
 
 jest.setTimeout(180_000);
 
@@ -163,6 +165,54 @@ describe("customer cancellation", () => {
     expect(out.refund.status).toBe("approved");
     await retryApprovedRefunds();
     expect((await getDoc<Refund>(`refunds/${out.refund.refundId}`))!.status).toBe("processing");
+  });
+});
+
+describe("refund retry time budget", () => {
+  async function stuckRefund(): Promise<string> {
+    const { eventId } = await world({ policy: "flexible", startsInHours: 48 });
+    const uid = await newCustomer();
+    const b = await book(uid, eventId);
+    emulatorProvider().failNext = 1;
+    const out = await call<{ refund: { refundId: string; status: string } }>(commerce.cancelBooking, { requestId: rid(), bookingId: b.bookingId }, phoneCtx(uid));
+    expect(out.refund.status).toBe("approved");
+    return out.refund.refundId;
+  }
+
+  test("never starts a provider attempt past the deadline; reports stoppedForTime; the next run finishes", async () => {
+    const ids = [await stuckRefund(), await stuckRefund()];
+
+    const none = await retryApprovedRefunds(50, 200, { deadlineMs: Date.now() - 1 });
+    expect(none).toMatchObject({ retried: 0, stoppedForTime: true });
+    expect(none.due).toBeGreaterThanOrEqual(2);
+    for (const id of ids) expect((await getDoc<Refund>(`refunds/${id}`))!.status).toBe("approved");
+
+    // A clock that jumps past the deadline after the first attempt (an outage
+    // where each attempt eats the provider timeout): exactly one is attempted.
+    const base = Date.now();
+    let calls = 0;
+    const clock = () => (++calls <= 2 ? base : base + 200_000);
+    const one = await retryApprovedRefunds(50, 200, { deadlineMs: base + 120_000, now: clock });
+    expect(one).toMatchObject({ retried: 1, stoppedForTime: true });
+
+    // The scheduled job records it in its summary (jobRuns) ...
+    const job = await runReleaseExpiredHoldsJob({ refundBudgetMs: 0 });
+    expect(job.steps.refundRetry).toMatchObject({ retried: 0, stoppedForTime: true });
+    const runDoc = (await getDoc<{ lastSteps: Record<string, Record<string, unknown>> }>(`jobRuns/${jobRunId("releaseExpiredHolds")}`))!;
+    expect(runDoc.lastSteps.refundRetry).toMatchObject({ stoppedForTime: true });
+
+    // ... and with its normal budget, the next run retries what's left.
+    const next = await runReleaseExpiredHoldsJob();
+    expect(next.steps.refundRetry).toMatchObject({ stoppedForTime: false });
+    for (const id of ids) expect((await getDoc<Refund>(`refunds/${id}`))!.status).toBe("processing");
+  });
+
+  test("the refund-retry budget is bounded by the function's own timeout", async () => {
+    await stuckRefund();
+    // Started 230 s ago in a 240 s function: no time for even one attempt.
+    const job = await runReleaseExpiredHoldsJob({ startedAtMs: Date.now() - 230_000 });
+    expect(job.steps.refundRetry).toMatchObject({ retried: 0, stoppedForTime: true });
+    expect(REFUND_RETRY_BUDGET_MS).toBeLessThanOrEqual(120_000);
   });
 });
 
@@ -300,6 +350,56 @@ describe("event cancellation", () => {
     expect((await getDoc<{ status: string }>(`bookings/${held.bookingId}`))!.status).toBe("cancelled");
     const ev = (await getDoc<Occ>(`events/${eventId}`))!;
     expect(ev.occupancy).toMatchObject({ confirmedPaidBookings: 0, activeReservationHolds: 0 });
+  });
+
+  test("one permanently failing booking never blocks the others: alerted, the rest refunded, the run still fails for retry", async () => {
+    const { orgId, eventId } = await world({ priceMinor: 40_000, capacity: 10 });
+    const buyers = await Promise.all([1, 2].map(() => newCustomer()));
+    const booked = [];
+    for (const uid of buyers) booked.push(await book(uid, eventId));
+    // A corrupt booking that sorts FIRST (document-id order) and can never be processed.
+    const broken = uniq("000-broken");
+    await db().collection("bookings").doc(broken).set({
+      id: broken, eventId, orgId, customerUid: uniq("cust"), status: "confirmed", kind: "sellable", spots: 1, paymentId: null, ticketIds: ["bad/nested"],
+    });
+    await db().collection("events").doc(eventId).update({ status: "cancelled", cancelledBy: "owner-x" });
+
+    const err1 = (await refundCancelledEvent(eventId, { uid: "owner-x", role: "org:owner" }).catch((e: unknown) => e)) as EventRefundIncompleteError;
+    expect(err1).toBeInstanceOf(EventRefundIncompleteError);
+    expect(err1.summary).toMatchObject({ bookingsCancelled: 2, refundsIssued: 2, failedBookingIds: [broken] });
+    for (const b of booked) {
+      expect((await getDoc<{ status: string }>(`bookings/${b.bookingId}`))!.status).toBe("cancelled");
+      expect((await getDoc<Refund>(`refunds/evc_${b.bookingId}`))!).toMatchObject({ amountMinor: 40_000, status: "processing" });
+    }
+    expect((await getDoc<{ status: string }>(`bookings/${broken}`))!.status).toBe("confirmed");
+    const alert = (await getDoc<Record<string, any>>(`riskAlerts/evc-failed_${broken}`))!;
+    expect(alert).toMatchObject({ kind: "event-cancel-refund-failed", severity: "high", status: "open", orgId, detail: { eventId, bookingId: broken, occurrences: 1 } });
+    expect(typeof alert.summary).toBe("string");
+
+    // The trigger's retry: still fails (so it keeps retrying), refunds nothing twice, updates the same alert.
+    const run = (commerce.onEventCancelled as unknown as { run: (c: unknown, ctx: unknown) => Promise<void> }).run;
+    await expect(
+      run(
+        { before: { data: () => ({ status: "published" }) }, after: { data: () => ({ status: "cancelled", cancelledBy: "owner-x", orgId }) } },
+        { params: { eventId }, timestamp: new Date().toISOString() }
+      )
+    ).rejects.toBeInstanceOf(EventRefundIncompleteError);
+    expect((await db().collection("refunds").where("eventId", "==", eventId).get()).size).toBe(2);
+    expect((await getDoc<Record<string, any>>(`riskAlerts/evc-failed_${broken}`))!.detail.occurrences).toBe(2);
+  });
+
+  test("a cancelled event dropped by the 24 h stale guard raises a high-severity alert instead of vanishing", async () => {
+    const { orgId, eventId } = await world();
+    const uid = await newCustomer();
+    const b = await book(uid, eventId);
+    const run = (commerce.onEventCancelled as unknown as { run: (c: unknown, ctx: unknown) => Promise<void> }).run;
+    await run(
+      { before: { data: () => ({ status: "published" }) }, after: { data: () => ({ status: "cancelled", cancelledBy: "owner-x", orgId }) } },
+      { params: { eventId }, timestamp: new Date(Date.now() - 25 * 3_600_000).toISOString() }
+    );
+    expect((await getDoc<{ status: string }>(`bookings/${b.bookingId}`))!.status).toBe("confirmed"); // dropped, not processed
+    const alert = (await getDoc<Record<string, any>>(`riskAlerts/evc-dropped_${eventId}`))!;
+    expect(alert).toMatchObject({ kind: "event-cancel-refund-dropped", severity: "high", status: "open", orgId, detail: { eventId } });
   });
 
   test("the trigger ignores updates that aren't a transition into cancelled", async () => {

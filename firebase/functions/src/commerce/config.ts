@@ -23,9 +23,15 @@ export const RATE_LIMITS = {
   scan: { limit: 120, windowSeconds: 60 },
   /** Organizer discretionary refund requests (each lands in the admin queue). */
   refundRequest: { limit: 20, windowSeconds: 3600 },
-  /** Read-heavy lookups: cancellation quotes and attendee lists. */
-  quote: { limit: 60, windowSeconds: 600 },
-  attendees: { limit: 60, windowSeconds: 600 },
+  /**
+   * Cancellation quotes (read-only). Generous: the app re-quotes whenever the
+   * cancel sheet opens or refreshes. listEventAttendees has NO limit on
+   * purpose: it is permission-gated (`attendees.view`), bounded per event, and
+   * the PULSE host workspace fans out one call per event on every refresh, so
+   * a per-uid budget locked hosts out and a shared bucket doc serialised the
+   * parallel calls.
+   */
+  quote: { limit: 120, windowSeconds: 600 },
 } as const;
 
 /** Commerce-owned collections not (yet) listed in platform COLLECTIONS. */

@@ -10,7 +10,7 @@
  * booking and the event counters together (ADR-0002 consequence).
  */
 
-import type { Transaction } from "firebase-admin/firestore";
+import { FieldValue, type Transaction } from "firebase-admin/firestore";
 import { bookingRef, db, receiptRef, serverNow, sessionRef } from "../platform/firestore";
 import { DomainError, notFound, precondition } from "../platform/errors";
 import { writeAudit } from "../platform/audit";
@@ -27,7 +27,8 @@ import type { BookingDoc, EventDoc } from "../bookings/reserveSeat";
 import { C, REFUND_DUAL_CONTROL_MINOR } from "./config";
 import { cancellationPercent, refundAmount } from "./policy";
 import { approveRefundInTx, executeRefund, newRefundDoc } from "./refundCore";
-import { assertOwner, getBooking, getPayment, getRefund, refundRef, ticketRef } from "./shared";
+import { assertOwner, getBooking, getPayment, getRefund, raiseRiskAlert, refundRef, ticketRef } from "./shared";
+import { logError } from "../platform/log";
 import type { TicketDoc } from "./tickets";
 import type { PaymentDoc, RefundDoc } from "./types";
 
@@ -332,6 +333,8 @@ export interface EventRefundSummary {
   bookingsCancelled: number;
   refundsIssued: number;
   refundIds: string[];
+  /** Bookings that failed this pass (each has an `evc-failed_{bookingId}` risk alert). */
+  failedBookingIds: string[];
 }
 
 /**
@@ -349,79 +352,97 @@ export async function refundCancelledEvent(
     .where("status", "in", ["held", "confirmed"])
     .get();
 
-  const summary: EventRefundSummary = { eventId, bookingsCancelled: 0, refundsIssued: 0, refundIds: [] };
+  const summary: EventRefundSummary = { eventId, bookingsCancelled: 0, refundsIssued: 0, refundIds: [], failedBookingIds: [] };
+  const errors: string[] = [];
   for (const d of snap.docs) {
     const refundId = `evc_${d.id}`;
-    const r = await db().runTransaction(async (tx) => {
-      const b = await getBooking(d.id, tx);
-      if (!b || (b.status !== "held" && b.status !== "confirmed")) return null;
-      const eSnap = await tx.get(sessionRef(eventId));
-      const event = eSnap.data() as EventDoc;
-      const payment = b.paymentId ? await getPayment(b.paymentId, tx) : null;
-      const tickets = await readTickets(tx, b.ticketIds ?? []);
-      const existing = await getRefund(refundId, tx);
-      const now = serverNow();
+    // Per-booking isolation: one booking that can never be processed must not
+    // block every booking after it (on every retry, and for good once the
+    // trigger's 24 h stale guard drops the event). It is recorded, alerted,
+    // and the loop moves on; the aggregate error at the end makes the trigger
+    // retry, and the retry skips what's already cancelled.
+    let r: { refunded: boolean } | null;
+    try {
+      r = await db().runTransaction(async (tx) => {
+        const b = await getBooking(d.id, tx);
+        if (!b || (b.status !== "held" && b.status !== "confirmed")) return null;
+        const eSnap = await tx.get(sessionRef(eventId));
+        const event = eSnap.data() as EventDoc;
+        const payment = b.paymentId ? await getPayment(b.paymentId, tx) : null;
+        const tickets = await readTickets(tx, b.ticketIds ?? []);
+        const existing = await getRefund(refundId, tx);
+        const now = serverNow();
 
-      let refund: RefundDoc | null = null;
-      const refundable = payment ? payment.amountMinor - (payment.refundedMinor ?? 0) : 0;
-      if (
-        b.status === "confirmed" &&
-        !existing &&
-        payment &&
-        (payment.status === "captured" || payment.status === "partially-refunded") &&
-        refundable > 0
-      ) {
-        refund = approveRefundInTx(
-          tx,
-          newRefundDoc(refundId, payment, {
-            amountMinor: refundable,
-            status: "approved",
-            reason: "event-cancelled",
-            requestedBy: actor.uid,
-            ledgerPosted: true,
-          }),
-          payment,
-          { create: true, decidedBy: "policy" }
-        );
-      }
-      for (const t of tickets) {
-        if (t.status === "valid") tx.update(ticketRef(t.ticketId), { status: refund ? "refunded" : "cancelled", updatedAt: now });
-      }
-      const occ = releaseSeats({ ...EMPTY_OCCUPANCY, ...(event.occupancy ?? {}) }, b);
-      tx.update(bookingRef(b.id), {
-        status: "cancelled",
-        cancelledAt: now,
-        cancelledBy: actor.uid,
-        cancelReason: "event-cancelled",
-        refundedMinor: (b.refundedMinor ?? 0) + (refund?.amountMinor ?? 0),
-        updatedAt: now,
-      });
-      tx.update(sessionRef(eventId), { ...occupancyProjection(event.capacity, occ), updatedAt: now });
-      if (b.customerUid) {
-        notify(tx, {
-          recipientUid: b.customerUid,
-          kind: "event-cancelled",
-          title: "Event cancelled",
-          body: refund
-            ? `${event.title ?? "Your event"} was cancelled. We're refunding ₹${(refund.amountMinor / 100).toFixed(2)} in full.`
-            : `${event.title ?? "Your event"} was cancelled.`,
-          dedupeKey: eventId,
-          link: { type: "event", id: eventId },
+        let refund: RefundDoc | null = null;
+        const refundable = payment ? payment.amountMinor - (payment.refundedMinor ?? 0) : 0;
+        if (
+          b.status === "confirmed" &&
+          !existing &&
+          payment &&
+          (payment.status === "captured" || payment.status === "partially-refunded") &&
+          refundable > 0
+        ) {
+          refund = approveRefundInTx(
+            tx,
+            newRefundDoc(refundId, payment, {
+              amountMinor: refundable,
+              status: "approved",
+              reason: "event-cancelled",
+              requestedBy: actor.uid,
+              ledgerPosted: true,
+            }),
+            payment,
+            { create: true, decidedBy: "policy" }
+          );
+        }
+        for (const t of tickets) {
+          if (t.status === "valid") tx.update(ticketRef(t.ticketId), { status: refund ? "refunded" : "cancelled", updatedAt: now });
+        }
+        const occ = releaseSeats({ ...EMPTY_OCCUPANCY, ...(event.occupancy ?? {}) }, b);
+        tx.update(bookingRef(b.id), {
+          status: "cancelled",
+          cancelledAt: now,
+          cancelledBy: actor.uid,
+          cancelReason: "event-cancelled",
+          refundedMinor: (b.refundedMinor ?? 0) + (refund?.amountMinor ?? 0),
+          updatedAt: now,
         });
-      }
-      writeAudit(tx, {
-        action: "booking.cancelled-by-event",
-        actorUid: actor.uid,
-        actorRole: actor.role,
-        resourceType: "booking",
-        resourceId: b.id,
-        orgId: b.orgId,
-        before: { status: b.status },
-        after: { status: "cancelled", refundMinor: refund?.amountMinor ?? 0 },
-        source: "system",
+        tx.update(sessionRef(eventId), { ...occupancyProjection(event.capacity, occ), updatedAt: now });
+        if (b.customerUid) {
+          notify(tx, {
+            recipientUid: b.customerUid,
+            kind: "event-cancelled",
+            title: "Event cancelled",
+            body: refund
+              ? `${event.title ?? "Your event"} was cancelled. We're refunding ₹${(refund.amountMinor / 100).toFixed(2)} in full.`
+              : `${event.title ?? "Your event"} was cancelled.`,
+            dedupeKey: eventId,
+            link: { type: "event", id: eventId },
+          });
+        }
+        writeAudit(tx, {
+          action: "booking.cancelled-by-event",
+          actorUid: actor.uid,
+          actorRole: actor.role,
+          resourceType: "booking",
+          resourceId: b.id,
+          orgId: b.orgId,
+          before: { status: b.status },
+          after: { status: "cancelled", refundMinor: refund?.amountMinor ?? 0 },
+          source: "system",
+        });
+        return { refunded: !!refund };
       });
-      return { refunded: !!refund };
-    });
+    } catch (e) {
+      const message = String((e as Error)?.message ?? e).slice(0, 300);
+      summary.failedBookingIds.push(d.id);
+      errors.push(`${d.id}: ${message}`);
+      logError({ event: "refund.event-cancel-booking-failed", eventId, bookingId: d.id, orgId: (d.data().orgId as string | undefined) ?? null, error: message });
+      await raiseEventCancelFailure(eventId, d.id, (d.data().orgId as string | undefined) ?? null, message).catch((alertError: unknown) =>
+        logError({ event: "refund.alert-write-failed", eventId, bookingId: d.id, error: String((alertError as Error)?.message ?? alertError).slice(0, 300) })
+      );
+      continue;
+    }
     if (r) {
       summary.bookingsCancelled++;
       if (r.refunded) {
@@ -430,7 +451,76 @@ export async function refundCancelledEvent(
       }
     }
   }
-  for (const id of summary.refundIds) await executeRefund(id);
+  // Provider calls after all bookings are settled in Firestore. executeRefund
+  // records its own failures (refund stays `approved`; the sweeper retries).
+  for (const id of summary.refundIds) {
+    await executeRefund(id).catch((e: unknown) =>
+      logError({ event: "refund.provider-error", refundId: id, eventId, error: String((e as Error)?.message ?? e).slice(0, 300) })
+    );
+  }
+  if (errors.length) {
+    throw new EventRefundIncompleteError(eventId, summary, errors);
+  }
   return summary;
+}
+
+/** Some bookings of a cancelled event could not be processed (the rest were). */
+export class EventRefundIncompleteError extends Error {
+  constructor(
+    public readonly eventId: string,
+    public readonly summary: EventRefundSummary,
+    errors: string[]
+  ) {
+    super(`Event ${eventId}: ${errors.length} booking(s) could not be cancelled/refunded: ${errors.slice(0, 5).join("; ")}`);
+    this.name = "EventRefundIncompleteError";
+  }
+}
+
+export const eventCancelFailureAlertId = (bookingId: string) => `evc-failed_${bookingId}`;
+
+/**
+ * Upserts the console alert for a booking the cancellation fan-out couldn't
+ * process. Deterministic id, so retries update one alert (occurrences, last
+ * error) instead of opening a new one, and never reopen one an admin resolved.
+ */
+async function raiseEventCancelFailure(eventId: string, bookingId: string, orgId: string | null, message: string): Promise<void> {
+  const ref = db().collection(C.riskAlerts).doc(eventCancelFailureAlertId(bookingId));
+  await db().runTransaction(async (tx) => {
+    const cur = await tx.get(ref);
+    if (!cur.exists) {
+      raiseRiskAlert(tx, ref.id, {
+        kind: "event-cancel-refund-failed",
+        severity: "high",
+        orgId,
+        summary: "A booking of a cancelled event could not be cancelled/refunded automatically and needs manual action.",
+        detail: { eventId, bookingId, lastError: message, occurrences: 1 },
+      });
+      return;
+    }
+    tx.update(ref, {
+      "detail.lastError": message,
+      "detail.occurrences": FieldValue.increment(1),
+      lastSeenAt: serverNow(),
+    });
+  });
+}
+
+/**
+ * The onEventCancelled trigger gave up on an event (its retries went on past
+ * the 24 h stale guard): bookings may still be live and unrefunded. Raised
+ * once per event for the console.
+ */
+export async function raiseEventCancelDropped(eventId: string, orgId: string | null, ageMs: number): Promise<void> {
+  await db().runTransaction(async (tx) => {
+    const ref = db().collection(C.riskAlerts).doc(`evc-dropped_${eventId}`);
+    if ((await tx.get(ref)).exists) return;
+    raiseRiskAlert(tx, ref.id, {
+      kind: "event-cancel-refund-dropped",
+      severity: "high",
+      orgId,
+      summary: "Automatic refunds for a cancelled event stopped retrying after 24 hours. Check its bookings and refund any still live.",
+      detail: { eventId, ageMs },
+    });
+  });
 }
 

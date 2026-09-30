@@ -163,6 +163,19 @@ export const LAPSED_RECLAIM_LIMIT = 25;
 /** Held bookings read on the short path (existing (eventId, status) index). */
 export const LAPSED_SCAN_LIMIT = 100;
 
+/**
+ * Could reclaiming lapsed holds possibly admit this request? Only
+ * `activeReservationHolds` can be reclaimed, so if the request would still be
+ * refused with EVERY counted hold released, the held-bookings scan (up to
+ * LAPSED_SCAN_LIMIT reads) is skipped: a sold-out event with confirmed seats
+ * refuses in O(1) reads.
+ */
+export function couldReclaimCover(capacity: CapacityConfig, occupancy: OccupancyCounters, kind: SeatRequestKind, spots: number): boolean {
+  if (occupancy.activeReservationHolds <= 0) return false;
+  const best = applyHoldReleased(occupancy, occupancy.activeReservationHolds);
+  return admitSeats(deriveCapacityLedger(capacity, best), kind, spots).admitted;
+}
+
 /** Idempotency receipts are scoped to the actor so keys can't collide across users. */
 export const reserveReceiptId = (uid: string, requestId: string) => `reserveSeat_${uid}_${requestId}`;
 
@@ -321,7 +334,7 @@ export async function reserveSeat(cmd: ReserveSeatCommand): Promise<ReserveSeatR
       // bookings, so each hold is released exactly once. Only on the short
       // path, so a normal reservation pays no extra read.
       const reclaimed: { ref: DocumentReference; spots: number; orgId: string | null }[] = [];
-      if (!admission.admitted) {
+      if (!admission.admitted && couldReclaimCover(event.capacity, occupancy, cmd.kind, spots)) {
         const lapsed = await tx.get(
           db()
             .collection(COLLECTIONS.bookings)

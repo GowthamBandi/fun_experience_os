@@ -102,6 +102,26 @@ export type CodeFailureReason =
   | "already-member"
   | "organizer-unavailable";
 
+/**
+ * Security signal for the `code_failures` metric. Never the attempted code.
+ * Emitted ONCE per refused attempt, after the write that audits it has
+ * committed — never from inside a transaction callback, which Firestore may
+ * run several times (retries) or abandon (abort), inflating the metric.
+ */
+export function logCodeFailure(
+  actor: PhoneActor,
+  purpose: "organizer" | "staff",
+  reason: CodeFailureReason,
+  orgId: string | null = null
+): void {
+  logWarn({ event: "security.code-failed", uid: actor.uid, orgId, purpose, reason });
+}
+
+/**
+ * Writes the `access.code-failed` audit entry into `writer` (a transaction or
+ * batch). Does NOT log: the caller logs with logCodeFailure() once the write
+ * has committed.
+ */
 export function codeFailureAudit(
   writer: Parameters<typeof writeAudit>[0],
   actor: PhoneActor,
@@ -109,8 +129,6 @@ export function codeFailureAudit(
   reason: CodeFailureReason,
   extra: { resourceId?: string; orgId?: string | null } = {}
 ): void {
-  // Security signal for the `code_failures` metric. Never the attempted code.
-  logWarn({ event: "security.code-failed", uid: actor.uid, orgId: extra.orgId ?? null, purpose, reason });
   writeAudit(writer, {
     action: "access.code-failed",
     actorUid: actor.uid,
@@ -134,6 +152,7 @@ export async function auditCodeFailure(
   const batch = db().batch();
   codeFailureAudit(batch, actor, purpose, reason, extra);
   await batch.commit();
+  logCodeFailure(actor, purpose, reason, extra.orgId ?? null);
 }
 
 /** The user-facing error for a refused code (deliberately uninformative). */

@@ -160,6 +160,24 @@ describe("listEventAttendees", () => {
     for (const k of ["customerUid", "phone", "birthDate", "age", "gender"]) expect(raw).not.toContain(`"${k}"`);
   });
 
+  test("not rate limited: a host workspace refreshing many events in parallel is never locked out", async () => {
+    const s = await setup();
+    // Well past the old 60-per-10-min budget, half of it in parallel bursts.
+    for (let i = 0; i < 40; i++) {
+      const out = await call<{ attendees: Attendee[] }>(commerce.listEventAttendees, { orgId: s.orgId, eventId: s.eventId }, phoneCtx(s.scanner));
+      expect(out.attendees).toHaveLength(2);
+    }
+    for (let burst = 0; burst < 4; burst++) {
+      const codes = await Promise.all(
+        Array.from({ length: 10 }, (_, i) =>
+          callCode(commerce.listEventAttendees, { orgId: s.orgId, eventId: i % 2 ? s.eventB : s.eventId }, phoneCtx(s.scanner))
+        )
+      );
+      expect(codes).toEqual(Array(10).fill("OK"));
+    }
+    expect((await db().collection("rateLimits").doc(`attendees_${s.scanner}`).get()).exists).toBe(false);
+  });
+
   test("requires attendees.view on that event; other org's ids are not found", async () => {
     const s = await setup();
     const scanOnly = uniq("staff");

@@ -10,6 +10,7 @@ import * as catalog from "../src/catalog";
 import { runRetention, setLegalHold, RETENTION } from "../src/platform/retention";
 import { runJob, jobRunId } from "../src/platform/jobs";
 import { LIMITS } from "../src/platform/rateLimit";
+import { RATE_LIMITS } from "../src/commerce/config";
 import { sanitize } from "../src/platform/log";
 import { MAX_PUSH_TOKENS, registerPushTokenService, unregisterPushTokenService } from "../src/identity/push";
 import { updateMyProfile } from "../src/identity/profile";
@@ -44,6 +45,11 @@ async function auditsFor(resourceId: string, action: string) {
 /* ================================================================ retention */
 
 describe("runRetention", () => {
+  // The KYC purge resumes from a persisted cursor; start each test from a new cycle.
+  beforeEach(async () => {
+    await db().doc("jobState/dataRetention_kycCursor").delete();
+  });
+
   test("expires lapsed codes (keeps docs, audits), deletes stale rate limits / receipts / notifications, purges rejected KYC unless held; idempotent", async () => {
     const t = uniq("ret");
     const w = {
@@ -97,10 +103,13 @@ describe("runRetention", () => {
     const summary = await runRetention({ deleteStorage });
     expect(summary.status).toBe("ok");
 
-    // Codes: expired and scrubbed, never deleted; audited once.
+    // Codes: expired, never deleted; audited once. A staff invite keeps its
+    // (peppered) hash so redeeming the lapsed code answers "expired"; an
+    // organizer activation (found by uid) is scrubbed.
     const inv = (await get(`staffInvites/${w.invOld}`))!;
     expect(inv.status).toBe("expired");
-    expect(inv).not.toHaveProperty("codeHash");
+    expect(inv.codeHash).toBe("h".repeat(64));
+    expect(inv.expiredAt).toBeInstanceOf(Timestamp);
     expect((await get(`staffInvites/${w.invGrace}`))!.status).toBe("pending"); // inside the re-issue grace
     expect((await get(`staffInvites/${w.invRedeemed}`))!.status).toBe("redeemed");
     const act = (await get(`organizerActivations/${w.actExpired}`))!;
@@ -258,6 +267,32 @@ describe("new rate limits", () => {
     for (let i = 0; i < 21; i++) codes.push(await callCode(commerce.requestRefund, input(), ctx));
     expect(codes.slice(0, 20)).not.toContain("RATE_LIMITED");
     expect(codes[20]).toBe("RATE_LIMITED");
+  });
+
+  test("limits that legitimate flows depend on are generous (autosave, re-quoting)", () => {
+    // PULSE autosaves a draft ~700 ms after each edit.
+    expect(LIMITS.catalogSave).toEqual({ limit: 600, windowSeconds: 600 });
+    expect(RATE_LIMITS.quote).toEqual({ limit: 120, windowSeconds: 600 });
+    expect(RATE_LIMITS).not.toHaveProperty("attendees");
+  });
+
+  test("saveExperience / saveEvent: a long autosave session stays within budget", async () => {
+    const ctx = phoneCtx(uniq("autosave"));
+    const codes: string[] = [];
+    // 150 saves in one window (the old limit was 120); they fail on validation, never on the limit.
+    for (let i = 0; i < 150; i++) {
+      const fn = i % 2 ? catalog.saveEvent : catalog.saveExperience;
+      codes.push(await callCode(fn, { requestId: rid(), orgId: "org-nope" }, ctx));
+    }
+    expect(codes).not.toContain("RATE_LIMITED");
+  });
+
+  test("quoteCancellation: more than the old 60 quotes per window are served", async () => {
+    const ctx = phoneCtx(uniq("quoter"));
+    const codes: string[] = [];
+    for (let i = 0; i < 70; i++) codes.push(await callCode(commerce.quoteCancellation, { bookingId: "booking-nope" }, ctx));
+    expect(codes).not.toContain("RATE_LIMITED");
+    expect(codes[0]).toBe("NOT_FOUND");
   });
 
   test("submitEvent / submitExperience share one governance-submission budget", async () => {
