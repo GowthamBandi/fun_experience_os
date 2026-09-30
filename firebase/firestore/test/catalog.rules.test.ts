@@ -84,11 +84,13 @@ test("admins read everything in the catalog", async () => {
   await assertSucceeds(getDoc(doc(admin(), "reviews/event-pub__hider")));
 });
 
-test("published reviews are public; hidden reviews only to author and admins", async () => {
-  await assertSucceeds(getDoc(doc(as("customer"), "reviews/event-pub__author")));
-  await assertSucceeds(getDocs(query(collection(as("customer"), "reviews"), where("status", "==", "published"))));
+test("reviews are private to their author and admins (participants stay anonymous)", async () => {
+  await assertFails(getDoc(doc(as("customer"), "reviews/event-pub__author")));
+  await assertFails(getDocs(query(collection(as("customer"), "reviews"), where("status", "==", "published"))));
+  await assertSucceeds(getDoc(doc(as("author"), "reviews/event-pub__author")));
   await assertFails(getDoc(doc(as("customer"), "reviews/event-pub__hider")));
-  await assertFails(getDoc(doc(as("owner"), "reviews/event-pub__hider"))); // organizers can't see hidden reviews
+  await assertFails(getDoc(doc(as("owner"), "reviews/event-pub__author"))); // organizers see aggregates only
+  await assertFails(getDoc(doc(as("owner"), "reviews/event-pub__hider")));
   await assertSucceeds(getDoc(doc(as("hider"), "reviews/event-pub__hider")));
   await assertFails(getDocs(collection(as("customer"), "reviews")));
 });
@@ -113,6 +115,7 @@ test("signed-out users can't read drafts or hidden reviews", async () => {
   const db = env.unauthenticatedContext().firestore();
   await assertFails(getDoc(doc(db, "events/event-A")));
   await assertFails(getDoc(doc(db, "reviews/event-pub__hider")));
+  await assertFails(getDoc(doc(db, "reviews/event-pub__author")));
   await assertFails(getDoc(doc(db, "experiences/exp-draft")));
 });
 

@@ -1,0 +1,108 @@
+# Experience OS backend + Operations Console CI.
+# Every step must pass; nothing is `continue-on-error`.
+name: ci
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FIREBASE_TOOLS_VERSION: "15.32.0"
+  # The emulator project is offline-only; CI never talks to a real project.
+  FIREBASE_PROJECT: demo-experience-os
+
+jobs:
+  guardrails:
+    name: Secrets & forbidden config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Forbidden configuration and secret patterns
+        run: node scripts/check-release-guardrails.mjs
+      - name: Firestore index coverage
+        run: npm run check:indexes
+      - name: Gitleaks (full history)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  functions:
+    name: Functions (typecheck, build, tests on emulators)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: firebase/functions/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm i -g firebase-tools@${{ env.FIREBASE_TOOLS_VERSION }}
+      - run: npm ci
+        working-directory: firebase/functions
+      - run: npm run typecheck
+        working-directory: firebase/functions
+      - run: npm run build
+        working-directory: firebase/functions
+      - name: Production dependency audit (fails on high/critical)
+        run: npm audit --omit=dev --audit-level=high
+        working-directory: firebase/functions
+      - name: Unit, integration, E2E and attack suites
+        run: firebase emulators:exec --project $FIREBASE_PROJECT --only firestore,auth,functions,storage "npm --prefix firebase/functions test -- --ci"
+
+  rules:
+    name: Firestore & Storage security rules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: firebase/firestore/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm i -g firebase-tools@${{ env.FIREBASE_TOOLS_VERSION }}
+      - run: npm ci
+        working-directory: firebase/firestore
+      - run: firebase emulators:exec --project $FIREBASE_PROJECT --only firestore,storage "npm --prefix firebase/firestore test -- --ci"
+
+  console:
+    name: Operations Console
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/operations-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/operations-web/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - name: Production dependency audit (fails on high/critical)
+        run: npm audit --omit=dev --audit-level=high
+      - run: npm run build
+      - run: npm run smoke

@@ -177,9 +177,12 @@ service cloud.firestore {
     }
 
     // ------------------------------------------------------- reviews & inbox
+    // Review documents carry the author's uid (also in the id), so they are
+    // not public: participants stay anonymous. Clients show only the rating
+    // aggregates on experiences / publicOrganizers; any future public review
+    // list must come from a server-built projection without uids.
     match /reviews/{reviewId} {
       allow read: if isAdmin()
-        || resource.data.status == 'published'
         || (user() && resource.data.authorUid == uid());
       allow write: if false;
     }

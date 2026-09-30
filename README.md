@@ -1,46 +1,61 @@
-# experience_platform
+# Experience OS: backend and Operations Console
 
-**Governed event marketplace** — organizers and event managers register, submit arenas and propose real-world events; customers discover and pay; the platform Super Admin verifies access, approves supply, controls risk, refunds and settlements, and enforces marketplace policy.
+Experience OS is a **governed experience marketplace**:
+- independent organizers apply, are approved, and run experiences and events;
+- customers discover, book and attend them through the **PULSE** app;
+- the platform Super Admin governs access, supply, risk, refunds, commercial terms and settlements.
 
-> **Project phase: prototype-to-production migration.** The repository contains a broad Next.js Super Admin prototype, an unbuilt Flutter customer app, and the first Firebase authoritative booking command. Most governance workflows still require real authentication, authorization and persistence before production use.
+| Surface | Where | Technology |
+| --- | --- | --- |
+| PULSE (customer, organizer and staff app) | separate repository `exprerience_os` | Flutter |
+| Operations Console (Super Admin) | `apps/operations-web` | Next.js + TypeScript |
+| Backend | `firebase/` (Cloud Functions, Firestore and Storage rules, indexes) | Firebase, TypeScript |
 
-## Tech direction
+## Status
 
-| Surface | Technology |
+Engineering is complete and verified locally. Launch waits on owner-only activation steps: Firebase projects, secrets, store accounts, Razorpay, and so on.
+
+- **Readiness report:** [`EXPERIENCE_OS_FINAL_PRODUCTION_READINESS.md`](EXPERIENCE_OS_FINAL_PRODUCTION_READINESS.md)
+- **Owner steps:** [`HUMAN_FINAL_ACTIVATION_CHECKLIST.md`](HUMAN_FINAL_ACTIVATION_CHECKLIST.md)
+
+## Layout
+
+```
+apps/operations-web/        Operations Console (Next.js)
+firebase/functions/         Cloud Functions (TypeScript) + jest suites (unit, integration, E2E, attack)
+firebase/firestore/         Firestore rules, indexes, rules test suite
+firebase/storage/           Storage rules
+firebase/scripts/           bootstrap-platform-owner, index coverage check, emulator helpers
+scripts/                    release guardrails, guarded deploy, backup activation
+docs/                       ADRs, API contract, architecture, runbooks
+.github/workflows/ci.yml    CI: guardrails, functions, rules, console
+```
+
+## Everyday commands
+
+```sh
+npm run test:rules          # rules suites on the emulator
+npm run test:functions      # functions suites on the emulator
+npm run check:indexes       # every production query has its composite index
+node scripts/check-release-guardrails.mjs
+scripts/deploy-backend.sh staging|production    # guarded; see the runbook
+```
+
+## Documentation (current)
+
+| Topic | Document |
 | --- | --- |
-| Customer mobile app | Flutter (Android + iOS) |
-| Super Admin (operations console) | Next.js with TypeScript |
-| Initial backend | Firebase |
-| Production development | Later, using Claude Code |
+| Architecture | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
+| API contract (every callable) | [`docs/API_CONTRACT.md`](docs/API_CONTRACT.md) |
+| Decisions | [`docs/adr/`](docs/adr) (ADR-0003 data model, ADR-0004 identity/organizer/staff, ADR-0005 payments/tickets/ledger, ADR-0006 retiring the company-operated model) |
+| Environments and deployment | [`docs/runbooks/ENVIRONMENTS_AND_DEPLOYMENT.md`](docs/runbooks/ENVIRONMENTS_AND_DEPLOYMENT.md) |
+| Backup and recovery | [`docs/runbooks/BACKUP_AND_RECOVERY.md`](docs/runbooks/BACKUP_AND_RECOVERY.md) |
+| Observability | [`docs/runbooks/OBSERVABILITY.md`](docs/runbooks/OBSERVABILITY.md) |
+| Data retention | [`docs/runbooks/DATA_RETENTION.md`](docs/runbooks/DATA_RETENTION.md) |
+| Console deployment | [`apps/operations-web/DEPLOYMENT.md`](apps/operations-web/DEPLOYMENT.md) |
 
-## Key product principles
+Documents carrying an **OBSOLETE** banner (early product/admin planning for the retired company-operated model) are kept for history only. Don't implement from them.
 
-- Participants are **anonymous**; they see joined-participant counts, not rosters.
-- Temporary **random event IDs** are issued per booking for check-in.
-- **Teams may be randomly allocated** shortly before the event.
-- Supports **men-only, women-only and mixed** formats, with age restrictions.
-- Independent organizers create and conduct events; the **Super Admin governs marketplace access, approvals, commercial terms, customer protection and money movement**.
+## Unused files at the repository root
 
-## Documentation
-
-All planning documents are under [`docs/`](docs/).
-
-| Area | Documents |
-| --- | --- |
-| Product | [Vision](docs/product/01-product-vision.md) · [Problem & opportunity](docs/product/02-problem-and-opportunity.md) · [Business model](docs/product/03-business-model.md) · [v1 scope](docs/product/04-v1-scope.md) |
-| Super Admin | [Purpose](docs/admin/01-admin-purpose.md) · [Users & roles](docs/admin/02-admin-users-and-roles.md) · [Information architecture](docs/admin/03-admin-information-architecture.md) · [Screen inventory](docs/admin/04-admin-screen-inventory.md) · [Event management workflow](docs/admin/05-event-management-workflow.md) · [Booking & payments](docs/admin/06-booking-and-payment-operations.md) · [Participants & safety](docs/admin/07-participant-and-safety-management.md) · [Tournaments](docs/admin/08-tournament-management.md) · [Notifications](docs/admin/09-notification-management.md) · [Analytics & reports](docs/admin/10-admin-analytics-and-reports.md) |
-| Architecture | [System context](docs/architecture/01-system-context.md) · [Technology decisions](docs/architecture/02-technology-decisions.md) |
-| Data | [Domain entity draft](docs/database/01-domain-entity-draft.md) |
-| Security & privacy | [Principles](docs/security/01-security-and-privacy-principles.md) |
-| Operations | [Event operations lifecycle](docs/operations/01-event-operations-lifecycle.md) |
-| Experience OS | [Franchise operating model](docs/admin/15-franchise-operating-model.md) · [Authentication experience](docs/auth/01-authentication-experience.md) · [Screen specifications](docs/auth/02-screen-specifications.md) · [Experience OS design system](docs/design-system/02-experience-os-design-system.md) · [Admin design direction](docs/design-system/01-admin-design-direction.md) |
-| Project records | [**MASTER PROJECT STATE**](docs/project-records/MASTER_PROJECT_STATE.md) · [Status](docs/project-records/00-project-status.md) · [Decisions log](docs/project-records/01-decisions-log.md) · [Open questions](docs/project-records/02-open-questions.md) |
-
-Start with the **[Super Admin marketplace governance model](docs/product/06-super-admin-marketplace-governance.md)** for the corrected operating model, then [Production Status](docs/PRODUCTION_STATUS.md) for implementation reality. Older planning records still contain the superseded company-operated-event assumption.
-
-## Notes
-
-- The existing files in this repository are the default Flutter scaffold. See `pubspec.yaml` for the generated project configuration.
-- Docs are planning drafts and must not be read as implemented features.
-- No packages were added and nothing outside this repository was modified during documentation.
-# fun_experience_os
+`lib/`, `test/`, `android/`, `ios/`, `web/`, `linux/`, `macos/`, `windows/`, `pubspec.yaml` and `analysis_options.yaml` are the default `flutter create` counter-app scaffold. Nothing uses, builds or deploys them; the customer app is PULSE in its own repository. They can be deleted whenever the owner chooses.

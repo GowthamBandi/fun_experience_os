@@ -83,5 +83,5 @@ This is the canonical callable API used by PULSE (Flutter) and the Operations Co
 
 | Who | Reads |
 | --- | --- |
-| Customer | `events` where `status == "published"`; `experiences` where `status == "approved"`; `publicOrganizers`; `publicProfiles`; their own `bookings`, `tickets` and `ticketSecrets/{ticketId}` (QR payload, for offline display), `payments`, `refunds` and `userNotifications`; `reviews` where `status == "published"` |
+| Customer | `events` where `status == "published"`; `experiences` where `status == "approved"`; `publicOrganizers`; `publicProfiles`; their own `bookings`, `tickets` and `ticketSecrets/{ticketId}` (QR payload, for offline display), `payments`, `refunds` and `userNotifications`; their own `reviews` (reviews carry the author uid, so others see only the rating aggregates on `experiences` and `publicOrganizers`) |
 | Organizer / staff | Their org's `experiences`, `events`, `bookings`, `tickets`, `refunds`, `ledgerEntries` and `settlements`, filtered by `orgId` (and `eventId`) per permission |

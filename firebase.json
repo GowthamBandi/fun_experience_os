@@ -1,6 +1,18 @@
 {
   "functions": {
-    "source": "firebase/functions"
+    "source": "firebase/functions",
+    "codebase": "default",
+    "ignore": [
+      "node_modules",
+      ".git",
+      "test",
+      "coverage",
+      "*.log"
+    ],
+    "predeploy": [
+      "npm --prefix \"$RESOURCE_DIR\" run typecheck",
+      "npm --prefix \"$RESOURCE_DIR\" run build"
+    ]
   },
   "firestore": {
     "rules": "firebase/firestore/firestore.rules",

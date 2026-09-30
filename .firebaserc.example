@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "development": "demo-experience-os",
+    "staging": "<real staging project id — must contain staging, dev or test>",
+    "production": "<real production project id — must NOT contain staging, dev or test>"
+  }
+}
