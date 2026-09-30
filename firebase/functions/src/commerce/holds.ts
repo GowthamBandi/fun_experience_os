@@ -11,18 +11,26 @@ import { writeAudit } from "../platform/audit";
 import { EMPTY_OCCUPANCY, applyHoldReleased, occupancyProjection } from "../domain/capacity";
 import type { BookingDoc, EventDoc } from "../bookings/reserveSeat";
 import { C } from "./config";
+import { logWarn } from "../platform/log";
 
-export async function releaseExpiredHolds(opts: { limit?: number } = {}): Promise<{ scanned: number; expired: number }> {
+export async function releaseExpiredHolds(
+  opts: { limit?: number } = {}
+): Promise<{ scanned: number; expired: number; failed: number; more: boolean }> {
+  const limit = opts.limit ?? 500;
   const now = serverNow();
   const snap = await db()
     .collection(C.bookings)
     .where("status", "==", "held")
     .where("holdExpiresAt", "<=", now)
-    .limit(opts.limit ?? 500)
+    .limit(limit)
     .get();
 
   let expired = 0;
+  let failed = 0;
+  let lastError: unknown = null;
   for (const d of snap.docs) {
+    // One booking's failure (e.g. contention with a concurrent payment) must
+    // not strand the rest of the batch; it is retried on the next run.
     const done = await db().runTransaction(async (tx) => {
       const bSnap = await tx.get(bookingRef(d.id));
       const b = bSnap.data() as BookingDoc | undefined;
@@ -47,8 +55,16 @@ export async function releaseExpiredHolds(opts: { limit?: number } = {}): Promis
         source: "scheduler",
       });
       return true;
+    }).catch((e: unknown) => {
+      failed++;
+      lastError = e;
+      return false;
     });
     if (done) expired++;
   }
-  return { scanned: snap.size, expired };
+  if (failed > 0) {
+    logWarn({ event: "holds.release-failed", failed, scanned: snap.size, error: String((lastError as Error)?.message ?? lastError).slice(0, 300) });
+  }
+  // `more`: the batch was full, so the next run (5 min) continues the backlog.
+  return { scanned: snap.size, expired, failed, more: snap.size === limit };
 }

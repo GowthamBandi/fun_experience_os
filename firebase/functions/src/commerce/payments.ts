@@ -23,6 +23,7 @@ import { isLiveBooking, type BookingDoc, type EventDoc } from "../bookings/reser
 import { C, CURRENCY, bookingLockId } from "./config";
 import { captureLines, commissionFor, postLedger } from "./ledger";
 import { getPaymentProvider, verifyPaymentSignature } from "./provider";
+import { logWarn } from "../platform/log";
 import { approveRefundInTx, executeRefund, newRefundDoc } from "./refundCore";
 import { assertOwner, getBooking, getPayment, paymentRef, raiseRiskAlert, refundRef } from "./shared";
 import { issueTickets } from "./tickets";
@@ -174,6 +175,7 @@ export async function confirmPayment(
         after: { providerPaymentId: input.providerPaymentId.slice(0, 64) },
       });
     });
+    logWarn({ event: "security.payment-signature-rejected", uid, orgId: payment.orgId, paymentId: payment.id });
     throw new DomainError("NOT_PERMITTED", "We couldn't verify this payment.", {
       nextStep: "If money left your account, it will be confirmed automatically or refunded. Contact support if not.",
     });

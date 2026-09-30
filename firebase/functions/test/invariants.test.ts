@@ -255,13 +255,11 @@ describe("I2 expired holds", () => {
   });
 
   /**
-   * KNOWN GAP (reported, not fixed here): reserveSeat only reclaims the
-   * CALLER's own lapsed hold. Another customer's lapsed-but-unswept hold still
-   * counts as occupied, so the event reads SOLD_OUT until releaseExpiredHolds
-   * runs (every 5 minutes). `test.failing` keeps the suite green while the gap
-   * exists and turns red (prompting a switch to `test`) once it's fixed.
+   * Formerly a known gap: reserveSeat only reclaimed the CALLER's own lapsed
+   * hold. It now also reclaims other customers' lapsed-but-unswept holds
+   * inline when capacity is short (bounded, same effect as the sweeper).
    */
-  test.failing("a lapsed hold of ANOTHER customer does not block a reservation before the sweep runs", async () => {
+  test("a lapsed hold of ANOTHER customer does not block a reservation before the sweep runs", async () => {
     const { eventId } = await world({ capacity: 3 });
     const a = await newCustomer();
     const b = await newCustomer();
@@ -269,6 +267,8 @@ describe("I2 expired holds", () => {
     await lapseHold(held.bookingId);
     const r = await reserve(b, eventId, 3);
     expect(r.status).toBe("held");
+    expect((await getDoc<Json>(`bookings/${held.bookingId}`))!.status).toBe("expired");
+    await assertOccupancy(eventId, "inline reclaim of another customer's lapsed hold");
   });
 });
 

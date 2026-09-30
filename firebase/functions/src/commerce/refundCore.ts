@@ -21,6 +21,7 @@ import { getPayment, getRefund, paymentRef, raiseRiskAlert, refundRef } from "./
 import type { PaymentDoc, PaymentStatus, RefundDoc, RefundReason } from "./types";
 import { db } from "../platform/firestore";
 import { C } from "./config";
+import { logError, logWarn } from "../platform/log";
 
 /**
  * Posts the ledger reversal for a refund of `amountMinor` against `payment`
@@ -139,6 +140,7 @@ export async function executeRefund(refundId: string): Promise<RefundDoc["status
 
   if (!providerPaymentId) {
     await refundRef(refundId).update({ executingUntil: null, lastError: "no-provider-payment", updatedAt: serverNow() });
+    logWarn({ event: "refund.stuck", reason: "no-provider-payment", refundId, orgId: r.orgId });
     return "approved";
   }
 
@@ -176,14 +178,26 @@ export async function executeRefund(refundId: string): Promise<RefundDoc["status
         source: "system",
       });
       if (status === "failed") failedRefundAlert(tx, cur);
+      if (status === "completed") {
+        // Instant refunds come back processed; tell the customer now (same
+        // dedupe id as the webhook path, which can't also fire: it only acts
+        // on approved/processing refunds).
+        notify(tx, {
+          recipientUid: cur.customerUid,
+          kind: "refund-update",
+          title: "Refund sent",
+          body: `Your refund of ₹${(cur.amountMinor / 100).toFixed(2)} has been processed by the bank.`,
+          dedupeKey: `${refundId}-completed`,
+          link: { type: "booking", id: cur.bookingId },
+        });
+      }
       return status;
     });
   } catch (e) {
-    await refundRef(refundId).update({
-      executingUntil: null,
-      lastError: String((e as Error)?.message ?? e).slice(0, 300),
-      updatedAt: serverNow(),
-    });
+    const message = String((e as Error)?.message ?? e).slice(0, 300);
+    await refundRef(refundId).update({ executingUntil: null, lastError: message, updatedAt: serverNow() });
+    // Money is owed and not yet sent: ERROR so it pages if it persists.
+    logError({ event: "refund.provider-error", refundId, orgId: r.orgId, amountMinor: r.amountMinor, error: message });
     return "approved";
   }
 }
@@ -243,14 +257,25 @@ export async function completeRefundFromProvider(
   });
 }
 
-/** Finds refunds stuck in `approved` (provider call failed) and retries them. */
-export async function retryApprovedRefunds(limit = 50): Promise<number> {
-  const snap = await db().collection(C.refunds).where("status", "==", "approved").limit(limit).get();
+/**
+ * Finds refunds stuck in `approved` (provider call failed) and retries them.
+ * Bounded: reads at most `scan` candidates and calls the provider for at most
+ * `limit`, least-recently-touched first (each attempt bumps `updatedAt`), so a
+ * refund that can never succeed doesn't starve the others. Sorting happens in
+ * memory to avoid a composite index; the `scan` window only matters beyond
+ * 200 simultaneously stuck refunds, which is itself an incident.
+ */
+export async function retryApprovedRefunds(limit = 50, scan = 200): Promise<number> {
+  const snap = await db().collection(C.refunds).where("status", "==", "approved").limit(scan).get();
+  const now = Date.now();
+  const due = snap.docs
+    .map((d) => d.data() as RefundDoc)
+    .filter((r) => !r.providerRefundId && !(r.executingUntil && r.executingUntil.toMillis() > now))
+    .sort((a, b) => (a.updatedAt?.toMillis?.() ?? 0) - (b.updatedAt?.toMillis?.() ?? 0))
+    .slice(0, limit);
   let n = 0;
-  for (const d of snap.docs) {
-    const r = d.data() as RefundDoc;
-    if (r.providerRefundId) continue;
-    await executeRefund(d.id);
+  for (const r of due) {
+    await executeRefund(r.id);
     n++;
   }
   return n;

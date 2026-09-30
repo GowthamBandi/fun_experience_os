@@ -330,20 +330,18 @@ describe("F2 malformed payloads", () => {
     expect(({} as Json).polluted).toBeUndefined();
     // eslint-disable-next-line no-console
     if (notInvalid.length) console.log(`non-INVALID_INPUT answers to bad shapes on strict fields:\n${notInvalid.join("\n")}`);
-    // Lone UTF-16 surrogates are a KNOWN gap, pinned by the test.failing below.
-    expect(failures.filter((f) => !/=loneSurrogate: INTERNAL$/.test(f))).toEqual([]);
+    expect(failures).toEqual([]);
     expect(notInvalid).toEqual([]);
     expect(Object.keys(tally)).toContain("INVALID_INPUT");
   });
 
   /**
-   * KNOWN BUG (reported, not fixed here): `str()` in src/platform/callable.ts
-   * (and `text()` in src/governance/model.ts) accept strings that are not
-   * well-formed Unicode. A lone surrogate survives validation, then Firestore
-   * rejects the write/lookup and the caller gets INTERNAL instead of
-   * INVALID_INPUT. `test.failing` turns red once validation rejects them.
+   * Formerly a known bug: `str()` (platform/callable.ts) and `text()`
+   * (governance/model.ts) accepted strings that are not well-formed Unicode,
+   * so Firestore later threw and the caller got INTERNAL. Validation now
+   * rejects lone surrogates as INVALID_INPUT.
    */
-  test.failing("strings with lone UTF-16 surrogates are rejected as INVALID_INPUT", async () => {
+  test("strings with lone UTF-16 surrogates are rejected as INVALID_INPUT", async () => {
     const who = person("fz-surrogate");
     const profile = await codeOf(call(identity.updateMyProfile, { displayName: "Asha K", birthDate: "1995-05-20", gender: "woman", bio: "ab\uD800cd" }, who.ctx));
     const refund = await codeOf(call(commerce.decideRefund, { requestId: rid("fz"), refundId: "ab\uD800cd", decision: "approve", note: "ok fine" }, adminCtx(uniq("fz-admin"))));

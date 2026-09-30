@@ -1,3 +1,5 @@
+import { isWellFormed } from "../platform/callable";
+
 export const CASE_KINDS = [
   "organizer-kyc",
   "arena-verification",
@@ -39,6 +41,7 @@ function object(value: unknown): Record<string, unknown> {
 
 function text(value: unknown, name: string, min: number, max: number): string {
   if (typeof value !== "string") throw new Error(`${name} is required.`);
+  if (!isWellFormed(value)) throw new Error(`${name} contains invalid characters.`);
   const clean = value.trim();
   if (clean.length < min || clean.length > max) throw new Error(`${name} must be ${min}-${max} characters.`);
   return clean;
@@ -62,6 +65,7 @@ export function parseDecisionCommand(value: unknown): GovernanceDecisionCommand 
     throw new Error("outcome is not supported.");
   }
   const note = typeof data.note === "string" ? data.note.trim() : "";
+  if (!isWellFormed(note)) throw new Error("The decision note contains invalid characters.");
   if (outcome !== "approved" && note.length < 10) throw new Error("A reason of at least 10 characters is required.");
   if (note.length > 2000) throw new Error("The decision note is too long.");
   return { requestId: id(data.requestId, "requestId"), caseId: id(data.caseId, "caseId"), expectedVersion: version(data.expectedVersion), outcome, note };
@@ -94,7 +98,7 @@ export function parseReissueOrganizerCodeCommand(value: unknown): ReissueOrganiz
   const data = object(value);
   const applicantUid = text(data.applicantUid, "applicantUid", 4, 128);
   if (!/^[A-Za-z0-9_-]+$/.test(applicantUid)) throw new Error("applicantUid contains unsupported characters.");
-  const reason = typeof data.reason === "string" && data.reason.trim().length >= 10
+  const reason = typeof data.reason === "string" && data.reason.trim().length >= 10 && isWellFormed(data.reason)
     ? data.reason.trim().slice(0, 1000)
     : "Organizer code re-issued.";
   return { requestId: id(data.requestId, "requestId"), applicantUid, reason };

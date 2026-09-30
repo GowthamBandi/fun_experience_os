@@ -11,6 +11,7 @@
  */
 
 import { DomainError } from "../platform/errors";
+import { isWellFormed } from "../platform/callable";
 
 export type FieldDescriptor =
   | { type: "string"; required?: boolean; min?: number; max: number }
@@ -144,6 +145,7 @@ function validateField(name: string, d: FieldDescriptor, v: unknown): unknown {
   switch (d.type) {
     case "string": {
       if (typeof v !== "string") throw invalid(`${name} must be text.`, name);
+      if (!isWellFormed(v)) throw invalid(`${name} contains invalid characters.`, name);
       const s = v.trim();
       if (s.length < (d.min ?? 1) || s.length > d.max) throw invalid(`${name} must be ${d.min ?? 1}–${d.max} characters.`, name);
       return s;
@@ -162,7 +164,7 @@ function validateField(name: string, d: FieldDescriptor, v: unknown): unknown {
     case "stringList": {
       if (!Array.isArray(v) || v.length > d.maxItems) throw invalid(`${name} must be a list of at most ${d.maxItems} items.`, name);
       return v.map((x) => {
-        if (typeof x !== "string" || x.trim().length < 1 || x.trim().length > d.maxLen) {
+        if (typeof x !== "string" || !isWellFormed(x) || x.trim().length < 1 || x.trim().length > d.maxLen) {
           throw invalid(`Each ${name} item must be 1–${d.maxLen} characters.`, name);
         }
         return x.trim();

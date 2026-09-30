@@ -4,7 +4,7 @@
  */
 
 import * as functions from "firebase-functions/v1";
-import { callable, docId, int, obj, oneOf, requestId, str, optStr } from "../platform/callable";
+import { callable, compositeId, docId, int, obj, oneOf, requestId, str, optStr } from "../platform/callable";
 import { requirePhoneUser, requireUser } from "../platform/actors";
 import { requireAdmin } from "../platform/auth";
 import { consumeRateLimit } from "../platform/rateLimit";
@@ -29,6 +29,8 @@ import { PAYOUT_CADENCES, decideCommercialAgreement as decideCommercialAgreement
 import { retryApprovedRefunds } from "./refundCore";
 import { sendEventReminders as sendEventRemindersSvc } from "./reminders";
 import { handleRazorpayWebhook } from "./webhook";
+import { isStaleEvent, runJob } from "../platform/jobs";
+import { logError, logInfo } from "../platform/log";
 
 const REGION = "asia-south1";
 const RZP: SecretName[] = [SECRET_NAMES.razorpayKeyId, SECRET_NAMES.razorpayKeySecret];
@@ -102,6 +104,7 @@ export const confirmPayment = callable(
 export const quoteCancellation = callable(async (data, context) => {
   const actor = requirePhoneUser(context);
   const d = obj(data);
+  await consumeRateLimit({ bucket: `quote_${actor.uid}`, ...RATE_LIMITS.quote });
   return quoteCancellationSvc(actor.uid, docId(d.bookingId, "bookingId"));
 });
 
@@ -123,6 +126,11 @@ export const cancelBooking = callable(
 export const requestRefund = callable(async (data, context) => {
   const actor = requirePhoneUser(context);
   const d = obj(data);
+  await consumeRateLimit({
+    bucket: `refundreq_${actor.uid}`,
+    ...RATE_LIMITS.refundRequest,
+    message: "You've requested a lot of refunds recently. Please wait a while and try again.",
+  });
   return requestRefundSvc(actor.uid, {
     requestId: requestId(d.requestId),
     orgId: docId(d.orgId, "orgId"),
@@ -159,6 +167,7 @@ export const checkInManually = callable(async (data, context) => {
 export const listEventAttendees = callable(async (data, context) => {
   const actor = requireUser(context);
   const d = obj(data);
+  await consumeRateLimit({ bucket: `attendees_${actor.uid}`, ...RATE_LIMITS.attendees });
   return listEventAttendeesSvc(actor.uid, {
     orgId: docId(d.orgId, "orgId"),
     eventId: docId(d.eventId, "eventId"),
@@ -173,7 +182,7 @@ export const decideRefund = callable(
     const d = obj(data);
     return decideRefundSvc(admin, {
       requestId: requestId(d.requestId),
-      refundId: str(d.refundId, "refundId", 4, 150),
+      refundId: compositeId(d.refundId, "refundId"),
       decision: oneOf(d.decision, "decision", ["approve", "reject"] as const),
       note: str(d.note, "Note", 3, 500),
     });
@@ -219,7 +228,7 @@ export const decideSettlement = callable(async (data, context) => {
   const d = obj(data);
   return decideSettlementSvc(admin, {
     requestId: requestId(d.requestId),
-    settlementId: str(d.settlementId, "settlementId", 4, 150),
+    settlementId: compositeId(d.settlementId, "settlementId"),
     action: oneOf(d.action, "action", ["approve", "hold", "release-hold", "mark-paid"] as const),
     note: str(d.note, "Note", 3, 500),
     payoutReference: optStr(d.payoutReference, "payoutReference", 100),
@@ -237,39 +246,72 @@ export const razorpayWebhook = functions
 
 /* ------------------------------------------------------------- schedules */
 
+// Scheduled jobs are NOT retried (no failurePolicy): the next run is at most
+// 15 minutes away and every step resumes where the last one stopped. Each run
+// is summarised in jobRuns/{job}_{date} and logged (platform/jobs.ts).
+
 export const releaseExpiredHolds = functions
   .region(REGION)
-  .runWith({ secrets: bind(RZP) })
+  .runWith({ secrets: bind(RZP), timeoutSeconds: 240 })
   .pubsub.schedule("every 5 minutes")
   .timeZone("Asia/Kolkata")
   .onRun(async () => {
-    const holds = await releaseExpiredHoldsSvc();
-    const refunds = await retryApprovedRefunds();
-    functions.logger.info("releaseExpiredHolds", { ...holds, refundsRetried: refunds });
+    await runJob("releaseExpiredHolds", {
+      holds: async () => {
+        const out = await releaseExpiredHoldsSvc();
+        if (out.failed > 0) throw new Error(`${out.failed} of ${out.scanned} holds could not be released`);
+        return out;
+      },
+      // Approved refunds whose provider call failed: retried here so a
+      // provider outage heals without an operator.
+      refundRetry: async () => ({ retried: await retryApprovedRefunds() }),
+    });
   });
 
 export const sendEventReminders = functions
   .region(REGION)
+  .runWith({ timeoutSeconds: 300 })
   .pubsub.schedule("every 15 minutes")
   .timeZone("Asia/Kolkata")
   .onRun(async () => {
-    const out = await sendEventRemindersSvc();
-    functions.logger.info("sendEventReminders", out);
+    await runJob("sendEventReminders", { reminders: () => sendEventRemindersSvc() });
   });
 
 /* -------------------------------------------------------------- triggers */
 
+/**
+ * Event cancellation fan-out: cancel + refund every live booking.
+ * RETRIED (failurePolicy): refundCancelledEvent is idempotent (deterministic
+ * refund ids, per-booking transactions that skip already-cancelled bookings),
+ * so a crash or timeout part-way resumes on retry instead of stranding
+ * customers. Events older than 24 h are dropped with an ERROR log rather than
+ * retried forever.
+ */
 export const onEventCancelled = functions
   .region(REGION)
-  .runWith({ secrets: bind(RZP) })
+  .runWith({ secrets: bind(RZP), failurePolicy: true, timeoutSeconds: 540, memory: "512MB" })
   .firestore.document("events/{eventId}")
   .onUpdate(async (change, context) => {
     const before = change.before.data() as { status?: string } | undefined;
-    const after = change.after.data() as { status?: string; cancelledBy?: string } | undefined;
+    const after = change.after.data() as { status?: string; cancelledBy?: string; orgId?: string } | undefined;
     if (before?.status === "cancelled" || after?.status !== "cancelled") return;
-    const out = await refundCancelledEvent(context.params.eventId, {
-      uid: typeof after.cancelledBy === "string" ? after.cancelledBy : "system",
-      role: "system",
-    });
-    functions.logger.info("onEventCancelled", out);
+    const eventId = context.params.eventId as string;
+    if (isStaleEvent(context.timestamp, 24 * 3_600_000, { job: "onEventCancelled", eventId, orgId: after.orgId ?? null })) return;
+    try {
+      const out = await refundCancelledEvent(eventId, {
+        uid: typeof after.cancelledBy === "string" ? after.cancelledBy : "system",
+        role: "system",
+      });
+      logInfo({
+        event: "job.completed",
+        job: "onEventCancelled",
+        eventId,
+        orgId: after.orgId ?? null,
+        bookingsCancelled: out.bookingsCancelled,
+        refundsIssued: out.refundsIssued,
+      });
+    } catch (e) {
+      logError({ event: "job.failed", job: "onEventCancelled", eventId, orgId: after.orgId ?? null, error: String((e as Error)?.message ?? e), willRetry: true });
+      throw e;
+    }
   });

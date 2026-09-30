@@ -3,6 +3,8 @@ import { getAuth } from "firebase-admin/auth";
 import { db, COLLECTIONS, serverNow } from "../platform/firestore";
 import { requireActor } from "../platform/auth";
 import { DomainError, invalidInput, notPermitted } from "../platform/errors";
+import { correlationIdOf, logCallableFailure } from "../platform/log";
+import { isWellFormed } from "../platform/callable";
 
 const ROLES = ["platform-owner", "super-admin", "auditor"] as const;
 
@@ -17,6 +19,7 @@ function parse(data: unknown) {
   if (!ROLES.includes(roleId as (typeof ROLES)[number])) throw invalidInput("The requested role is not supported.");
   if (status !== "active" && status !== "suspended" && status !== "disabled") throw invalidInput("The account status is not supported.");
   if (reason.length < 10 || reason.length > 1000) throw invalidInput("A reason of 10-1000 characters is required.");
+  if (!isWellFormed(reason)) throw invalidInput("The reason contains invalid characters.");
   return { uid, roleId, status, reason };
 }
 
@@ -59,6 +62,7 @@ export const setOperatorAccess = functions.runWith({ enforceAppCheck: process.en
     }
     return { uid: command.uid, roleId: command.roleId, status: command.status };
   } catch (error) {
+    logCallableFailure("setOperatorAccess", error, { uid: context.auth?.uid ?? null, correlationId: correlationIdOf(context) });
     const domain = error instanceof DomainError ? error : new DomainError("INTERNAL", "Access could not be updated.", { nextStep: "Try again. If this continues, contact platform engineering." });
     throw new functions.https.HttpsError(domain.httpsCode as functions.https.FunctionsErrorCode, domain.operatorMessage, domain.toOperatorPayload());
   }

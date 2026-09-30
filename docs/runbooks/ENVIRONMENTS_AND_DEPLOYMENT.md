@@ -101,6 +101,8 @@ The full list below must pass on staging, on physical Android and iOS devices wi
 
 ## 7. Operations
 
+Log events, log-based metrics, alert thresholds and the background-job inventory are in `OBSERVABILITY.md`; create the metrics with `firebase/scripts/create-log-metrics.sh <project>`. Retention periods, the daily clean-up job and legal holds are in `DATA_RETENTION.md`.
+
 - **Monitoring:**
   - Cloud Functions error rate and p95 latency on `reserveSeat`, `confirmPayment`, `razorpayWebhook` and `scanTicket`;
   - webhook 4xx rate (signature failures mean misconfiguration or an attack);

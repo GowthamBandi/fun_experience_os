@@ -31,6 +31,7 @@ import { callable, docId, int, obj, oneOf, requestId, str } from "../platform/ca
 import { requirePhoneUser } from "../platform/actors";
 import { requireAdmin } from "../platform/auth";
 import { DomainError, precondition } from "../platform/errors";
+import { consumeLimit, type LimitName } from "../platform/rateLimit";
 import { COLLECTIONS, db, Timestamp } from "../platform/firestore";
 import { writeAudit } from "../platform/audit";
 import { requirePermission, actorRole } from "../access/permissions";
@@ -551,14 +552,21 @@ export async function adminCancelEventCommand(admin: { uid: string; roleId: stri
 
 // --------------------------------------------------------------- exports
 
-export const saveEvent = callable(async (data, context) => saveEventCommand(requirePhoneUser(context).uid, data));
-export const submitEvent = callable(async (data, context) => submitEventCommand(requirePhoneUser(context).uid, data));
-export const publishEvent = callable(async (data, context) => publishEventCommand(requirePhoneUser(context).uid, data));
+/** Phone-user callable with a per-uid rate limit in front of the command. */
+async function limitedUid(context: Parameters<typeof requirePhoneUser>[0], limit: LimitName): Promise<string> {
+  const uid = requirePhoneUser(context).uid;
+  await consumeLimit(limit, uid);
+  return uid;
+}
+
+export const saveEvent = callable(async (data, context) => saveEventCommand(await limitedUid(context, "catalogSave"), data));
+export const submitEvent = callable(async (data, context) => submitEventCommand(await limitedUid(context, "catalogSubmit"), data));
+export const publishEvent = callable(async (data, context) => publishEventCommand(await limitedUid(context, "catalogOps"), data));
 export const setEventResponsibility = callable(async (data, context) =>
-  setEventResponsibilityCommand(requirePhoneUser(context).uid, data)
+  setEventResponsibilityCommand(await limitedUid(context, "catalogOps"), data)
 );
-export const setEventPhase = callable(async (data, context) => setEventPhaseCommand(requirePhoneUser(context).uid, data));
-export const cancelEvent = callable(async (data, context) => cancelEventCommand(requirePhoneUser(context).uid, data));
+export const setEventPhase = callable(async (data, context) => setEventPhaseCommand(await limitedUid(context, "catalogOps"), data));
+export const cancelEvent = callable(async (data, context) => cancelEventCommand(await limitedUid(context, "eventCancel"), data));
 export const adminCancelEvent = callable(async (data, context) =>
   adminCancelEventCommand(requireAdmin(context, "cancel events"), data)
 );

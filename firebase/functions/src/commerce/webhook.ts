@@ -10,7 +10,7 @@
  */
 
 import { createHash } from "node:crypto";
-import * as functions from "firebase-functions/v1";
+import { logError, logWarn } from "../platform/log";
 import { db, serverNow } from "../platform/firestore";
 import { C } from "./config";
 import { verifyWebhookSignature } from "./provider";
@@ -44,7 +44,14 @@ export async function handleRazorpayWebhook(req: WebhookRequest, res: WebhookRes
   }
   const raw = req.rawBody;
   if (!verifyWebhookSignature(raw, header(req, "x-razorpay-signature"))) {
-    functions.logger.warn("razorpayWebhook: bad signature");
+    // Security signal: forged/misconfigured sender. Never log the body or
+    // the presented signature.
+    logWarn({
+      event: "security.webhook-signature-rejected",
+      provider: "razorpay",
+      signaturePresent: !!header(req, "x-razorpay-signature"),
+      bytes: raw?.length ?? 0,
+    });
     res.status(400).json({ ok: false, error: "invalid-signature" });
     return;
   }
@@ -71,7 +78,7 @@ export async function handleRazorpayWebhook(req: WebhookRequest, res: WebhookRes
   try {
     outcome = await dispatch(body);
   } catch (e) {
-    functions.logger.error("razorpayWebhook: handler failed", { eventId, type: body.event, error: String(e) });
+    logError({ event: "webhook.handler-failed", provider: "razorpay", providerEventId: eventId, type: body.event ?? null, error: String((e as Error)?.message ?? e).slice(0, 300) });
     res.status(500).json({ ok: false });
     return;
   }

@@ -155,6 +155,15 @@ export interface BookingDoc {
  */
 export const MAX_TRANSACTION_ATTEMPTS = 20;
 
+/**
+ * Lapsed holds of OTHER customers reclaimed inline when capacity is short.
+ * Small on purpose: it bounds the transaction's read set (and so contention);
+ * the 5-minute sweeper remains the bulk mechanism.
+ */
+export const LAPSED_RECLAIM_LIMIT = 25;
+/** Held bookings read on the short path (existing (eventId, status) index). */
+export const LAPSED_SCAN_LIMIT = 100;
+
 /** Idempotency receipts are scoped to the actor so keys can't collide across users. */
 export const reserveReceiptId = (uid: string, requestId: string) => `reserveSeat_${uid}_${requestId}`;
 
@@ -302,8 +311,36 @@ export async function reserveSeat(cmd: ReserveSeatCommand): Promise<ReserveSeatR
       if (expirePrior) occupancy = applyHoldReleased(occupancy, priorBooking!.spots ?? 1);
 
       /* ---- THE NO-OVERSELL DECISION ---- */
-      const ledger = deriveCapacityLedger(event.capacity, occupancy);
-      const admission = admitSeats(ledger, cmd.kind, spots);
+      let admission = admitSeats(deriveCapacityLedger(event.capacity, occupancy), cmd.kind, spots);
+
+      // Short on capacity? Other customers' holds that have lapsed but that
+      // releaseExpiredHolds hasn't swept yet (it runs every 5 minutes) still
+      // count as occupied. Reclaim up to LAPSED_RECLAIM_LIMIT of them here, in
+      // this transaction, exactly as the sweeper would: the query read makes
+      // the transaction conflict with a concurrent sweep or payment on those
+      // bookings, so each hold is released exactly once. Only on the short
+      // path, so a normal reservation pays no extra read.
+      const reclaimed: { ref: DocumentReference; spots: number; orgId: string | null }[] = [];
+      if (!admission.admitted) {
+        const lapsed = await tx.get(
+          db()
+            .collection(COLLECTIONS.bookings)
+            .where("eventId", "==", cmd.eventId)
+            .where("status", "==", "held")
+            .limit(LAPSED_SCAN_LIMIT)
+        );
+        // Served by the existing (eventId, status) index; lapsed ones are
+        // picked in memory. Any beyond the scan window are left to the sweeper.
+        for (const d of lapsed.docs) {
+          if (reclaimed.length >= LAPSED_RECLAIM_LIMIT) break;
+          if (priorBookingRef && d.id === priorBookingRef.id) continue; // already released above
+          const b = d.data() as BookingDoc;
+          if (b.status !== "held" || isLiveBooking(b, now.toMillis())) continue;
+          occupancy = applyHoldReleased(occupancy, b.spots ?? 1);
+          reclaimed.push({ ref: d.ref, spots: b.spots ?? 1, orgId: b.orgId ?? null });
+        }
+        if (reclaimed.length) admission = admitSeats(deriveCapacityLedger(event.capacity, occupancy), cmd.kind, spots);
+      }
       if (!admission.admitted) {
         throw admission.reason === "sold-out"
           ? soldOut(admission.message)
@@ -325,6 +362,22 @@ export async function reserveSeat(cmd: ReserveSeatCommand): Promise<ReserveSeatR
       /* ---- writes ---- */
       if (expirePrior) {
         tx.update(priorBookingRef!, { status: "expired", expiredAt: now, updatedAt: now });
+      }
+      for (const r of reclaimed) {
+        tx.update(r.ref, { status: "expired", expiredAt: now, updatedAt: now });
+        // Same audit record the sweeper writes (commerce/holds.ts).
+        writeAudit(tx, {
+          action: "booking.hold-expired",
+          actorUid: "system",
+          actorRole: "system",
+          resourceType: "booking",
+          resourceId: r.ref.id,
+          orgId: r.orgId,
+          before: { status: "held" },
+          after: { status: "expired", spots: r.spots, reclaimedBy: bookingDocRef.id },
+          reason: "Lapsed hold reclaimed inline by a new reservation.",
+          source: "system",
+        });
       }
 
       const ticketIds =

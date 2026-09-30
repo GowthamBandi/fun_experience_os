@@ -18,6 +18,9 @@ import * as functions from "firebase-functions/v1";
 import { callable, docId, int, obj, oneOf, optStr, requestId, str, strList } from "../platform/callable";
 import { requirePhoneUser } from "../platform/actors";
 import { DomainError, precondition } from "../platform/errors";
+import { consumeLimit } from "../platform/rateLimit";
+import { isStaleEvent } from "../platform/jobs";
+import { logError, logInfo } from "../platform/log";
 import { COLLECTIONS, db, serverNow, type Timestamp } from "../platform/firestore";
 import { writeAudit } from "../platform/audit";
 import { requirePermission, actorRole } from "../access/permissions";
@@ -311,16 +314,38 @@ export async function applyApprovedRevision(revisionId: string): Promise<"merged
   });
 }
 
-export const saveExperience = callable(async (data, context) => saveExperienceCommand(requirePhoneUser(context).uid, data));
-export const submitExperience = callable(async (data, context) => submitExperienceCommand(requirePhoneUser(context).uid, data));
+export const saveExperience = callable(async (data, context) => {
+  const uid = requirePhoneUser(context).uid;
+  await consumeLimit("catalogSave", uid);
+  return saveExperienceCommand(uid, data);
+});
+export const submitExperience = callable(async (data, context) => {
+  const uid = requirePhoneUser(context).uid;
+  await consumeLimit("catalogSubmit", uid);
+  return submitExperienceCommand(uid, data);
+});
 
+/**
+ * Folds an approved revision into its original. RETRIED (failurePolicy):
+ * applyApprovedRevision is idempotent (a merged revision is `archived`, so a
+ * replay is a no-op); stale events (> 24 h) are dropped with an ERROR log.
+ */
 export const onExperienceRevisionApproved = functions
   .region("asia-south1")
+  .runWith({ failurePolicy: true })
   .firestore.document(`${COLLECTIONS.experiences}/{experienceId}`)
   .onUpdate(async (change, ctx) => {
     const before = change.before.data();
     const after = change.after.data();
     if (after.status === "approved" && before.status !== "approved" && after.previousVersionId) {
-      await applyApprovedRevision(ctx.params.experienceId as string);
+      const experienceId = ctx.params.experienceId as string;
+      if (isStaleEvent(ctx.timestamp, 24 * 3_600_000, { job: "onExperienceRevisionApproved", experienceId })) return;
+      try {
+        const out = await applyApprovedRevision(experienceId);
+        logInfo({ event: "job.completed", job: "onExperienceRevisionApproved", experienceId, orgId: after.orgId ?? null, outcome: out });
+      } catch (e) {
+        logError({ event: "job.failed", job: "onExperienceRevisionApproved", experienceId, error: String((e as Error)?.message ?? e), willRetry: true });
+        throw e;
+      }
     }
   });

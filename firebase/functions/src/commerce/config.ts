@@ -21,6 +21,11 @@ export const RATE_LIMITS = {
   confirmPayment: { limit: 30, windowSeconds: 600 },
   cancel: { limit: 20, windowSeconds: 600 },
   scan: { limit: 120, windowSeconds: 60 },
+  /** Organizer discretionary refund requests (each lands in the admin queue). */
+  refundRequest: { limit: 20, windowSeconds: 3600 },
+  /** Read-heavy lookups: cancellation quotes and attendee lists. */
+  quote: { limit: 60, windowSeconds: 600 },
+  attendees: { limit: 60, windowSeconds: 600 },
 } as const;
 
 /** Commerce-owned collections not (yet) listed in platform COLLECTIONS. */

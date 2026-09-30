@@ -11,7 +11,7 @@ import { writeAudit } from "../platform/audit";
 import { COLLECTIONS, db, membershipId, serverNow } from "../platform/firestore";
 import { DomainError, notFound } from "../platform/errors";
 import { notify } from "../platform/notify";
-import { consumeRateLimit, resetRateLimit } from "../platform/rateLimit";
+import { consumeLimit, consumeRateLimit, resetRateLimit } from "../platform/rateLimit";
 import { generateCode, hashCode, safeEqual } from "../platform/security";
 import {
   CODE_POLICY,
@@ -316,6 +316,7 @@ export async function redeemStaffCode(command: { code: string }, actor: PhoneAct
 // ---- update ----------------------------------------------------------------
 
 export async function updateStaff(command: UpdateStaffCommand, actor: PhoneActor) {
+  await consumeLimit("staffManage", actor.uid);
   const firestore = db();
   return firestore.runTransaction(async (tx) => {
     const manager = await requirePermission(actor.uid, command.orgId, "staff.manage", { tx });
@@ -371,6 +372,7 @@ export async function updateStaff(command: UpdateStaffCommand, actor: PhoneActor
 // ---- revoke ----------------------------------------------------------------
 
 export async function revokeStaff(command: RevokeStaffCommand, actor: PhoneActor) {
+  await consumeLimit("staffManage", actor.uid);
   const firestore = db();
   return firestore.runTransaction(async (tx) => {
     const manager = await requirePermission(actor.uid, command.orgId, "staff.manage", { tx });
@@ -476,6 +478,7 @@ export async function revokeStaff(command: RevokeStaffCommand, actor: PhoneActor
 // ---- reissue ---------------------------------------------------------------
 
 export async function reissueStaffCode(command: ReissueStaffCodeCommand, actor: PhoneActor) {
+  await consumeLimit("staffReissue", actor.uid);
   const firestore = db();
   return firestore.runTransaction(async (tx) => {
     const manager = await requirePermission(actor.uid, command.orgId, "staff.manage", { tx });

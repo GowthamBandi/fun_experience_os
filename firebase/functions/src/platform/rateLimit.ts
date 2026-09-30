@@ -42,3 +42,35 @@ export async function consumeRateLimit(opts: {
 export async function resetRateLimit(bucket: string): Promise<void> {
   await db().collection("rateLimits").doc(bucket.replace(/\//g, "_")).delete();
 }
+
+/**
+ * Per-uid limits for identity/catalog endpoints (commerce keeps its own table
+ * in commerce/config.ts RATE_LIMITS). Sized far above honest use: they exist
+ * to cap automated abuse (governance-queue spam, write amplification, push
+ * token stuffing), not to shape normal traffic. See docs/runbooks/OBSERVABILITY.md.
+ */
+export const LIMITS = {
+  /** updateMyProfile. */
+  profileUpdate: { limit: 20, windowSeconds: 60 * 60 },
+  /** registerPushToken + unregisterPushToken (one shared bucket). */
+  pushToken: { limit: 30, windowSeconds: 60 * 60 },
+  /** saveExperience / saveEvent drafts. */
+  catalogSave: { limit: 120, windowSeconds: 10 * 60 },
+  /** submitExperience / submitEvent: each opens a governance case. */
+  catalogSubmit: { limit: 30, windowSeconds: 60 * 60 },
+  /** publishEvent / setEventPhase / setEventResponsibility. */
+  catalogOps: { limit: 60, windowSeconds: 10 * 60 },
+  /** cancelEvent: fans out refunds to every booking. */
+  eventCancel: { limit: 10, windowSeconds: 60 * 60 },
+  /** reissueStaffCode: mints a new access code each time. */
+  staffReissue: { limit: 30, windowSeconds: 60 * 60 },
+  /** updateStaff / revokeStaff. */
+  staffManage: { limit: 60, windowSeconds: 60 * 60 },
+} as const;
+
+export type LimitName = keyof typeof LIMITS;
+
+/** Consumes one unit of a named per-uid limit (`<name>_<uid>` bucket). */
+export function consumeLimit(name: LimitName, uid: string, message?: string): Promise<void> {
+  return consumeRateLimit({ bucket: `${name}_${uid}`, ...LIMITS[name], message });
+}

@@ -14,7 +14,7 @@
  */
 
 import type { Transaction, DocumentReference } from "firebase-admin/firestore";
-import { callable, docId, int, obj, oneOf, requestId, str } from "../platform/callable";
+import { assertWellFormed, callable, docId, int, obj, oneOf, requestId, str } from "../platform/callable";
 import { requirePhoneUser } from "../platform/actors";
 import { requireAdmin } from "../platform/auth";
 import { DomainError, precondition } from "../platform/errors";
@@ -69,6 +69,7 @@ export async function submitReviewCommand(uid: string, data: unknown) {
   let comment = "";
   if (d.comment !== undefined && d.comment !== null) {
     if (typeof d.comment !== "string") throw new DomainError("INVALID_INPUT", "Comment must be text.");
+    assertWellFormed(d.comment, "Comment");
     comment = d.comment.trim();
     if (comment.length > 1000) throw new DomainError("INVALID_INPUT", "Comments can be at most 1000 characters.");
     const bad = commentViolation(comment);

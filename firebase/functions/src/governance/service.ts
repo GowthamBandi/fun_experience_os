@@ -222,7 +222,7 @@ export async function decideGovernanceCase(command: GovernanceDecisionCommand, a
             title: `Your ${label} was ${command.outcome === "approved" ? "approved" : command.outcome === "rejected" ? "not approved" : "sent back for changes"}`,
             body: command.note || `“${String(t.title ?? t.name ?? label)}” passed review.`,
             dedupeKey: `${command.caseId}:v${nextVersion}`,
-            ...(kind === "event-approval" ? { link: { type: "event" as const, id: targetId } } : {}),
+            link: { type: kind === "event-approval" ? ("event" as const) : ("experience" as const), id: targetId },
           });
         }
       }

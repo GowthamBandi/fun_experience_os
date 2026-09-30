@@ -27,7 +27,9 @@ This is the canonical callable API used by PULSE (Flutter) and the Operations Co
 | `redeemStaffCode` | phone user | `{ code }` | Must match the caller's **verified phone** and an unexpired invite. Rate limited to 5 per hour. Returns `{ orgId }` |
 | `updateStaff` | `staff.manage` | `{ requestId, orgId, uid, permissions?, eventScope?, title? }` | Updated membership. You can't edit owners or grant beyond your own permissions |
 | `revokeStaff` | `staff.manage` | `{ requestId, orgId, uid? , inviteId?, reason }` | Membership becomes `revoked` (or the invite is cancelled). **Refused** if the member is the primary responsible person for a published event |
-| `reissueStaffCode` | `staff.manage` | `{ requestId, orgId, inviteId }` | `{ code, expiresAt }`; the old code dies |
+| `reissueStaffCode` | `staff.manage` | `{ requestId, orgId, inviteId }` | `{ code, expiresAt }`; the old code dies. Works for `pending` (incl. lapsed, for 7 days) and `locked` invites; after the retention sweep marks an invite `expired`, send a new invite |
+| `registerPushToken` | phone user | `{ token (20–4096 chars), platform: "android"\|"ios" }` | Adds the FCM token to `users/{uid}.pushTokens`, most-recent last, **capped at 10** (oldest dropped; re-registering moves a token to the end). Returns `{ ok: true, tokens }` |
+| `unregisterPushToken` | any signed-in user | `{ token }` | Removes the token (call on sign-out / notification opt-out). Idempotent. Returns `{ ok: true }` |
 
 **Console (admin claims):**
 - `decideCase` is extended. For an `organizer-kyc` case with outcome `approved`, the response includes `{ organizerCode, orgId, codeExpiresAt }`, returned **once**.
@@ -69,13 +71,47 @@ This is the canonical callable API used by PULSE (Flutter) and the Operations Co
 | `proposeCommercialAgreement` | admin | `{ requestId, orgId, commissionBps (0–5000), payoutCadence: "weekly"\|"fortnightly"\|"monthly", note }` | Creates a `pending-approval` version |
 | `decideCommercialAgreement` | admin | `{ requestId, agreementId, action: "approve"\|"reject", note }` | Always dual control (proposer can't decide); approving supersedes the previous approved version |
 
-**Scheduled jobs**
-- `releaseExpiredHolds` runs every 5 minutes.
-- `sendEventReminders` runs every 15 minutes. It sends a 24-hour reminder and a 2-hour reminder, deduplicated.
+**Scheduled jobs** (asia-south1, Asia/Kolkata; each run summarised in `jobRuns/{job}_{YYYY-MM-DD}`, see `docs/runbooks/OBSERVABILITY.md`)
+- `releaseExpiredHolds` runs every 5 minutes: expires up to 500 lapsed holds, then retries up to 50 `approved` refunds whose provider call failed.
+- `sendEventReminders` runs every 15 minutes. It sends a 24-hour reminder and a 2-hour reminder, deduplicated; bounded to 200 events / 2,000 reminders per run, the rest go out next run.
+- `runDataRetention` runs daily at 03:17 IST (`docs/runbooks/DATA_RETENTION.md`).
 
 **Triggers**
-- `onEventCancelled` fans out refunds.
-- `deliverNotifications` runs on `userNotifications` create and sends a push when an FCM token exists. Otherwise the notification stays in-app.
+- `onEventCancelled` fans out refunds. Retried on failure (idempotent); events older than 24 h are dropped with an ERROR log.
+- `onExperienceRevisionApproved` merges an approved revision. Retried on failure (idempotent).
+- `deliverNotifications` runs on `userNotifications` create and sends a push when an FCM token exists. Otherwise the notification stays in-app. Not retried (a retry could push twice); tokens FCM reports dead are removed.
+
+**Notifications.** Every `userNotifications` document carries `kind`, `title`, `body`, `read`, `createdAt` and a deep link `link: { type: "event"|"booking"|"ticket"|"organizer"|"application"|"experience", id }`. The recipient may flip only `read` (rules).
+
+## Platform (`src/platform`)
+
+| Callable | Caller | Input | Output / effect |
+| --- | --- | --- | --- |
+| `setLegalHold` (asia-south1) | admin claims (platform-owner / super-admin) | `{ requestId, subjectType: "user", subjectId, action: "place"\|"release", reason: 10..1000 chars, reference?: ≤200 chars }` | `{ holdId, status: "active"\|"released", version }`. Writes `legalHolds/{subjectType}_{subjectId}`; audited `legal-hold.placed` / `legal-hold.released`. Placing an active hold is `CONFLICT`; releasing a non-active one is `PRECONDITION`. While active, retention never deletes that user's KYC documents |
+
+## Rate limits (per uid, fixed window, `rateLimits/{bucket}`; refusal is `RATE_LIMITED`)
+
+| Endpoint(s) | Limit |
+| --- | --- |
+| `reserveSeat` / `createPaymentOrder` / `cancelBooking` | 20 per 10 min each |
+| `confirmPayment` | 30 per 10 min |
+| `scanTicket` + `checkInManually` (shared) | 120 per minute |
+| `quoteCancellation`, `listEventAttendees` | 60 per 10 min each |
+| `requestRefund` | 20 per hour |
+| `redeemOrganizerCode`, `redeemStaffCode` | 5 per hour each (reset on success) |
+| `submitOrganizerApplication` | 5 per day |
+| `inviteStaff` | 30 per hour |
+| `reissueStaffCode` | 30 per hour |
+| `updateStaff` + `revokeStaff` (shared) | 60 per hour |
+| `submitReview` | 10 per hour |
+| `saveExperience` + `saveEvent` (shared) | 120 per 10 min |
+| `submitExperience` + `submitEvent` (shared) | 30 per hour |
+| `publishEvent` + `setEventPhase` + `setEventResponsibility` (shared) | 60 per 10 min |
+| `cancelEvent` | 10 per hour |
+| `updateMyProfile` | 20 per hour |
+| `registerPushToken` + `unregisterPushToken` (shared) | 30 per hour |
+
+Admin-only callables are not rate limited (few, audited, behind verified-email claims). `razorpayWebhook` verifies the HMAC signature first (cheap, constant-time) and does no other work for an unsigned request.
 
 ---
 

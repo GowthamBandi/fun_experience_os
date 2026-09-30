@@ -1,6 +1,7 @@
 import * as functions from "firebase-functions/v1";
 import type { CallableContext } from "firebase-functions/v1/https";
 import { DomainError } from "./errors";
+import { correlationIdOf, logCallableFailure, safeRequestId } from "./log";
 import { isEmulator, type SecretName } from "./security";
 
 /** Maps any thrown value onto a safe HttpsError (no internals leak). */
@@ -13,7 +14,6 @@ export function toHttpsError(error: unknown): functions.https.HttpsError {
       error.toOperatorPayload()
     );
   }
-  functions.logger.error("Unhandled callable error", error);
   return new functions.https.HttpsError("internal", "Something went wrong on our side. Please try again.", {
     code: "INTERNAL",
     message: "Something went wrong on our side. Please try again.",
@@ -21,9 +21,17 @@ export function toHttpsError(error: unknown): functions.https.HttpsError {
   });
 }
 
+/** Deployed v1 functions carry their export name in FUNCTION_TARGET. */
+const functionName = () => process.env.FUNCTION_TARGET ?? process.env.K_SERVICE ?? "callable";
+
 /**
  * Standard PULSE callable: App Check enforced outside the emulator, secrets
  * bound at deploy time, every error mapped to a business-language payload.
+ *
+ * Every failure is logged once, structurally (platform/log.ts): DomainErrors
+ * at WARNING/INFO with their business code (security codes get a
+ * `security.*` event), anything unexpected at ERROR with its stack. The
+ * request payload is never logged.
  */
 export function callable<T>(
   handler: (data: unknown, context: CallableContext) => Promise<T>,
@@ -37,12 +45,33 @@ export function callable<T>(
       try {
         return await handler(data, context);
       } catch (error) {
+        if (!(error instanceof functions.https.HttpsError)) {
+          logCallableFailure(functionName(), error, {
+            uid: context?.auth?.uid ?? null,
+            requestId: safeRequestId(data),
+            correlationId: correlationIdOf(context),
+          });
+        }
         throw toHttpsError(error);
       }
     });
 }
 
 // ---- input validation ------------------------------------------------------
+
+/** An unpaired UTF-16 surrogate (String.prototype.isWellFormed is ES2024; target is ES2021). */
+const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+
+/** True when `s` is well-formed Unicode (no lone surrogates). Firestore rejects anything else. */
+export function isWellFormed(s: string): boolean {
+  return !LONE_SURROGATE.test(s);
+}
+
+/** Refuses malformed Unicode as INVALID_INPUT before it can reach Firestore (which would answer INTERNAL). */
+export function assertWellFormed(s: string, name: string): string {
+  if (!isWellFormed(s)) throw new DomainError("INVALID_INPUT", `${name} contains invalid characters.`);
+  return s;
+}
 
 export function obj(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -53,6 +82,7 @@ export function obj(value: unknown): Record<string, unknown> {
 
 export function str(value: unknown, name: string, min: number, max: number): string {
   if (typeof value !== "string") throw new DomainError("INVALID_INPUT", `${name} is required.`);
+  assertWellFormed(value, name);
   const clean = value.trim();
   if (clean.length < min || clean.length > max) {
     throw new DomainError("INVALID_INPUT", `${name} must be ${min}–${max} characters.`);
@@ -77,6 +107,19 @@ const ID = /^[A-Za-z0-9][A-Za-z0-9_-]{3,127}$/;
 export function docId(value: unknown, name: string): string {
   const s = str(value, name, 4, 128);
   if (!ID.test(s)) throw new DomainError("INVALID_INPUT", `${name} is not valid.`);
+  return s;
+}
+
+const COMPOSITE_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{3,149}$/;
+
+/**
+ * Server-composed document ids that can exceed docId()'s 128 characters,
+ * e.g. refunds `req_{uid}_{requestId}` / `dup_{providerPaymentId}` and
+ * settlements `stl_{orgId}_{requestId}` (both sliced to 150).
+ */
+export function compositeId(value: unknown, name: string): string {
+  const s = str(value, name, 4, 150);
+  if (!COMPOSITE_ID.test(s)) throw new DomainError("INVALID_INPUT", `${name} is not valid.`);
   return s;
 }
 

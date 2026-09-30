@@ -166,6 +166,9 @@ export async function redeemOrganizerCode(command: { code: string }, actor: Phon
     if (!actSnap.exists) return fail("no-activation");
     const act = actSnap.data()!;
     const orgId = String(act.orgId ?? "");
+    // The retention sweep marks lapsed codes `expired` (hash removed); the
+    // owner of this activation still deserves the accurate reason.
+    if (act.status === "expired") return fail("expired", orgId);
     if (act.status !== "issued" || typeof act.codeHash !== "string") return fail("not-issued", orgId);
     const attempts = Number(act.attempts ?? 0);
     if (attempts >= CODE_POLICY.maxAttemptsPerCode) return fail("locked", orgId);

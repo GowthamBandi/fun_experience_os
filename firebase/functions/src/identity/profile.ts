@@ -2,6 +2,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { writeAudit } from "../platform/audit";
 import { COLLECTIONS, db, serverNow } from "../platform/firestore";
 import { DomainError } from "../platform/errors";
+import { consumeLimit } from "../platform/rateLimit";
 import type { Membership } from "../access/permissions";
 import { iso, type PhoneActor } from "./common";
 import { ageOn, type UpdateProfileCommand } from "./model";
@@ -16,6 +17,7 @@ export const MIN_AGE = 13;
  * never on the public profile. The phone comes from the verified token only.
  */
 export async function updateMyProfile(command: UpdateProfileCommand, actor: PhoneActor) {
+  await consumeLimit("profileUpdate", actor.uid, "You've updated your profile a lot recently. Please try again later.");
   const today = serverNow().toDate();
   const age = ageOn(command.birthDate, today);
   if (age < 0 || age > 120) throw new DomainError("INVALID_INPUT", "Enter your real date of birth.");

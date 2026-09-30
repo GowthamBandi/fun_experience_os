@@ -19,6 +19,12 @@ export type NotificationKind =
   | "event-decision"
   | "safety";
 
+export type NotificationLinkType = "event" | "booking" | "ticket" | "organizer" | "application" | "experience";
+export interface NotificationLink {
+  type: NotificationLinkType;
+  id: string;
+}
+
 /**
  * Queues an in-app notification (and, when a push provider is configured, a
  * push via the `deliverNotifications` trigger).
@@ -35,7 +41,11 @@ export function notify(
     title: string;
     body: string;
     dedupeKey: string;
-    link?: { type: "event" | "booking" | "ticket" | "organizer" | "application"; id: string };
+    /**
+     * Deep link (required): the app routes a tap on `kind` + `link.type` to
+     * the screen for `link.id`. Every notification must lead somewhere.
+     */
+    link: NotificationLink;
   }
 ): void {
   const id = `${n.kind}:${n.dedupeKey}:${n.recipientUid}`.replace(/[/]/g, "_").slice(0, 700);
@@ -45,7 +55,7 @@ export function notify(
     kind: n.kind,
     title: n.title,
     body: n.body,
-    link: n.link ?? null,
+    link: n.link,
     read: false,
     push: { status: "pending" as const },
     createdAt: serverNow(),

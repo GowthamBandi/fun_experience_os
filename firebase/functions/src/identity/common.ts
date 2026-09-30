@@ -9,6 +9,7 @@ import { writeAudit } from "../platform/audit";
 import { COLLECTIONS, db, serverNow, Timestamp } from "../platform/firestore";
 import { DomainError } from "../platform/errors";
 import { consumeRateLimit } from "../platform/rateLimit";
+import { logWarn } from "../platform/log";
 import type { Membership } from "../access/permissions";
 
 export type PhoneActor = UserActor & { phone: string };
@@ -108,6 +109,8 @@ export function codeFailureAudit(
   reason: CodeFailureReason,
   extra: { resourceId?: string; orgId?: string | null } = {}
 ): void {
+  // Security signal for the `code_failures` metric. Never the attempted code.
+  logWarn({ event: "security.code-failed", uid: actor.uid, orgId: extra.orgId ?? null, purpose, reason });
   writeAudit(writer, {
     action: "access.code-failed",
     actorUid: actor.uid,

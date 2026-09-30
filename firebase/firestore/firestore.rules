@@ -215,6 +215,17 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Background-job summaries and legal/compliance holds
+    // (docs/runbooks/DATA_RETENTION.md). Written only by server code.
+    match /jobRuns/{id} {
+      allow read: if isAdmin() || isAuditor();
+      allow write: if false;
+    }
+    match /legalHolds/{id} {
+      allow read: if isAdmin() || isAuditor();
+      allow write: if false;
+    }
+
     // Server-only stores.
     match /commandReceipts/{id} { allow read, write: if false; }
     match /paymentEvents/{id} { allow read, write: if false; }
