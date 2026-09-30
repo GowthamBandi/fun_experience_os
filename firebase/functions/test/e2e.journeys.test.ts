@@ -42,6 +42,16 @@ const S: {
 
 const commission = (gross: number) => Math.floor((gross * BPS) / 10_000);
 
+/** Polls until `check` passes (a live Firestore trigger may still be finishing in CI). */
+async function settle(check: () => Promise<boolean>, timeoutMs = 20_000) {
+  const end = Date.now() + timeoutMs;
+  while (Date.now() < end) {
+    if (await check()) return;
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  throw new Error("condition not reached in time");
+}
+
 describe(`E2E journeys (run ${RUN})`, () => {
   test("J1 organizer journey: apply → KYC approval (code once) → redeem → terms → experience → events published", async () => {
     const t0 = Date.now();
@@ -369,7 +379,14 @@ describe(`E2E journeys (run ${RUN})`, () => {
     expect(await getDoc(`events/${eventB}`)).toMatchObject({ status: "cancelled", cancelReason: "Turf closed for monsoon repairs", statusBeforeCancel: "published" });
 
     const first = await refundCancelledEvent(eventB, { uid: owner.uid, role: "system" });
-    expect(first).toMatchObject({ bookingsCancelled: 3, refundsIssued: 3 });
+    // Where the Functions emulator runs (CI), the deployed onEventCancelled
+    // trigger shares this work; per-booking transactions keep it exactly-once.
+    expect(first.bookingsCancelled).toBeLessThanOrEqual(3);
+    expect(first.refundsIssued).toBeLessThanOrEqual(3);
+    await settle(async () => {
+      const rs = await docsWhere("refunds", "eventId", eventB);
+      return rs.length === 3 && rs.every((r) => (r as { status?: string }).status === "processing");
+    });
     for (const [i, b] of bookings.entries()) {
       const refunds = await docsWhere("refunds", "bookingId", b.bookingId);
       expect(refunds).toHaveLength(1);
@@ -393,7 +410,14 @@ describe(`E2E journeys (run ${RUN})`, () => {
       notes: (await Promise.all(custs.map((c) => count("userNotifications", "recipientUid", c.uid)))).join(","),
       audits: await count("auditEvents", "orgId", orgId),
     });
-    const before = await snapshot();
+    // Let any in-flight trigger writes land before taking the baseline.
+    let before = await snapshot();
+    for (let stable = 0; stable < 3; ) {
+      await new Promise((r) => setTimeout(r, 500));
+      const now = await snapshot();
+      stable = JSON.stringify(now) === JSON.stringify(before) ? stable + 1 : 0;
+      before = now;
+    }
     const second = await refundCancelledEvent(eventB, { uid: owner.uid, role: "system" });
     expect(second).toMatchObject({ bookingsCancelled: 0, refundsIssued: 0, refundIds: [] });
     expect(await snapshot()).toEqual(before);
