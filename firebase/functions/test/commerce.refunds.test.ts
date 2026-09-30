@@ -384,14 +384,24 @@ describe("event cancellation", () => {
 
     const err1 = (await refundCancelledEvent(eventId, { uid: "owner-x", role: "org:owner" }).catch((e: unknown) => e)) as EventRefundIncompleteError;
     expect(err1).toBeInstanceOf(EventRefundIncompleteError);
-    expect(err1.summary).toMatchObject({ bookingsCancelled: 2, refundsIssued: 2, failedBookingIds: [broken] });
+    // In CI the live onEventCancelled trigger shares this work (see the test
+    // above), so the direct call may have done only part of it.
+    expect(err1.summary.failedBookingIds).toEqual([broken]);
+    expect(err1.summary.bookingsCancelled).toBeLessThanOrEqual(2);
+    expect(err1.summary.refundsIssued).toBeLessThanOrEqual(2);
+    await waitUntil(async () => {
+      const rs = await db().collection("refunds").where("eventId", "==", eventId).get();
+      return rs.size === 2 && rs.docs.every((d) => d.data().status === "processing");
+    });
     for (const b of booked) {
       expect((await getDoc<{ status: string }>(`bookings/${b.bookingId}`))!.status).toBe("cancelled");
       expect((await getDoc<Refund>(`refunds/evc_${b.bookingId}`))!).toMatchObject({ amountMinor: 40_000, status: "processing" });
     }
     expect((await getDoc<{ status: string }>(`bookings/${broken}`))!.status).toBe("confirmed");
     const alert = (await getDoc<Record<string, any>>(`riskAlerts/evc-failed_${broken}`))!;
-    expect(alert).toMatchObject({ kind: "event-cancel-refund-failed", severity: "high", status: "open", orgId, detail: { eventId, bookingId: broken, occurrences: 1 } });
+    expect(alert).toMatchObject({ kind: "event-cancel-refund-failed", severity: "high", status: "open", orgId, detail: { eventId, bookingId: broken } });
+    const occurrencesBefore = alert.detail.occurrences as number; // 1, or 2 where the live trigger also ran
+    expect(occurrencesBefore).toBeGreaterThanOrEqual(1);
     expect(typeof alert.summary).toBe("string");
 
     // The trigger's retry: still fails (so it keeps retrying), refunds nothing twice, updates the same alert.
@@ -403,7 +413,7 @@ describe("event cancellation", () => {
       )
     ).rejects.toBeInstanceOf(EventRefundIncompleteError);
     expect((await db().collection("refunds").where("eventId", "==", eventId).get()).size).toBe(2);
-    expect((await getDoc<Record<string, any>>(`riskAlerts/evc-failed_${broken}`))!.detail.occurrences).toBe(2);
+    expect((await getDoc<Record<string, any>>(`riskAlerts/evc-failed_${broken}`))!.detail.occurrences).toBe(occurrencesBefore + 1);
   });
 
   test("a cancelled event dropped by the 24 h stale guard raises a high-severity alert instead of vanishing", async () => {
