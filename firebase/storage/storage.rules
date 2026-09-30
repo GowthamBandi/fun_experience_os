@@ -8,10 +8,10 @@ rules_version = '2';
 // Size and content-type limits stop the bucket being used as free hosting.
 service firebase.storage {
   match /b/{bucket}/o {
-    function signedIn() { return request.auth != null && request.auth.token.disabled != true; }
+    function signedIn() { return request.auth != null && request.auth.token.get('disabled', false) != true; }
     function isAdmin() {
-      return request.auth != null && request.auth.token.email_verified == true
-        && request.auth.token.roleId in ['platform-owner', 'super-admin'];
+      return request.auth != null && request.auth.token.get('email_verified', false) == true
+        && request.auth.token.get('roleId', '') in ['platform-owner', 'super-admin'];
     }
     function membership(orgId) {
       return firestore.get(/databases/(default)/documents/memberships/$(orgId + '__' + request.auth.uid)).data;

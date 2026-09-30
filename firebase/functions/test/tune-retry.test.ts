@@ -50,8 +50,12 @@ async function wipe() {
 async function seed() {
   await db.collection("events").doc(SESSION_ID).set({
     id: SESSION_ID,
-    status: "booking-open",
-    territoryId: "hvd-central",
+    orgId: "org-tune",
+    experienceId: "exp-tune",
+    status: "published",
+    priceMinor: 50_000,
+    currency: "INR",
+    commissionBps: 1_000,
     capacity: {
       maxPhysicalCapacity: CAPACITY,
       blockedSlots: 0,
@@ -66,7 +70,7 @@ async function seed() {
 function cmd(i: number, maxAttempts: number): ReserveSeatCommand {
   return {
     requestId: `tune-${maxAttempts}-${i}-${Math.random().toString(36).slice(2, 10)}`,
-    sessionId: SESSION_ID,
+    eventId: SESSION_ID,
     alias: `Client${i}`,
     kind: "sellable",
     actor: { uid: "op-test", roleId: "super-admin" },
@@ -94,7 +98,7 @@ async function sweep(maxAttempts: number) {
   );
   const wall = Date.now() - t0;
   const by = outcomes.reduce<Record<string, number>>((a, o) => ((a[o] = (a[o] || 0) + 1), a), {});
-  const docs = (await db.collection("bookings").where("sessionId", "==", SESSION_ID).get()).size;
+  const docs = (await db.collection("bookings").where("eventId", "==", SESSION_ID).get()).size;
   const sess = (await db.collection("events").doc(SESSION_ID).get()).data()!;
 
   return {

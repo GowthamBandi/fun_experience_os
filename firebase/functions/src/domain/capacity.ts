@@ -157,6 +157,9 @@ export type SeatAdmission =
   | { admitted: true }
   | { admitted: false; reason: "sold-out" | "venue-full"; message: string };
 
+/** Largest number of spots one booking may claim (API contract: 1..4). */
+export const MAX_SPOTS_PER_BOOKING = 4;
+
 /**
  * THE NO-OVERSELL DECISION.
  *
@@ -165,8 +168,21 @@ export type SeatAdmission =
  * same transaction. It is never called on the client for an authoritative answer.
  */
 export function admitSeat(ledger: CapacityLedger, kind: SeatRequestKind): SeatAdmission {
+  return admitSeats(ledger, kind, 1);
+}
+
+/**
+ * N-seat admission. All-or-nothing: a request for 3 spots with 2 left is
+ * refused outright (never partially filled), so one booking can never push
+ * sellable or physical occupancy past its limit.
+ */
+export function admitSeats(ledger: CapacityLedger, kind: SeatRequestKind, spots: number): SeatAdmission {
+  if (!Number.isSafeInteger(spots) || spots < 1) {
+    throw new RangeError("spots must be a positive integer");
+  }
+  const plural = spots === 1 ? "place" : `${spots} places`;
   if (kind === "complimentary") {
-    if (ledger.remainingPhysicalCapacity <= 0) {
+    if (ledger.remainingPhysicalCapacity < spots) {
       return {
         admitted: false,
         reason: "venue-full",
@@ -176,14 +192,17 @@ export function admitSeat(ledger: CapacityLedger, kind: SeatRequestKind): SeatAd
     return { admitted: true };
   }
 
-  if (ledger.remainingSellableCapacity <= 0) {
+  if (ledger.remainingSellableCapacity < spots) {
     return {
       admitted: false,
       reason: "sold-out",
-      message: "This session just sold out. No places are left.",
+      message:
+        ledger.remainingSellableCapacity <= 0 || spots === 1
+          ? "This session just sold out. No places are left."
+          : `Only ${ledger.remainingSellableCapacity} left, so ${plural} can't be booked together.`,
     };
   }
-  if (ledger.remainingPhysicalCapacity <= 0) {
+  if (ledger.remainingPhysicalCapacity < spots) {
     return {
       admitted: false,
       reason: "venue-full",
@@ -199,45 +218,67 @@ export function admitSeat(ledger: CapacityLedger, kind: SeatRequestKind): SeatAd
  */
 export function applySeatReserved(
   occupancy: OccupancyCounters,
-  kind: SeatRequestKind
+  kind: SeatRequestKind,
+  spots = 1
 ): OccupancyCounters {
   if (kind === "complimentary") {
-    return { ...occupancy, confirmedComplimentaryBookings: occupancy.confirmedComplimentaryBookings + 1 };
+    return { ...occupancy, confirmedComplimentaryBookings: occupancy.confirmedComplimentaryBookings + spots };
   }
-  return { ...occupancy, activeReservationHolds: occupancy.activeReservationHolds + 1 };
+  return { ...occupancy, activeReservationHolds: occupancy.activeReservationHolds + spots };
+}
+
+/** A sellable seat confirmed without a hold (free event, late-capture re-admission). */
+export function applySeatsConfirmedDirect(occupancy: OccupancyCounters, spots: number): OccupancyCounters {
+  return { ...occupancy, confirmedPaidBookings: occupancy.confirmedPaidBookings + spots };
 }
 
 /** Reservation hold converts to a confirmed paid seat. Net occupancy unchanged. */
-export function applySeatConfirmed(occupancy: OccupancyCounters): OccupancyCounters {
+export function applySeatConfirmed(occupancy: OccupancyCounters, spots = 1): OccupancyCounters {
   return {
     ...occupancy,
-    activeReservationHolds: Math.max(0, occupancy.activeReservationHolds - 1),
-    confirmedPaidBookings: occupancy.confirmedPaidBookings + 1,
+    activeReservationHolds: Math.max(0, occupancy.activeReservationHolds - spots),
+    confirmedPaidBookings: occupancy.confirmedPaidBookings + spots,
   };
 }
 
 /** Reservation hold released without becoming a seat (expiry, payment failure, cancel). */
-export function applyHoldReleased(occupancy: OccupancyCounters): OccupancyCounters {
+export function applyHoldReleased(occupancy: OccupancyCounters, spots = 1): OccupancyCounters {
   return {
     ...occupancy,
-    activeReservationHolds: Math.max(0, occupancy.activeReservationHolds - 1),
+    activeReservationHolds: Math.max(0, occupancy.activeReservationHolds - spots),
   };
 }
 
 /** A confirmed seat is given up (cancellation, refund, company cancellation). */
 export function applyConfirmedReleased(
   occupancy: OccupancyCounters,
-  kind: SeatRequestKind
+  kind: SeatRequestKind,
+  spots = 1
 ): OccupancyCounters {
   if (kind === "complimentary") {
     return {
       ...occupancy,
-      confirmedComplimentaryBookings: Math.max(0, occupancy.confirmedComplimentaryBookings - 1),
+      confirmedComplimentaryBookings: Math.max(0, occupancy.confirmedComplimentaryBookings - spots),
     };
   }
   return {
     ...occupancy,
-    confirmedPaidBookings: Math.max(0, occupancy.confirmedPaidBookings - 1),
+    confirmedPaidBookings: Math.max(0, occupancy.confirmedPaidBookings - spots),
+  };
+}
+
+/**
+ * The derived fields published on the event document next to `occupancy`,
+ * so every client reads the same numbers. `status` (lifecycle) is never
+ * touched here — see REG-001.
+ */
+export function occupancyProjection(config: CapacityConfig, occupancy: OccupancyCounters) {
+  const ledger = deriveCapacityLedger(config, occupancy);
+  return {
+    occupancy,
+    remainingSellableCapacity: ledger.remainingSellableCapacity,
+    fillRate: ledger.fillRate,
+    occupancyStatus: ledger.occupancyStatus,
   };
 }
 
@@ -249,10 +290,12 @@ export function applyConfirmedReleased(
  * function is what detects it. Mirrors the prototype's classification rules.
  */
 export interface BookingOccupancyFacts {
-  bookingType: string;
-  reservationStatus: string;
+  bookingType?: string;
+  reservationStatus?: string;
   status: string;
-  paymentStatus: string;
+  paymentStatus?: string;
+  /** Seats claimed by the booking (canonical model, ADR-0003). Defaults to 1. */
+  spots?: number;
 }
 
 export function recomputeOccupancyFromBookings(
@@ -264,32 +307,39 @@ export function recomputeOccupancyFromBookings(
   let confirmedComplimentaryBookings = 0;
   let waitlistCount = 0;
 
+  // Canonical terminal states consume no capacity (ADR-0003 booking machine).
+  const RELEASED = new Set(["expired", "cancelled", "payment-orphaned", "failed"]);
+
   for (const b of bookings) {
+    const n = b.spots ?? 1;
+    if (RELEASED.has(b.status)) continue;
     const isComp = b.bookingType === "complimentary" || b.status === "complimentary";
-    const isConfirmed = b.status === "confirmed" || b.paymentStatus === "confirmed";
+    const isConfirmed =
+      b.status === "confirmed" || b.status === "completed" || b.paymentStatus === "confirmed";
 
     if (b.reservationStatus === "offer-hold" || b.status === "waitlist-offered") {
-      waitlistOfferHolds++;
+      waitlistOfferHolds += n;
       continue;
     }
     if (b.status === "waitlisted" || b.status === "waitlist-joined") {
-      waitlistCount++;
+      waitlistCount += n;
       continue;
     }
     if (isComp) {
-      if (isConfirmed || b.status === "complimentary") confirmedComplimentaryBookings++;
+      if (isConfirmed || b.status === "complimentary") confirmedComplimentaryBookings += n;
       continue;
     }
     if (isConfirmed) {
-      confirmedPaidBookings++;
+      confirmedPaidBookings += n;
       continue;
     }
     if (
+      b.status === "held" ||
       b.reservationStatus === "active" ||
       b.status === "reserved" ||
       b.status === "payment-pending"
     ) {
-      activeReservationHolds++;
+      activeReservationHolds += n;
     }
   }
 

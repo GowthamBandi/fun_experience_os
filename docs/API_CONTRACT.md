@@ -46,6 +46,7 @@ This is the canonical callable API used by PULSE (Flutter) and the Operations Co
 | `setEventPhase` | `events.operate` (scope) | `{ requestId, orgId, eventId, phase: "booking-closed"\|"live"\|"completed" }` | Moves the lifecycle forward only |
 | `cancelEvent` | `events.cancel` (scope) or admin | `{ requestId, orgId, eventId, reason }` | `cancelled`; queues full refunds for every confirmed booking (commerce) and notifies attendees |
 | `submitReview` | ticket holder | `{ requestId, eventId, rating: 1..5, comment? }` | Only if the caller holds a **used** ticket (checked in) for the event, the event is `completed` or has ended, and within 30 days. One review per person per event (`reviews/{eventId}__{uid}`); editing within the window replaces it. Rate limited |
+| `adminCancelEvent` (admin) | admin claims | `{ requestId, eventId, reason }` | Emergency intervention: `cancelled` + full refunds (commerce trigger), audited |
 | `moderateReview` (admin) | admin claims | `{ requestId, reviewId, status: "published"\|"hidden", reason }` | Audited |
 
 ## Commerce (`src/commerce`)

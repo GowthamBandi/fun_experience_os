@@ -1,6 +1,7 @@
 export const CASE_KINDS = [
   "organizer-kyc",
   "arena-verification",
+  "experience-approval",
   "event-approval",
   "commission-proposal",
   "fraud-alert",
@@ -80,4 +81,16 @@ export function parseEntityStatusCommand(value: unknown): EntityStatusCommand {
     status: status as EntityStatusCommand["status"],
     reason: text(data.reason, "reason", 10, 2000),
   };
+}
+
+export interface ReissueOrganizerCodeCommand {
+  requestId: string;
+  applicantUid: string;
+}
+
+export function parseReissueOrganizerCodeCommand(value: unknown): ReissueOrganizerCodeCommand {
+  const data = object(value);
+  const applicantUid = text(data.applicantUid, "applicantUid", 4, 128);
+  if (!/^[A-Za-z0-9_-]+$/.test(applicantUid)) throw new Error("applicantUid contains unsupported characters.");
+  return { requestId: id(data.requestId, "requestId"), applicantUid };
 }

@@ -18,12 +18,14 @@ service cloud.firestore {
     // ---------------------------------------------------------------- identity
     function signedIn() { return request.auth != null; }
     function uid() { return request.auth.uid; }
-    function notDisabled() { return request.auth.token.disabled != true; }
+    // Claims may be absent on real tokens (phone auth has no custom claims),
+    // so every claim read uses a default. A missing claim must never error.
+    function notDisabled() { return request.auth.token.get('disabled', false) != true; }
     function user() { return signedIn() && notDisabled(); }
 
     // Operations Console operators (email + custom claim; ADR-0004).
-    function verifiedOperator() { return signedIn() && request.auth.token.email_verified == true && notDisabled(); }
-    function platformRole() { return request.auth.token.roleId; }
+    function verifiedOperator() { return signedIn() && request.auth.token.get('email_verified', false) == true && notDisabled(); }
+    function platformRole() { return request.auth.token.get('roleId', ''); }
     function isAdmin() { return verifiedOperator() && platformRole() in ['platform-owner', 'super-admin']; }
     function isAuditor() { return verifiedOperator() && platformRole() == 'auditor'; }
 

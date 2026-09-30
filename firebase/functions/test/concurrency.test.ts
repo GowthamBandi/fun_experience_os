@@ -62,8 +62,14 @@ async function seedSession(opts: {
 }) {
   await db.collection("events").doc(SESSION_ID).set({
     id: SESSION_ID,
-    status: opts.status ?? "booking-open",
-    territoryId: "hvd-central",
+    // Canonical event document (ADR-0003); the admin path needs only these.
+    orgId: "org-concurrency",
+    experienceId: "exp-concurrency",
+    status: opts.status ?? "published",
+    // Paid event, so a sellable seat is a 15-minute hold (ADR-0005).
+    priceMinor: 50_000,
+    currency: "INR",
+    commissionBps: 1_000,
     capacity: {
       maxPhysicalCapacity: opts.maxPhysicalCapacity,
       blockedSlots: opts.blockedSlots ?? 0,
@@ -80,7 +86,7 @@ const actor = { uid: "op-test", roleId: "super-admin" };
 function cmd(i: number, overrides: Partial<ReserveSeatCommand> = {}): ReserveSeatCommand {
   return {
     requestId: `req-${SESSION_ID}-${i}-${Math.random().toString(36).slice(2, 10)}`,
-    sessionId: SESSION_ID,
+    eventId: SESSION_ID,
     alias: `Client${i}`,
     kind: "sellable",
     actor,
@@ -105,7 +111,7 @@ async function attempt(c: ReserveSeatCommand): Promise<Outcome> {
 
 async function readState() {
   const s = await db.collection("events").doc(SESSION_ID).get();
-  const bookings = await db.collection("bookings").where("sessionId", "==", SESSION_ID).get();
+  const bookings = await db.collection("bookings").where("eventId", "==", SESSION_ID).get();
   const data = s.data() as {
     occupancy: OccupancyCounters;
     remainingSellableCapacity: number;
@@ -141,10 +147,10 @@ describe("MISSION 10 — no-oversell under real concurrency", () => {
     expect(state.occupancy.activeReservationHolds).toBe(1);
     expect(state.remaining).toBe(0);
     // REG-001: occupancy is derived and lives in its own field. The lifecycle
-    // status must stay 'booking-open' so the capacity gate — not the lifecycle
+    // status must stay 'published' so the capacity gate — not the lifecycle
     // gate — is what answers a sold-out request.
     expect(state.occupancyStatus).toBe("full");
-    expect(state.status).toBe("booking-open");
+    expect(state.status).toBe("published");
   });
 
   test("PROOF 2: capacity 10, 40 simultaneous bookers — exactly 10 seats, never 11", async () => {
@@ -189,9 +195,8 @@ describe("MISSION 10 — no-oversell under real concurrency", () => {
     const recomputed = recomputeOccupancyFromBookings(
       state.bookingDocs.map((b) => ({
         bookingType: b.bookingType,
-        reservationStatus: b.reservationStatus,
         status: b.status,
-        paymentStatus: b.paymentStatus,
+        spots: Number(b.spots),
       }))
     );
     const drift = occupancyDrift(state.occupancy, recomputed);
@@ -284,7 +289,7 @@ describe("MISSION 10 — the session lifecycle is enforced by the server", () =>
     expect(caught!.operatorMessage).toBe(message);
     expect(caught!.operatorMessage).not.toMatch(/error|invalid|failed|constraint|null|undefined/i);
 
-    const bookings = await db.collection("bookings").where("sessionId", "==", SESSION_ID).get();
+    const bookings = await db.collection("bookings").where("eventId", "==", SESSION_ID).get();
     expect(bookings.size).toBe(0);
   });
 });
@@ -302,10 +307,11 @@ describe("MISSION 14 — every admitted seat is audited to a server-resolved act
 
     expect(a.action).toBe("booking.seat-reserved");
     expect(a.actorUid).toBe("uid-real");
-    expect(a.actorRoleId).toBe("city-manager");
+    // ADR-0003 audit shape: the server-resolved role, and tenancy by orgId.
+    expect(a.actorRole).toBe("city-manager");
     expect(a.resourceType).toBe("booking");
     expect(a.at).toBeDefined();
-    expect(a.territoryId).toBe("hvd-central");
+    expect(a.orgId).toBe("org-concurrency");
   });
 });
 
@@ -316,16 +322,16 @@ describe("reservation holds", () => {
 
     const before = Date.now();
     const r = await reserveSeat(cmd(1));
-    const expiry = new Date(r.holdExpiresAt).getTime();
+    const expiry = new Date(r.holdExpiresAt!).getTime();
 
-    expect(r.status).toBe("reserved");
+    expect(r.status).toBe("held");
     // A real instant, not the string "15:00 mins" the prototype stored.
     expect(Number.isFinite(expiry)).toBe(true);
     expect(expiry).toBeGreaterThan(before + (RESERVATION_HOLD_MINUTES - 1) * 60_000);
     expect(expiry).toBeLessThan(before + (RESERVATION_HOLD_MINUTES + 1) * 60_000);
 
     const state = await readState();
-    expect(state.bookingDocs[0].status).toBe("payment-pending");
+    expect(state.bookingDocs[0].status).toBe("held");
     expect(state.occupancy.confirmedPaidBookings).toBe(0);
     expect(state.occupancy.activeReservationHolds).toBe(1);
   });

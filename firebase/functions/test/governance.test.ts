@@ -16,7 +16,7 @@ beforeAll(() => {
 });
 afterAll(async () => deleteApp(app));
 beforeEach(async () => {
-  for (const name of ["governanceCases", "organizers", "arenas", "events", "riskAlerts", "auditEvents", "commandReceipts"]) {
+  for (const name of ["governanceCases", "organizers", "arenas", "events", "experiences", "riskAlerts", "auditEvents", "commandReceipts", "userNotifications", "organizerActivations", "publicOrganizers"]) {
     const docs = await firestore.collection(name).get();
     const batch = firestore.batch();
     docs.forEach((item) => batch.delete(item.ref));
@@ -79,4 +79,46 @@ test("a finalized case cannot be decided twice with a new request ID", async () 
     await decideGovernanceCase({ requestId: "request-0006", caseId: "governance-001", expectedVersion: 1, outcome: "approved", note: "Attempted reversal." }, actor);
   } catch (error) { caught = error as DomainError; }
   expect(caught?.code).toBe("CONFLICT");
+});
+
+// ADR-0003: approval makes an experience/event eligible; publishing is the organizer's act.
+describe.each([
+  ["experience-approval", "experiences"],
+  ["event-approval", "events"],
+] as const)("%s cases", (kind, collection) => {
+  const seed = async () => {
+    await firestore.collection(collection).doc("target-0001").set({ status: "submitted", version: 3, orgId: "org-0001", title: "Sunrise trek", submittedBy: "staff-0001" });
+    await firestore.collection("governanceCases").doc("governance-100").set({ kind, targetId: "target-0001", status: "pending", version: 0 });
+  };
+  test.each([
+    ["approved", "approved"],
+    ["rejected", "rejected"],
+    ["information-requested", "changes-requested"],
+  ] as const)("outcome %s sets the target to %s", async (outcome, expected) => {
+    await seed();
+    await decideGovernanceCase({ requestId: `request-${kind}-${outcome}`, caseId: "governance-100", expectedVersion: 0, outcome, note: "Reviewed against listing policy." }, actor);
+    const target = (await firestore.doc(`${collection}/target-0001`).get()).data()!;
+    expect(target.status).toBe(expected);
+    expect(target.version).toBe(4);
+    expect((await firestore.doc("governanceCases/governance-100").get()).data()?.status).toBe(outcome);
+    const notes = await firestore.collection("userNotifications").where("recipientUid", "==", "staff-0001").get();
+    expect(notes.docs.map((d) => d.data().kind)).toEqual([kind === "event-approval" ? "event-decision" : "experience-decision"]);
+  });
+});
+
+test("legacy organizer-kyc cases (targeting organizers/{id}) keep the old behaviour: no code, no activation", async () => {
+  await seedOrganizerCase();
+  const result = await decideGovernanceCase({ requestId: "request-0100", caseId: "governance-001", expectedVersion: 0, outcome: "approved", note: "" }, actor);
+  expect(result).not.toHaveProperty("organizerCode");
+  expect((await firestore.doc("organizers/organizer-001").get()).data()?.status).toBe("active");
+  expect((await firestore.collection("organizerActivations").get()).size).toBe(0);
+  expect((await firestore.collection("publicOrganizers").get()).size).toBe(0);
+});
+
+test("governance audit events are tagged with the console source", async () => {
+  await seedOrganizerCase();
+  await decideGovernanceCase({ requestId: "request-0101", caseId: "governance-001", expectedVersion: 0, outcome: "rejected", note: "Documents were not legible." }, actor);
+  const audits = await firestore.collection("auditEvents").get();
+  expect(audits.docs[0]!.data()).toMatchObject({ source: "operations-console" });
+  expect((await firestore.doc("organizers/organizer-001").get()).data()?.status).toBe("rejected");
 });

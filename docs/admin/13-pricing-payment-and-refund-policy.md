@@ -1,3 +1,5 @@
+> **OBSOLETE — superseded 2026-09-30.** This document describes an earlier model (company-operated events, franchise tenancy, or the pre-production prototype). The authoritative sources are `docs/ARCHITECTURE.md`, ADR-0003 to ADR-0006 and `EXPERIENCE_OS_PRODUCTION_CERTIFICATION.md`. Kept for history only.
+
 # 13 — Pricing, Payment and Refund Policy
 
 > **Status:** Planning draft — decision-resolution phase (SA-0C).
