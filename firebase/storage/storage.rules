@@ -13,12 +13,15 @@ service firebase.storage {
       return request.auth != null && request.auth.token.get('email_verified', false) == true
         && request.auth.token.get('roleId', '') in ['platform-owner', 'super-admin'];
     }
-    function membership(orgId) {
-      return firestore.get(/databases/(default)/documents/memberships/$(orgId + '__' + request.auth.uid)).data;
+    function membershipPath(orgId) {
+      return /databases/(default)/documents/memberships/$(orgId + '__' + request.auth.uid);
     }
     function canEditExperiences(orgId) {
-      let m = membership(orgId);
-      return signedIn() && m.status == 'active'
+      return signedIn() && firestore.exists(membershipPath(orgId))
+        && hasEditGrant(firestore.get(membershipPath(orgId)).data);
+    }
+    function hasEditGrant(m) {
+      return m.status == 'active'
         && (m.role == 'owner' || ('experiences.edit' in m.permissions && m.eventScope.all == true));
     }
     function isImage() { return request.resource.contentType.matches('image/(jpeg|png|webp)'); }
@@ -26,14 +29,17 @@ service firebase.storage {
 
     match /kyc/{userId}/{fileName} {
       allow read: if (signedIn() && request.auth.uid == userId) || isAdmin();
-      allow create: if signedIn() && request.auth.uid == userId
+      // Storage treats an overwrite as `create`; `resource == null` makes
+      // verification documents write-once (tamper-evident for review).
+      allow create: if signedIn() && request.auth.uid == userId && resource == null
         && request.resource.size < 10 * 1024 * 1024 && isDocument();
       allow update, delete: if false;
     }
 
     match /orgMedia/{orgId}/{fileName} {
       allow read: if signedIn() || isAdmin();
-      allow create: if canEditExperiences(orgId) && request.resource.size < 8 * 1024 * 1024 && isImage();
+      allow create: if canEditExperiences(orgId) && resource == null
+        && request.resource.size < 8 * 1024 * 1024 && isImage();
       allow delete: if canEditExperiences(orgId);
       allow update: if false;
     }

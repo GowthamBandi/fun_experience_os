@@ -1,2 +1,2 @@
-import { GovernanceRoutePage } from "@/components/governance/GovernanceRoutePage";
-export default function Page(){return <GovernanceRoutePage config={{collection:"refundCases",readOnly:true,eyebrow:"Finance",title:"Refunds",description:"Review authorized cancellation and exception refunds. Payment execution is intentionally not connected.",metricLabel:"Refund cases",primaryAction:"Inspect authorization"}}/>}
+import { RefundsWorkspace } from "@/components/governance/RefundsWorkspace";
+export default function Page(){return <RefundsWorkspace/>}

@@ -13,11 +13,12 @@
  *                       Requires NEXT_PUBLIC_FIREBASE_PROJECT_ID=demo-experience-os.
  *                       Fails closed if configuration is wrong.
  *
- *   firebase-live    — Throws immediately.
- *                       Live mode is NOT approved in PR-0B.
+ *   firebase-live    — Initializes against the configured project with
+ *                       App Check (reCAPTCHA Enterprise) enforced.
  *
- *   (anything else)  — Treated as invalid; fails closed.
- *                       Never defaults to firebase-live.
+ *   (anything else)  — Treated as prototype; fails closed. The console's
+ *                       login screen explains the required configuration
+ *                       (lib/firebase/data-mode.ts). Never defaults to live.
  *
  * IDEMPOTENCY:
  *   getApps() is checked before initialization so repeated imports do not
@@ -33,7 +34,7 @@ import { getAuth, type Auth } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
 import { getFunctions, type Functions } from "firebase/functions";
 import { getFirebaseConfig } from "./config";
-import { connectToEmulators } from "./emulator";
+import { connectFunctionsToEmulator, connectToEmulators } from "./emulator";
 import { initializeFirebaseAppCheck } from "./app-check";
 
 export type DataMode = "prototype" | "firebase-emulator" | "firebase-live";
@@ -50,8 +51,14 @@ interface FirebaseClient {
   app: FirebaseApp;
   auth: Auth;
   firestore: Firestore;
+  /** Legacy governance callables (decideCase, setMarketplaceEntityStatus, setOperatorAccess, reissueOrganizerCode). */
   functions: Functions;
+  /** Commerce/catalog callables (decideRefund, buildSettlement, decideSettlement, adminCancelEvent, moderateReview). */
+  regionalFunctions: Functions;
 }
+
+export const LEGACY_FUNCTIONS_REGION = "us-central1";
+export const COMMERCE_FUNCTIONS_REGION = "asia-south1";
 
 let _client: FirebaseClient | null = null;
 
@@ -84,14 +91,16 @@ export function getFirebaseClient(): FirebaseClient {
 
   const auth = getAuth(app);
   const firestore = getFirestore(app);
-  const functions = getFunctions(app, "us-central1");
+  const functions = getFunctions(app, LEGACY_FUNCTIONS_REGION);
+  const regionalFunctions = getFunctions(app, COMMERCE_FUNCTIONS_REGION);
 
   if (mode === "firebase-emulator") {
     connectToEmulators(auth, firestore, functions, config.projectId);
+    connectFunctionsToEmulator(regionalFunctions);
   } else {
     initializeFirebaseAppCheck(app);
   }
 
-  _client = { app, auth, firestore, functions };
+  _client = { app, auth, firestore, functions, regionalFunctions };
   return _client;
 }

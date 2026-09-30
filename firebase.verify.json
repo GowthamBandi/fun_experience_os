@@ -1,0 +1,42 @@
+{
+  "functions": {
+    "source": "firebase/functions"
+  },
+  "firestore": {
+    "rules": "firebase/firestore/firestore.rules",
+    "indexes": "firebase/firestore/firestore.indexes.json"
+  },
+  "emulators": {
+    "auth": {
+      "host": "127.0.0.1",
+      "port": 9999
+    },
+    "firestore": {
+      "host": "127.0.0.1",
+      "port": 8980
+    },
+    "functions": {
+      "host": "127.0.0.1",
+      "port": 5901
+    },
+    "storage": {
+      "host": "127.0.0.1",
+      "port": 9998
+    },
+    "hub": {
+      "host": "127.0.0.1",
+      "port": 4990
+    },
+    "logging": {
+      "host": "127.0.0.1",
+      "port": 4991
+    },
+    "ui": {
+      "enabled": false
+    },
+    "singleProjectMode": true
+  },
+  "storage": {
+    "rules": "firebase/storage/storage.rules"
+  }
+}

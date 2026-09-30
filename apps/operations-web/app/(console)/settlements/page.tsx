@@ -1,2 +1,2 @@
-import { GovernanceRoutePage } from "@/components/governance/GovernanceRoutePage";
-export default function Page(){return <GovernanceRoutePage config={{collection:"settlementControls",readOnly:true,eyebrow:"Finance",title:"Settlements",description:"Reconcile organizer earnings, reserves and release eligibility. No payout is executed by this console.",metricLabel:"Settlement controls",primaryAction:"Inspect control"}}/>}
+import { SettlementsWorkspace } from "@/components/governance/SettlementsWorkspace";
+export default function Page(){return <SettlementsWorkspace/>}

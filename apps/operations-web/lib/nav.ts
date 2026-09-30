@@ -1,4 +1,5 @@
 import type { RoleId } from "@/lib/types";
+import { archivedPrototypeEnabled, isArchivedRoute } from "@/lib/console/archived";
 
 export interface NavItem {
   href: string;
@@ -20,6 +21,7 @@ export const NAV: NavItem[] = [
   { href: "/events", label: "Events", keyword: "events proposals policy pricing approval", group: "Marketplace", roles: marketplace },
   { href: "/customers", label: "Customers", keyword: "customers funnel complaints booking health", group: "Trust", roles: [...owners, "support", "safety", "analyst"] },
   { href: "/risk", label: "Risk", keyword: "fraud disputes chargebacks alerts holds", group: "Trust", roles: [...owners, "safety", "finance", "support", "analyst"] },
+  { href: "/reviews", label: "Reviews", keyword: "reviews ratings moderation hide publish", group: "Trust", roles: [...owners, "support", "safety"] },
   { href: "/refunds", label: "Refunds", keyword: "refunds cancellations exceptions approvals", group: "Finance", roles: [...owners, "finance", "support"] },
   { href: "/settlements", label: "Settlements", keyword: "settlements payouts releases holds reconciliation", group: "Finance", roles: [...owners, "finance", "analyst"] },
   { href: "/commercials", label: "Commercials", keyword: "commission terms percentages contracts negotiation", group: "Finance", roles: [...owners, "finance"] },
@@ -29,7 +31,14 @@ export const NAV: NavItem[] = [
 
 export const navFor = (role: RoleId): NavItem[] => NAV.filter((n) => n.roles.includes(role));
 
+/**
+ * Route access for the (legacy) prototype store. Archived prototype routes
+ * (ADR-0006) are reachable only for platform owners/super admins and only
+ * when NEXT_PUBLIC_SHOW_ARCHIVED_PROTOTYPE=true — otherwise the console layout
+ * renders the archived notice before any page code runs.
+ */
 export const canAccess = (href: string, role: RoleId): boolean => {
+  if (isArchivedRoute(href)) return archivedPrototypeEnabled() && owners.includes(role);
   const exact = NAV.find((n) => n.href === href);
   if (exact) return exact.roles.includes(role);
   const section = NAV.find((n) => n.href.length > 1 && (href === n.href || href.startsWith(n.href + "/")));

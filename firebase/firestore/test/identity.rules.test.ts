@@ -37,16 +37,8 @@ beforeAll(async () => {
 });
 afterAll(async () => env.cleanup());
 
-/**
- * NOTE: `disabled` / `email_verified` are set explicitly because firestore.rules
- * currently reads them with `token.disabled` (not `token.get(...)`), which
- * ERRORS when a claim is absent — and real phone-auth tokens carry neither.
- * See the `test.failing` regression at the bottom of this file.
- */
-const phoneUser = (uid: string) =>
-  env.authenticatedContext(uid, { phone_number: "+919800000000", disabled: false, email_verified: false }).firestore();
 /** Exactly what Firebase phone auth issues: no custom claims at all. */
-const realPhoneToken = (uid: string) => env.authenticatedContext(uid, { phone_number: "+919800000000" }).firestore();
+const phoneUser = (uid: string) => env.authenticatedContext(uid, { phone_number: "+919800000000" }).firestore();
 
 async function seed(path: string, value: Record<string, unknown>) {
   await env.withSecurityRulesDisabled(async (ctx) => setDoc(doc(ctx.firestore(), path), value));
@@ -187,13 +179,10 @@ describe("userNotifications", () => {
   });
 });
 
-// KNOWN RULES BUG (reported): with a production-shaped phone token the owner
-// cannot read their own data. `test.failing` passes while the bug exists and
-// will start failing once firestore.rules uses token.get('disabled', false) /
-// token.get('email_verified', false) — then flip it to `test`.
-test.failing("REGRESSION: a real phone-auth token (no custom claims) can read its own safety data and membership", async () => {
-  const db = realPhoneToken(u.staff);
+test("a suspended account (disabled claim) loses even its own data", async () => {
   await seed(`customerSafety/${u.staff}`, { birthDate: "1995-01-01", gender: "man" });
-  await assertSucceeds(getDoc(doc(db, `customerSafety/${u.staff}`)));
-  await assertSucceeds(getDoc(doc(db, `memberships/${ORG}__${u.staff}`)));
+  const db = env.authenticatedContext(u.staff, { phone_number: "+919800000000", disabled: true }).firestore();
+  await assertFails(getDoc(doc(db, `customerSafety/${u.staff}`)));
+  await assertFails(getDoc(doc(db, `memberships/${ORG}__${u.staff}`)));
+  await assertFails(getDoc(doc(db, `events/draft-${ORG}`)));
 });

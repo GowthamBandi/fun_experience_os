@@ -68,3 +68,8 @@ export function connectToEmulators(
     EMULATOR_FUNCTIONS_PORT
   );
 }
+
+/** Connects an additional (regional) Functions instance to the local emulator. */
+export function connectFunctionsToEmulator(functions: Functions): void {
+  connectFunctionsEmulator(functions, EMULATOR_FUNCTIONS_HOST, EMULATOR_FUNCTIONS_PORT);
+}

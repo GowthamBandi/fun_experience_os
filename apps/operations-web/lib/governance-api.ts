@@ -1,80 +1,185 @@
 "use client";
 
-import { collection, limit, onSnapshot, query, type DocumentData, type QueryDocumentSnapshot } from "firebase/firestore";
-import { httpsCallable } from "firebase/functions";
+import { collection, doc, limit, onSnapshot, orderBy, query, type DocumentData, type QueryConstraint } from "firebase/firestore";
+import { httpsCallable, type Functions } from "firebase/functions";
 import { getFirebaseClient } from "./firebase/client";
+import {
+  buildAdminCancelEventPayload,
+  buildBuildSettlementPayload,
+  buildDecideCasePayload,
+  buildDecideRefundPayload,
+  buildDecideSettlementPayload,
+  buildEntityStatusPayload,
+  buildModerateReviewPayload,
+  buildReissueOrganizerCodePayload,
+  newRequestId,
+  type CaseOutcome,
+  type EntityStatus,
+  type EntityType,
+  type SettlementAction,
+} from "./console/actions";
+import {
+  adaptEvent,
+  adaptGeneric,
+  adaptOrganizerApplication,
+  adaptRefund,
+  adaptReview,
+  adaptSettlement,
+  type DisplayRecord,
+} from "./console/records";
 
-export type GovernanceCollection = "governanceCases" | "organizers" | "arenas" | "events" | "commercialAgreements" | "riskAlerts" | "refundCases" | "settlementControls" | "policyVersions" | "auditEvents" | "customers" | "users";
+/**
+ * Collections the console reads (admin reads are allowed by
+ * firebase/firestore/firestore.rules for every entry here).
+ */
+export type GovernanceCollection =
+  | "governanceCases"
+  | "organizers"
+  | "arenas"
+  | "events"
+  | "commercialAgreements"
+  | "riskAlerts"
+  | "refundCases"
+  | "settlementControls"
+  | "policyVersions"
+  | "auditEvents"
+  | "customers"
+  | "users"
+  | "refunds"
+  | "settlements"
+  | "experiences"
+  | "organizerApplications"
+  | "reviews";
 
-export interface LiveGovernanceRecord {
-  id: string;
-  primary: string;
-  secondary: string;
-  status: "Approved" | "Pending" | "Paused" | "Blocked" | "Under review" | "On hold";
-  value: string;
-  meta: string;
-  version: number;
-  raw: Record<string, unknown>;
-}
+export type LiveGovernanceRecord = DisplayRecord;
 
-function string(data: DocumentData, ...keys: string[]): string {
-  for (const key of keys) if (typeof data[key] === "string" && data[key].trim()) return data[key];
-  return "—";
-}
+export const QUERY_LIMIT = 250;
 
-function displayStatus(value: unknown): LiveGovernanceRecord["status"] {
-  switch (String(value)) {
-    case "active": case "approved": case "approved-for-release": case "published": case "resolved": return "Approved";
-    case "paused": return "Paused";
-    case "blocked": case "rejected": case "cancelled": return "Blocked";
-    case "held": case "on-hold": return "On hold";
-    case "under-review": case "information-requested": return "Under review";
-    default: return "Pending";
-  }
-}
+const ADAPTERS: Partial<Record<GovernanceCollection, (id: string, data: DocumentData) => DisplayRecord>> = {
+  refunds: adaptRefund,
+  settlements: adaptSettlement,
+  reviews: adaptReview,
+  events: adaptEvent,
+  organizerApplications: adaptOrganizerApplication,
+};
 
-function money(minor: unknown, currency: unknown): string | null {
-  if (typeof minor !== "number" || !Number.isFinite(minor)) return null;
-  return new Intl.NumberFormat("en-IN", { style: "currency", currency: typeof currency === "string" ? currency : "INR", maximumFractionDigits: 0 }).format(minor / 100);
-}
+/** Newest-first ordering where the collection has a reliable timestamp field. */
+const ORDERING: Partial<Record<GovernanceCollection, QueryConstraint>> = {
+  auditEvents: orderBy("at", "desc"),
+  refunds: orderBy("createdAt", "desc"),
+  settlements: orderBy("createdAt", "desc"),
+};
 
-function adapt(snapshot: QueryDocumentSnapshot<DocumentData>): LiveGovernanceRecord {
-  const data = snapshot.data();
-  const amount = money(data.amountMinor ?? data.exposureMinor ?? data.projectedGmvMinor, data.currency);
-  const rate = typeof data.commissionBps === "number" ? `${(data.commissionBps / 100).toFixed(2).replace(/\.00$/, "")}% commission` : null;
-  const location = string(data, "location", "city", "territoryName");
-  const owner = string(data, "organizerName", "subjectType", "category", "action");
-  return {
-    id: snapshot.id,
-    primary: string(data, "subject", "name", "title", "action"),
-    secondary: owner === "—" ? string(data, "kind", "type", "description") : owner,
-    status: displayStatus(data.status ?? data.outcome),
-    value: amount ?? rate ?? string(data, "displayValue", "value", "effectiveFrom"),
-    meta: [location, string(data, "summary", "statusReason", "policyVersion")].filter((item) => item !== "—").join(" · ") || "No additional context",
-    version: Number.isSafeInteger(data.version) ? data.version : 0,
-    raw: { ...data },
-  };
+export function adaptRecord(name: GovernanceCollection, id: string, data: DocumentData): DisplayRecord {
+  return (ADAPTERS[name] ?? adaptGeneric)(id, data);
 }
 
 export function subscribeGovernanceCollection(
   name: GovernanceCollection,
-  observer: (records: LiveGovernanceRecord[]) => void,
+  observer: (records: LiveGovernanceRecord[], truncated: boolean) => void,
   onError: (message: string) => void,
 ) {
-  const source = query(collection(getFirebaseClient().firestore, name), limit(250));
-  return onSnapshot(source, (snapshot) => observer(snapshot.docs.map(adapt)), (error) => onError(error.message));
+  const ordering = ORDERING[name];
+  const constraints = ordering ? [ordering, limit(QUERY_LIMIT)] : [limit(QUERY_LIMIT)];
+  const source = query(collection(getFirebaseClient().firestore, name), ...constraints);
+  return onSnapshot(
+    source,
+    (snapshot) => observer(snapshot.docs.map((d) => adaptRecord(name, d.id, d.data())), snapshot.size >= QUERY_LIMIT),
+    (error) => onError(error.message),
+  );
 }
 
-function requestId(prefix: string) {
-  return `${prefix}-${crypto.randomUUID()}`;
+/** Live view of a single document (e.g. a governance case's target). */
+export function subscribeDocument(
+  collectionName: string,
+  id: string,
+  observer: (data: Record<string, unknown> | null) => void,
+  onError: (message: string) => void,
+) {
+  return onSnapshot(
+    doc(getFirebaseClient().firestore, collectionName, id),
+    (snapshot) => observer(snapshot.exists() ? { ...snapshot.data() } : null),
+    (error) => onError(error.message),
+  );
 }
 
-export async function decideCase(caseId: string, expectedVersion: number, outcome: "approved" | "rejected" | "information-requested", note: string) {
-  const callable = httpsCallable(getFirebaseClient().functions, "decideCase");
-  return callable({ requestId: requestId("decision"), caseId, expectedVersion, outcome, note });
+async function call<T>(functions: Functions, name: string, payload: object): Promise<T> {
+  const callable = httpsCallable<object, T>(functions, name);
+  const result = await callable(payload);
+  return result.data;
 }
 
-export async function setEntityStatus(entityType: "organizer" | "arena" | "event" | "risk-alert", entityId: string, expectedVersion: number, status: "active" | "paused" | "blocked" | "under-review" | "resolved", reason: string) {
-  const callable = httpsCallable(getFirebaseClient().functions, "setMarketplaceEntityStatus");
-  return callable({ requestId: requestId("status"), entityType, entityId, expectedVersion, status, reason });
+const legacy = () => getFirebaseClient().functions;
+const regional = () => getFirebaseClient().regionalFunctions;
+
+/* -------------------------------------------- governance (us-central1) */
+
+export interface DecideCaseResult {
+  caseId: string;
+  status: CaseOutcome;
+  version: number;
+  replayed?: boolean;
+  /** organizer-kyc approval only: returned ONCE, never persisted client-side. */
+  organizerCode?: string;
+  orgId?: string;
+  codeExpiresAt?: string | null;
+  /** Present on a replayed approval: the code was issued by the first call and can't be shown again. */
+  codeAlreadyIssued?: boolean;
+}
+
+export async function decideCase(input: { requestId?: string; caseId: string; expectedVersion: number; outcome: CaseOutcome; note: string }) {
+  const payload = buildDecideCasePayload({ ...input, requestId: input.requestId ?? newRequestId("decision") });
+  return call<DecideCaseResult>(legacy(), "decideCase", payload);
+}
+
+export async function setEntityStatus(input: { requestId?: string; entityType: EntityType; entityId: string; expectedVersion: number; status: EntityStatus; reason: string }) {
+  const payload = buildEntityStatusPayload({ ...input, requestId: input.requestId ?? newRequestId("status") });
+  return call<{ entityId: string; status: EntityStatus; version: number; replayed?: boolean }>(legacy(), "setMarketplaceEntityStatus", payload);
+}
+
+export interface ReissueOrganizerCodeResult {
+  applicantUid: string;
+  orgId: string;
+  organizerCode?: string;
+  codeExpiresAt?: string | null;
+  replayed?: boolean;
+  codeAlreadyIssued?: boolean;
+}
+
+export async function reissueOrganizerCode(input: { requestId: string; applicantUid: string; reason: string }) {
+  return call<ReissueOrganizerCodeResult>(legacy(), "reissueOrganizerCode", buildReissueOrganizerCodePayload(input));
+}
+
+/* ------------------------------------------ commerce/catalog (asia-south1) */
+
+export interface DecideRefundResult {
+  refundId: string;
+  status: "approved" | "rejected" | "processing" | "completed" | "failed" | "under-review" | "awaiting-second-approval";
+}
+
+export async function decideRefund(input: { requestId: string; refundId: string; decision: "approve" | "reject"; note: string }) {
+  return call<DecideRefundResult>(regional(), "decideRefund", buildDecideRefundPayload(input));
+}
+
+export interface BuildSettlementResult {
+  settlementId: string | null;
+  status: string;
+  netMinor: number;
+  entryCount: number;
+}
+
+export async function buildSettlement(input: { requestId: string; orgId: string; periodEndDate: string }) {
+  return call<BuildSettlementResult>(regional(), "buildSettlement", buildBuildSettlementPayload(input));
+}
+
+export async function decideSettlement(input: { requestId: string; settlementId: string; action: SettlementAction; note: string; payoutReference?: string }) {
+  return call<{ settlementId: string; status: string }>(regional(), "decideSettlement", buildDecideSettlementPayload(input));
+}
+
+export async function adminCancelEvent(input: { requestId: string; eventId: string; reason: string }) {
+  return call<Record<string, unknown>>(regional(), "adminCancelEvent", buildAdminCancelEventPayload(input));
+}
+
+export async function moderateReview(input: { requestId: string; reviewId: string; status: "published" | "hidden"; reason: string }) {
+  return call<{ reviewId: string; status: "published" | "hidden" }>(regional(), "moderateReview", buildModerateReviewPayload(input));
 }
