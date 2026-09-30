@@ -111,7 +111,7 @@ describe(`E2E journeys (run ${RUN})`, () => {
     const ev = await call(catalog.saveEvent, eventInput(orgId, experienceId, owner.uid, { priceMinor: PRICE_A, capacity: { max: 10, min: 2 } }), owner.ctx);
     const eventA = String(ev.eventId);
     S.eventA = eventA;
-    expect(await getDoc(`events/${eventA}`)).toMatchObject({ status: "draft", responsibility: { primaryUid: owner.uid }, commissionBps: null });
+    expect(await getDoc(`events/${eventA}`)).toMatchObject({ status: "draft", responsibility: { primaryUid: owner.uid } });
     expect(await callCode(catalog.publishEvent, { requestId: rid("pe"), orgId, eventId: eventA }, owner.ctx)).toBe("PRECONDITION");
     const se = await call(catalog.submitEvent, { requestId: rid("se"), orgId, eventId: eventA }, owner.ctx);
     expect(await callCode(catalog.publishEvent, { requestId: rid("pe"), orgId, eventId: eventA }, owner.ctx)).toBe("PRECONDITION");
@@ -120,7 +120,10 @@ describe(`E2E journeys (run ${RUN})`, () => {
     const pub = await call(catalog.publishEvent, { requestId: rid("pe"), orgId, eventId: eventA }, owner.ctx);
     expect(pub).toMatchObject({ status: "published", commissionBps: BPS });
     const evA = (await getDoc(`events/${eventA}`))!;
-    expect(evA).toMatchObject({ status: "published", commissionBps: BPS, commercialAgreementId: agreementId, priceMinor: PRICE_A });
+    expect(evA).toMatchObject({ status: "published", priceMinor: PRICE_A });
+    // The public event carries no commercial terms; they sit in the private snapshot.
+    expect(evA).not.toHaveProperty("commissionBps");
+    expect(await getDoc(`eventCommercials/${eventA}`)).toMatchObject({ orgId, commissionBps: BPS, commercialAgreementId: agreementId });
     expect(evA.publishedAt).toBeTruthy();
 
     // Event B of the same org (used by the staff-scope and cancellation journeys).

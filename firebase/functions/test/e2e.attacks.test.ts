@@ -525,9 +525,10 @@ describe(`E2E attacks (run ${RUN})`, () => {
       pubDraft: "PRECONDITION", pubSubmitted: "PRECONDITION", pubRejected: "PRECONDITION", pubNoTerms: "PRECONDITION",
       pubProposedTerms: "PRECONDITION", bookUnpublished: "SESSION_NOT_BOOKABLE", pubPaused: "PRECONDITION", bookPaused: "SESSION_NOT_BOOKABLE",
     });
-    expect(await getDoc(`events/${draft.eventId}`)).toMatchObject({ status: "rejected", commissionBps: null, publishedAt: null });
-    expect(await getDoc(`events/${C.evC1}`)).toMatchObject({ status: "approved", commissionBps: null, publishedAt: null });
-    expect(await getDoc(`events/${B.evB2}`)).toMatchObject({ status: "approved", commissionBps: null, publishedAt: null });
+    expect(await getDoc(`events/${draft.eventId}`)).toMatchObject({ status: "rejected", publishedAt: null });
+    expect(await getDoc(`events/${C.evC1}`)).toMatchObject({ status: "approved", publishedAt: null });
+    expect(await getDoc(`events/${B.evB2}`)).toMatchObject({ status: "approved", publishedAt: null });
+    for (const id of [draft.eventId, C.evC1, B.evB2]) expect(await getDoc(`eventCommercials/${id}`)).toBeUndefined();
   });
 
   test("ATK-16 changing price / time / venue after bookings exist is refused; the event is unchanged", async () => {

@@ -107,7 +107,6 @@ export interface EventDoc {
   currency?: string;
   eligibility?: Partial<Eligibility>;
   cancellationPolicy?: string;
-  commissionBps?: number;
 }
 
 export interface BookingDoc {
@@ -292,7 +291,8 @@ export async function reserveSeat(cmd: ReserveSeatCommand): Promise<ReserveSeatR
       const isComp = cmd.kind === "complimentary";
       const amountMinor = isComp ? 0 : priceMinor * spots;
       if (amountMinor > 0) {
-        const bps = event.commissionBps;
+        const commercial = await tx.get(db().collection(COLLECTIONS.eventCommercials).doc(cmd.eventId));
+        const bps = commercial.data()?.commissionBps;
         if (typeof bps !== "number" || !Number.isSafeInteger(bps) || bps < 0 || bps > 10_000) {
           // No agreed commercial terms → no money may move (ADR-0005).
           throw new DomainError("SESSION_NOT_BOOKABLE", "This event isn't accepting payments right now.", {

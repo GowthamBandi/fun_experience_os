@@ -114,9 +114,10 @@ export async function seedEvent(s: EventSeed): Promise<string> {
     eligibility: s.eligibility ?? { ageMin: 18, ageMax: null, genderRule: "open" },
     cancellationPolicy: s.policy ?? "flexible",
     responsibility: { primaryUid: "lead-1", staffUids: [] },
-    commissionBps: s.commissionBps ?? 1_250,
     version: 1,
   });
+  // Commission lives in the private eventCommercials doc, as publishEvent writes it.
+  await db().collection("eventCommercials").doc(id).set({ eventId: id, orgId: s.orgId, commissionBps: s.commissionBps ?? 1_250, commercialAgreementId: "ca-test" });
   return id;
 }
 

@@ -210,7 +210,7 @@ describe("reserveSeat — who may book", () => {
     const orgId = uniq("org");
     await seedOrg(orgId);
     const eventId = await seedEvent({ orgId });
-    await db().collection("events").doc(eventId).update({ commissionBps: null });
+    await db().collection("eventCommercials").doc(eventId).delete();
     const uid = await newCustomer();
     expect(await callCode(commerce.reserveSeat, { requestId: rid(), eventId, spots: 1, alias: "NoTerms" }, phoneCtx(uid))).toBe("SESSION_NOT_BOOKABLE");
   });

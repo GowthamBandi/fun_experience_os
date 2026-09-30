@@ -236,11 +236,12 @@ export async function settleCapturedPayment(input: CaptureInput): Promise<Settle
     const eRef = sessionRef(payment.eventId);
     const lockRef = db().collection(C.bookingLocks).doc(bookingLockId(payment.eventId, payment.customerUid));
     const dupRefundId = `dup_${input.providerPaymentId}`.slice(0, 120);
-    const [bSnap, eSnap, lockSnap, dupSnap] = await Promise.all([
+    const [bSnap, eSnap, lockSnap, dupSnap, commSnap] = await Promise.all([
       tx.get(bRef),
       tx.get(eRef),
       tx.get(lockRef),
       tx.get(refundRef(dupRefundId)),
+      tx.get(db().collection(C.eventCommercials).doc(payment.eventId)),
     ]);
     if (!bSnap.exists || !eSnap.exists) throw notFound("We couldn't find that booking.");
     const booking = bSnap.data() as BookingDoc;
@@ -310,7 +311,8 @@ export async function settleCapturedPayment(input: CaptureInput): Promise<Settle
       return { ...base, outcome: "order-mismatch" };
     }
 
-    const bps = Number.isSafeInteger(event.commissionBps) ? Math.min(10_000, Math.max(0, event.commissionBps!)) : 0;
+    const commissionBps = commSnap.data()?.commissionBps as number | undefined;
+    const bps = Number.isSafeInteger(commissionBps) ? Math.min(10_000, Math.max(0, commissionBps!)) : 0;
     const commissionMinor = commissionFor(payment.amountMinor, bps);
     const captured: PaymentDoc = {
       ...payment,

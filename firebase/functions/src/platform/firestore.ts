@@ -74,6 +74,8 @@ export const COLLECTIONS = {
   arenas: "arenas",
   events: "events",
   commercialAgreements: "commercialAgreements",
+  /** Per-event commercial snapshot (commission). Not public: events are. */
+  eventCommercials: "eventCommercials",
   riskAlerts: "riskAlerts",
   refundCases: "refundCases",
   settlementControls: "settlementControls",

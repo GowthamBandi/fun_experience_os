@@ -55,7 +55,6 @@ async function seed() {
     status: "published",
     priceMinor: 50_000,
     currency: "INR",
-    commissionBps: 1_000,
     capacity: {
       maxPhysicalCapacity: CAPACITY,
       blockedSlots: 0,
@@ -65,6 +64,7 @@ async function seed() {
     },
     occupancy: { ...EMPTY_OCCUPANCY },
   });
+  await db.collection("eventCommercials").doc(SESSION_ID).set({ eventId: SESSION_ID, orgId: "org-tune", commissionBps: 1_000 });
 }
 
 function cmd(i: number, maxAttempts: number): ReserveSeatCommand {

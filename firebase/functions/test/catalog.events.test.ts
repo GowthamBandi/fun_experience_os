@@ -146,8 +146,9 @@ describe("events", () => {
       capacity: { maxPhysicalCapacity: 20, blockedSlots: 2, compSlots: 0, minParticipants: 6, targetParticipants: 18 },
       occupancy: EMPTY_OCCUPANCY, priceMinor: 49_900, currency: "INR",
       eligibility: { ageMin: 16, ageMax: null, genderRule: "open" }, cancellationPolicy: "moderate",
-      responsibility: { primaryUid: U.owner, staffUids: [U.checkin] }, commissionBps: null, version: 1, createdBy: U.owner,
+      responsibility: { primaryUid: U.owner, staffUids: [U.checkin] }, version: 1, createdBy: U.owner,
     });
+    expect(ev).not.toHaveProperty("commissionBps");
     expect(ev.startsAt).toBeInstanceOf(Timestamp);
     expect(ev.endsAt.toMillis() - ev.startsAt.toMillis()).toBe(90 * 60_000);
     expect(ev.createdAt).toBeInstanceOf(Timestamp);
@@ -225,11 +226,15 @@ describe("events", () => {
     const r = await pub(id);
     expect(r).toMatchObject({ status: "published", commissionBps: 1200 });
     const ev = (await db().doc(`events/${id}`).get()).data()!;
-    expect(ev).toMatchObject({ status: "published", commissionBps: 1200, commercialAgreementId: `ca-${ORG}` });
+    expect(ev).toMatchObject({ status: "published" });
+    // commission terms are private: never on the public event document
+    expect(ev).not.toHaveProperty("commissionBps");
+    expect(ev).not.toHaveProperty("commercialAgreementId");
+    expect((await db().doc(`eventCommercials/${id}`).get()).data()).toMatchObject({ orgId: ORG, eventId: id, commissionBps: 1200, commercialAgreementId: `ca-${ORG}` });
     expect(ev.publishedAt).toBeInstanceOf(Timestamp);
     // agreement change later does not rewrite the event
     await db().doc(`commercialAgreements/ca-${ORG}`).update({ commissionBps: 2000 });
-    expect((await db().doc(`events/${id}`).get()).data()!.commissionBps).toBe(1200);
+    expect((await db().doc(`eventCommercials/${id}`).get()).data()!.commissionBps).toBe(1200);
     expect(await codeOf(pub(id))).toBe("PRECONDITION"); // already published
   });
 
@@ -265,7 +270,7 @@ describe("events", () => {
     expect(ok2).toMatchObject({ status: "approved", supersededId: first.agreementId });
     const approved = await db().collection("commercialAgreements").where("orgId", "==", ORG).where("status", "==", "approved").get();
     expect(approved.docs.map((d) => d.id)).toEqual([second.agreementId]);
-    expect((await db().doc(`events/${e1}`).get()).data()!.commissionBps).toBe(1500); // history unchanged
+    expect((await db().doc(`eventCommercials/${e1}`).get()).data()!.commissionBps).toBe(1500); // history unchanged
     const e2 = await approvedEvent(expId);
     expect(await pub(e2)).toMatchObject({ commissionBps: 1000 });
 
@@ -328,7 +333,8 @@ describe("events", () => {
     expect(err.details.nextStep).toMatch(/Cancel this event/);
     // capacity change: allowed, but not below seats taken
     expect(await codeOf(call(saveEvent, { ...same, requestId: rid(), capacity: { max: 30, min: 6 } }, owner))).toBe("RESOLVED");
-    expect((await db().doc(`events/${id}`).get()).data()).toMatchObject({ status: "published", commissionBps: 1200, capacity: { maxPhysicalCapacity: 30 } });
+    expect((await db().doc(`events/${id}`).get()).data()).toMatchObject({ status: "published", capacity: { maxPhysicalCapacity: 30 } });
+    expect((await db().doc(`eventCommercials/${id}`).get()).data()!.commissionBps).toBe(1200);
     expect(await codeOf(call(saveEvent, { ...same, requestId: rid(), capacity: { max: 2, min: 1, blocked: 1 } }, owner))).toBe("PRECONDITION");
 
     // a published event with NO bookings: changing price un-publishes it for re-approval
@@ -337,7 +343,8 @@ describe("events", () => {
     const ev2 = (await db().doc(`events/${id2}`).get()).data()!;
     const r = await call(saveEvent, { ...eventInput(expId, { eventId: id2 }), startsAt: ev2.startsAt.toDate().toISOString(), priceMinor: 10_000 }, owner);
     expect(r.status).toBe("draft");
-    expect((await db().doc(`events/${id2}`).get()).data()).toMatchObject({ status: "draft", commissionBps: null, publishedAt: null, priceMinor: 10_000 });
+    expect((await db().doc(`events/${id2}`).get()).data()).toMatchObject({ status: "draft", publishedAt: null, priceMinor: 10_000 });
+    expect((await db().doc(`eventCommercials/${id2}`).get()).exists).toBe(false); // snapshot dropped until re-published
   });
 
   test("setEventResponsibility enforces the invariant and scope", async () => {

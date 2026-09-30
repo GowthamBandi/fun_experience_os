@@ -69,7 +69,6 @@ async function seedSession(opts: {
     // Paid event, so a sellable seat is a 15-minute hold (ADR-0005).
     priceMinor: 50_000,
     currency: "INR",
-    commissionBps: 1_000,
     capacity: {
       maxPhysicalCapacity: opts.maxPhysicalCapacity,
       blockedSlots: opts.blockedSlots ?? 0,
@@ -79,6 +78,7 @@ async function seedSession(opts: {
     },
     occupancy: { ...EMPTY_OCCUPANCY },
   });
+  await db.collection("eventCommercials").doc(SESSION_ID).set({ eventId: SESSION_ID, orgId: "org-concurrency", commissionBps: 1_000 });
 }
 
 const actor = { uid: "op-test", roleId: "super-admin" };

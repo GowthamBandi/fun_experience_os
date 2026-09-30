@@ -274,7 +274,6 @@ export async function saveEventCommand(uid: string, data: unknown) {
       tx.create(eventRef(eventId), {
         ...doc,
         occupancy: EMPTY_OCCUPANCY,
-        commissionBps: null,
         publishedAt: null,
         governanceCaseId: null,
         version: 1,
@@ -282,7 +281,8 @@ export async function saveEventCommand(uid: string, data: unknown) {
         createdBy: uid,
       });
     } else {
-      const reset = nextStatus === "draft" ? { commissionBps: null, commercialAgreementId: null, publishedAt: null } : {};
+      const reset = nextStatus === "draft" ? { publishedAt: null } : {};
+      if (nextStatus === "draft") tx.delete(db().collection(COLLECTIONS.eventCommercials).doc(eventId));
       tx.update(eventRef(eventId), { ...doc, ...reset, version: ((current.version as number) ?? 0) + 1 });
     }
     writeAudit(tx, {
@@ -410,11 +410,17 @@ export async function publishEventCommand(uid: string, data: unknown) {
       status: "published",
       publishedAt: now,
       publishedBy: uid,
-      commissionBps: agreement.commissionBps,
-      commercialAgreementId: agreement.id,
       version: ((ev.version as number) ?? 0) + 1,
       updatedAt: now,
       updatedBy: uid,
+    });
+    // The commission snapshot lives outside the (public) event document.
+    tx.set(db().collection(COLLECTIONS.eventCommercials).doc(eventId), {
+      eventId,
+      orgId,
+      commissionBps: agreement.commissionBps,
+      commercialAgreementId: agreement.id,
+      publishedAt: now,
     });
     writeAudit(tx, {
       action: "catalog.event-published", actorUid: uid, actorRole: actorRole(m), resourceType: "event", resourceId: eventId, orgId,

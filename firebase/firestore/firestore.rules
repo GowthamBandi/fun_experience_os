@@ -171,6 +171,12 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Commission snapshot per published event. Events are public; this is not.
+    match /eventCommercials/{eventId} {
+      allow read: if isAdmin() || isAuditor() || canOrgWide(resource.data.orgId, 'earnings.view');
+      allow write: if false;
+    }
+
     match /settlements/{settlementId} {
       allow read: if isAdmin() || isAuditor() || canOrgWide(resource.data.orgId, 'earnings.view');
       allow write: if false;

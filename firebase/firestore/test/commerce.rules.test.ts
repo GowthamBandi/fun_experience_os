@@ -51,7 +51,10 @@ beforeEach(async () => {
     await put("refunds/rf-a", { orgId: ORG, eventId: EV_A, bookingId: "bk-a", customerUid: "cust-1", amountMinor: 1_000, status: "processing" });
     await put("ledgerEntries/cap_pay-a_0", { orgId: ORG, account: "organizer_payable", direction: "credit", amountMinor: 87_413, txnId: "cap_pay-a" });
     await put("settlements/stl-1", { orgId: ORG, netMinor: 87_413, status: "pending-approval" });
+    await put(`eventCommercials/${EV_A}`, { orgId: ORG, eventId: EV_A, commissionBps: 1_250, commercialAgreementId: "ca-1" });
     await put("paymentEvents/evt_1", { type: "payment.captured" });
+    await put("jobRuns/dataRetention_2026-09-30", { job: "dataRetention", status: "completed" });
+    await put("legalHolds/user_cust-1", { subjectType: "user", subjectId: "cust-1", status: "active" });
     await put("rateLimits/reserve_cust-1", { count: 1 });
     await put("bookingLocks/event-a__cust-1", { bookingId: "bk-a", customerUid: "cust-1" });
     await put("commandReceipts/reserveSeat_cust-1_r1", { actorUid: "cust-1" });
@@ -115,6 +118,19 @@ describe("organizer staff", () => {
     await assertSucceeds(getDoc(doc(phone("finance"), "ledgerEntries/cap_pay-a_0")));
     await assertSucceeds(getDoc(doc(phone("finance"), "settlements/stl-1")));
     await assertSucceeds(getDoc(doc(phone("owner"), "settlements/stl-1")));
+  });
+
+  test("commission terms are visible only to org-wide earnings.view, admins and auditors — never customers or door staff", async () => {
+    const path = `eventCommercials/${EV_A}`;
+    await assertSucceeds(getDoc(doc(phone("finance"), path)));
+    await assertSucceeds(getDoc(doc(phone("owner"), path)));
+    await assertSucceeds(getDoc(doc(admin(), path)));
+    await assertFails(getDoc(doc(phone("finance-scoped"), path)));
+    await assertFails(getDoc(doc(phone("door-a"), path)));
+    await assertFails(getDoc(doc(phone("cust-1"), path)));
+    await assertFails(getDoc(doc(phone("revoked"), path)));
+    await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), path)));
+    for (const db of [phone("owner"), admin()]) await assertFails(setDoc(doc(db, path), { orgId: ORG, commissionBps: 0 }));
   });
 
   test("revoked staff read nothing", async () => {
@@ -182,6 +198,17 @@ describe("server-only stores", () => {
     }
     await assertFails(getDocs(collection(db, "paymentEvents")));
     await assertFails(getDocs(collection(db, "rateLimits")));
+  });
+
+  test("job runs and legal holds: admins and auditors read; nobody else reads; nobody writes", async () => {
+    const auditor = env.authenticatedContext("aud-1", { roleId: "auditor", email_verified: true }).firestore();
+    for (const p of ["jobRuns/dataRetention_2026-09-30", "legalHolds/user_cust-1"]) {
+      await assertSucceeds(getDoc(doc(admin(), p)));
+      await assertSucceeds(getDoc(doc(auditor, p)));
+      for (const uid of ["cust-1", "owner", "finance"]) await assertFails(getDoc(doc(phone(uid), p)));
+      await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), p)));
+      for (const db of [admin(), auditor, phone("cust-1")]) await assertFails(setDoc(doc(db, p), { status: "released" }));
+    }
   });
 
   test("admins read all commerce documents", async () => {
