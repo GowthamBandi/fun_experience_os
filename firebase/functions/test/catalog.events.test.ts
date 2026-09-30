@@ -13,6 +13,16 @@ import { proposeCommercialAgreement, decideCommercialAgreement } from "../src/co
 
 const owner = phoneCtx(U.owner);
 
+/** Polls until `check` passes (a live Firestore trigger may still be finishing in CI). */
+async function waitUntil(check: () => Promise<boolean>, timeoutMs = 20_000) {
+  const end = Date.now() + timeoutMs;
+  while (Date.now() < end) {
+    if (await check()) return;
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  throw new Error("condition not reached in time");
+}
+
 async function approvedExperience(over: Record<string, unknown> = {}) {
   const r = await call(saveExperience, experienceInput(over), owner);
   await db().doc(`experiences/${r.experienceId}`).update({ status: "approved" });
@@ -108,7 +118,10 @@ describe("experiences", () => {
     await call(submitExperience, { requestId: rid(), orgId: ORG, experienceId: r.experienceId }, owner);
     expect(await codeOf(call(saveExperience, experienceInput({ experienceId: expId }), owner))).toBe("PRECONDITION");
     await db().doc(`experiences/${r.experienceId}`).update({ status: "approved" });
-    expect(await applyApprovedRevision(r.experienceId)).toBe("merged");
+    // Where the Functions emulator runs (CI), onExperienceRevisionApproved may
+    // merge first; either way it is merged exactly once.
+    expect(["merged", "skipped"]).toContain(await applyApprovedRevision(r.experienceId));
+    await waitUntil(async () => (await db().doc(`experiences/${r.experienceId}`).get()).data()?.status === "archived");
     expect(await applyApprovedRevision(r.experienceId)).toBe("skipped");
     const merged = (await db().doc(`experiences/${expId}`).get()).data()!;
     expect(merged).toMatchObject({ title: "Sunday Football v3", status: "approved", lastRevisionId: r.experienceId });
@@ -123,7 +136,8 @@ describe("experiences", () => {
       // An operator took the original down while the revision was in review.
       await db().doc(`experiences/${expId}`).update({ status: governance });
       await db().doc(`experiences/${r.experienceId}`).update({ status: "approved" });
-      expect(await applyApprovedRevision(r.experienceId)).toBe("merged");
+      expect(["merged", "skipped"]).toContain(await applyApprovedRevision(r.experienceId)); // the live trigger may win (CI)
+      await waitUntil(async () => (await db().doc(`experiences/${expId}`).get()).data()?.lastRevisionId === r.experienceId);
       const merged = (await db().doc(`experiences/${expId}`).get()).data()!;
       expect(merged).toMatchObject({ title: "Sunday Football v2", status: governance, lastRevisionId: r.experienceId });
       const audit = (await db().collection("auditEvents").where("resourceId", "==", expId).get()).docs
