@@ -66,6 +66,8 @@ This is the canonical callable API used by PULSE (Flutter) and the Operations Co
 | `listEventAttendees` | member with `attendees.view` (scope) | `{ orgId, eventId }` | `{ attendees: [{ bookingId, ticketId, alias, status: "valid"\|"used"\|"cancelled"\|"refunded"\|"expired", checkedInAt, spotsLabel, bookedAt }] }` for confirmed/completed/cancelled bookings. Aliases and ids only — never the customer uid, phone, age or gender. An event of another organizer is `NOT_FOUND` |
 | `buildSettlement` | admin | `{ requestId, orgId, periodEnd }` | Builds a settlement from unsettled ledger entries of completed events |
 | `decideSettlement` | admin | `{ requestId, settlementId, action: "approve"\|"hold"\|"mark-paid"\|"release-hold", note, payoutReference? }` | Dual control above ₹50,000 |
+| `proposeCommercialAgreement` | admin | `{ requestId, orgId, commissionBps (0–5000), payoutCadence: "weekly"\|"fortnightly"\|"monthly", note }` | Creates a `pending-approval` version |
+| `decideCommercialAgreement` | admin | `{ requestId, agreementId, action: "approve"\|"reject", note }` | Always dual control (proposer can't decide); approving supersedes the previous approved version |
 
 **Scheduled jobs**
 - `releaseExpiredHolds` runs every 5 minutes.

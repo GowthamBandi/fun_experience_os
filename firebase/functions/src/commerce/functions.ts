@@ -25,6 +25,7 @@ import { scanTicket as scanTicketSvc } from "./scan";
 import { checkInManually as checkInManuallySvc, listEventAttendees as listEventAttendeesSvc } from "./checkin";
 import { buildSettlement as buildSettlementSvc, decideSettlement as decideSettlementSvc } from "./settlements";
 import { releaseExpiredHolds as releaseExpiredHoldsSvc } from "./holds";
+import { PAYOUT_CADENCES, decideCommercialAgreement as decideCommercialAgreementSvc, proposeCommercialAgreement as proposeCommercialAgreementSvc } from "./agreements";
 import { retryApprovedRefunds } from "./refundCore";
 import { sendEventReminders as sendEventRemindersSvc } from "./reminders";
 import { handleRazorpayWebhook } from "./webhook";
@@ -188,6 +189,29 @@ export const buildSettlement = callable(async (data, context) => {
     throw new DomainError("INVALID_INPUT", "periodEnd must be a date in the past.");
   }
   return buildSettlementSvc(admin, { requestId: requestId(d.requestId), orgId: docId(d.orgId, "orgId"), periodEnd });
+});
+
+export const proposeCommercialAgreement = callable(async (data, context) => {
+  const admin = requireAdmin(context, "commercials.propose");
+  const d = obj(data);
+  return proposeCommercialAgreementSvc(admin, {
+    requestId: requestId(d.requestId),
+    orgId: docId(d.orgId, "orgId"),
+    commissionBps: int(d.commissionBps, "commissionBps", 0, 5_000),
+    payoutCadence: oneOf(d.payoutCadence, "payoutCadence", PAYOUT_CADENCES),
+    note: str(d.note, "Note", 3, 500),
+  });
+});
+
+export const decideCommercialAgreement = callable(async (data, context) => {
+  const admin = requireAdmin(context, "commercials.decide");
+  const d = obj(data);
+  return decideCommercialAgreementSvc(admin, {
+    requestId: requestId(d.requestId),
+    agreementId: docId(d.agreementId, "agreementId"),
+    action: oneOf(d.action, "action", ["approve", "reject"] as const),
+    note: str(d.note, "Note", 3, 500),
+  });
 });
 
 export const decideSettlement = callable(async (data, context) => {

@@ -206,3 +206,35 @@ export const CONFIRM_PHRASES = {
 export function isConfirmed(typed: string, phrase: string): boolean {
   return typed.trim().replace(/\s+/g, " ").toUpperCase() === phrase;
 }
+
+/* ------------------------------------------------ commercial agreements */
+
+export const PAYOUT_CADENCES = ["weekly", "fortnightly", "monthly"] as const;
+export type PayoutCadence = (typeof PAYOUT_CADENCES)[number];
+
+/** Parses "12.5" (percent, up to two decimals) into basis points; 0–50% like the server. */
+export function commissionPercentToBps(value: string): number {
+  const trimmed = value.trim();
+  if (!/^\d{1,2}(\.\d{1,2})?$/.test(trimmed)) throw new CommandValidationError("Enter the commission as a percentage, e.g. 12 or 12.5.");
+  const bps = Math.round(Number(trimmed) * 100);
+  if (bps > 5_000) throw new CommandValidationError("Commission can't be more than 50%.");
+  return bps;
+}
+
+export function buildProposeAgreementPayload(input: { requestId: string; orgId: string; commissionPercent: string; payoutCadence: string; note: string }) {
+  const orgId = input.orgId.trim();
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(orgId)) throw new CommandValidationError("Enter the organizer ID (orgId).");
+  const cadence = input.payoutCadence.trim().toLowerCase();
+  if (!(PAYOUT_CADENCES as readonly string[]).includes(cadence)) throw new CommandValidationError("Payout cadence must be weekly, fortnightly or monthly.");
+  return {
+    requestId: requireRequestId(input.requestId),
+    orgId,
+    commissionBps: commissionPercentToBps(input.commissionPercent),
+    payoutCadence: cadence as PayoutCadence,
+    note: reason(input.note, 10, 500),
+  };
+}
+
+export function buildDecideAgreementPayload(input: { requestId: string; agreementId: string; action: "approve" | "reject"; note: string }) {
+  return { requestId: requireRequestId(input.requestId), agreementId: input.agreementId, action: input.action, note: reason(input.note, 10, 500) };
+}

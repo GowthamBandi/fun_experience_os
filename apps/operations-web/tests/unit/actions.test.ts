@@ -117,3 +117,27 @@ describe("typed confirmation", () => {
     expect(isConfirmed("", CONFIRM_PHRASES.markPaid)).toBe(false);
   });
 });
+
+describe("commercial agreements", () => {
+  it("converts percent to basis points and enforces the server's 0–50% bound", async () => {
+    const { commissionPercentToBps } = await import("@/lib/console/actions");
+    expect(commissionPercentToBps("12")).toBe(1200);
+    expect(commissionPercentToBps(" 12.5 ")).toBe(1250);
+    expect(commissionPercentToBps("0")).toBe(0);
+    expect(commissionPercentToBps("50")).toBe(5000);
+    expect(() => commissionPercentToBps("50.01")).toThrow(/50%/);
+    expect(() => commissionPercentToBps("-1")).toThrow(CommandValidationError);
+    expect(() => commissionPercentToBps("12.345")).toThrow(CommandValidationError);
+  });
+  it("builds propose and decide payloads matching the callables", async () => {
+    const { buildProposeAgreementPayload, buildDecideAgreementPayload } = await import("@/lib/console/actions");
+    const requestId = rid();
+    expect(buildProposeAgreementPayload({ requestId, orgId: " org_1 ", commissionPercent: "15", payoutCadence: "Weekly", note: "Signed MSA v3 on file" }))
+      .toEqual({ requestId, orgId: "org_1", commissionBps: 1500, payoutCadence: "weekly", note: "Signed MSA v3 on file" });
+    expect(() => buildProposeAgreementPayload({ requestId, orgId: "org_1", commissionPercent: "15", payoutCadence: "daily", note: "Signed MSA v3 on file" })).toThrow(/cadence/);
+    expect(() => buildProposeAgreementPayload({ requestId, orgId: "", commissionPercent: "15", payoutCadence: "weekly", note: "Signed MSA v3 on file" })).toThrow(/orgId/);
+    expect(() => buildProposeAgreementPayload({ requestId, orgId: "org_1", commissionPercent: "15", payoutCadence: "weekly", note: "short" })).toThrow(CommandValidationError);
+    expect(buildDecideAgreementPayload({ requestId, agreementId: "ca_1", action: "approve", note: "Checked against MSA" }))
+      .toEqual({ requestId, agreementId: "ca_1", action: "approve", note: "Checked against MSA" });
+  });
+});

@@ -1,2 +1,2 @@
-import { GovernanceRoutePage } from "@/components/governance/GovernanceRoutePage";
-export default function Page(){return <GovernanceRoutePage config={{collection:"commercialAgreements",readOnly:true,eyebrow:"Finance",title:"Commercial terms",description:"Inspect versioned commission, reserve, payout cadence and liability terms negotiated with organizers.",metricLabel:"Agreement versions",primaryAction:"Inspect terms"}}/>}
+import { CommercialsWorkspace } from "@/components/governance/CommercialsWorkspace";
+export default function Page(){return <CommercialsWorkspace/>}

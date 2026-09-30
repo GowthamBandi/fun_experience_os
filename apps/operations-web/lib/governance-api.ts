@@ -9,6 +9,8 @@ import {
   buildDecideCasePayload,
   buildDecideRefundPayload,
   buildDecideSettlementPayload,
+  buildProposeAgreementPayload,
+  buildDecideAgreementPayload,
   buildEntityStatusPayload,
   buildModerateReviewPayload,
   buildReissueOrganizerCodePayload,
@@ -182,4 +184,12 @@ export async function adminCancelEvent(input: { requestId: string; eventId: stri
 
 export async function moderateReview(input: { requestId: string; reviewId: string; status: "published" | "hidden"; reason: string }) {
   return call<{ reviewId: string; status: "published" | "hidden" }>(regional(), "moderateReview", buildModerateReviewPayload(input));
+}
+
+export async function proposeCommercialAgreement(input: { requestId: string; orgId: string; commissionPercent: string; payoutCadence: string; note: string }) {
+  return call<{ agreementId: string; status: string }>(regional(), "proposeCommercialAgreement", buildProposeAgreementPayload(input));
+}
+
+export async function decideCommercialAgreement(input: { requestId: string; agreementId: string; action: "approve" | "reject"; note: string }) {
+  return call<{ agreementId: string; status: string; supersededId: string | null }>(regional(), "decideCommercialAgreement", buildDecideAgreementPayload(input));
 }

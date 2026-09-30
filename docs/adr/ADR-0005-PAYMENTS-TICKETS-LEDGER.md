@@ -65,7 +65,8 @@ No credentials exist in this repository or environment, and none are fabricated.
 - **Commission:**
   - comes from the organizer's approved `commercialAgreements` (`commissionBps`);
   - it is captured on the payment document at capture time, so later agreement changes never rewrite history;
-  - **with no approved agreement, publishing is refused**, because no money should move without agreed terms.
+  - **with no approved agreement, publishing is refused**, because no money should move without agreed terms;
+  - agreements are versioned: one admin proposes (`proposeCommercialAgreement`) and a **different** admin approves (`decideCommercialAgreement`); approval supersedes the organizer's previous approved version in the same transaction, so there is only ever one approved version per organizer.
 - **Rounding:** commission = `floor(amountMinor × bps / 10000)`, and the organizer receives the remainder, so every paisa is accounted for.
 - **Settlements:** `buildSettlement(orgId, periodEnd)` (admin) aggregates unsettled `organizer_payable` entries of **completed** events into a settlement, marking those entries with `settlementId`. Approval and marking as paid need **two different admins** above ₹50,000 (dual control). Payout execution via Razorpay Route needs the Route activation, which is an external blocker.
 

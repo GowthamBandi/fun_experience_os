@@ -9,6 +9,7 @@ import {
 import { applyApprovedRevision } from "../src/catalog/experiences";
 import { validateCategoryConfig } from "../src/catalog/categories";
 import { EMPTY_OCCUPANCY } from "../src/domain/capacity";
+import { proposeCommercialAgreement, decideCommercialAgreement } from "../src/commerce";
 
 const owner = phoneCtx(U.owner);
 
@@ -230,6 +231,46 @@ describe("events", () => {
     await db().doc(`commercialAgreements/ca-${ORG}`).update({ commissionBps: 2000 });
     expect((await db().doc(`events/${id}`).get()).data()!.commissionBps).toBe(1200);
     expect(await codeOf(pub(id))).toBe("PRECONDITION"); // already published
+  });
+
+  test("commercial terms: proposed by one admin, approved by another, supersede the old version and unlock publish", async () => {
+    await db().doc(`commercialAgreements/ca-${ORG}`).delete();
+    const e1 = await approvedEvent(expId);
+    expect(await messageOf(pub(e1))).toMatch(/commercial terms/);
+
+    const propose = (ctx: unknown, over: Record<string, unknown> = {}) =>
+      call(proposeCommercialAgreement, { requestId: rid("ca"), orgId: ORG, commissionBps: 1500, payoutCadence: "weekly", note: "Signed MSA v3", ...over }, ctx);
+    const decide = (agreementId: string, action: string, ctx: unknown) =>
+      call(decideCommercialAgreement, { requestId: rid("cad"), agreementId, action, note: "Checked against MSA" }, ctx);
+
+    // organizers and non-admins can't touch terms
+    expect(await codeOf(propose(owner))).toBe("NOT_PERMITTED");
+    expect(await codeOf(propose(adminCtx("admin-a"), { commissionBps: 6000 }))).toBe("INVALID_INPUT");
+    expect(await codeOf(propose(adminCtx("admin-a"), { orgId: "org-missing" }))).toBe("NOT_FOUND");
+
+    const first = await propose(adminCtx("admin-a"));
+    expect(first.status).toBe("pending-approval");
+    expect(await messageOf(pub(e1))).toMatch(/commercial terms/); // pending terms don't count
+    expect(await codeOf(decide(first.agreementId, "approve", adminCtx("admin-a")))).toBe("NOT_PERMITTED"); // dual control
+    expect(await codeOf(decide(first.agreementId, "approve", owner))).toBe("NOT_PERMITTED");
+    const ok = await decide(first.agreementId, "approve", adminCtx("admin-b"));
+    expect(ok).toMatchObject({ status: "approved", supersededId: null });
+    expect(await codeOf(decide(first.agreementId, "reject", adminCtx("admin-c")))).toBe("PRECONDITION"); // already decided
+
+    expect(await pub(e1)).toMatchObject({ status: "published", commissionBps: 1500 });
+
+    // a new version supersedes the old one; only one approved agreement per organizer
+    const second = await propose(adminCtx("admin-b"), { commissionBps: 1000 });
+    const ok2 = await decide(second.agreementId, "approve", adminCtx("admin-a"));
+    expect(ok2).toMatchObject({ status: "approved", supersededId: first.agreementId });
+    const approved = await db().collection("commercialAgreements").where("orgId", "==", ORG).where("status", "==", "approved").get();
+    expect(approved.docs.map((d) => d.id)).toEqual([second.agreementId]);
+    expect((await db().doc(`events/${e1}`).get()).data()!.commissionBps).toBe(1500); // history unchanged
+    const e2 = await approvedEvent(expId);
+    expect(await pub(e2)).toMatchObject({ commissionBps: 1000 });
+
+    const audits = await db().collection("auditEvents").where("resourceId", "==", second.agreementId).get();
+    expect(audits.docs.map((d) => d.data().action).sort()).toEqual(["commercial-agreement.approved", "commercial-agreement.proposed"]);
   });
 
   test("publish refused: not approved / experience not approved / organizer paused / no agreement / primary revoked / primary lacks operate / start passed / no permission", async () => {
