@@ -1,5 +1,6 @@
 {
   "projects": {
-    "development": "demo-experience-os"
+    "development": "demo-experience-os",
+    "staging": "experience-os-staging"
   }
 }

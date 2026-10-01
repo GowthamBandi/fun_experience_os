@@ -16,7 +16,8 @@
   },
   "firestore": {
     "rules": "firebase/firestore/firestore.rules",
-    "indexes": "firebase/firestore/firestore.indexes.json"
+    "indexes": "firebase/firestore/firestore.indexes.json",
+    "location": "asia-south1"
   },
   "emulators": {
     "auth": {
