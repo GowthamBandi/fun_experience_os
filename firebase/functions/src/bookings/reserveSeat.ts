@@ -49,7 +49,7 @@ import {
   type SeatRequestKind,
 } from "../domain/capacity";
 import { checkEligibility, type Eligibility } from "../commerce/policy";
-import { issueTickets } from "../commerce/tickets";
+import { bookingReference, issueTickets } from "../commerce/tickets";
 import { bookingLockId, C, HOLD_MINUTES } from "../commerce/config";
 
 /** Event lifecycle states that may accept a new reservation (ADR-0003). */
@@ -116,6 +116,8 @@ export interface BookingDoc {
   experienceId: string | null;
   customerUid: string | null;
   alias: string;
+  /** Printed on the pass and accepted at the door instead of the QR. */
+  reference: string;
   spots: number;
   kind: SeatRequestKind;
   bookingType: "individual" | "complimentary";
@@ -401,6 +403,7 @@ export async function reserveSeat(cmd: ReserveSeatCommand): Promise<ReserveSeatR
         });
       }
 
+      const reference = bookingReference();
       const ticketIds =
         confirmedNow && customerUid
           ? issueTickets(tx, {
@@ -409,6 +412,7 @@ export async function reserveSeat(cmd: ReserveSeatCommand): Promise<ReserveSeatR
               orgId: event.orgId ?? "",
               customerUid,
               alias: cmd.alias.trim(),
+              reference,
               spots,
             })
           : [];
@@ -420,6 +424,7 @@ export async function reserveSeat(cmd: ReserveSeatCommand): Promise<ReserveSeatR
         experienceId: event.experienceId ?? null,
         customerUid,
         alias: cmd.alias.trim(),
+        reference,
         spots,
         kind: cmd.kind,
         bookingType: isComp ? "complimentary" : "individual",

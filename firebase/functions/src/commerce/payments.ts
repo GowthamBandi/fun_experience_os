@@ -374,6 +374,7 @@ export async function settleCapturedPayment(input: CaptureInput): Promise<Settle
         orgId: payment.orgId,
         customerUid: payment.customerUid,
         alias: booking.alias,
+        reference: booking.reference ?? null,
         spots: booking.spots,
       });
       tx.set(paymentRef(payment.id), captured);

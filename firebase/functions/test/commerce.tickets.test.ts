@@ -144,6 +144,58 @@ describe("scanTicket", () => {
     expect(codes[120]).toBe("RATE_LIMITED");
   });
 
+  test("the reference printed on the pass checks in one spot per entry, typed in any case or spacing", async () => {
+    const s = await setup();
+    const ref = (await getDoc<{ reference: string }>(`bookings/${s.booking.bookingId}`))!.reference;
+    expect(ref).toMatch(/^PLS-[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$/);
+    for (const t of s.booking.ticketIds) expect((await getDoc<{ reference: string }>(`tickets/${t}`))!.reference).toBe(ref);
+
+    const reqId = rid();
+    const first = await scan(s.scanner, s.eventId, ` ${ref.toLowerCase().replace("-", " ")} `, reqId);
+    expect(first.result).toBe("checked-in");
+    expect(first.ticket!.spotsLabel).toBe("Spot 1 of 2");
+    // A retry of the same request admits nobody new.
+    expect(await scan(s.scanner, s.eventId, ref, reqId)).toEqual(first);
+
+    const second = await scan(s.scanner, s.eventId, ref.replace("PLS-", ""));
+    expect(second.result).toBe("checked-in");
+    expect(second.ticket!.spotsLabel).toBe("Spot 2 of 2");
+
+    const third = await scan(s.scanner, s.eventId, ref);
+    expect(third.result).toBe("already-used");
+    for (const t of s.booking.ticketIds) {
+      expect((await getDoc<{ status: string; checkInMethod: string }>(`tickets/${t}`))!).toMatchObject({ status: "used", checkInMethod: "reference" });
+    }
+    const audits = await db().collection("auditEvents").where("actorUid", "==", s.scanner).where("action", "==", "ticket.checked-in").get();
+    expect(audits.size).toBe(2);
+  });
+
+  test("a reference is only accepted at its own event, and unknown references are invalid", async () => {
+    const s = await setup();
+    const ref = (await getDoc<{ reference: string }>(`bookings/${s.booking.bookingId}`))!.reference;
+    expect((await scan(s.scanner, s.eventB, ref)).result).toBe("invalid");
+    expect((await scan(s.scanner, s.eventId, "PLS-ZZZZZZ")).result).toBe("invalid");
+    expect((await scan(s.scanner, s.eventId, "PLS-ZZZZ")).result).toBe("invalid");
+    for (const t of s.booking.ticketIds) expect((await getDoc<{ status: string }>(`tickets/${t}`))!.status).toBe("valid");
+  });
+
+  test("a reference needs the same permission as a QR scan", async () => {
+    const s = await setup();
+    const ref = (await getDoc<{ reference: string }>(`bookings/${s.booking.bookingId}`))!.reference;
+    const outOfScope = uniq("staff");
+    await seedMembership(s.orgId, outOfScope, { permissions: ["tickets.scan"], eventIds: [s.eventB] });
+    for (const who of [outOfScope, s.uid]) {
+      expect(await callCode(commerce.scanTicket, { requestId: rid(), eventId: s.eventId, payload: ref }, phoneCtx(who))).toBe("NOT_PERMITTED");
+    }
+  });
+
+  test("a reference reports refunded spots instead of admitting them", async () => {
+    const s = await setup();
+    const ref = (await getDoc<{ reference: string }>(`bookings/${s.booking.bookingId}`))!.reference;
+    for (const t of s.booking.ticketIds) await db().collection("tickets").doc(t).update({ status: "refunded" });
+    expect((await scan(s.scanner, s.eventId, ref)).result).toBe("refunded");
+  });
+
   test("the payload format carries no personal data and matches the documented signature", async () => {
     const s = await setup();
     const t = (await getDoc<{ bookingId: string; eventId: string }>(`tickets/${s.booking.ticketIds[0]}`))!;

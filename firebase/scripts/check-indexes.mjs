@@ -75,6 +75,7 @@ export const QUERIES = [
   Q("B21", "backend", "refunds", ["providerRefundId"], null, [], ["firebase/functions/src/commerce/webhook.ts", `where("providerRefundId"`]),
   Q("B22", "backend", "tickets", ["eventId"], null, [], ["firebase/functions/src/commerce/checkin.ts", `tickets).where("eventId"`]),
   Q("B23", "backend", "bookings", ["eventId"], null, [], ["firebase/functions/src/commerce/checkin.ts", `bookings).where("eventId"`]),
+  Q("B24", "backend", "tickets", ["eventId", "reference"], null, [], ["firebase/functions/src/commerce/scan.ts", `.where("reference", "==", reference)`]),
   // platform/retention.ts (scheduled clean-up). R01/R02 run on a collection
   // passed in as a variable, which the chain scanner can't resolve.
   Q("R01", "backend", "staffInvites", ["status"], "expiresAt", [], ["firebase/functions/src/platform/retention.ts", `.where("expiresAt", "<", opts.cutoff)`]),
