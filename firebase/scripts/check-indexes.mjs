@@ -287,7 +287,7 @@ let discovered = 0;
 for (const [file, dart, base] of sources) {
   const { found, unresolved } = discover(file, dart);
   for (const u of unresolved) {
-    const rel = relative(base, file);
+    const rel = relative(base, file).replaceAll("\\", "/");
     const text = readFileSync(file, "utf8");
     const near = (q) => {
       const at = text.indexOf(q.src[1]);
@@ -310,7 +310,7 @@ for (const [file, dart, base] of sources) {
 for (const [file] of sources.filter(([f]) => f.includes("operations-web"))) {
   const text = readFileSync(file, "utf8");
   for (const m of text.matchAll(/[^.\w]where\(\s*["'`]([\w.]+)["'`]/g)) {
-    const rel = relative(ROOT, file);
+    const rel = relative(ROOT, file).replaceAll("\\", "/");
     const ok = QUERIES.some((q) => q.area === "console" && q.src[0] === rel && q.eq.map(bare).includes(m[1]));
     if (!ok) errors.push(`${rel}:${text.slice(0, m.index).split("\n").length} modular where("${m[1]}") is not declared in QUERIES`);
   }
