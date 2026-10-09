@@ -60,3 +60,37 @@ export function useBoundedQuery<T>(
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
   return { ...state, retry };
 }
+
+export interface OneShot<T> {
+  value: T | null;
+  loading: boolean;
+  error: string | null;
+  retry: () => void;
+}
+
+/** One async read (e.g. a count aggregation), re-run when `key` changes; a null key skips it. */
+export function useOneShot<T>(key: string | null, run: () => Promise<T>): OneShot<T> {
+  const [state, setState] = useState<Omit<OneShot<T>, "retry">>({ value: null, loading: key !== null, error: null });
+  const [attempt, setAttempt] = useState(0);
+  const fn = useRef(run);
+  fn.current = run;
+
+  useEffect(() => {
+    if (key === null) {
+      setState({ value: null, loading: false, error: null });
+      return;
+    }
+    let live = true;
+    setState((s) => ({ ...s, loading: true, error: null }));
+    fn.current().then(
+      (value) => live && setState({ value, loading: false, error: null }),
+      (err) => live && setState({ value: null, loading: false, error: readErrorMessage(err) }),
+    );
+    return () => {
+      live = false;
+    };
+  }, [key, attempt]);
+
+  const retry = useCallback(() => setAttempt((n) => n + 1), []);
+  return { ...state, retry };
+}

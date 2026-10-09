@@ -2,9 +2,16 @@ import { collection, count, getAggregateFromServer, query, sum, Timestamp, where
 import { getFirebaseClient } from "./firebase/client";
 import { readNumber, resolveMetric, type MetricKey, type MetricSpec, type TimeRange } from "./metrics";
 
+/** Narrows a metric to one organizer (ledgerEntries carry orgId). */
+export interface MetricScope {
+  orgId?: string;
+}
+
 /** One server-side aggregation. A sum skips docs missing the field; a non-finite result throws. */
-export async function runMetric(spec: MetricSpec, range?: TimeRange): Promise<number> {
+export async function runMetric(spec: MetricSpec, range?: TimeRange, scope?: MetricScope): Promise<number> {
   const constraints: QueryConstraint[] = spec.where.map(([field, op, value]) => where(field, op, value));
+  const orgId = scope?.orgId;
+  if (orgId) constraints.push(where("orgId", "==", orgId));
   if (spec.dateField && range) {
     constraints.push(where(spec.dateField, ">=", Timestamp.fromDate(range.start)));
     constraints.push(where(spec.dateField, "<", Timestamp.fromDate(range.end)));
@@ -17,6 +24,6 @@ export async function runMetric(spec: MetricSpec, range?: TimeRange): Promise<nu
 }
 
 /** A metric by key, with any `minus` spec subtracted. */
-export function runMetricKey(key: MetricKey, range?: TimeRange): Promise<number> {
-  return resolveMetric(key, (spec) => runMetric(spec, range));
+export function runMetricKey(key: MetricKey, range?: TimeRange, scope?: MetricScope): Promise<number> {
+  return resolveMetric(key, (spec) => runMetric(spec, range, scope));
 }

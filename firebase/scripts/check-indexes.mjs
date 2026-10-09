@@ -127,6 +127,18 @@ export const QUERIES = [
   Q("M07", "console", "organizers", ["status"], null, [], ["apps/operations-web/lib/metrics.ts", `collection: "organizers"`], "Dashboard active organizers: single equality, no date."),
   Q("M08", "console", "events", [], "endsAt", [["endsAt", "asc"]], ["apps/operations-web/lib/use-live-events.ts", `where("endsAt", ">="`], "Live now + rail badge: endsAt >= now (30-min anchor), soonest-ending first, limit 101 (+1 probe); live/soon split client-side; single-field index."),
   Q("M09", "console", "events", [], "startsAt", [["startsAt", "desc"]], ["apps/operations-web/lib/use-live-events.ts", `eventsStartingBetween(`], "Top cities (components/overview/TopCities.tsx): startsAt in the dashboard range, newest first, limit 251; single-field index."),
+  Q("M10", "console", "ledgerEntries", ["orgId", "account", "kind", "direction"], null, [], ["apps/operations-web/lib/metrics-firestore.ts", `where("orgId", "==", orgId)`], "Organizer 360 gross and refunds: a ledger money metric scoped to one org, all time (no createdAt range)."),
+  Q("M11", "console", "publicOrganizers", [], null, [], ["apps/operations-web/lib/organizers-firestore.ts", `query(col("publicOrganizers"))`], "Organizers grid display fields, limit 251."),
+  Q("M12", "console", "events", ["orgId"], null, [["startsAt", "desc"]], ["apps/operations-web/lib/organizers-firestore.ts", `orderBy("startsAt", "desc")`], "Organizer 360 Events tab, newest first, limit 251."),
+  Q("M13", "console", "experiences", ["orgId"], null, [["updatedAt", "desc"]], ["apps/operations-web/lib/organizers-firestore.ts", `col("experiences"), where("orgId"`], "Organizer 360 Experiences tab."),
+  Q("M14", "console", "reviews", ["orgId", "status"], null, [["updatedAt", "desc"]], ["apps/operations-web/lib/organizers-firestore.ts", `where("status", "==", "published")`], "Organizer 360 average rating: published reviews, newest first, limit 251."),
+  Q("M15", "console", "commercialAgreements", ["orgId"], null, [["createdAt", "desc"]], ["apps/operations-web/lib/organizers-firestore.ts", `col("commercialAgreements")`], "Organizer 360 Money tab: terms in force and history."),
+  Q("M16", "console", "eventCommercials", ["orgId"], null, [["publishedAt", "desc"]], ["apps/operations-web/lib/organizers-firestore.ts", `orderBy("publishedAt", "desc")`], "Organizer 360 Money tab: commission snapshot per published event."),
+  Q("M17", "console", "settlements", ["orgId"], null, [["createdAt", "desc"]], ["apps/operations-web/lib/organizers-firestore.ts", `col("settlements")`], "Organizer 360 Money tab: settlements, newest first."),
+  Q("M18", "console", "memberships", ["orgId"], null, [], ["apps/operations-web/lib/organizers-firestore.ts", `col("memberships"), where("orgId", "==", orgId)`], "Organizer 360 Team tab; single equality."),
+  Q("M19", "console", "auditEvents", ["orgId"], null, [["at", "desc"]], ["apps/operations-web/lib/organizers-firestore.ts", `col("auditEvents"), where("orgId"`], "Organizer 360 Timeline: events that carry the org, limit 101."),
+  Q("M20", "console", "auditEvents", ["resourceId"], null, [["at", "desc"]], ["apps/operations-web/lib/organizers-firestore.ts", `where("resourceId", "==", orgId)`], "Organizer 360 Timeline: events on the organizer record (governance status changes carry no orgId), limit 101."),
+  Q("M21", "console", "events", ["orgId"], null, [], ["apps/operations-web/lib/organizers-firestore.ts", `getCountFromServer(query(col("events"), where("orgId"`], "Organizer 360 events count: count aggregation on one equality."),
 ];
 
 /* --------------------------------------------------------------- matching */
@@ -292,7 +304,8 @@ for (const q of QUERIES) {
 const declared = new Set(QUERIES.map(sig));
 const sources = [
   ...walk(join(ROOT, "firebase/functions/src"), [".ts"]).map((f) => [f, false, ROOT]),
-  ...walk(join(ROOT, "firebase/scripts"), [".mjs", ".ts", ".js"]).filter((f) => !f.endsWith("check-indexes.mjs")).map((f) => [f, false, ROOT]),
+  // Emulator-only scripts (seed/reset) never run against production, and the emulator doesn't enforce indexes.
+  ...walk(join(ROOT, "firebase/scripts"), [".mjs", ".ts", ".js"]).filter((f) => !f.endsWith("check-indexes.mjs") && !/(seed|reset)-emulator\.ts$/.test(f)).map((f) => [f, false, ROOT]),
   ...walk(join(ROOT, "apps/operations-web/lib"), [".ts", ".tsx"]).map((f) => [f, false, ROOT]),
   ...walk(join(PULSE_DIR, "lib/src/data"), [".dart"]).map((f) => [f, true, PULSE_DIR]),
 ];

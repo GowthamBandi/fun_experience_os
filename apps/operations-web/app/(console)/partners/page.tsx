@@ -1,2 +1,5 @@
-import { GovernanceRoutePage } from "@/components/governance/GovernanceRoutePage";
-export default function Page(){return <GovernanceRoutePage config={{collection:"organizers",entityType:"organizer",eyebrow:"Marketplace",title:"Organizers",description:"Verify event managers, govern marketplace access and review commercial performance without operating their events.",metricLabel:"Organizer records",primaryAction:"Open profile"}}/>}
+import { OrganizerGrid } from "@/components/organizers/OrganizerGrid";
+
+export default function Page() {
+  return <OrganizerGrid />;
+}
