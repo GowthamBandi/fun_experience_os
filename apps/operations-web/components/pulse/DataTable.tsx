@@ -27,6 +27,13 @@ export type DataTableProps<T> = {
   caption?: string;
 };
 
+// Clicks and Enter on controls inside a cell belong to that control, not the row.
+const INTERACTIVE = "button, a, input, select, textarea, [role=button]";
+const fromControl = (target: EventTarget, row: Element) => {
+  const hit = target instanceof Element ? target.closest(INTERACTIVE) : null;
+  return hit !== null && hit !== row && row.contains(hit);
+};
+
 export function DataTable<T>({ rows, columns, rowKey, onRowClick, loading = false, empty, className, caption }: DataTableProps<T>) {
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 } | null>(null);
   const [active, setActive] = useState(0);
@@ -49,7 +56,7 @@ export function DataTable<T>({ rows, columns, rowKey, onRowClick, loading = fals
   };
 
   const onKey = (e: KeyboardEvent<HTMLTableRowElement>, i: number, row: T) => {
-    if (e.target !== e.currentTarget) return;
+    if (e.target !== e.currentTarget || fromControl(e.target, e.currentTarget)) return;
     if (e.key === "ArrowDown") {
       e.preventDefault();
       focusRow(i + 1);
@@ -138,7 +145,7 @@ export function DataTable<T>({ rows, columns, rowKey, onRowClick, loading = fals
                   tabIndex={i === tabStop ? 0 : -1}
                   onFocus={() => setActive(i)}
                   onKeyDown={(e) => onKey(e, i, row)}
-                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  onClick={onRowClick ? (e) => !fromControl(e.target, e.currentTarget) && onRowClick(row) : undefined}
                   className={cn(
                     "group outline-none transition-colors duration-150",
                     "hover:bg-[rgba(255,255,255,0.035)] focus-visible:bg-[rgba(142,114,255,0.1)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary",

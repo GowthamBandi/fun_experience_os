@@ -10,8 +10,11 @@ export function Tabs({ tabs, value, onChange, className, label }: { tabs: TabIte
   const group = useId();
   const reduced = useReducedMotion();
   const refs = useRef<Array<HTMLButtonElement | null>>([]);
+  const selected = tabs.findIndex((t) => t.id === value);
+  const stop = selected >= 0 ? selected : 0;
 
   const onKey = (e: KeyboardEvent<HTMLButtonElement>, i: number) => {
+    if (tabs.length === 0) return;
     let next = -1;
     if (e.key === "ArrowRight") next = (i + 1) % tabs.length;
     else if (e.key === "ArrowLeft") next = (i - 1 + tabs.length) % tabs.length;
@@ -41,7 +44,7 @@ export function Tabs({ tabs, value, onChange, className, label }: { tabs: TabIte
             role="tab"
             id={`${group}-${tab.id}`}
             aria-selected={on}
-            tabIndex={on ? 0 : -1}
+            tabIndex={i === stop ? 0 : -1}
             onClick={() => onChange(tab.id)}
             onKeyDown={(e) => onKey(e, i)}
             className={cn(

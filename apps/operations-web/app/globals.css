@@ -56,121 +56,160 @@ body {
   overflow: hidden;
 }
 
-/* surface under a field of content */
-.dusk-field {
-  background: var(--ink);
-}
+/* component classes sit in the components layer so utilities (bg-*, font-bold, ...) override them */
+@layer components {
+  /* surface under a field of content */
+  .dusk-field {
+    background: var(--ink);
+  }
 
-/* page ambience: violet top-left, volt bottom-right */
-.page-glow {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background:
-    radial-gradient(60% 50% at 0% 0%, rgba(142, 114, 255, 0.18), transparent 70%),
-    radial-gradient(45% 40% at 100% 100%, rgba(217, 255, 63, 0.06), transparent 70%);
-}
+  /* page ambience: violet top-left, volt bottom-right */
+  .page-glow {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background:
+      radial-gradient(60% 50% at 0% 0%, rgba(142, 114, 255, 0.18), transparent 70%),
+      radial-gradient(45% 40% at 100% 100%, rgba(217, 255, 63, 0.06), transparent 70%);
+  }
 
-/* film grain */
-.grain::after {
-  content: "";
-  position: fixed;
-  inset: -100%;
-  width: 300%;
-  height: 300%;
-  pointer-events: none;
-  z-index: 60;
-  opacity: 0;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  animation: grain 0.24s steps(2) infinite;
-}
+  /* film grain */
+  .grain::after {
+    content: "";
+    position: fixed;
+    inset: -100%;
+    width: 300%;
+    height: 300%;
+    pointer-events: none;
+    z-index: 60;
+    opacity: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    animation: grain 0.24s steps(2) infinite;
+  }
 
-.glass {
-  background: rgba(26, 23, 38, 0.78);
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
-  border: 1px solid var(--line-soft);
-}
+  .glass {
+    background: rgba(26, 23, 38, 0.78);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--line-soft);
+  }
 
-.glass-surface {
-  background: var(--night);
-  border: 1px solid var(--line-soft);
-}
+  .glass-surface {
+    background: var(--night);
+    border: 1px solid var(--line-soft);
+  }
 
-.solid {
-  background: var(--surface);
-  border: 1px solid var(--line);
-}
+  .solid {
+    background: var(--surface);
+    border: 1px solid var(--line);
+  }
 
-.field {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--line);
-  transition:
-    border-color 0.2s var(--ease-pulse),
-    box-shadow 0.2s var(--ease-pulse),
-    background-color 0.2s var(--ease-pulse);
-}
+  .field {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--line);
+    transition:
+      border-color 0.2s var(--ease-pulse),
+      box-shadow 0.2s var(--ease-pulse),
+      background-color 0.2s var(--ease-pulse);
+  }
 
-.field:hover {
-  border-color: rgba(255, 255, 255, 0.14);
-}
+  .field:hover {
+    border-color: rgba(255, 255, 255, 0.14);
+  }
 
-.field:focus-within,
-.field:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(142, 114, 255, 0.28);
-  outline: none;
-}
+  .field:focus-within,
+  .field:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(142, 114, 255, 0.28);
+    outline: none;
+  }
 
-.focus-ring:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-}
+  .focus-ring:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
 
-.tide {
-  height: 2px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: var(--line-soft);
-}
+  .tide {
+    height: 2px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--line-soft);
+  }
 
-.tide > span {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--primary), var(--volt));
-  transition: width 0.25s var(--ease-pulse);
-}
+  .tide > span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--primary), var(--volt));
+    transition: width 0.25s var(--ease-pulse);
+  }
 
-.shimmer {
-  position: relative;
-  overflow: hidden;
-}
+  .shimmer {
+    position: relative;
+    overflow: hidden;
+  }
 
-.shimmer::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  transform: translateX(-100%);
-  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.08) 50%, transparent 100%);
-  animation: shimmer 1.2s ease-in-out infinite;
-}
+  .shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.08) 50%, transparent 100%);
+    animation: shimmer 1.2s ease-in-out infinite;
+  }
 
-.skeleton {
-  position: relative;
-  overflow: hidden;
-  background: var(--surface-high);
-  border-radius: 12px;
-}
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+    background: var(--surface-high);
+    border-radius: 12px;
+  }
 
-.skeleton::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  transform: translateX(-100%);
-  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.07) 50%, transparent 100%);
-  animation: shimmer 1.4s ease-in-out infinite;
+  .skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.07) 50%, transparent 100%);
+    animation: shimmer 1.4s ease-in-out infinite;
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  /* numbers: Space Grotesk, tabular */
+  .num {
+    font-family: var(--font-display), system-ui, sans-serif;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+    font-weight: 500;
+    letter-spacing: -0.03em;
+  }
+
+  /* highlight words in headings: volt to mint */
+  .hl {
+    font-style: normal;
+    background: linear-gradient(90deg, var(--volt), #9bffce);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .overline {
+    font-size: 12px;
+    line-height: 16px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-3);
+  }
+
+  .mark {
+    border-radius: 999px;
+    background: radial-gradient(60% 60% at 50% 38%, rgba(217, 255, 63, 0.3), rgba(142, 114, 255, 0.14) 55%, transparent 80%);
+  }
 }
 
 /* scrollbars on surfaceHigh */
@@ -196,42 +235,6 @@ body {
 ::selection {
   background: rgba(142, 114, 255, 0.35);
   color: var(--text);
-}
-
-.tabular {
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum";
-}
-
-/* numbers: Space Grotesk, tabular */
-.num {
-  font-family: var(--font-display), system-ui, sans-serif;
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum";
-  font-weight: 500;
-  letter-spacing: -0.03em;
-}
-
-/* highlight words in headings: volt to mint */
-.hl {
-  font-style: normal;
-  background: linear-gradient(90deg, var(--volt), #9bffce);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-.overline {
-  font-size: 12px;
-  line-height: 16px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-3);
-}
-
-.mark {
-  border-radius: 999px;
-  background: radial-gradient(60% 60% at 50% 38%, rgba(217, 255, 63, 0.3), rgba(142, 114, 255, 0.14) 55%, transparent 80%);
 }
 
 @keyframes shimmer {

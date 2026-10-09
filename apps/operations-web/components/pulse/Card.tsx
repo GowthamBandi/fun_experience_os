@@ -1,4 +1,4 @@
-import type { ElementType, HTMLAttributes, ReactNode } from "react";
+import type { ElementType, HTMLAttributes, KeyboardEvent, ReactNode } from "react";
 import { cn } from "@/lib/format";
 
 export type CardProps = HTMLAttributes<HTMLElement> & {
@@ -6,11 +6,28 @@ export type CardProps = HTMLAttributes<HTMLElement> & {
   className?: string;
   interactive?: boolean;
   children?: ReactNode;
+  href?: string;
 };
 
-export function Card({ as: Tag = "div", className, interactive = false, children, ...rest }: CardProps) {
+export function Card({ as: Tag = "div", className, interactive = false, children, onKeyDown, ...rest }: CardProps) {
+  // Interactive cards that aren't already a button, link or component get button semantics for keyboard users.
+  const pseudoButton = interactive && typeof Tag === "string" && Tag !== "button" && Tag !== "a";
+  const handleKey = pseudoButton
+    ? (e: KeyboardEvent<HTMLElement>) => {
+        onKeyDown?.(e);
+        if (e.defaultPrevented || e.target !== e.currentTarget) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          e.currentTarget.click();
+        }
+      }
+    : onKeyDown;
+
   return (
     <Tag
+      role={pseudoButton ? "button" : undefined}
+      tabIndex={pseudoButton ? 0 : undefined}
+      onKeyDown={handleKey}
       className={cn(
         "glass relative rounded-card p-5",
         interactive &&

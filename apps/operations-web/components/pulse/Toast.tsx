@@ -33,7 +33,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={api}>
       {children}
-      <section aria-label="Notifications" className="pointer-events-none fixed bottom-5 right-5 z-[90] flex w-[min(380px,calc(100vw-40px))] flex-col items-stretch gap-2.5">
+      <section role="status" aria-live="polite" aria-label="Notifications" className="pointer-events-none fixed bottom-5 right-5 z-[90] flex w-[min(380px,calc(100vw-40px))] flex-col items-stretch gap-2.5">
         <AnimatePresence initial={false}>
           {toasts.map((t) => (
             <ToastCard key={t.id} toast={t} onDismiss={dismiss} />
@@ -56,8 +56,6 @@ function ToastCard({ toast, onDismiss }: { toast: ToastItem; onDismiss: (id: num
   return (
     <motion.div
       layout={!reduced}
-      role="status"
-      aria-live="polite"
       initial={reduced ? { opacity: 0 } : { opacity: 0, y: 16, scale: 0.96 }}
       animate={reduced ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
       exit={reduced ? { opacity: 0 } : { opacity: 0, x: 24, scale: 0.98 }}

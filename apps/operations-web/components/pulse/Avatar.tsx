@@ -1,14 +1,14 @@
 import { cn } from "@/lib/format";
 
-// [from, to, text]; dark text on the light gradients keeps the initials AA.
+// [from, to, text]. Every pair keeps the initials at 4.5:1 or better across the whole gradient (bold 14px is not large text).
 const GRADIENTS: Array<[string, string, string]> = [
-  ["#FF9A8B", "#8E72FF", "#FFFFFF"],
-  ["#8E72FF", "#6E4DFF", "#FFFFFF"],
+  ["#FF9A8B", "#8E72FF", "#0B0A12"],
+  ["#6E4DFF", "#4B2FD6", "#FFFFFF"],
   ["#3FDD9A", "#63BEFF", "#0B0A12"],
   ["#FFB84D", "#FF6178", "#0B0A12"],
   ["#D9FF3F", "#3FDD9A", "#14160B"],
-  ["#FF6178", "#8E72FF", "#FFFFFF"],
-  ["#63BEFF", "#6E4DFF", "#FFFFFF"],
+  ["#FF6178", "#8E72FF", "#0B0A12"],
+  ["#63BEFF", "#8E72FF", "#0B0A12"],
   ["#F6A6FF", "#8E72FF", "#0B0A12"],
 ];
 
