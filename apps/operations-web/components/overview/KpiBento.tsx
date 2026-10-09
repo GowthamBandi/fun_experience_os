@@ -10,6 +10,7 @@ import { Tile } from "./Tile";
 
 const SERIES_DAYS: Record<RangeKey, number> = { today: 14, "7d": 14, "30d": 30 };
 const LABEL_RANGE: Record<RangeKey, string> = { today: "today", "7d": "7 days", "30d": "30 days" };
+const IN_RANGE: Record<RangeKey, string> = { today: "today", "7d": "in the last 7 days", "30d": "in the last 30 days" };
 
 /** Loading, error and retry for a figure built from two metrics. */
 function pair(a: MetricState, b: MetricState) {
@@ -66,6 +67,7 @@ export function KpiBento({ range, rangeKey, start }: { range: TimeRange; rangeKe
   const checkState = pair(checkedIn, issued);
   const grossDelta = deltaPct(gross.value, gross.previous);
   const customersDelta = deltaPct(customers.value, customers.previous);
+  const bookingsDelta = deltaPct(bookings.value, bookings.previous);
   const vs = (d: ReturnType<typeof deltaPct>) => (d.tone === "none" ? undefined : compare);
   const refundState = pair(refunds, gross);
 
@@ -89,8 +91,8 @@ export function KpiBento({ range, rangeKey, start }: { range: TimeRange; rangeKe
         <Stat
           label="Bookings"
           value={countFull(bookings.value)}
-          delta={deltaPct(bookings.value, bookings.previous)}
-          hint={bookings.value === 0 ? "No captured payments yet" : undefined}
+          delta={bookingsDelta}
+          hint={[vs(bookingsDelta), bookings.value === 0 ? `No captured payments ${IN_RANGE[rangeKey]}` : null].filter(Boolean).join(" · ") || undefined}
           loading={bookings.loading}
           error={bookings.error}
           onRetry={bookings.retry}

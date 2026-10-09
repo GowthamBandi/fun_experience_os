@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Bell, ChevronDown, LogOut, Search } from "lucide-react";
 import { Avatar, Badge, Kbd } from "@/components/pulse";
@@ -29,6 +29,8 @@ const STATUS = {
 export function TopBar({ attention }: { attention: Attention }) {
   const { user, consoleRole, signOut } = useAdminSession();
   const router = useRouter();
+  // The Command Center carries the greeting in its own header.
+  const home = usePathname() === "/";
   const now = useNow();
   const mac = useIsMac();
   const [bell, setBell] = useState(false);
@@ -49,6 +51,7 @@ export function TopBar({ attention }: { attention: Attention }) {
 
   return (
     <header className="relative z-30 flex h-[76px] shrink-0 items-center gap-3 px-5 lg:gap-4 lg:px-7">
+      {home ? null : (
       <p className="min-w-0 shrink truncate text-[13px] text-text-3">
         {hello ? <span>{hello.date}</span> : <span aria-hidden className="skeleton inline-block h-3 w-16 rounded-pill align-middle" />}
         <span className="hidden lg:inline">
@@ -59,6 +62,7 @@ export function TopBar({ attention }: { attention: Attention }) {
           </b>
         </span>
       </p>
+      )}
 
       <button
         type="button"

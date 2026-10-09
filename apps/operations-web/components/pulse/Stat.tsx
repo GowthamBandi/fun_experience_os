@@ -60,7 +60,6 @@ function useCountUp(value: string): string {
 
 const FLIPPED: Partial<Record<Delta["tone"], Delta["tone"]>> = { up: "down", down: "up" };
 
-/** `goodWhenDown` colours a rise red and a fall green (refund rate); the spoken direction stays literal. */
 /** A number that counts up to `value` (any countable string, e.g. "₹1,84,320" or "87%"); others render as-is. */
 export function CountUp({ value, className }: { value: string; className?: string }) {
   const shown = useCountUp(value);
@@ -72,6 +71,7 @@ export function CountUp({ value, className }: { value: string; className?: strin
   );
 }
 
+/** `goodWhenDown` colours a rise red and a fall green (refund rate); the spoken direction stays literal. */
 export function DeltaPill({ delta, goodWhenDown = false, className }: { delta: Delta; goodWhenDown?: boolean; className?: string }) {
   if (delta.tone === "none" || !delta.label) return null;
   const colour = goodWhenDown ? FLIPPED[delta.tone] ?? delta.tone : delta.tone;

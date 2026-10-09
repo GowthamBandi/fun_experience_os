@@ -115,7 +115,7 @@ export function LiveNowCard({ now }: { now: Date }) {
           </div>
         </>
       )}
-      {truncated && !error ? <p className="mt-2 text-[11px] text-text-3">Showing the first 100 events in the ±12 h window.</p> : null}
+      {truncated && !error ? <p className="mt-2 text-[11px] text-text-3">Showing the 100 soonest-ending events; some live or upcoming ones may be missing.</p> : null}
     </Card>
   );
 }

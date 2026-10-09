@@ -4,13 +4,12 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { collection, limit, onSnapshot, orderBy, query, Timestamp, where, type DocumentData, type Query } from "firebase/firestore";
 import { getFirebaseClient } from "@/lib/firebase/client";
 import { useNow } from "@/lib/hooks";
-import { splitLive, toEv, type Ev } from "@/lib/overview";
+import { liveCutMatters, splitLive, toEv, type Ev } from "@/lib/overview";
 import { readErrorMessage } from "@/lib/use-query";
 
 export type { Ev } from "@/lib/overview";
 
-const HOUR = 3_600_000;
-/** The ±12 h listener window is re-anchored every 30 min so it never goes stale. */
+/** The listener's "not ended" cut-off is re-anchored every 30 min, so ended events stop taking up the limit. */
 const ANCHOR_MS = 30 * 60_000;
 export const LIVE_LIMIT = 100;
 
@@ -24,17 +23,29 @@ export function eventsStartingBetween(start: Date, end: Date, direction: "asc" |
   );
 }
 
+/**
+ * Events that haven't ended by `since`, soonest-ending first. A single range, so the
+ * single-field index on endsAt serves it. catalog/events.ts writes endsAt on every
+ * save (startsAt + duration), so no event is missed for lacking it.
+ */
+export function eventsEndingAfter(since: Date): Query<DocumentData> {
+  return query(collection(getFirebaseClient().firestore, "events"), where("endsAt", ">=", Timestamp.fromDate(since)), orderBy("endsAt", "asc"));
+}
+
 export interface LiveEvents {
   live: Ev[];
   soon: Ev[];
   loading: boolean;
   error: string | null;
-  /** The window hit LIVE_LIMIT, so some events may be missing. */
+  /** More than LIVE_LIMIT events matched and the cut fell among live or soon ones, so some may be missing. */
   truncated: boolean;
   retry: () => void;
 }
 
-/** Events starting between now − 12 h and now + 12 h, live from Firestore, split into live now and starting soon. */
+/**
+ * Events not yet ended, live from Firestore, split client-side into live now and
+ * starting within 12 h. Multi-day events stay live until their endsAt.
+ */
 export function useLiveEvents(enabled = true): LiveEvents {
   const now = useNow(30_000);
   const anchor = now ? Math.floor(now.getTime() / ANCHOR_MS) * ANCHOR_MS : null;
@@ -56,13 +67,13 @@ export function useLiveEvents(enabled = true): LiveEvents {
     setError(null);
     let unsubscribe = () => {};
     try {
-      // Anchored a little wide (one extra slot each side) so the 12 h edges stay covered between re-anchors.
-      const q = query(eventsStartingBetween(new Date(anchor - 12 * HOUR - ANCHOR_MS), new Date(anchor + 12 * HOUR + ANCHOR_MS)), limit(LIVE_LIMIT));
+      const q = query(eventsEndingAfter(new Date(anchor)), limit(LIVE_LIMIT + 1));
       unsubscribe = onSnapshot(
         q,
         (snap) => {
-          setEvents(snap.docs.map((d) => toEv(d.id, d.data())));
-          setTruncated(snap.size >= LIVE_LIMIT);
+          const all = snap.docs.map((d) => toEv(d.id, d.data()));
+          setEvents(all.slice(0, LIVE_LIMIT));
+          setTruncated(liveCutMatters(all, LIVE_LIMIT, new Date()));
           setLoading(false);
           setError(null);
         },

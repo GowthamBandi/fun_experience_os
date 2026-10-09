@@ -21,10 +21,11 @@ export function greetingFor(now: Date): { date: string; greeting: string } {
   return { date, greeting: `Good ${part}` };
 }
 
-export type HeadlineState = { kind: "buzzing" } | { kind: "needs"; n: number } | { kind: "quiet" };
+export type HeadlineState = { kind: "buzzing" } | { kind: "needs"; n: number } | { kind: "quiet" } | { kind: "neutral" };
 
-/** Live events win; otherwise open attention items; otherwise quiet. */
-export function headlineFor(live: number, attention: number): HeadlineState {
+/** Live events win; otherwise open attention items; otherwise quiet. A failed source (`degraded`) gets a neutral line, since any count could be wrong. */
+export function headlineFor(live: number, attention: number, degraded = false): HeadlineState {
+  if (degraded) return { kind: "neutral" };
   if (live > 0) return { kind: "buzzing" };
   if (attention > 0) return { kind: "needs", n: attention };
   return { kind: "quiet" };
@@ -112,6 +113,15 @@ export function splitLive(events: Ev[], now: Date): { live: Ev[]; soon: Ev[] } {
     else if (s > t && s <= t + 12 * HOUR) soon.push(e);
   }
   return { live, soon };
+}
+
+/**
+ * Whether a listener read with a +1 probe (`all` holds up to limit + 1 docs, soonest-ending
+ * first) was cut among events that matter: the first left-out one is live or starts within 12 h.
+ */
+export function liveCutMatters(all: Ev[], limit: number, now: Date): boolean {
+  const probe = all.length > limit ? all[limit] : undefined;
+  return !!probe?.startsAt && probe.startsAt.getTime() <= now.getTime() + 12 * HOUR;
 }
 
 export function cityCounts(events: Ev[]): Array<{ city: string; count: number }> {

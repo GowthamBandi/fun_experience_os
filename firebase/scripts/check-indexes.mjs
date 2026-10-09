@@ -125,7 +125,7 @@ export const QUERIES = [
   Q("M05", "console", "ledgerEntries", ["account", "kind", "direction"], "createdAt", [], ["apps/operations-web/lib/metrics.ts", `["direction", "==", "credit"]`], "Dashboard money metrics (gross, refunds, commission): ledger account + kind + direction equality, per createdAt range; one composite serves all."),
   Q("M06", "console", "tickets", [], "issuedAt", [], ["apps/operations-web/lib/metrics.ts", `dateField: "issuedAt"`], "Dashboard tickets issued: issuedAt range only, single-field index."),
   Q("M07", "console", "organizers", ["status"], null, [], ["apps/operations-web/lib/metrics.ts", `collection: "organizers"`], "Dashboard active organizers: single equality, no date."),
-  Q("M08", "console", "events", [], "startsAt", [["startsAt", "asc"]], ["apps/operations-web/lib/use-live-events.ts", `orderBy("startsAt", direction)`], "Live now: startsAt in now ± 12 h, ordered by startsAt, limit 100; range and order on one field, single-field index."),
+  Q("M08", "console", "events", [], "endsAt", [["endsAt", "asc"]], ["apps/operations-web/lib/use-live-events.ts", `where("endsAt", ">="`], "Live now + rail badge: endsAt >= now (30-min anchor), soonest-ending first, limit 101 (+1 probe); live/soon split client-side; single-field index."),
   Q("M09", "console", "events", [], "startsAt", [["startsAt", "desc"]], ["apps/operations-web/lib/use-live-events.ts", `eventsStartingBetween(`], "Top cities (components/overview/TopCities.tsx): startsAt in the dashboard range, newest first, limit 251; single-field index."),
 ];
 

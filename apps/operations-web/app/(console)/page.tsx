@@ -19,12 +19,19 @@ import { useSharedAttention } from "@/lib/use-attention";
 import { useSharedLiveEvents } from "@/lib/use-live-events";
 import { useMetric } from "@/lib/use-metric";
 
-function Headline({ live, attention }: { live: number; attention: number }) {
-  const h = headlineFor(live, attention);
+function Headline({ live, attention, degraded }: { live: number; attention: number; degraded: boolean }) {
+  const h = headlineFor(live, attention, degraded);
   if (h.kind === "buzzing") {
     return (
       <>
         The city’s <em className="hl">buzzing</em> tonight.
+      </>
+    );
+  }
+  if (h.kind === "neutral") {
+    return (
+      <>
+        Here’s <em className="hl">today</em> on PULSE.
       </>
     );
   }
@@ -57,7 +64,7 @@ function Summary({ dayKey }: { dayKey: number }) {
 
   return (
     <>
-      {attention.loading ? <Pending /> : <CountUp value={formatCount(attention.total, truncated)} className="num font-bold text-text" />}{" "}
+      {attention.loading ? <Pending /> : attention.error ? "—" : <CountUp value={formatCount(attention.total, truncated)} className="num font-bold text-text" />}{" "}
       {attention.total === 1 ? "thing needs" : "things need"} you ·{" "}
       {live.loading ? <Pending /> : live.error ? "—" : <CountUp value={String(live.live.length)} className="num font-bold text-text" />}{" "}
       {live.live.length === 1 ? "event" : "events"} live ·{" "}
@@ -138,7 +145,7 @@ function CommandCenter() {
             <span aria-hidden className="skeleton inline-block h-3.5 w-48 rounded-pill align-middle" />
           )
         }
-        title={ready ? <Headline live={live.live.length} attention={attention.total} /> : <Skeleton className="h-[44px] w-[min(520px,90%)] rounded-[14px]" />}
+        title={ready ? <Headline live={live.live.length} attention={attention.total} degraded={!!(attention.error || live.error)} /> : <Skeleton className="h-[44px] w-[min(520px,90%)] rounded-[14px]" />}
         subtitle={dayKey !== null ? <Summary dayKey={dayKey} /> : null}
         className="[&_h1]:text-[34px] md:[&_h1]:text-[44px]"
       />

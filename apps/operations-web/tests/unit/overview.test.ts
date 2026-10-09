@@ -5,6 +5,7 @@ import {
   cityCounts,
   greetingFor,
   headlineFor,
+  liveCutMatters,
   needsYouRows,
   parseRange,
   percent,
@@ -57,6 +58,20 @@ describe("splitLive", () => {
     const { live, soon } = splitLive(evs, NOW);
     expect(live.map((e) => e.id)).toEqual(["live", "no-end"]);
     expect(soon.map((e) => e.id)).toEqual(["soon"]);
+  });
+});
+
+describe("multi-day events and the +1 probe", () => {
+  it("keeps a trip that started days ago live until its endsAt", () => {
+    const trip = toEv("trip", { status: "live", startsAt: at("2026-10-07T02:00:00Z"), endsAt: at("2026-10-11T10:00:00Z") });
+    expect(splitLive([trip], NOW).live.map((e) => e.id)).toEqual(["trip"]);
+  });
+  it("flags truncation only when the left-out event is live or soon", () => {
+    const ev = (id: string, starts: string) => toEv(id, { status: "published", startsAt: at(starts), endsAt: at("2026-12-01T00:00:00Z") });
+    const kept = [ev("a", "2026-10-09T13:00:00Z")];
+    expect(liveCutMatters(kept, 1, NOW)).toBe(false);
+    expect(liveCutMatters([...kept, ev("soon", "2026-10-09T20:00:00Z")], 1, NOW)).toBe(true);
+    expect(liveCutMatters([...kept, ev("far", "2026-10-20T00:00:00Z")], 1, NOW)).toBe(false);
   });
 });
 
@@ -117,6 +132,10 @@ describe("headline and labels", () => {
     expect(headlineFor(3, 5)).toEqual({ kind: "buzzing" });
     expect(headlineFor(0, 5)).toEqual({ kind: "needs", n: 5 });
     expect(headlineFor(0, 0)).toEqual({ kind: "quiet" });
+  });
+  it("goes neutral when a source failed rather than claiming quiet or a count", () => {
+    expect(headlineFor(0, 0, true)).toEqual({ kind: "neutral" });
+    expect(headlineFor(2, 3, true)).toEqual({ kind: "neutral" });
   });
   it("parses the range param defensively", () => {
     expect(parseRange("7d")).toBe("7d");
