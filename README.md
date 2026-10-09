@@ -31,12 +31,33 @@ docs/                       ADRs, API contract, architecture, runbooks
 .github/workflows/ci.yml    CI: guardrails, functions, rules, console
 ```
 
+## Operations Console
+
+A dark "Neon Bento" console for the platform team (Platform Owner, Super Admin, Auditor). It covers:
+- **Monitor:** Command Center (`/`) and Live now;
+- **Marketplace:** Approvals (with Organizer Codes), Organizers and the Organizer 360, Events and the Event 360, Arenas, Customers and the Customer 360;
+- **Trust:** Risk, Reviews;
+- **Money:** Revenue, Refunds, Settlements, Commercial terms;
+- **Control:** Audit trail, Policies, Legal holds, System health, Operator access.
+
+Every decision goes through a server callable with a written reason, request-id replay protection and, where the server requires it, dual control. Money is shown exactly in en-IN rupees from integer paise, and day ranges are computed in IST. The screen-by-screen guide is in [`apps/operations-web/DEPLOYMENT.md`](apps/operations-web/DEPLOYMENT.md) §10.
+
+Run it locally against seeded emulators:
+
+```sh
+npm run firebase:emulators                                   # terminal 1
+FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 npm run seed:emulator  # terminal 2, idempotent
+cd apps/operations-web && cp .env.example .env.local && npm run dev
+# sign in as admin@pulse.test / PulseAdmin#2026 (ops@pulse.test / PulseOps#2026 is the second admin)
+```
+
 ## Everyday commands
 
 ```sh
 npm run test:rules          # rules suites on the emulator
 npm run test:functions      # functions suites on the emulator
 npm run check:indexes       # every production query has its composite index
+npm run seed:emulator       # fill the emulators with realistic console data (FIRESTORE_EMULATOR_HOST set)
 node scripts/check-release-guardrails.mjs
 scripts/deploy-backend.sh staging|production    # guarded; see the runbook
 ```

@@ -5,7 +5,7 @@ It is deployed with **Firebase App Hosting**, one backend per Firebase project (
 
 Why App Hosting and not static Firebase Hosting:
 - the security headers (CSP, HSTS, X-Frame-Options, …) come from `next.config.mjs`, and a static export would drop them;
-- the archived prototype still has dynamic `[id]` routes, and `output: "export"` can't build those.
+- the 360 pages are dynamic routes (`/partners/[orgId]`, `/events/[eventId]`, `/customers/[uid]`) whose ids aren't known at build time, and `output: "export"` can't build those.
 
 Any Node host (Cloud Run, a container) also works. It must run `npm ci && npm run build:production && npm start`.
 
@@ -18,7 +18,7 @@ Backend (rules, indexes, functions) deployment is separate and unchanged: `docs/
 
 | File | Purpose |
 | --- | --- |
-| `apphosting.yaml` | Shared App Hosting settings: run config, `buildCommand: npm run build:production`, `NEXT_PUBLIC_DATA_MODE=firebase-live`, archived prototype off |
+| `apphosting.yaml` | Shared App Hosting settings: run config, `buildCommand: npm run build:production`, `NEXT_PUBLIC_DATA_MODE=firebase-live` |
 | `apphosting.staging.yaml` / `apphosting.production.yaml` | Per-environment values. App Hosting merges the file whose name matches the backend's **environment name**. Templates: replace every `REPLACE_*` / `your-org` value |
 | `.env.staging.example` / `.env.production.example` | The same variables as `KEY=value`, for CI or a non-App-Hosting host. Templates only |
 | `.env.example` | Local development against the emulators (`cp .env.example .env.local`) |
@@ -42,7 +42,6 @@ Every `NEXT_PUBLIC_*` value is inlined into the browser bundle **at build time**
 | `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | web app config | web app config | |
 | `NEXT_PUBLIC_FIREBASE_APP_ID` | web app config | web app config | |
 | `NEXT_PUBLIC_RECAPTCHA_ENTERPRISE_SITE_KEY` | staging key | production key | App Check. The console refuses to start without it in live mode |
-| `NEXT_PUBLIC_SHOW_ARCHIVED_PROTOTYPE` | `false` | `false` | `true` is refused by the build and ignored at runtime in `firebase-live` (ADR-0006) |
 | `EXPECTED_FIREBASE_PROJECT_ID` | exact staging id | exact prod id | Build-only (not `NEXT_PUBLIC`). An exact match stops a copy-paste of the other environment's values |
 
 Don't create `.env.production` in the app folder. `next build` loads it automatically, including for a staging build. Set the values in the hosting/CI environment instead; `.env.staging` and `.env.production` are git-ignored as a safety net.
@@ -56,8 +55,7 @@ It refuses to build when any of these is true:
 - the project is a `demo-*` project;
 - the project id contradicts the declared environment;
 - `EXPECTED_FIREBASE_PROJECT_ID` differs from the project id;
-- the auth domain or bucket belongs to another project;
-- the archived prototype flag is on.
+- the auth domain or bucket belongs to another project.
 
 Verify locally before the first rollout, with the real values exported in your shell:
 
@@ -65,6 +63,7 @@ Verify locally before the first rollout, with the real values exported in your s
 cd apps/operations-web
 npm ci
 npm run typecheck && npm run lint && npm test
+npm run smoke                              # builds into .next-smoke; the unconfigured console must fail closed
 node scripts/verify-production-env.mjs     # prints "(staging → <project id>)" on success
 npm run build:production
 ```
@@ -122,7 +121,7 @@ curl -sI https://<console-domain>/login | grep -iE 'content-security-policy|stri
    - **Super admin:** Operator access is read-only.
    - **Auditor:** lands on **Audit**, can open **Settlements** read-only, and every other route shows "Not available for your role".
 4. An unverified account sees "Verify your email to continue". An account without a role sees "Your account has no console access".
-5. Archived routes (e.g. `/missions`) show the archived notice, never the prototype.
+5. Unknown routes (for example the retired `/missions`) show the not-found page.
 6. Then run the runbook §6 post-deploy smoke list.
 
 ## 7. Rollback
@@ -182,7 +181,27 @@ These are served for every route by `next.config.mjs` → `security-headers.mjs`
 
 The HSTS `preload` directive is only a request. Submit the domain to hstspreload.org only if every subdomain of that domain is HTTPS-only.
 
-## 10. Local data
+## 10. Console screens
+
+Every screen reads live Firestore and decides through the server callables; nothing writes to Firestore from the browser. The rail groups them as follows.
+
+| Group | Route | What it's for |
+| --- | --- | --- |
+| Monitor | `/` Command Center | What needs you today, bookings/money KPIs for Today, 7 or 30 days (IST), live events, top cities, privileged activity |
+| | `/live` | Events running now and starting in the next 12 h, with the emergency cancel (typed `CANCEL EVENT` phrase) |
+| Marketplace | `/approvals` | Organizer KYC and experience submissions: preview, diff, approve / request changes / reject (keys J K A C R). `?view=codes` re-issues a lost Organizer Code |
+| | `/partners`, `/partners/[orgId]` | Organizers and the Organizer 360: events, experiences, money, team, timeline, pause/block, propose terms |
+| | `/events`, `/events/[eventId]` | Every event by lifecycle tab and the Event 360: bookings, check-ins, money, reviews, audit, cancel |
+| | `/arenas` | Venues: pause or block on ownership, safety or capacity evidence |
+| | `/customers`, `/customers/[uid]` | Find anyone by phone (any format), id or `PLS-` booking reference; the Customer 360 |
+| Trust | `/risk`, `/reviews` | Server-raised risk alerts; review moderation |
+| Money | `/revenue` | Ledger revenue: gross, net, commission, refunds, take rate, 30-day trend |
+| | `/refunds`, `/settlements`, `/commercials` | Refund decisions (two admins above ₹10,000), settlement build/approve/hold/mark paid (dual control above ₹50,000), versioned commercial terms (proposer ≠ approver) |
+| Control | `/audit`, `/policies`, `/legal-holds`, `/system`, `/operators` | Audit trail, policy versions, legal holds, scheduled-job health, operator access (Platform Owner only) |
+
+Roles: Platform Owner and Super Admin see everything (only the owner manages operators); an Auditor sees Audit, Settlements (read-only), Legal holds and System, searches pages only in ⌘K, and every other route shows "Not available for your role". The ⌘K palette, the notifications drawer and every decision Sheet are keyboard-first and honour reduced motion.
+
+## 11. Local data
 
 The emulators start empty apart from what earlier sessions left in `.emulator-data/`. To fill every console screen with realistic data, start the emulators (`npm run firebase:emulators`), then from the repo root run:
 
@@ -199,5 +218,7 @@ In PowerShell: `$env:FIRESTORE_EMULATOR_HOST="127.0.0.1:8080"; npm run seed:emul
 - approved 10% commercial terms (proposed by ops, approved by admin), six approved experiences and nine published events in Bengaluru, Pune and Hyderabad over the next seven days;
 - twelve customers (`+919100000001` to `+919100000012`) with about 25 paid bookings, some for two spots, paid through `createPaymentOrder` and `confirmPayment` with the emulator's Razorpay dev signature;
 - one event moved to the `live` phase with about 60% of its tickets checked in, one organizer refund request awaiting review, and a settlement run for the first organizer.
+
+Then start the console with `npm run dev` in `apps/operations-web` (with `.env.local` from `.env.example`) and sign in as `admin@pulse.test`.
 
 Re-running is safe: commands reuse deterministic request ids, so the second run only replays. `saveEvent` refuses starts less than 2 hours ahead, so the "live" event starts about 2 h 20 min after the seed and appears under "Happening now" once it starts. Reviews, and settlements with entries, need a completed event: re-run the seed after the live event ends (about 7 h 20 min after the first run) and it completes that event and posts two reviews.

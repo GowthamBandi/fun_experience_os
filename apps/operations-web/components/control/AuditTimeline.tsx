@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { History } from "lucide-react";
-import { Badge, Button, Card, Chip, CopyIdPill, Drawer, Empty, ErrorState, PageHeader, SkeletonRows, Timeline, Truncated, type TimelineItem } from "@/components/pulse";
+import { Badge, Button, Card, Chip, CopyIdPill, Drawer, Empty, ErrorState, PageHeader, Skeleton, SkeletonRows, Timeline, Truncated, type TimelineItem } from "@/components/pulse";
 import { PageContainer } from "@/components/shell/PageContainer";
 import { SearchField } from "@/components/trust/TrustBits";
 import { Field, Fields, Gone, useOrgNames } from "@/components/money/MoneyBits";
@@ -103,6 +103,12 @@ function Audit() {
         subtitle="Immutable decision history with actor, reason, policy version and evidence context for every privileged action. Nobody can edit or delete these records."
       />
 
+      {!ready && !live.error ? (
+        <div aria-hidden className="flex gap-2">
+          <Skeleton className="h-[33px] w-24 rounded-pill" />
+          <Skeleton className="h-[33px] w-24 rounded-pill" />
+        </div>
+      ) : null}
       {ready ? (
         <ul aria-label="Audit summary" className="flex flex-wrap gap-2 text-[12px]">
           <SummaryPill label={filtering ? "Matching (loaded)" : "Loaded"} value={countFull(filtering ? visible.length : all.length)} />
@@ -120,9 +126,9 @@ function Audit() {
             </Button>
           ) : null}
         </div>
-        <FilterRow label="Actor role" all="All roles" value={view.role} onChange={(role) => set({ role })} options={roles.map((r) => ({ value: r.value, label: r.label, count: r.count }))} />
-        <FilterRow label="Entity" all="All entities" value={view.entity} onChange={(entity) => set({ entity })} options={entities.map((e) => ({ value: e.value, label: humanize(e.value), count: e.count }))} />
-        <FilterRow label="Action" all="All actions" value={view.action} onChange={(action) => set({ action })} scroll options={actions.map((a) => ({ value: a.value, label: humanize(a.value), title: a.value, count: a.count }))} />
+        <FilterRow label="Actor role" all="All roles" value={view.role} onChange={(role) => set({ role })} loading={live.loading} scroll options={roles.map((r) => ({ value: r.value, label: r.label, count: r.count }))} />
+        <FilterRow label="Entity" all="All entities" value={view.entity} onChange={(entity) => set({ entity })} loading={live.loading} scroll options={entities.map((e) => ({ value: e.value, label: humanize(e.value), count: e.count }))} />
+        <FilterRow label="Action" all="All actions" value={view.action} onChange={(action) => set({ action })} loading={live.loading} scroll options={actions.map((a) => ({ value: a.value, label: humanize(a.value), title: a.value, count: a.count }))} />
       </Card>
 
       {live.error ? (
@@ -217,21 +223,32 @@ function FilterRow({
   onChange,
   options,
   scroll = false,
+  loading = false,
 }: {
   label: string;
   all: string;
   value: string;
   onChange: (value: string) => void;
   options: Array<{ value: string; label: string; count: number; title?: string }>;
+  /** Caps the row at two chip lines (it scrolls), so a long facet list can't push the trail down. */
   scroll?: boolean;
+  /** Reserves the two-line height while the facets load (no layout shift). */
+  loading?: boolean;
 }) {
   return (
     <div role="group" aria-label={label} className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:gap-3">
       <span className="w-24 shrink-0 pt-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-text-3">{label}</span>
-      <div className={cn("flex min-w-0 flex-1 flex-wrap items-center gap-2", scroll && "max-h-[84px] overflow-y-auto pr-1")}>
+      <div className={cn("flex min-w-0 flex-1 flex-wrap items-center gap-2", scroll && "max-h-[84px] overflow-y-auto pr-1", loading && "min-h-[84px] content-start")}>
         <Chip selected={value === ""} onClick={() => onChange("")}>
           {all}
         </Chip>
+        {loading ? (
+          <>
+            <Skeleton className="h-9 w-28 rounded-pill" />
+            <Skeleton className="h-9 w-24 rounded-pill" />
+            <Skeleton className="h-9 w-32 rounded-pill" />
+          </>
+        ) : null}
         {options.map((o) => (
           <Chip key={o.value} selected={value === o.value} title={o.title} onClick={() => onChange(value === o.value ? "" : o.value)}>
             {o.label}
