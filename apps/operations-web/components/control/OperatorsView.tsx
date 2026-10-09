@@ -74,12 +74,13 @@ function Operators() {
         tone: grantRole === "platform-owner" ? "danger" : "volt",
         phrase: grantRole === "platform-owner" ? CONFIRM_PHRASES.grantPlatformOwner : null,
         reasonMin: 10,
-        validate: () => (grantUid.trim() ? null : "Enter the operator's Firebase Auth UID."),
+        validate: () => (!grantUid.trim() ? "Enter the operator's Firebase Auth UID." : user?.uid && grantUid.trim() === user.uid ? "That is your own account. Ask another Platform Owner to change your role." : null),
         fields: (
           <div className="flex flex-col gap-4">
             <label className="block">
               <span className={LABEL}>Firebase Auth UID</span>
               <input value={grantUid} onChange={(e) => setGrantUid(e.target.value)} placeholder="Copy from Firebase Console → Authentication" autoComplete="off" spellCheck={false} className={cn(INPUT, "font-mono")} />
+              {user?.uid && grantUid.trim() === user.uid ? <span role="status" className="mt-1.5 block text-[12px] text-warn">That is your own account. Ask another Platform Owner to change your role.</span> : null}
               <span className="mt-1.5 block text-[12px] text-text-3">The account must already exist in Firebase Auth. It must verify its email before it can sign in.</span>
             </label>
             <RolePicker label="Role" value={grantRole} onChange={setGrantRole} />
@@ -282,7 +283,7 @@ function OperatorDrawer({
               <SectionTitle>Access</SectionTitle>
               {!canManage ? (
                 <ReadOnly role={role} what="operator access" />
-              ) : (
+              ) : self ? null : (
                 <div>
                   <Button variant="primary" icon={<SlidersHorizontal />} onClick={startEdit}>
                     Change role or status

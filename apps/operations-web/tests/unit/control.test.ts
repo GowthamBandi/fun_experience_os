@@ -19,6 +19,7 @@ import {
   operatorConsequence,
   planOperatorChange,
   sortHolds,
+  sortPolicies,
   toHoldRow,
   toOperatorRow,
   toPolicyCard,
@@ -68,12 +69,21 @@ describe("audit view", () => {
     expect(auditRoleLabel({ actorRole: "platform:super-admin" })).toBe("Super Admin");
     expect(auditRoleLabel({})).toBe("—");
   });
+  it("merges actorRole and actorRoleId spellings of one role", () => {
+    const mixed = [
+      event("m1", "2026-10-09T08:00:00Z", { actorRole: "platform:platform-owner" }),
+      event("m2", "2026-10-09T07:00:00Z", { actorRole: undefined, actorRoleId: "platform-owner" }),
+      event("m3", "2026-10-09T06:00:00Z", { actorRole: "platform:super-admin" }),
+    ];
+    expect(auditRoleFacets(mixed).map((r) => [r.value, r.label, r.count])).toEqual([["platform-owner", "Platform Owner", 2], ["super-admin", "Super Admin", 1]]);
+    expect(applyAuditView(mixed, { ...EMPTY_AUDIT_VIEW, role: "platform-owner" }).map((r) => r.id)).toEqual(["m1", "m2"]);
+  });
   it("counts actions and entities", () => {
     expect(auditFieldFacets(records, "resourceType").map((f) => f.value).sort()).toEqual(["refund", "settlement", "user"]);
   });
   it("combines role, action, entity and search", () => {
     expect(applyAuditView(records, EMPTY_AUDIT_VIEW)).toHaveLength(3);
-    expect(applyAuditView(records, { ...EMPTY_AUDIT_VIEW, role: "platform:platform-owner" }).map((r) => r.id)).toEqual(["2"]);
+    expect(applyAuditView(records, { ...EMPTY_AUDIT_VIEW, role: "platform-owner" }).map((r) => r.id)).toEqual(["2"]);
     expect(applyAuditView(records, { ...EMPTY_AUDIT_VIEW, entity: "settlement" }).map((r) => r.id)).toEqual(["3"]);
     expect(applyAuditView(records, { ...EMPTY_AUDIT_VIEW, action: "refund.decided" }).map((r) => r.id)).toEqual(["1"]);
     expect(applyAuditView(records, { ...EMPTY_AUDIT_VIEW, query: "duplicate" }).map((r) => r.id)).toEqual(["1"]);
@@ -145,6 +155,17 @@ describe("operator rules", () => {
     expect(planOperatorChange({ ...base, nextRole: "auditor" }).phrase).toBeNull();
     expect(planOperatorChange({ ...base, currentStatus: "suspended", nextStatus: "active" })).toMatchObject({ blocked: null, phrase: null });
   });
+  it("always asks for the grant phrase when the role moves to Platform Owner", () => {
+    expect(planOperatorChange({ ...base, currentStatus: "suspended", nextRole: "platform-owner", nextStatus: "suspended" }).phrase).toBe("GRANT PLATFORM OWNER");
+    expect(planOperatorChange({ ...base, currentStatus: "suspended", nextRole: "platform-owner", nextStatus: "active" }).phrase).toBe("GRANT PLATFORM OWNER");
+  });
+  it("does not combine a role change with a phrased status change", () => {
+    for (const nextStatus of ["suspended", "disabled"] as const) {
+      expect(planOperatorChange({ ...base, nextRole: "platform-owner", nextStatus })).toMatchObject({ phrase: null });
+      expect(planOperatorChange({ ...base, nextRole: "platform-owner", nextStatus }).blocked).toMatch(/separate steps/);
+      expect(planOperatorChange({ ...base, nextRole: "auditor", nextStatus }).blocked).toMatch(/separate steps/);
+    }
+  });
   it("describes the consequence", () => {
     const plan = planOperatorChange({ ...base, nextStatus: "suspended" });
     expect(operatorConsequence(plan, base)).toContain("revokes current sessions");
@@ -165,6 +186,14 @@ describe("legal holds", () => {
     expect(filterHolds(rows, "released").map((r) => r.subjectId)).toEqual(["a"]);
     expect(holdCounts(rows)).toEqual({ active: 2, released: 1, all: 3 });
     expect(rows[1]).toMatchObject({ reference: "CASE-1", releasedAt: null });
+    expect(toHoldRow(adaptLegalHold("user_x", { status: "active" }))).toMatchObject({ subjectId: null, subjectType: null });
+  });
+});
+
+describe("policy ordering", () => {
+  it("sorts versions numerically", () => {
+    const card = (version: string) => toPolicyCard(adaptGeneric(`p_${version}`, { title: "Refund", policyVersion: version }));
+    expect(sortPolicies([card("2"), card("10"), card("9")]).map((c) => c.version)).toEqual(["10", "9", "2"]);
   });
 });
 

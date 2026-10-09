@@ -103,7 +103,7 @@ function Holds() {
       header: "User",
       cell: (r) => (
         <div className="max-w-[300px]">
-          <div className="truncate font-mono text-[12.5px] font-semibold text-text">{r.subjectId}</div>
+          <div className="truncate font-mono text-[12.5px] font-semibold text-text">{r.subjectId ?? "—"}</div>
           <div className="mt-0.5 truncate text-[12px] text-text-3">{r.reference ? `Ref ${r.reference}` : "No reference"}</div>
         </div>
       ),
@@ -187,27 +187,28 @@ function HoldDrawer({
   onClose: () => void;
 }) {
   const [releasing, setReleasing] = useState(false);
+  const subjectId = row?.subjectId ?? null;
   const spec: DecisionSpec | null =
-    row && releasing && row.active
+    row && subjectId && releasing && row.active
       ? {
           // The hold's version is part of the command: releasing again after it moved is a new command.
-          idKey: decisionKey("legal-hold", "release", row.subjectId, row.status, row.version),
-          title: `Release the hold on ${row.subjectId}?`,
+          idKey: decisionKey("legal-hold", "release", subjectId, row.status, row.version),
+          title: `Release the hold on ${subjectId}?`,
           consequence: "Retention resumes for this user. Anything already past its retention period may be deleted on the next daily run.",
           confirmLabel: "Release hold",
           tone: "danger",
           reasonMin: 10,
           execute: async (requestId, reason) => {
-            await setLegalHold({ requestId, subjectId: row.subjectId, action: "release", reason });
+            await setLegalHold({ requestId, subjectId, action: "release", reason });
             refresh();
-            return { tone: "ok", title: "Hold released", body: `Retention resumes for ${row.subjectId}.` };
+            return { tone: "ok", title: "Hold released", body: `Retention resumes for ${subjectId}.` };
           },
         }
       : null;
 
   return (
     <>
-      <Drawer open={open} title={row ? `Hold · ${row.subjectId}` : loading ? "Loading hold…" : "Hold unavailable"} onClose={onClose}>
+      <Drawer open={open} title={row ? `Hold · ${row.subjectId ?? "—"}` : loading ? "Loading hold…" : "Hold unavailable"} onClose={onClose}>
         {!row && loading ? (
           <SkeletonRows rows={4} />
         ) : !row ? (
@@ -216,7 +217,7 @@ function HoldDrawer({
           <div className="flex flex-col gap-6">
             <div className="flex flex-wrap items-center gap-2">
               <Badge tone={row.active ? "warn" : "muted"}>{row.active ? "Active · deletion blocked" : "Released"}</Badge>
-              <CopyIdPill id={row.subjectId} noun="user" />
+              {row.subjectId ? <CopyIdPill id={row.subjectId} noun="user" /> : null}
             </div>
             {row.active ? (
               <Note tone="warn">Scheduled retention will not delete this user&rsquo;s documents until the hold is released.</Note>
@@ -224,7 +225,7 @@ function HoldDrawer({
               <Note>This hold is released. Place a new hold if the matter reopens.</Note>
             )}
             <Fields label="Hold details">
-              <Field label="Subject" mono>{`${row.subjectType} ${row.subjectId}`}</Field>
+              <Field label="Subject" mono>{[row.subjectType, row.subjectId].filter(Boolean).join(" ") || "—"}</Field>
               <Field label="Why">{row.reason ?? "—"}</Field>
               <Field label="Reference">{row.reference ?? "—"}</Field>
               <Field label="Placed by" mono>{row.placedBy ?? "—"}</Field>
@@ -239,9 +240,10 @@ function HoldDrawer({
                 <ReadOnly role={role} what="legal holds" />
               ) : row.active ? (
                 <div>
-                  <Button variant="danger" icon={<Unlock />} onClick={() => setReleasing(true)}>
+                  <Button variant="danger" icon={<Unlock />} disabled={!row.subjectId} onClick={() => setReleasing(true)}>
                     Release hold
                   </Button>
+                  {!row.subjectId ? <p className="mt-2 text-[12px] text-warn">This hold has no user recorded, so it can&rsquo;t be released from the console.</p> : null}
                 </div>
               ) : (
                 <p className="text-[13px] text-text-3">Nothing to decide: this hold is already released.</p>

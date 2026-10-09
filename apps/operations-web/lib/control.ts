@@ -49,6 +49,12 @@ export function auditTone(action: string): ControlTone {
   return "violet";
 }
 
+/** The actor role without the "platform:" prefix, so actorRole and actorRoleId records share one key. */
+export function auditRoleKey(raw: Record<string, unknown>): string {
+  const role = auditActorRole(raw);
+  return role === "—" ? role : role.replace(/^platform:/, "");
+}
+
 /** "platform:super-admin" → "Super Admin"; unknown roles keep their recorded text. */
 export function auditRoleLabel(raw: Record<string, unknown>): string {
   const role = auditActorRole(raw);
@@ -74,7 +80,7 @@ const str = (value: unknown) => (typeof value === "string" ? value : "");
 export function auditRoleFacets(records: DisplayRecord[]): Array<{ value: string; label: string; count: number }> {
   const byRole = new Map<string, { label: string; count: number }>();
   for (const record of records) {
-    const value = auditActorRole(record.raw);
+    const value = auditRoleKey(record.raw);
     if (value === "—") continue;
     const entry = byRole.get(value) ?? { label: auditRoleLabel(record.raw), count: 0 };
     entry.count += 1;
@@ -95,7 +101,7 @@ export function auditFieldFacets(records: DisplayRecord[], field: "action" | "re
 
 /** Role + action + entity filters, then free text over ids, action, actor, resource and the reason. */
 export function applyAuditView(records: DisplayRecord[], view: AuditView): DisplayRecord[] {
-  const byRole = view.role ? records.filter((r) => auditActorRole(r.raw) === view.role) : records;
+  const byRole = view.role ? records.filter((r) => auditRoleKey(r.raw) === view.role) : records;
   const narrowed = filterAudit(byRole, { action: view.action, resourceType: view.entity, subject: "" });
   const q = view.query.trim().toLowerCase();
   if (!q) return narrowed;
@@ -280,13 +286,10 @@ export function planOperatorChange(input: { currentRole: ConsoleRole | null; cur
   if (self && roleChanged) return { ...base, blocked: "Ask another Platform Owner to change your own role (prevents locking yourself out).", phrase: null };
   if (self && nextStatus !== "active") return { ...base, blocked: "You cannot suspend or disable your own account.", phrase: null };
   if (!roleChanged && !statusChanged) return { ...base, blocked: "Nothing to change: pick a different role or status.", phrase: null };
-  const phrase = nextStatus === "suspended" && statusChanged
-    ? CONFIRM_PHRASES.suspendOperator
-    : nextStatus === "disabled" && statusChanged
-      ? CONFIRM_PHRASES.disableOperator
-      : roleId === "platform-owner" && roleChanged
-        ? CONFIRM_PHRASES.grantPlatformOwner
-        : null;
+  const statusPhrase = statusChanged ? (nextStatus === "suspended" ? CONFIRM_PHRASES.suspendOperator : nextStatus === "disabled" ? CONFIRM_PHRASES.disableOperator : null) : null;
+  // One typed phrase per submission: a role change and a phrased status change are separate steps.
+  if (roleChanged && statusPhrase) return { ...base, blocked: "Change the role and suspend or disable in separate steps, so each gets its own confirmation.", phrase: null };
+  const phrase = statusPhrase ?? (roleId === "platform-owner" && roleChanged ? CONFIRM_PHRASES.grantPlatformOwner : null);
   return { ...base, blocked: null, phrase };
 }
 
@@ -318,8 +321,8 @@ export const HOLD_TABS: Array<{ id: HoldTab; label: string }> = [
 
 export interface HoldRow {
   id: string;
-  subjectType: string;
-  subjectId: string;
+  subjectType: string | null;
+  subjectId: string | null;
   active: boolean;
   status: string;
   reference: string | null;
@@ -336,8 +339,8 @@ export function toHoldRow(record: DisplayRecord): HoldRow {
   const raw = record.raw;
   return {
     id: record.id,
-    subjectType: opt(raw.subjectType) ?? "user",
-    subjectId: opt(raw.subjectId) ?? record.id,
+    subjectType: opt(raw.subjectType),
+    subjectId: opt(raw.subjectId),
     active: raw.status === "active",
     status: opt(raw.status) ?? "—",
     reference: opt(raw.reference),
@@ -428,5 +431,5 @@ export function toPolicyCard(record: DisplayRecord): PolicyCard {
 
 /** By title, then newest version first. */
 export function sortPolicies(cards: PolicyCard[]): PolicyCard[] {
-  return [...cards].sort((a, b) => a.title.localeCompare(b.title) || (b.version ?? "").localeCompare(a.version ?? ""));
+  return [...cards].sort((a, b) => a.title.localeCompare(b.title) || (b.version ?? "").localeCompare(a.version ?? "", undefined, { numeric: true }));
 }
