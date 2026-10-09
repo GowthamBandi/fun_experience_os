@@ -13,6 +13,7 @@ import {
   commissionLabel,
   eventBadge,
   experienceBadge,
+  memberBadge,
   settlementBadge,
   type MemberRow,
   type OrgEventRow,
@@ -363,7 +364,7 @@ export function TeamTab({ q, names }: { q: BoundedQuery<MemberRow>; names: OneSh
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1.5">
                     <Badge tone={owner ? "violet" : "info"}>{owner ? "Owner" : "Staff"}</Badge>
-                    <Badge tone={m.status === "active" ? "ok" : "err"}>{m.status === "active" ? "Active" : m.status ?? "—"}</Badge>
+                    <Badge tone={memberBadge(m.status).tone}>{memberBadge(m.status).label}</Badge>
                   </div>
                 </div>
                 <dl className="mt-4 grid grid-cols-3 gap-2 text-[12px]">

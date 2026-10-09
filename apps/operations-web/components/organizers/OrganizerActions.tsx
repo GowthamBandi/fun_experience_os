@@ -4,13 +4,13 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Ban, Handshake, KeyRound, Lock, Pause, Play, ShieldAlert } from "lucide-react";
 import { Button, Chip, Sheet, Tooltip, useToast } from "@/components/pulse";
 import { OrganizerCodeModal } from "@/components/governance/OrganizerCodeModal";
-import { CONFIRM_PHRASES, PAYOUT_CADENCES, RequestIdBook, isConfirmed, type PayoutCadence } from "@/lib/console/actions";
+import { CONFIRM_PHRASES, PAYOUT_CADENCES, RequestIdBook, commissionPercentToBps, isConfirmed, type PayoutCadence } from "@/lib/console/actions";
 import { ROLE_LABEL, can, type ConsoleRole } from "@/lib/console/capabilities";
 import { mapConsoleError } from "@/lib/console/errors";
 import { canReissueOrganizerCode } from "@/lib/console/records";
 import { cn } from "@/lib/format";
 import { proposeCommercialAgreement, reissueOrganizerCode, setEntityStatus } from "@/lib/governance-api";
-import { commissionLabel, statusActions, type StatusAction } from "@/lib/organizers";
+import { commissionLabel, entityVersion, statusActions, type StatusAction } from "@/lib/organizers";
 import { useLiveDocument } from "@/lib/use-governance";
 
 type Raw = Record<string, unknown>;
@@ -117,7 +117,7 @@ export function OrganizerActions({
         requestId: book.current.idFor(`${orgId}-${action.status}`),
         entityType: "organizer",
         entityId: orgId,
-        expectedVersion: typeof version === "number" ? version : -1,
+        expectedVersion: entityVersion(version),
         status: action.status,
         reason,
       });
@@ -168,8 +168,11 @@ export function OrganizerActions({
 
   const statusOpen = open?.kind === "status" ? open.action : null;
   const proposePct = (() => {
-    const n = Number(percent.trim());
-    return /^\d{1,2}(\.\d{1,2})?$/.test(percent.trim()) && n <= 50 ? n : null;
+    try {
+      return commissionPercentToBps(percent) / 100;
+    } catch {
+      return null;
+    }
   })();
 
   return (

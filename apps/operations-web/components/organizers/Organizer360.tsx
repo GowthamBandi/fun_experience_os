@@ -104,7 +104,6 @@ function View({ orgId, onRetry }: { orgId: string; onRetry: () => void }) {
   const rating = useMemo(() => averageRating(reviews.rows), [reviews.rows]);
   const timeline = useMemo(() => orgTimeline(auditByOrg.rows, auditOnOrg.rows), [auditByOrg.rows, auditOnOrg.rows]);
   const terms = agreementSummary(agreements.rows).current?.raw ?? null;
-  const version = typeof org.data?.version === "number" ? org.data.version : null;
   // The organizer doc is live; these lists are one-shot reads, so re-read them after an action.
   const afterAction = () => {
     agreements.retry();
@@ -197,14 +196,18 @@ function View({ orgId, onRetry }: { orgId: string; onRetry: () => void }) {
                   <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-current" />
                   {badge.label}
                 </Badge>
-                {card.verified ? (
+                {card.verified === true ? (
                   <Badge tone="info" className="text-[12px]">
                     <BadgeCheck aria-hidden className="h-3.5 w-3.5" />
                     Verified
                   </Badge>
-                ) : (
+                ) : card.verified === false ? (
                   <Badge tone="muted" className="text-[12px]">
                     Not verified
+                  </Badge>
+                ) : (
+                  <Badge tone="muted" className="text-[12px]">
+                    Verified: —
                   </Badge>
                 )}
                 {card.categories.map((c) => (
@@ -241,6 +244,13 @@ function View({ orgId, onRetry }: { orgId: string; onRetry: () => void }) {
                   </Tooltip>
                 </li>
               </ul>
+              {pub.error ? (
+                <p role="status" className="mt-3 text-[12px] text-warn">
+                  Public profile couldn&apos;t load, so verified shows —. {pub.error}
+                </p>
+              ) : !pub.loading && !pub.data ? (
+                <p className="mt-3 text-[12px] text-text-3">No public profile on record, so verified shows —.</p>
+              ) : null}
               {about ? <p className="mt-4 max-w-2xl text-[14px] leading-[1.55] text-text-2">{about}</p> : null}
             </div>
           </div>
@@ -254,7 +264,7 @@ function View({ orgId, onRetry }: { orgId: string; onRetry: () => void }) {
               currentCadence={typeof terms?.payoutCadence === "string" ? terms.payoutCadence : null}
               onChanged={afterAction}
             />
-            <span className="text-[12px] text-text-3">Version {version ?? "—"}</span>
+            <span className="text-[12px] text-text-3">Version {card.version}</span>
           </div>
         </div>
         {suspended ? (

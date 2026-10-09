@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { BadgeCheck, CalendarDays, MapPin, Search, Star, X } from "lucide-react";
+import { AlertTriangle, BadgeCheck, CalendarDays, Info, MapPin, Search, Star, X } from "lucide-react";
 import { Avatar, Badge, Card, Chip, Empty, ErrorState, PageHeader, Skeleton, Truncated } from "@/components/pulse";
 import { PageContainer } from "@/components/shell/PageContainer";
 import { artFor } from "@/lib/approvals";
@@ -135,6 +135,20 @@ export function OrganizerGrid() {
         </>
       )}
       {ready && truncated ? <Truncated shown={records.length} /> : null}
+      {ready && pubs.error ? (
+        <p role="status" className="flex flex-wrap items-center gap-2 rounded-control border border-dashed border-[rgba(255,184,77,0.35)] px-3.5 py-2.5 text-[12px] text-warn">
+          <AlertTriangle aria-hidden className="h-3.5 w-3.5 shrink-0" />
+          <span>Public profiles couldn&apos;t load ({pubs.error}), so verified and ratings show —.</span>
+          <button type="button" onClick={pubs.retry} className="focus-ring rounded-[8px] font-semibold text-text underline-offset-2 hover:underline">
+            Retry
+          </button>
+        </p>
+      ) : ready && pubs.truncated ? (
+        <p role="status" className="flex items-center gap-2 rounded-control border border-dashed border-line px-3.5 py-2.5 text-[12px] text-text-3">
+          <Info aria-hidden className="h-3.5 w-3.5 shrink-0 text-info" />
+          <span>Only the first {pubs.rows.length} public profiles loaded; organizers beyond that show — for verified and ratings.</span>
+        </p>
+      ) : null}
     </PageContainer>
   );
 }
@@ -188,7 +202,9 @@ function OrganizerCard({ card }: { card: OrgCard }) {
         </span>
         <span className="inline-flex items-center gap-1">
           <Star aria-hidden className={cn("h-3.5 w-3.5", card.rating !== null ? "fill-warn text-warn" : "")} />
-          {card.rating !== null ? (
+          {card.ratingCount === null ? (
+            <span aria-label="Rating unknown">—</span>
+          ) : card.rating !== null ? (
             <>
               <b className="num text-[13px] font-bold text-text">{card.rating.toFixed(1)}</b>
               <span>({card.ratingCount})</span>

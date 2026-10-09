@@ -43,6 +43,11 @@ export function orgStatusBadge(status: unknown): { label: string; tone: BadgeTon
   return STATUS_BADGE[s] ?? { label: s.charAt(0).toUpperCase() + s.slice(1).replace(/-/g, " "), tone: "muted" };
 }
 
+/** Same rule as the server's asVersion (governance/service.ts): a missing or non-integer version is 0. */
+export function entityVersion(value: unknown): number {
+  return Number.isSafeInteger(value) ? (value as number) : 0;
+}
+
 /* -------------------------------------------------------------------- grid */
 
 export interface OrgCard {
@@ -53,14 +58,17 @@ export interface OrgCard {
   categories: string[];
   status: string | null;
   since: Date | null;
-  verified: boolean;
+  /** null when the public projection is unknown (read failed, truncated or doc missing). */
+  verified: boolean | null;
   rating: number | null;
-  ratingCount: number;
+  /** null when unknown; a known projection without aggregates has 0 ratings. */
+  ratingCount: number | null;
   version: number;
 }
 
-/** organizers (authoritative status/version) merged with publicOrganizers (display fields). */
+/** organizers (authoritative status/version) merged with publicOrganizers (display fields); a null/undefined `pub` means unknown. */
 export function mergeOrganizer(id: string, org: Raw, pub: Raw | null | undefined): OrgCard {
+  const known = !!pub;
   const p = pub ?? {};
   const pubCategories = strings(p.categories);
   return {
@@ -71,10 +79,10 @@ export function mergeOrganizer(id: string, org: Raw, pub: Raw | null | undefined
     categories: pubCategories.length ? pubCategories : strings(org.categories),
     status: str(org.status),
     since: toDate(p.hostingSince) ?? toDate(org.createdAt),
-    verified: p.verified === true,
+    verified: known && typeof p.verified === "boolean" ? p.verified : null,
     rating: num(p.ratingAverage),
-    ratingCount: num(p.ratingCount) ?? 0,
-    version: Number.isSafeInteger(org.version) ? (org.version as number) : 0,
+    ratingCount: known ? num(p.ratingCount) ?? 0 : null,
+    version: entityVersion(org.version),
   };
 }
 
@@ -331,6 +339,17 @@ export function toMember(id: string, d: Raw): MemberRow {
     scope: d.role === "owner" || scope?.all === true ? "All events" : ids.length ? `${ids.length} ${ids.length === 1 ? "event" : "events"}` : "—",
     since: toDate(d.activatedAt) ?? toDate(d.createdAt),
   };
+}
+
+const MEMBER_BADGE: Record<string, { label: string; tone: BadgeTone }> = {
+  active: { label: "Active", tone: "ok" },
+  pending: { label: "Invited", tone: "warn" },
+  revoked: { label: "Revoked", tone: "err" },
+};
+
+export function memberBadge(status: unknown): { label: string; tone: BadgeTone } {
+  const s = str(status);
+  return (s && MEMBER_BADGE[s]) || { label: s ?? "—", tone: "muted" };
 }
 
 /** Owners first, then active staff, then revoked; newest first inside each group. */

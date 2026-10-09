@@ -3,6 +3,8 @@ import {
   agreementSummary,
   averageRating,
   commissionLabel,
+  entityVersion,
+  memberBadge,
   filterOrganizers,
   mergeOrganizer,
   orgCounts,
@@ -33,8 +35,23 @@ describe("mergeOrganizer", () => {
     expect(cricket.since?.toISOString()).toBe("2026-10-02T00:00:00.000Z");
   });
   it("falls back to the organizer doc when the public projection is missing", () => {
-    expect(treks).toMatchObject({ name: "Trailblazers Treks", city: "Pune", categories: ["trips", "wellness"], verified: false, rating: null, ratingCount: 0 });
+    expect(treks).toMatchObject({ name: "Trailblazers Treks", city: "Pune", categories: ["trips", "wellness"] });
     expect(clay.categories).toEqual(["workshops"]);
+  });
+  it("treats an unknown public projection as unknown, not as unverified or unrated", () => {
+    expect(treks).toMatchObject({ verified: null, rating: null, ratingCount: null });
+    expect(odd).toMatchObject({ verified: null, ratingCount: null });
+    // A known projection without aggregates has no ratings yet; without `verified` it stays unknown.
+    expect(clay).toMatchObject({ verified: null, rating: null, ratingCount: 0 });
+    expect(mergeOrganizer("o5", {}, { verified: false })).toMatchObject({ verified: false, ratingCount: 0 });
+  });
+  it("uses the server's version rule: missing or non-integer versions are 0", () => {
+    expect(entityVersion(4)).toBe(4);
+    expect(entityVersion(undefined)).toBe(0);
+    expect(entityVersion("3")).toBe(0);
+    expect(entityVersion(1.5)).toBe(0);
+    expect(entityVersion(Number.NaN)).toBe(0);
+    expect(mergeOrganizer("o6", { version: "7" }, null).version).toBe(0);
   });
   it("shows a dash, never an invented value, when fields are missing", () => {
     expect(odd).toMatchObject({ name: "—", city: null, handle: null, since: null, version: 0 });
@@ -136,6 +153,12 @@ describe("rows", () => {
     expect(owner.scope).toBe("All events");
     expect(revoked).toMatchObject({ uid: "u3", scope: "1 event", permissions: [] });
     expect(sortMembers([revoked, staff, owner]).map((m) => m.uid)).toEqual(["u1", "u2", "u3"]);
+  });
+  it("labels member statuses: invited (pending) is a warning, not an error", () => {
+    expect(memberBadge("active")).toEqual({ label: "Active", tone: "ok" });
+    expect(memberBadge("pending")).toEqual({ label: "Invited", tone: "warn" });
+    expect(memberBadge("revoked")).toEqual({ label: "Revoked", tone: "err" });
+    expect(memberBadge(undefined)).toEqual({ label: "—", tone: "muted" });
   });
 });
 
