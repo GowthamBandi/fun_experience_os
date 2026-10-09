@@ -2,9 +2,10 @@ import { collection, count, getAggregateFromServer, query, sum, Timestamp, where
 import { getFirebaseClient } from "./firebase/client";
 import { readNumber, resolveMetric, type MetricKey, type MetricSpec, type TimeRange } from "./metrics";
 
-/** Narrows a metric to one organizer (ledgerEntries carry orgId). */
+/** Narrows a metric to one organizer or one event (ledgerEntries and tickets carry orgId and eventId). */
 export interface MetricScope {
   orgId?: string;
+  eventId?: string;
 }
 
 /** One server-side aggregation. A sum skips docs missing the field; a non-finite result throws. */
@@ -12,6 +13,8 @@ export async function runMetric(spec: MetricSpec, range?: TimeRange, scope?: Met
   const constraints: QueryConstraint[] = spec.where.map(([field, op, value]) => where(field, op, value));
   const orgId = scope?.orgId;
   if (orgId) constraints.push(where("orgId", "==", orgId));
+  const eventId = scope?.eventId;
+  if (eventId) constraints.push(where("eventId", "==", eventId));
   if (spec.dateField && range) {
     constraints.push(where(spec.dateField, ">=", Timestamp.fromDate(range.start)));
     constraints.push(where(spec.dateField, "<", Timestamp.fromDate(range.end)));

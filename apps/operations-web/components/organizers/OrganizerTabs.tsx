@@ -11,7 +11,6 @@ import {
   agreementBadge,
   agreementSummary,
   commissionLabel,
-  eventBadge,
   experienceBadge,
   memberBadge,
   settlementBadge,
@@ -21,13 +20,14 @@ import {
   type OrgTimelineItem,
 } from "@/lib/organizers";
 import { categoryEmoji } from "@/lib/overview";
+import { EventStatusBadge, EventTitleCell, FillCell, priceLabel } from "@/components/events/cells";
 import type { BoundedQuery, OneShot } from "@/lib/use-query";
 
 type Raw = Record<string, unknown>;
 export type DocRow = { id: string; raw: Raw };
 
 /** Skeleton, error-with-retry, empty and truncated states around one bounded read. */
-function Loaded<T>({ q, empty, skeleton, children }: { q: BoundedQuery<T>; empty: ReactNode; skeleton?: ReactNode; children: (rows: T[]) => ReactNode }) {
+export function Loaded<T>({ q, empty, skeleton, children }: { q: BoundedQuery<T>; empty: ReactNode; skeleton?: ReactNode; children: (rows: T[]) => ReactNode }) {
   if (q.loading) return <>{skeleton ?? <SkeletonRows rows={4} />}</>;
   if (q.error) return <ErrorState message={q.error} onRetry={q.retry} />;
   if (q.rows.length === 0) return <>{empty}</>;
@@ -39,7 +39,7 @@ function Loaded<T>({ q, empty, skeleton, children }: { q: BoundedQuery<T>; empty
   );
 }
 
-function SectionTitle({ id, icon, title, aside }: { id?: string; icon: ReactNode; title: string; aside?: ReactNode }) {
+export function SectionTitle({ id, icon, title, aside }: { id?: string; icon: ReactNode; title: string; aside?: ReactNode }) {
   return (
     <div className="mb-4 flex items-center justify-between gap-3">
       <h3 id={id} className="flex items-center gap-2 font-display text-[17px] font-bold tracking-[-0.02em] text-text">
@@ -62,17 +62,7 @@ export function EventsTab({ q }: { q: BoundedQuery<OrgEventRow> }) {
       key: "title",
       header: "Event",
       sort: (a, b) => a.title.localeCompare(b.title),
-      cell: (e) => (
-        <div className="flex min-w-0 items-center gap-3">
-          <span aria-hidden className="grid h-10 w-10 shrink-0 place-items-center rounded-[13px] text-[19px]" style={{ background: `${artFor(e.category).color}26` }}>
-            {categoryEmoji(e.category)}
-          </span>
-          <div className="min-w-0">
-            <div className="truncate font-semibold text-text">{e.title}</div>
-            <div className="truncate text-[12px] text-text-3">{e.venue ?? "—"}</div>
-          </div>
-        </div>
-      ),
+      cell: (e) => <EventTitleCell e={e} />,
     },
     {
       key: "starts",
@@ -83,37 +73,21 @@ export function EventsTab({ q }: { q: BoundedQuery<OrgEventRow> }) {
     {
       key: "status",
       header: "Status",
-      cell: (e) => {
-        const b = eventBadge(e.status);
-        return <Badge tone={b.tone}>{b.label}</Badge>;
-      },
+      cell: (e) => <EventStatusBadge status={e.status} />,
     },
     {
       key: "sold",
       header: "Sold",
       width: "150px",
       sort: (a, b) => (a.sold ?? -1) - (b.sold ?? -1),
-      cell: (e) => {
-        const pct = e.sold !== null && e.capacity ? Math.min(100, Math.round((e.sold / e.capacity) * 100)) : null;
-        return (
-          <div className="flex flex-col gap-1.5">
-            <span className="num text-[13px] text-text">
-              {e.sold ?? "—"}
-              <span className="text-text-3">/{e.capacity ?? "—"}</span>
-            </span>
-            <span aria-hidden className="h-1.5 w-full overflow-hidden rounded-pill bg-[rgba(255,255,255,0.06)]">
-              <span className="block h-full rounded-pill bg-[linear-gradient(90deg,#6E4DFF,#8E72FF)]" style={{ width: `${pct ?? 0}%` }} />
-            </span>
-          </div>
-        );
-      },
+      cell: (e) => <FillCell e={e} />,
     },
     {
       key: "price",
       header: "Price",
       align: "right",
       sort: (a, b) => (a.priceMinor ?? -1) - (b.priceMinor ?? -1),
-      cell: (e) => (e.priceMinor === 0 ? "Free" : inrMinor(e.priceMinor)),
+      cell: (e) => priceLabel(e.priceMinor),
     },
   ];
   return (
@@ -406,7 +380,21 @@ export function TeamTab({ q, names }: { q: BoundedQuery<MemberRow>; names: OneSh
 
 /* ---------------------------------------------------------------- timeline */
 
-export function TimelineTab({ items, loading, error, truncated, onRetry }: { items: OrgTimelineItem[]; loading: boolean; error: string | null; truncated: boolean; onRetry: () => void }) {
+export function TimelineTab({
+  items,
+  loading,
+  error,
+  truncated,
+  onRetry,
+  emptyBody = "Every action on or by this organizer is recorded here.",
+}: {
+  items: OrgTimelineItem[];
+  loading: boolean;
+  error: string | null;
+  truncated: boolean;
+  onRetry: () => void;
+  emptyBody?: string;
+}) {
   return (
     <Card>
       <SectionTitle icon={<ScrollText />} title="Audit trail" aside={!loading && !error ? <span className="text-[12px] text-text-3">{items.length} events · newest first</span> : null} />
@@ -415,7 +403,7 @@ export function TimelineTab({ items, loading, error, truncated, onRetry }: { ite
       ) : error ? (
         <ErrorState message={error} onRetry={onRetry} />
       ) : items.length === 0 ? (
-        <Empty emoji="📜" title="No audit events yet" body="Every action on or by this organizer is recorded here." />
+        <Empty emoji="📜" title="No audit events yet" body={emptyBody} />
       ) : (
         <>
           <Timeline items={items} />

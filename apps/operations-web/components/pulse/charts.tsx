@@ -160,7 +160,7 @@ export function BarList({ items, className }: { items: Array<{ label: string; va
   );
 }
 
-export function ProgressBar({ value, max, label, className }: { value: number; max: number; label?: string; className?: string }) {
+export function ProgressBar({ value, max, label, ariaLabel, className }: { value: number; max: number; label?: string; ariaLabel?: string; className?: string }) {
   const safeMax = Number.isFinite(max) && max > 0 ? max : 0;
   const safeValue = Number.isFinite(value) ? Math.max(0, Math.min(value, safeMax)) : 0;
   const pct = safeMax > 0 ? (safeValue / safeMax) * 100 : 0;
@@ -176,7 +176,7 @@ export function ProgressBar({ value, max, label, className }: { value: number; m
       ) : null}
       <div
         role="progressbar"
-        aria-label={label}
+        aria-label={ariaLabel ?? label}
         aria-valuemin={0}
         aria-valuemax={safeMax}
         aria-valuenow={safeValue}

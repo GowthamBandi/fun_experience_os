@@ -5,7 +5,7 @@
  * safe to show, with `details = { code, message, nextStep }`.
  */
 
-import { CommandValidationError } from "./actions";
+import { CommandValidationError, type RequestIdBook } from "./actions";
 
 export type ConsoleErrorKind =
   | "validation"
@@ -86,4 +86,11 @@ export function describeReadError(message: string): string {
   }
   if (/offline|unavailable|network/i.test(message)) return "The database could not be reached. Records will appear when the connection returns.";
   return `The records could not be loaded: ${message}`;
+}
+
+/** Throws an operator-facing Error for a Sheet; keeps the request id only when a retry should replay it. */
+export function rethrowForSheet(cause: unknown, book: RequestIdBook): never {
+  const mapped = mapConsoleError(cause);
+  if (mapped.kind !== "unavailable" && mapped.kind !== "unknown") book.reset();
+  throw new Error(mapped.nextStep ? `${mapped.message} ${mapped.nextStep}` : mapped.message);
 }

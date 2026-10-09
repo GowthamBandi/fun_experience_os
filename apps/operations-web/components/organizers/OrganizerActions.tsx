@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Ban, Handshake, KeyRound, Lock, Pause, Play, ShieldAlert } from "lucide-react";
+import { Ban, Handshake, KeyRound, Lock, Pause, Play } from "lucide-react";
 import { Button, Chip, Sheet, Tooltip, useToast } from "@/components/pulse";
 import { OrganizerCodeModal } from "@/components/governance/OrganizerCodeModal";
+import { PhraseBox } from "@/components/governance/PhraseBox";
 import { CONFIRM_PHRASES, PAYOUT_CADENCES, RequestIdBook, commissionPercentToBps, isConfirmed, type PayoutCadence } from "@/lib/console/actions";
 import { ROLE_LABEL, can, type ConsoleRole } from "@/lib/console/capabilities";
-import { mapConsoleError } from "@/lib/console/errors";
+import { rethrowForSheet } from "@/lib/console/errors";
 import { canReissueOrganizerCode } from "@/lib/console/records";
-import { cn } from "@/lib/format";
 import { proposeCommercialAgreement, reissueOrganizerCode, setEntityStatus } from "@/lib/governance-api";
 import { commissionLabel, entityVersion, statusActions, type StatusAction } from "@/lib/organizers";
 import { useLiveDocument } from "@/lib/use-governance";
@@ -18,38 +18,6 @@ type Code = { code: string; orgId?: string | null; expiresAt?: string | null; su
 type Open = { kind: "status"; action: StatusAction } | { kind: "propose" } | { kind: "reissue" } | null;
 
 const ICON: Record<StatusAction["status"], ReactNode> = { active: <Play />, paused: <Pause />, blocked: <Ban /> };
-
-/** Throws an operator-facing Error; keeps the request id only when a retry should replay it. */
-function rethrow(cause: unknown, book: RequestIdBook): never {
-  const mapped = mapConsoleError(cause);
-  if (mapped.kind !== "unavailable" && mapped.kind !== "unknown") book.reset();
-  throw new Error(mapped.nextStep ? `${mapped.message} ${mapped.nextStep}` : mapped.message);
-}
-
-function PhraseBox({ phrase, consequence, value, onChange }: { phrase: string; consequence: string; value: string; onChange: (v: string) => void }) {
-  return (
-    <div className="rounded-control border border-[rgba(255,97,120,0.3)] bg-[rgba(255,97,120,0.07)] p-4">
-      <p className="flex items-center gap-2 font-display text-[14px] font-bold text-err">
-        <ShieldAlert aria-hidden className="h-4 w-4" />
-        High-risk action
-      </p>
-      <p className="mt-1 text-[13px] leading-[1.5] text-text-2">{consequence}</p>
-      <label className="mt-3 block">
-        <span className="text-[12px] font-semibold text-text-3">
-          Type <code className="rounded-[6px] bg-[rgba(0,0,0,0.3)] px-1.5 py-0.5 font-mono text-text">{phrase}</code> to confirm
-        </span>
-        <input
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          autoComplete="off"
-          spellCheck={false}
-          aria-label={`Type ${phrase} to confirm`}
-          className={cn("field mt-2 h-11 w-full rounded-control px-3.5 font-mono text-[14px] text-text", isConfirmed(value, phrase) && "!border-[rgba(63,221,154,0.5)]")}
-        />
-      </label>
-    </div>
-  );
-}
 
 export function OrganizerActions({
   orgId,
@@ -129,7 +97,7 @@ export function OrganizerActions({
         body: result.replayed ? "This request had already been applied." : `Status is now ${result.status} (version ${result.version}).`,
       });
     } catch (cause) {
-      rethrow(cause, book.current);
+      rethrowForSheet(cause, book.current);
     }
   };
 
@@ -144,7 +112,7 @@ export function OrganizerActions({
         body: `Agreement ${result.agreementId} is ${result.status}. Another admin approves it in Commercials; it then applies to newly published events.`,
       });
     } catch (cause) {
-      rethrow(cause, book.current);
+      rethrowForSheet(cause, book.current);
     }
   };
 
@@ -162,7 +130,7 @@ export function OrganizerActions({
       // Never keep the one-time code anywhere but the modal's own props.
       setCode({ code: result.organizerCode, orgId: result.orgId, expiresAt: result.codeExpiresAt ?? null, subject: name });
     } catch (cause) {
-      rethrow(cause, book.current);
+      rethrowForSheet(cause, book.current);
     }
   };
 

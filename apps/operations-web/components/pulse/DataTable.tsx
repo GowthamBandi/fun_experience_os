@@ -25,6 +25,10 @@ export type DataTableProps<T> = {
   /** Put a max height here (e.g. "max-h-[70vh]") so the sticky header has something to stick to. */
   className?: string;
   caption?: string;
+  /** Extra classes per row (e.g. a deep-linked highlight). */
+  rowClassName?: (row: T) => string | undefined;
+  /** A DOM id per row, so a deep link can scroll to it. */
+  rowId?: (row: T) => string | undefined;
 };
 
 // Clicks and Enter on controls inside a cell belong to that control, not the row.
@@ -34,7 +38,7 @@ const fromControl = (target: EventTarget, row: Element) => {
   return hit !== null && hit !== row && row.contains(hit);
 };
 
-export function DataTable<T>({ rows, columns, rowKey, onRowClick, loading = false, empty, className, caption }: DataTableProps<T>) {
+export function DataTable<T>({ rows, columns, rowKey, onRowClick, loading = false, empty, className, caption, rowClassName, rowId }: DataTableProps<T>) {
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 } | null>(null);
   const [active, setActive] = useState(0);
   const rowRefs = useRef<Array<HTMLTableRowElement | null>>([]);
@@ -139,6 +143,7 @@ export function DataTable<T>({ rows, columns, rowKey, onRowClick, loading = fals
             : sorted.map((row, i) => (
                 <tr
                   key={rowKey(row)}
+                  id={rowId?.(row)}
                   ref={(el) => {
                     rowRefs.current[i] = el;
                   }}
@@ -150,6 +155,7 @@ export function DataTable<T>({ rows, columns, rowKey, onRowClick, loading = fals
                     "group outline-none transition-colors duration-150",
                     "hover:bg-[rgba(255,255,255,0.035)] focus-visible:bg-[rgba(142,114,255,0.1)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary",
                     onRowClick && "cursor-pointer",
+                    rowClassName?.(row),
                   )}
                 >
                   {columns.map((col) => (

@@ -238,10 +238,16 @@ export interface OrgEventRow {
   category: string | null;
   venue: string | null;
   startsAt: Date | null;
+  /** Stored end (catalog/events.ts writes startsAt + duration); null when missing. */
+  endsAt: Date | null;
   status: string | null;
   sold: number | null;
   capacity: number | null;
   priceMinor: number | null;
+  orgId: string | null;
+  organizerName: string | null;
+  city: string | null;
+  experienceId: string | null;
 }
 
 /** Sold = confirmed paid + complimentary (occupancy counters); capacity = maxPhysicalCapacity, falling back to capacity.max. */
@@ -257,10 +263,15 @@ export function toOrgEvent(id: string, d: Raw): OrgEventRow {
     category: str(d.category),
     venue: venue ? [str(venue.name), str(venue.city)].filter(Boolean).join(" · ") || null : str(d.location),
     startsAt: toDate(d.startsAt),
+    endsAt: toDate(d.endsAt),
     status: str(d.status),
     sold: paid === null && comp === null ? null : (paid ?? 0) + (comp ?? 0),
     capacity: cap ? num(cap.maxPhysicalCapacity) ?? num(cap.max) : null,
     priceMinor: num(d.priceMinor),
+    orgId: str(d.orgId),
+    organizerName: str(d.organizerName),
+    city: venue ? str(venue.city) : null,
+    experienceId: str(d.experienceId),
   };
 }
 

@@ -1,2 +1,5 @@
-import { GovernanceRoutePage } from "@/components/governance/GovernanceRoutePage";
-export default function Page(){return <GovernanceRoutePage config={{collection:"events",entityType:"event",allowAdminCancel:true,eyebrow:"Marketplace",title:"Events",description:"Organizers create and operate events. Governance reviews them, pauses or blocks them, and — only as an emergency intervention — cancels an event with full refunds to every attendee.",metricLabel:"Event records",primaryAction:"Review event",emptyMessage:"No events have been submitted yet."}}/>}
+import { EventsTable } from "@/components/events/EventsTable";
+
+export default function Page() {
+  return <EventsTable />;
+}
