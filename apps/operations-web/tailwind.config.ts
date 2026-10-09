@@ -9,33 +9,46 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        bg: {
-          deep: "var(--bg-deep)",
-          base: "var(--bg-base)",
-          raised: "var(--bg-raised)",
-        },
-        edge: "var(--edge)",
-        brand: {
-          DEFAULT: "var(--brand)",
-          hover: "var(--brand-hover)",
-          subtle: "var(--brand-subtle)",
-        },
-        warm: "var(--warm)",
-        cool: "var(--cool)",
-        ok: "var(--ok)",
-        danger: "var(--danger)",
         ink: {
-          lum: "var(--ink-lum)",
-          sec: "var(--ink-sec)",
-          mut: "var(--ink-mut)",
+          DEFAULT: "var(--ink)",
+          lum: "var(--text)",
+          sec: "var(--text-2)",
+          mut: "var(--text-3)",
         },
+        night: "var(--night)",
+        surface: {
+          DEFAULT: "var(--surface)",
+          high: "var(--surface-high)",
+          top: "var(--surface-top)",
+        },
+        line: { DEFAULT: "var(--line)", soft: "var(--line-soft)" },
+        text: { DEFAULT: "var(--text)", 2: "var(--text-2)", 3: "var(--text-3)" },
+        primary: { DEFAULT: "var(--primary)", strong: "var(--primary-strong)" },
+        volt: "var(--volt)",
+        "on-volt": "var(--on-volt)",
+        ok: "var(--ok)",
+        warn: "var(--warn)",
+        err: "var(--err)",
+        info: "var(--info)",
+        // aliases for screens not yet converted
+        bg: { deep: "var(--ink)", base: "var(--night)", raised: "var(--surface)" },
+        edge: "var(--line)",
+        brand: {
+          DEFAULT: "var(--primary)",
+          hover: "var(--primary-strong)",
+          subtle: "rgba(142,114,255,.14)",
+        },
+        warm: "var(--warn)",
+        cool: "var(--info)",
+        danger: "var(--err)",
       },
       fontFamily: {
-        ui: ["var(--font-ui)"],
-        display: ["var(--font-display)"],
-        tabular: ["var(--font-ui)"],
+        ui: ["var(--font-ui)", "system-ui", "sans-serif"],
+        display: ["var(--font-display)", "system-ui", "sans-serif"],
+        tabular: ["var(--font-ui)", "system-ui", "sans-serif"],
       },
       boxShadow: {
+        glow: "0 40px 120px -30px rgba(142,114,255,.35)",
         glass: "0 24px 64px -16px rgba(0,0,0,0.32)",
         panel: "0 12px 32px -8px rgba(0,0,0,0.20)",
         lift: "0 4px 12px -2px rgba(0,0,0,0.12)",
@@ -46,11 +59,15 @@ const config: Config = {
         control: "8px",
       },
       borderRadius: {
+        card: "24px",
+        control: "16px",
+        pill: "99px",
         panel: "26px",
         sheet: "20px",
       },
       transitionTimingFunction: {
-        light: "cubic-bezier(.19, 1, .22, 1)",
+        pulse: "cubic-bezier(.2,.8,.2,1)",
+        light: "cubic-bezier(.2,.8,.2,1)",
       },
       keyframes: {
         grain: {
