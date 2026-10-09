@@ -7,7 +7,19 @@ const c = toArena("a3", { status: "under-review" });
 const d = toArena("a4", { name: "Zed", status: "blocked", statusReason: "unsafe" });
 const e = toArena("a5", { name: "Appr", status: "approved" });
 
+// The exact shape seed-governance-emulator.mjs writes (ADR-0003 flat display documents).
+const godavari = toArena("arena-godavari", { name: "Godavari Indoor Stadium", status: "under-review", location: "Rajahmundry, Andhra Pradesh", displayValue: "8,000 capacity", summary: "Fire NOC pending", version: 0 });
+
 describe("toArena", () => {
+  it("maps the flat display fields without parsing displayValue", () => {
+    expect(godavari).toMatchObject({ name: "Godavari Indoor Stadium", city: "Rajahmundry, Andhra Pradesh", address: "Rajahmundry, Andhra Pradesh", capacity: null, capacityText: "8,000 capacity", summary: "Fire NOC pending", version: 0 });
+    expect(filterArenas([godavari], "all", "noc")).toHaveLength(1);
+    expect(toArena("x", { location: "Pune", city: "Goa", capacity: 5, displayValue: "x" })).toMatchObject({ city: "Goa", capacity: 5 });
+  });
+  it("notes the open verification case when approving", () => {
+    expect(arenaStatusActions("under-review")[0].consequence).toContain("verification case in Approvals stays open");
+    expect(arenaStatusActions("paused")[0].consequence).not.toContain("Approvals");
+  });
   it("reads known fields and never invents missing ones", () => {
     expect(a).toMatchObject({ name: "Turf Park", city: "Bengaluru", capacity: 120, version: 2, ownerId: "o1", sports: ["cricket"] });
     expect(b).toMatchObject({ name: "HSR Arena", city: null, capacity: null, version: 0 });

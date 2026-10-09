@@ -135,6 +135,8 @@ export function ArenasView() {
   );
 }
 
+const capacityLabel = (a: ArenaCard) => (a.capacity !== null ? new Intl.NumberFormat("en-IN").format(a.capacity) : a.capacityText ?? "—");
+
 function ArenaTile({ card, onOpen }: { card: ArenaCard; onOpen: () => void }) {
   const badge = arenaStatusBadge(card.status);
   return (
@@ -149,11 +151,12 @@ function ArenaTile({ card, onOpen }: { card: ArenaCard; onOpen: () => void }) {
         <MapPin aria-hidden className="h-3.5 w-3.5 text-text-3" />
         {card.city ?? "—"}
       </p>
+      {card.summary ? <p className="mt-2 line-clamp-2 text-[13px] text-text-3">{card.summary}</p> : null}
       <div className="mt-auto flex items-center justify-between gap-3 border-t border-line-soft pt-3.5 text-[12px] text-text-3">
         <span className="inline-flex items-center gap-1.5">
           <Users aria-hidden className="h-3.5 w-3.5" />
           Capacity{" "}
-          <b className="num text-[13px] font-bold text-text">{card.capacity !== null ? new Intl.NumberFormat("en-IN").format(card.capacity) : "—"}</b>
+          <b className="num text-[13px] font-bold text-text">{capacityLabel(card)}</b>
         </span>
         <span className="num">v{card.version}</span>
       </div>
@@ -195,7 +198,8 @@ function ArenaDrawer({ open, arena, raw, onChanged, onClose }: { open: boolean; 
             <dl className="divide-y divide-line-soft rounded-control border border-line-soft px-4">
               <Field label="City">{arena.city ?? "—"}</Field>
               <Field label="Address">{arena.address ?? "—"}</Field>
-              <Field label="Capacity">{arena.capacity !== null ? new Intl.NumberFormat("en-IN").format(arena.capacity) : "—"}</Field>
+              <Field label="Capacity">{capacityLabel(arena)}</Field>
+              <Field label="Summary">{arena.summary ?? "—"}</Field>
               <Field label="Sports">{arena.sports.length ? arena.sports.join(", ") : "—"}</Field>
               <Field label="Owner">{arena.ownerId ?? "—"}</Field>
               <Field label="Status reason">{arena.statusReason ?? "—"}</Field>

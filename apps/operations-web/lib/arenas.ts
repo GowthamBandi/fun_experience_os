@@ -5,7 +5,7 @@
  * are `status`, `capacity` (a number) and `version` (catalog/events.ts assertArena,
  * governance/service.ts changeMarketplaceEntityStatus, which also writes
  * `statusReason`). No callable creates arenas and the Firestore rules deny client
- * writes, so every other display field is read defensively and shows "—" when absent.
+ * writes, so every other display field is read defensively (the flat ADR-0003 docs carry `location`, `displayValue` and `summary`) and shows "—" when absent.
  *
  * assertArena only accepts an arena whose status is "approved" or "active" when an
  * event is saved. Setting "paused" or "blocked" therefore stops organizers picking
@@ -49,6 +49,9 @@ export interface ArenaCard {
   address: string | null;
   /** null when the doc has no numeric capacity. */
   capacity: number | null;
+  /** The flat display text (ADR-0003 `displayValue`, e.g. "8,000 capacity"); never parsed into a number. */
+  capacityText: string | null;
+  summary: string | null;
   status: string | null;
   statusReason: string | null;
   version: number;
@@ -62,9 +65,11 @@ export function toArena(id: string, d: Raw): ArenaCard {
   return {
     id,
     name: first(d, "name", "title") ?? "—",
-    city: first(d, "city"),
-    address: first(d, "address"),
+    city: first(d, "city", "location"),
+    address: first(d, "address", "location"),
     capacity: num(d.capacity),
+    capacityText: str(d.displayValue),
+    summary: str(d.summary),
     status: str(d.status),
     statusReason: str(d.statusReason),
     version: entityVersion(d.version),
@@ -96,7 +101,7 @@ export function filterArenas(cards: ArenaCard[], filter: ArenaFilter, search: st
   return cards.filter((c) => {
     if (filter !== "all" && bucket(c.status) !== filter) return false;
     if (!q) return true;
-    return [c.name, c.city, c.address, c.id, ...c.sports].some((v) => v && v.toLowerCase().includes(q));
+    return [c.name, c.city, c.address, c.summary, c.id, ...c.sports].some((v) => v && v.toLowerCase().includes(q));
   });
 }
 
@@ -120,11 +125,11 @@ const BLOCK: StatusAction = {
   consequence: "Blocks this arena in the marketplace: organizers can't pick it for new or edited events and it is hidden from the public. Events already scheduled here are not changed.",
   tone: "danger",
 };
-const activate = (label: string): StatusAction => ({
+const activate = (label: string, extra = ""): StatusAction => ({
   status: "active",
   label,
   phrase: null,
-  consequence: "Sets the arena to active so organizers can pick it for events again.",
+  consequence: `Sets the arena to active so organizers can pick it for events again.${extra}`,
   tone: "volt",
 });
 
@@ -135,7 +140,7 @@ export function arenaStatusActions(status: unknown): StatusAction[] {
     case "approved": return [PAUSE, BLOCK];
     case "paused": return [activate("Reactivate"), BLOCK];
     case "blocked": return [activate("Reactivate")];
-    case "under-review": return [activate("Approve"), BLOCK];
+    case "under-review": return [activate("Approve", " This activates the arena; the verification case in Approvals stays open — decide it there."), BLOCK];
     default: return [activate("Activate"), PAUSE, BLOCK];
   }
 }
