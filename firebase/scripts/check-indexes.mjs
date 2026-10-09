@@ -120,6 +120,13 @@ export const QUERIES = [
   Q("W08", "console", "bookings", ["reference"], null, [], ["apps/operations-web/lib/search.ts", `where("reference", "==", value)`], "⌘K booking-reference search, limit 5."),
   Q("W09", "console", "publicOrganizers", [], null, [["name", "asc"]], ["apps/operations-web/lib/search.ts", `orderBy("name"), startAt(p)`], "⌘K name prefix (startAt/endAt) on the single-field index."),
   Q("W10", "console", "events", [], null, [["title", "asc"]], ["apps/operations-web/lib/search.ts", `orderBy("title"), startAt(p)`], "⌘K title prefix (startAt/endAt) on the single-field index."),
+  Q("M01", "console", "bookings", ["status(in)"], "createdAt", [], ["apps/operations-web/lib/metrics.ts", `where: [["status", "in", ["confirmed", "completed"]]]`], "Dashboard gross/confirmed bookings: aggregation over a status set and a createdAt range."),
+  Q("M02", "console", "refunds", ["status"], "createdAt", [], ["apps/operations-web/lib/metrics.ts", `collection: "refunds"`], "Dashboard refunds amount: status == completed in a createdAt range."),
+  Q("M03", "console", "users", ["scope"], "createdAt", [], ["apps/operations-web/lib/metrics.ts", `where: [["scope", "==", "platform"]]`], "Dashboard new customers: operators created in range are subtracted from users created in range (createdAt alone is single-field)."),
+  Q("M04", "console", "tickets", ["status"], "checkedInAt", [], ["apps/operations-web/lib/metrics.ts", `where: [["status", "==", "used"]]`], "Dashboard check-ins: status == used in a checkedInAt range."),
+  Q("M05", "console", "ledgerEntries", ["account", "kind", "direction"], "createdAt", [], ["apps/operations-web/lib/metrics.ts", `["direction", "==", "credit"]`], "Dashboard commission: platform_commission credits on capture minus debits on refund, per createdAt range."),
+  Q("M06", "console", "tickets", [], "issuedAt", [], ["apps/operations-web/lib/metrics.ts", `dateField: "issuedAt"`], "Dashboard tickets issued: issuedAt range only, single-field index."),
+  Q("M07", "console", "organizers", ["status"], null, [], ["apps/operations-web/lib/metrics.ts", `collection: "organizers"`], "Dashboard active organizers: single equality, no date."),
 ];
 
 /* --------------------------------------------------------------- matching */
