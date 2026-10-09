@@ -113,7 +113,7 @@ export function BookingsTab({
   );
 }
 
-function SummaryPill({ tone, label, value }: { tone: "ok" | "violet" | "warn" | "err"; label: string; value: number }) {
+export function SummaryPill({ tone, label, value }: { tone: "ok" | "violet" | "warn" | "err"; label: string; value: number }) {
   const dot = { ok: "bg-ok", violet: "bg-primary", warn: "bg-warn", err: "bg-err" }[tone];
   return (
     <li className="inline-flex items-center gap-2 rounded-pill border border-line-soft bg-[rgba(255,255,255,0.03)] px-3 py-1.5">
@@ -203,7 +203,7 @@ function LinkedBooking({
 
 /* ----------------------------------------------------------------- reviews */
 
-function Stars({ value, className }: { value: number | null; className?: string }) {
+export function Stars({ value, className }: { value: number | null; className?: string }) {
   return (
     <span className={cn("inline-flex items-center gap-0.5", className)} aria-label={value === null ? "No rating" : `${value} out of 5`}>
       {[1, 2, 3, 4, 5].map((i) => (

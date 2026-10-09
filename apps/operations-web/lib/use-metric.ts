@@ -9,7 +9,7 @@ const cache = new Map<string, { at: number; value: Promise<number> }>();
 
 /** Caches the in-flight promise so identical concurrent requests share one query; failures are not kept. */
 function cached(key: MetricKey, range: TimeRange | undefined, fresh: boolean, scope?: MetricScope): Promise<number> {
-  const id = `${key}|${range?.start.getTime() ?? ""}|${range?.end.getTime() ?? ""}|${scope?.orgId ?? ""}|${scope?.eventId ?? ""}`;
+  const id = `${key}|${range?.start.getTime() ?? ""}|${range?.end.getTime() ?? ""}|${scope?.orgId ?? ""}|${scope?.eventId ?? ""}|${scope?.customerUid ?? ""}`;
   const hit = cache.get(id);
   if (!fresh && hit && Date.now() - hit.at < TTL_MS) return hit.value;
   const value = runMetricKey(key, range, scope);
@@ -29,7 +29,7 @@ export interface MetricState {
   retry: () => void;
 }
 
-/** One KPI. Failures stay inside this hook so one card errors without affecting the rest. `scope` narrows it to one organizer (an orgId string) or one event ({ eventId }). */
+/** One KPI. Failures stay inside this hook so one card errors without affecting the rest. `scope` narrows it to one organizer (an orgId string), one event ({ eventId }) or one customer ({ customerUid }). */
 export function useMetric(specKey: MetricKey, range: TimeRange | undefined, compare = false, scopeArg?: string | MetricScope): MetricState {
   const [state, setState] = useState<Omit<MetricState, "retry">>({ value: null, previous: null, loading: true, error: null });
   const [attempt, setAttempt] = useState(0);
@@ -38,6 +38,7 @@ export function useMetric(specKey: MetricKey, range: TimeRange | undefined, comp
   const end = range?.end.getTime();
   const orgId = typeof scopeArg === "string" ? scopeArg : scopeArg?.orgId;
   const eventId = typeof scopeArg === "string" ? undefined : scopeArg?.eventId;
+  const customerUid = typeof scopeArg === "string" ? undefined : scopeArg?.customerUid;
 
   useEffect(() => {
     let live = true;
@@ -45,14 +46,14 @@ export function useMetric(specKey: MetricKey, range: TimeRange | undefined, comp
     setState((s) => ({ ...s, loading: true, error: null }));
     const fresh = retried.current;
     retried.current = false;
-    const scope = orgId || eventId ? { orgId, eventId } : undefined;
+    const scope = orgId || eventId || customerUid ? { orgId, eventId, customerUid } : undefined;
     Promise.all([cached(specKey, current, fresh, scope), compare && current ? cached(specKey, previousRange(current), fresh, scope) : Promise.resolve(null)])
       .then(([value, previous]) => live && setState({ value, previous, loading: false, error: null }))
       .catch((err) => live && setState({ value: null, previous: null, loading: false, error: metricErrorMessage(err) }));
     return () => {
       live = false;
     };
-  }, [specKey, start, end, compare, attempt, orgId, eventId]);
+  }, [specKey, start, end, compare, attempt, orgId, eventId, customerUid]);
 
   const retry = useCallback(() => {
     retried.current = true;

@@ -66,6 +66,8 @@ export interface MetricSpec {
   agg: { kind: "count" } | { kind: "sum"; field: string };
   /** Another spec subtracted from this one (net figures). */
   minus?: MetricKey;
+  /** The field that carries the customer's uid; only specs with one accept a customer scope. */
+  customerField?: string;
   /** False when the backend does not record this; the UI shows an em dash. */
   available?: false;
   reason?: string;
@@ -81,7 +83,11 @@ export type MetricKey =
   | "ticketsCheckedIn"
   | "activeOrganizers"
   | "commission"
-  | "commissionReversed";
+  | "commissionReversed"
+  | "customerBookings"
+  | "customerSpent"
+  | "customerRefunded"
+  | "customerReviews";
 
 // Field names verified against firebase/functions/src (see the task 7 report).
 export const METRIC_SPECS: Record<MetricKey, MetricSpec> = {
@@ -151,7 +157,44 @@ export const METRIC_SPECS: Record<MetricKey, MetricSpec> = {
     dateField: "createdAt",
     agg: { kind: "sum", field: "amountMinor" },
   },
+  // Customer 360. Ledger lines carry no customerUid (commerce/ledger.ts), so these read the
+  // customer-keyed docs: bookings and refunds (customerUid) and reviews (authorUid).
+  customerBookings: { collection: "bookings", where: [], dateField: null, agg: { kind: "count" }, customerField: "customerUid" },
+  customerSpent: {
+    collection: "bookings",
+    where: [["status", "in", ["confirmed", "completed"]]],
+    dateField: null,
+    agg: { kind: "sum", field: "amountMinor" },
+    customerField: "customerUid",
+  },
+  customerRefunded: {
+    collection: "refunds",
+    where: [["status", "==", "completed"]],
+    dateField: null,
+    agg: { kind: "sum", field: "amountMinor" },
+    customerField: "customerUid",
+  },
+  customerReviews: { collection: "reviews", where: [], dateField: null, agg: { kind: "count" }, customerField: "authorUid" },
 };
+
+/** Narrows a metric to one organizer, one event or one customer. */
+export interface MetricScope {
+  orgId?: string;
+  eventId?: string;
+  customerUid?: string;
+}
+
+/** The equality filters a scope adds to a spec. A customer scope on a spec without a customer field throws rather than count everyone. */
+export function scopeWhere(spec: MetricSpec, scope?: MetricScope): MetricWhere[] {
+  const out: MetricWhere[] = [];
+  if (scope?.orgId) out.push(["orgId", "==", scope.orgId]);
+  if (scope?.eventId) out.push(["eventId", "==", scope.eventId]);
+  if (scope?.customerUid) {
+    if (!spec.customerField) throw new Error(`${spec.collection} can't be narrowed to one customer`);
+    out.push([spec.customerField, "==", scope.customerUid]);
+  }
+  return out;
+}
 
 /** Resolves a metric through `run`, subtracting its `minus` spec (net commission, customers excluding operators). */
 export async function resolveMetric(key: MetricKey, run: (spec: MetricSpec) => Promise<number>): Promise<number> {

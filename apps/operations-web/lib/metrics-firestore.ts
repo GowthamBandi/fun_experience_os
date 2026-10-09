@@ -1,20 +1,13 @@
 import { collection, count, getAggregateFromServer, query, sum, Timestamp, where, type QueryConstraint } from "firebase/firestore";
 import { getFirebaseClient } from "./firebase/client";
-import { readNumber, resolveMetric, type MetricKey, type MetricSpec, type TimeRange } from "./metrics";
+import { readNumber, resolveMetric, scopeWhere, type MetricKey, type MetricScope, type MetricSpec, type TimeRange } from "./metrics";
 
-/** Narrows a metric to one organizer or one event (ledgerEntries and tickets carry orgId and eventId). */
-export interface MetricScope {
-  orgId?: string;
-  eventId?: string;
-}
+export type { MetricScope };
 
 /** One server-side aggregation. A sum skips docs missing the field; a non-finite result throws. */
 export async function runMetric(spec: MetricSpec, range?: TimeRange, scope?: MetricScope): Promise<number> {
-  const constraints: QueryConstraint[] = spec.where.map(([field, op, value]) => where(field, op, value));
-  const orgId = scope?.orgId;
-  if (orgId) constraints.push(where("orgId", "==", orgId));
-  const eventId = scope?.eventId;
-  if (eventId) constraints.push(where("eventId", "==", eventId));
+  // ledgerEntries and tickets carry orgId and eventId; customer specs name their own uid field.
+  const constraints: QueryConstraint[] = [...spec.where, ...scopeWhere(spec, scope)].map(([field, op, value]) => where(field, op, value));
   if (spec.dateField && range) {
     constraints.push(where(spec.dateField, ">=", Timestamp.fromDate(range.start)));
     constraints.push(where(spec.dateField, "<", Timestamp.fromDate(range.end)));
