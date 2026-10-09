@@ -208,7 +208,17 @@ body {
   font-family: var(--font-display), system-ui, sans-serif;
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
+  font-weight: 500;
   letter-spacing: -0.03em;
+}
+
+/* highlight words in headings: volt to mint */
+.hl {
+  font-style: normal;
+  background: linear-gradient(90deg, var(--volt), #9bffce);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .overline {
@@ -222,6 +232,31 @@ body {
 .mark {
   border-radius: 999px;
   background: radial-gradient(60% 60% at 50% 38%, rgba(217, 255, 63, 0.3), rgba(142, 114, 255, 0.14) 55%, transparent 80%);
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+@keyframes grain {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  25% {
+    transform: translate(-1px, 1px);
+  }
+  50% {
+    transform: translate(1px, -1px);
+  }
+  75% {
+    transform: translate(-1px, -1px);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
