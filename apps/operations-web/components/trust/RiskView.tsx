@@ -59,7 +59,7 @@ export function RiskView() {
 }
 
 function Risk() {
-  const { records, loading, error, truncated, refresh } = useGovernanceCollection("riskAlerts");
+  const { records, loading, error, truncated, refresh, newest } = useGovernanceCollection("riskAlerts");
   const params = useSearchParams();
   const setParam = useSearchParamSetter();
   const now = useNow();
@@ -149,7 +149,7 @@ function Risk() {
           </ul>
         </>
       )}
-      {ready && truncated ? <Truncated shown={records.length} /> : null}
+      {ready && truncated ? <Truncated shown={records.length} newest={newest} /> : null}
 
       <AlertDrawer open={!!selectedId} loading={loading} alert={selected ? toRiskAlert(selected.id, selected.raw) : null} raw={selected?.raw ?? null} now={now} onChanged={() => undefined} onClose={() => setParam("alert", null)} />
     </PageContainer>

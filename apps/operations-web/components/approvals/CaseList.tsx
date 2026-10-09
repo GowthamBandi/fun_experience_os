@@ -24,6 +24,7 @@ export function CaseList({
   error,
   onRetry,
   truncated,
+  newest,
   shown,
   now,
 }: {
@@ -37,6 +38,8 @@ export function CaseList({
   error: string | null;
   onRetry: () => void;
   truncated: boolean;
+  /** The read is newest first, so a cut list is "the newest N". */
+  newest: boolean;
   shown: number;
   now: Date | null;
 }) {
@@ -90,7 +93,7 @@ export function CaseList({
             })}
           </ul>
         )}
-        {!loading && !error && truncated ? <Truncated shown={shown} className="mt-3" /> : null}
+        {!loading && !error && truncated ? <Truncated shown={shown} newest={newest} noun="open cases" className="mt-3" /> : null}
       </div>
     </aside>
   );

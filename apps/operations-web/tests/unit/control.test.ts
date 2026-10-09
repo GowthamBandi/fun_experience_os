@@ -159,6 +159,16 @@ describe("operator rules", () => {
     expect(planOperatorChange({ ...base, currentStatus: "suspended", nextRole: "platform-owner", nextStatus: "suspended" }).phrase).toBe("GRANT PLATFORM OWNER");
     expect(planOperatorChange({ ...base, currentStatus: "suspended", nextRole: "platform-owner", nextStatus: "active" }).phrase).toBe("GRANT PLATFORM OWNER");
   });
+  it("asks for the grant phrase when a suspended or disabled Platform Owner is reactivated", () => {
+    const owner = { ...base, currentRole: "platform-owner" as const };
+    for (const currentStatus of ["suspended", "disabled"] as const) {
+      expect(planOperatorChange({ ...owner, currentStatus, nextStatus: "active" })).toMatchObject({ blocked: null, phrase: "GRANT PLATFORM OWNER", roleId: "platform-owner", status: "active" });
+    }
+    // Other roles reactivate without a phrase; an owner moving between non-active states keeps the status phrase.
+    expect(planOperatorChange({ ...base, currentStatus: "disabled", nextStatus: "active" }).phrase).toBeNull();
+    expect(planOperatorChange({ ...owner, currentStatus: "suspended", nextStatus: "disabled" }).phrase).toBe("DISABLE OPERATOR");
+    expect(planOperatorChange({ ...owner, nextStatus: "suspended" }).phrase).toBe("SUSPEND OPERATOR");
+  });
   it("does not combine a role change with a phrased status change", () => {
     for (const nextStatus of ["suspended", "disabled"] as const) {
       expect(planOperatorChange({ ...base, nextRole: "platform-owner", nextStatus })).toMatchObject({ phrase: null });

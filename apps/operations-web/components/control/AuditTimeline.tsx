@@ -186,7 +186,7 @@ function Audit() {
           ) : null}
         </div>
       ) : null}
-      {ready && live.truncated && !exhausted ? <Truncated shown={all.length} /> : null}
+      {ready && live.truncated && !exhausted ? <Truncated shown={all.length} newest={live.newest} noun="events" /> : null}
 
       <AuditDrawer open={!!selectedId} loading={live.loading} record={selected} names={names} onClose={() => setParam("event", null)} />
     </PageContainer>

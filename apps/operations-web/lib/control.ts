@@ -292,7 +292,8 @@ export interface OperatorPlan {
  * The rules the old per-button actions enforced, for a role + status picked together:
  * no self role change, no self suspend/disable, a console role must exist before a
  * status-only change, nothing to send when nothing changed. Suspend/disable need their
- * phrase; making someone Platform Owner needs the grant phrase.
+ * phrase; making someone Platform Owner, or restoring a suspended or disabled one
+ * to active, needs the grant phrase.
  */
 export function planOperatorChange(input: { currentRole: ConsoleRole | null; currentStatus: OperatorStatus; self: boolean; nextRole: OperatorRole | null; nextStatus: OperatorStatus }): OperatorPlan {
   const { currentRole, currentStatus, self, nextStatus } = input;
@@ -307,7 +308,8 @@ export function planOperatorChange(input: { currentRole: ConsoleRole | null; cur
   const statusPhrase = statusChanged ? (nextStatus === "suspended" ? CONFIRM_PHRASES.suspendOperator : nextStatus === "disabled" ? CONFIRM_PHRASES.disableOperator : null) : null;
   // One typed phrase per submission: a role change and a phrased status change are separate steps.
   if (roleChanged && statusPhrase) return { ...base, blocked: "Change the role and suspend or disable in separate steps, so each gets its own confirmation.", phrase: null };
-  const phrase = statusPhrase ?? (roleId === "platform-owner" && roleChanged ? CONFIRM_PHRASES.grantPlatformOwner : null);
+  const grantsOwner = roleId === "platform-owner" && (roleChanged || (statusChanged && nextStatus === "active"));
+  const phrase = statusPhrase ?? (grantsOwner ? CONFIRM_PHRASES.grantPlatformOwner : null);
   return { ...base, blocked: null, phrase };
 }
 

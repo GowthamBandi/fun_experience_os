@@ -45,7 +45,7 @@ export function LegalHoldsView() {
 function Holds() {
   const { consoleRole: role } = useAdminSession();
   const canAct = can(role, CALLABLE_CAPABILITY.setLegalHold);
-  const { records, loading, error, truncated, refresh } = useGovernanceCollection("legalHolds");
+  const { records, loading, error, truncated, refresh, newest } = useGovernanceCollection("legalHolds");
   const params = useSearchParams();
   const setParam = useSearchParamSetter();
   const [tab, setTab] = useTabParam(TAB_IDS, "active");
@@ -157,7 +157,7 @@ function Holds() {
       ) : (
         <DataTable rows={shown} columns={columns} rowKey={(r) => r.id} loading={loading} onRowClick={(r) => setParam("hold", r.id)} caption="Legal holds, active first" className="max-h-[70vh]" empty={<Empty {...EMPTY[tab]} />} />
       )}
-      {ready && truncated ? <Truncated shown={records.length} /> : null}
+      {ready && truncated ? <Truncated shown={records.length} newest={newest} /> : null}
 
       <HoldDrawer open={!!selectedId} loading={loading} row={selected} canAct={canAct} role={role} now={now} book={book.current} refresh={refresh} onClose={() => setParam("hold", null)} />
       <DecisionSheet spec={placeSpec} book={book.current} onClose={closePlace} />

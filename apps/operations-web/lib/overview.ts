@@ -60,9 +60,8 @@ export interface Ev {
   city: string | null;
   category: string | null;
   startsAt: Date | null;
-  /** Stored end, or startsAt + 3 h when the doc has none (`endsAssumed`). */
+  /** Stored end (catalog/events.ts writes endsAt on every save); null when the doc has none. */
   endsAt: Date | null;
-  endsAssumed: boolean;
   status: string;
   /** capacity.maxPhysicalCapacity (what catalog/events.ts stores), falling back to capacity.max. */
   capacity: number | null;
@@ -75,7 +74,6 @@ export interface Ev {
   checkedIn?: number;
 }
 
-export const ASSUMED_DURATION_MS = 3 * HOUR;
 /** Statuses an event can run under; drafts, submissions, cancellations and completed events are never "live". */
 export const RUNNING_STATUSES = new Set(["published", "booking-closed", "live"]);
 /** Statuses counted in Top cities: scheduled for the public or already run. */
@@ -90,7 +88,6 @@ export function toEv(id: string, data: Record<string, unknown>): Ev {
   const paid = readNumber(occupancy.confirmedPaidBookings);
   const comp = readNumber(occupancy.confirmedComplimentaryBookings);
   const startsAt = toDate(data.startsAt);
-  const storedEnd = toDate(data.endsAt);
   return {
     id,
     title: str(data.title) ?? str(data.name) ?? "Untitled event",
@@ -99,8 +96,7 @@ export function toEv(id: string, data: Record<string, unknown>): Ev {
     city: str(obj(data.venue).city),
     category: str(data.category),
     startsAt,
-    endsAt: storedEnd ?? (startsAt ? new Date(startsAt.getTime() + ASSUMED_DURATION_MS) : null),
-    endsAssumed: !storedEnd && !!startsAt,
+    endsAt: toDate(data.endsAt),
     status: str(data.status) ?? "unknown",
     capacity: readNumber(capacity.maxPhysicalCapacity) ?? readNumber(capacity.max),
     taken: paid === null && comp === null ? null : (paid ?? 0) + (comp ?? 0),
@@ -115,9 +111,10 @@ export function splitLive(events: Ev[], now: Date): { live: Ev[]; soon: Ev[] } {
   const live: Ev[] = [];
   const soon: Ev[] = [];
   for (const e of events) {
-    if (!RUNNING_STATUSES.has(e.status) || !e.startsAt || !e.endsAt) continue;
+    if (!RUNNING_STATUSES.has(e.status) || !e.startsAt) continue;
     const s = e.startsAt.getTime();
-    if (s <= t && t < e.endsAt.getTime()) live.push(e);
+    // Without a stored endsAt an event is never shown as live: no end time is guessed.
+    if (s <= t && e.endsAt && t < e.endsAt.getTime()) live.push(e);
     else if (s > t && s <= t + 12 * HOUR) soon.push(e);
   }
   return { live, soon };

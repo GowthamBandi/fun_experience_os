@@ -119,7 +119,7 @@ curl -sI https://<console-domain>/login | grep -iE 'content-security-policy|stri
 3. Sign-in checks, one per role:
    - **Platform owner:** the Command Center loads, and **Operator access** shows **Grant access**.
    - **Super admin:** Operator access is read-only.
-   - **Auditor:** lands on **Audit**, can open **Settlements** read-only, and every other route shows "Not available for your role".
+   - **Auditor:** lands on **Audit**, can open **Settlements** read-only, **Legal holds** and **System health**, and every other route shows "Not available for your role".
 4. An unverified account sees "Verify your email to continue". An account without a role sees "Your account has no console access".
 5. Unknown routes (for example the retired `/missions`) show the not-found page.
 6. Then run the runbook §6 post-deploy smoke list.

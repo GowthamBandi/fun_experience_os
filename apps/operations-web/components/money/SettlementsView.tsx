@@ -66,7 +66,7 @@ export function SettlementsView() {
 function Settlements() {
   const { consoleRole: role } = useAdminSession();
   const canBuild = can(role, CALLABLE_CAPABILITY.buildSettlement);
-  const { records, loading, error, truncated, refresh } = useGovernanceCollection("settlements");
+  const { records, loading, error, truncated, refresh, newest } = useGovernanceCollection("settlements");
   const params = useSearchParams();
   const setParam = useSearchParamSetter();
   const [tab, setTab] = useTabParam(TAB_IDS, "approve");
@@ -151,7 +151,7 @@ function Settlements() {
           empty={<Empty {...EMPTY[tab]} />}
         />
       )}
-      {ready && truncated ? <Truncated shown={records.length} /> : null}
+      {ready && truncated ? <Truncated shown={records.length} newest={newest} /> : null}
 
       <SettlementDrawer open={!!selectedId} loading={loading} row={selected} names={names} now={now} onClose={() => setParam("settlement", null)} />
       <BuildSheet open={building} now={now} onClose={() => setBuilding(false)} />

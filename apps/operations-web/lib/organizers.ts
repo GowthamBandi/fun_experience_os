@@ -168,11 +168,7 @@ export function statusActions(status: unknown): StatusAction[] {
 
 /* ------------------------------------------------------------------- money */
 
-export function commissionLabel(bps: unknown): string {
-  const b = num(bps);
-  if (b === null) return "—";
-  return `${(b / 100).toFixed(2).replace(/\.?0+$/, "")}%`;
-}
+export { commissionLabel } from "./console/money";
 
 /** The approved agreement in force (newest decision wins) and any pending proposals, newest first. */
 export function agreementSummary(agreements: Array<{ id: string; raw: Raw }>) {

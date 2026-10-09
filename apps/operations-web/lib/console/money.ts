@@ -61,3 +61,9 @@ export function needsRefundDualControl(amountMinor: unknown): boolean {
 export function needsSettlementDualControl(netMinor: unknown): boolean {
   return isMinorAmount(netMinor) && netMinor > SETTLEMENT_DUAL_CONTROL_MINOR;
 }
+
+/** Commission basis points as a percent ("12.5%", "10%"); "—" when missing. The one format for every screen. */
+export function commissionLabel(bps: unknown): string {
+  if (typeof bps !== "number" || !Number.isFinite(bps)) return "—";
+  return `${(bps / 100).toFixed(2).replace(/\.?0+$/, "")}%`;
+}

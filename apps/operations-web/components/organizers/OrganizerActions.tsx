@@ -7,6 +7,7 @@ import { ProposeTermsSheet } from "@/components/money/ProposeTermsSheet";
 import { OrganizerCodeModal } from "@/components/governance/OrganizerCodeModal";
 import { PhraseBox } from "@/components/governance/PhraseBox";
 import { StatusSheet } from "@/components/governance/StatusSheet";
+import { applicationReissueKey } from "@/lib/approvals";
 import { CONFIRM_PHRASES, RequestIdBook, isConfirmed } from "@/lib/console/actions";
 import { ROLE_LABEL, can, type ConsoleRole } from "@/lib/console/capabilities";
 import { rethrowForSheet } from "@/lib/console/errors";
@@ -72,10 +73,10 @@ export function OrganizerActions({
   const reactivate = actions.find((a) => a.status === "active");
 
   const confirmReissue = async (reason: string) => {
-    if (!applicationId) throw new Error("This organizer has no application on record.");
+    if (!applicationId || !application.data) throw new Error("This organizer has no application on record.");
     if (!isConfirmed(typed, CONFIRM_PHRASES.reissueCode)) throw new Error(`Type ${CONFIRM_PHRASES.reissueCode} to confirm.`);
     try {
-      const result = await reissueOrganizerCode({ requestId: book.current.idFor(`${orgId}-reissue`), applicantUid: applicationId, reason });
+      const result = await reissueOrganizerCode({ requestId: book.current.idFor(applicationReissueKey(applicationId, application.data)), applicantUid: applicationId, reason });
       book.current.reset();
       onChanged();
       if (!result.organizerCode) {

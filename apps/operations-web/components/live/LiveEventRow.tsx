@@ -42,7 +42,7 @@ function OrganizerName({ ev }: { ev: Ev }) {
 
 export function LiveEventRow({ ev, phase, now, action }: { ev: Ev; phase: "live" | "soon"; now: Date; action?: ReactNode }) {
   const endingSoon = phase === "live" && ev.endsAt !== null && ev.endsAt.getTime() - now.getTime() <= SOON_END_MS;
-  const timing = phase === "live" ? `Ends ${relTime(ev.endsAt, now)}${ev.endsAssumed ? "*" : ""}` : `Starts ${relTime(ev.startsAt, now)}`;
+  const timing = phase === "live" ? `Ends ${relTime(ev.endsAt, now)}` : `Starts ${relTime(ev.startsAt, now)}`;
   return (
     <li className="rounded-control border border-line-soft bg-[rgba(255,255,255,0.03)] p-4">
       <div className="flex flex-wrap items-center gap-3">
@@ -54,7 +54,7 @@ export function LiveEventRow({ ev, phase, now, action }: { ev: Ev; phase: "live"
           </div>
         </div>
         <Badge tone={endingSoon ? "warn" : phase === "live" ? "ok" : "violet"}>{endingSoon ? "Ending soon" : phase === "live" ? "Live" : "Starting soon"}</Badge>
-        <span className="num shrink-0 text-[12px] text-text-2" title={ev.endsAssumed && phase === "live" ? "End time not recorded; assumed 3 h after start" : undefined}>
+        <span className="num shrink-0 text-[12px] text-text-2">
           {timing}
         </span>
       </div>

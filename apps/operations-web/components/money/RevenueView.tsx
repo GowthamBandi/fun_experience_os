@@ -268,7 +268,7 @@ function Breakdown({
           ) : null}
         </>
       )}
-      {!loading && !error && truncated ? <Truncated shown={MAX} className="mt-4" /> : null}
+      {!loading && !error && truncated ? <Truncated shown={MAX} noun="events" className="mt-4" /> : null}
     </Card>
   );
 }

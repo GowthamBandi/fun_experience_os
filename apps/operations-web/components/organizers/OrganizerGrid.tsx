@@ -23,7 +23,7 @@ const FILTER_EMPTY: Record<OrgFilter, { emoji: string; title: string; body: stri
 };
 
 export function OrganizerGrid() {
-  const { records, loading, error, truncated, refresh } = useGovernanceCollection("organizers");
+  const { records, loading, error, truncated, refresh, newest } = useGovernanceCollection("organizers");
   // Display fields come from the public projection; if it fails the organizer doc's own fields are used.
   const pubs = useBoundedQuery("public-organizers", publicOrganizersQuery, (id, data) => ({ id, data }), QUERY_LIMIT);
   const [filter, setFilter] = useState<OrgFilter>("all");
@@ -134,7 +134,7 @@ export function OrganizerGrid() {
           </ul>
         </>
       )}
-      {ready && truncated ? <Truncated shown={records.length} /> : null}
+      {ready && truncated ? <Truncated shown={records.length} newest={newest} /> : null}
       {ready && pubs.error ? (
         <p role="status" className="flex flex-wrap items-center gap-2 rounded-control border border-dashed border-[rgba(255,184,77,0.35)] px-3.5 py-2.5 text-[12px] text-warn">
           <AlertTriangle aria-hidden className="h-3.5 w-3.5 shrink-0" />

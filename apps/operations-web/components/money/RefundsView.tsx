@@ -59,7 +59,7 @@ export function RefundsView() {
 }
 
 function Refunds() {
-  const { records, loading, error, truncated, refresh } = useGovernanceCollection("refunds");
+  const { records, loading, error, truncated, refresh, newest } = useGovernanceCollection("refunds");
   const params = useSearchParams();
   const setParam = useSearchParamSetter();
   const [tab, setTab] = useTabParam(TAB_IDS, "decide");
@@ -154,7 +154,7 @@ function Refunds() {
           empty={<Empty {...EMPTY[tab]} />}
         />
       )}
-      {ready && truncated ? <Truncated shown={records.length} /> : null}
+      {ready && truncated ? <Truncated shown={records.length} newest={newest} /> : null}
 
       <RefundDrawer open={!!selectedId} loading={loading} row={selected} names={names} now={now} onClose={() => setParam("refund", null)} />
     </PageContainer>

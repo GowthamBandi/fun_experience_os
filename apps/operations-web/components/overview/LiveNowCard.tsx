@@ -74,10 +74,7 @@ export function LiveNowCard({ now }: { now: Date }) {
                       {ev.title}
                       {ev.city ? <span className="font-normal text-text-3"> · {ev.city}</span> : null}
                     </span>
-                    <span className="shrink-0 text-[11px] text-text-3" title={ev.endsAssumed ? "End time not recorded; assumed 3 h after start" : undefined}>
-                      ends {relTime(ev.endsAt, now)}
-                      {ev.endsAssumed ? "*" : ""}
-                    </span>
+                    <span className="shrink-0 text-[11px] text-text-3">ends {relTime(ev.endsAt, now)}</span>
                   </div>
                   <Fill ev={ev} />
                 </Link>

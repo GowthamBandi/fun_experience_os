@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { AlertTriangle, Info, RotateCw } from "lucide-react";
-import { cn, countFull } from "@/lib/format";
+import { cn, truncatedCopy } from "@/lib/format";
 import { Button } from "./Button";
 
 /** Empty and error titles are styled paragraphs, not headings, so they never skip a level under a page h1. */
@@ -37,13 +37,15 @@ export function ErrorState({ message, onRetry, className }: { message: string; o
   );
 }
 
-export function Truncated({ shown, className }: { shown: number; className?: string }) {
+/**
+ * A capped read hit its limit. `newest` only when the read is ordered newest first;
+ * otherwise the list is just the first N the query returned.
+ */
+export function Truncated({ shown, newest = false, noun = "records", className }: { shown: number; newest?: boolean; noun?: string; className?: string }) {
   return (
     <p className={cn("flex items-center gap-2 rounded-control border border-dashed border-line px-3.5 py-2.5 text-[12px] text-text-3", className)}>
       <Info aria-hidden className="h-3.5 w-3.5 shrink-0 text-info" />
-      <span>
-        Showing the newest {countFull(shown)}. Narrow the filters to see older records.
-      </span>
+      <span>{truncatedCopy(shown, newest, noun)}</span>
     </p>
   );
 }

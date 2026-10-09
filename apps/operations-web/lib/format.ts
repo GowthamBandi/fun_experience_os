@@ -8,6 +8,10 @@ export const inr = (n: number): string =>
 /** A whole count in en-IN grouping ("1,84,320"); "—" when missing. */
 export const countFull = (n: number | null | undefined): string => (typeof n !== "number" || !Number.isFinite(n) ? "—" : new Intl.NumberFormat("en-IN").format(n));
 
+/** The truncated-list note: "the newest N" only for a read ordered newest first, otherwise "the first N". */
+export const truncatedCopy = (shown: number, newest: boolean, noun = "records"): string =>
+  `Showing the ${newest ? "newest" : "first"} ${countFull(shown)} ${noun}.`;
+
 export const pct = (n: number): string => `${Math.round(n)}%`;
 
 export const fillRate = (booked: number, capacity: number): number =>

@@ -1,11 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { subscribeDocument, subscribeGovernanceCollection, type GovernanceCollection, type LiveGovernanceRecord, type PageCursor } from "./governance-api";
+import { listIsNewestFirst, subscribeDocument, subscribeGovernanceCollection, type GovernanceCollection, type LiveGovernanceRecord, type PageCursor } from "./governance-api";
+import type { ListScope } from "./governance-query";
 import { describeReadError } from "./console/errors";
 
-/** `enabled: false` skips the listener (e.g. a role the rules would refuse) and reports an empty, settled source. */
-export function useGovernanceCollection(name: GovernanceCollection, enabled = true) {
+/**
+ * `enabled: false` skips the listener (e.g. a role the rules would refuse) and reports an empty, settled source.
+ * `scope: "open"` reads only items waiting on someone (see lib/governance-query.ts).
+ */
+export function useGovernanceCollection(name: GovernanceCollection, enabled = true, scope: ListScope = "all") {
   const [records, setRecords] = useState<LiveGovernanceRecord[]>([]);
   const [truncated, setTruncated] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -23,16 +27,19 @@ export function useGovernanceCollection(name: GovernanceCollection, enabled = tr
         name,
         (next, more, last) => { setRecords(next); setTruncated(more); setCursor(last); setLoading(false); setError(null); },
         (message) => { setError(describeReadError(message)); setLoading(false); },
+        scope,
       );
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The records could not be loaded.");
       setLoading(false);
     }
     return unsubscribe;
-  }, [name, attempt, enabled]);
+  }, [name, attempt, enabled, scope]);
   /** Re-subscribes (fresh read) — used by the conflict "refresh" action. */
   const refresh = useCallback(() => setAttempt((n) => n + 1), []);
-  return { records, loading, error, truncated, refresh, cursor };
+  /** The read is ordered newest first, so a truncated list is "the newest N". */
+  const newest = listIsNewestFirst(name, scope);
+  return { records, loading, error, truncated, refresh, cursor, newest };
 }
 
 export function useLiveDocument(collectionName: string | null, id: string | null) {

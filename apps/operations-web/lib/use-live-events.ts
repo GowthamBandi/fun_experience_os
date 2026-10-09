@@ -26,7 +26,8 @@ export function eventsStartingBetween(start: Date, end: Date, direction: "asc" |
 /**
  * Events that haven't ended by `since`, soonest-ending first. A single range, so the
  * single-field index on endsAt serves it. catalog/events.ts writes endsAt on every
- * save (startsAt + duration), so no event is missed for lacking it.
+ * save (startsAt + duration); a legacy doc without endsAt never matches the range,
+ * so it is not listed here (no end time is guessed).
  */
 export function eventsEndingAfter(since: Date): Query<DocumentData> {
   return query(collection(getFirebaseClient().firestore, "events"), where("endsAt", ">=", Timestamp.fromDate(since)), orderBy("endsAt", "asc"));

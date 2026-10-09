@@ -33,6 +33,9 @@ import {
   adaptSettlement,
   type DisplayRecord,
 } from "./console/records";
+import { QUERY_LIMIT, capRows, isNewestFirst, listSpec, type ListScope, type ListSpec } from "./governance-query";
+
+export { QUERY_LIMIT } from "./governance-query";
 
 /**
  * Collections the console reads (admin reads are allowed by
@@ -65,8 +68,6 @@ export type GovernanceCollection =
 
 export type LiveGovernanceRecord = DisplayRecord;
 
-export const QUERY_LIMIT = 250;
-
 const ADAPTERS: Partial<Record<GovernanceCollection, (id: string, data: DocumentData) => DisplayRecord>> = {
   refunds: adaptRefund,
   settlements: adaptSettlement,
@@ -79,41 +80,40 @@ const ADAPTERS: Partial<Record<GovernanceCollection, (id: string, data: Document
   legalHolds: adaptLegalHold,
 };
 
-/** Collections whose Firestore path or filter differs from the key. Single-field filters only (no composite index). */
-const SOURCE: Partial<Record<GovernanceCollection, { path: string; filter: QueryConstraint }>> = {
-  operators: { path: "users", filter: where("scope", "==", "platform") },
-};
-
-/** Newest-first ordering where the collection has a reliable timestamp field. */
-const ORDERING: Partial<Record<GovernanceCollection, QueryConstraint>> = {
-  auditEvents: orderBy("at", "desc"),
-  refunds: orderBy("createdAt", "desc"),
-  settlements: orderBy("createdAt", "desc"),
-  legalHolds: orderBy("updatedAt", "desc"),
-  jobRuns: orderBy("updatedAt", "desc"),
-  reviews: orderBy("updatedAt", "desc"),
-};
+/** The spec (lib/governance-query.ts) as query constraints, with the +1 probe. */
+function constraintsFor(spec: ListSpec): QueryConstraint[] {
+  const out: QueryConstraint[] = [];
+  if (spec.equals) out.push(where(spec.equals.field, "==", spec.equals.value));
+  if (spec.statusIn) out.push(where("status", "in", [...spec.statusIn]));
+  if (spec.order) out.push(orderBy(spec.order.field, spec.order.direction));
+  out.push(limit(QUERY_LIMIT + 1));
+  return out;
+}
 
 export function adaptRecord(name: GovernanceCollection, id: string, data: DocumentData): DisplayRecord {
   return (ADAPTERS[name] ?? adaptGeneric)(id, data);
+}
+
+/** Whether a capped read of `name` comes back newest first (drives the "newest N" vs "first N" copy). */
+export function listIsNewestFirst(name: GovernanceCollection, scope: ListScope = "all"): boolean {
+  return isNewestFirst(listSpec(name, scope));
 }
 
 export function subscribeGovernanceCollection(
   name: GovernanceCollection,
   observer: (records: LiveGovernanceRecord[], truncated: boolean, cursor: PageCursor | null) => void,
   onError: (message: string) => void,
+  scope: ListScope = "all",
 ) {
-  const ordering = ORDERING[name];
-  const special = SOURCE[name];
-  const constraints: QueryConstraint[] = [...(special ? [special.filter] : []), ...(ordering ? [ordering] : []), limit(QUERY_LIMIT)];
-  const source = query(collection(getFirebaseClient().firestore, special?.path ?? name), ...constraints);
+  const spec = listSpec(name, scope);
+  const source = query(collection(getFirebaseClient().firestore, spec.path), ...constraintsFor(spec));
   return onSnapshot(
     source,
-    (snapshot) => observer(
-      snapshot.docs.map((d) => adaptRecord(name, d.id, d.data())),
-      snapshot.size >= QUERY_LIMIT,
-      snapshot.docs.length ? snapshot.docs[snapshot.docs.length - 1]! : null,
-    ),
+    (snapshot) => {
+      // The cursor is the last shown doc, never the probe, so "Load older" starts right after it.
+      const { rows, truncated } = capRows(snapshot.docs);
+      observer(rows.map((d) => adaptRecord(name, d.id, d.data())), truncated, rows.length ? rows[rows.length - 1]! : null);
+    },
     (error) => onError(error.message),
   );
 }
@@ -125,11 +125,12 @@ export type PageCursor = QueryDocumentSnapshot<DocumentData>;
  * Uses only the automatic single-field index on `at` — no composite index.
  */
 export async function fetchOlderAuditEvents(cursor: PageCursor, pageSize = QUERY_LIMIT) {
-  const snapshot = await getDocs(query(collection(getFirebaseClient().firestore, "auditEvents"), orderBy("at", "desc"), startAfter(cursor), limit(pageSize)));
+  const snapshot = await getDocs(query(collection(getFirebaseClient().firestore, "auditEvents"), orderBy("at", "desc"), startAfter(cursor), limit(pageSize + 1)));
+  const { rows, truncated } = capRows(snapshot.docs, pageSize);
   return {
-    records: snapshot.docs.map((d) => adaptRecord("auditEvents", d.id, d.data())),
-    cursor: snapshot.docs.length ? snapshot.docs[snapshot.docs.length - 1]! : null,
-    hasMore: snapshot.size >= pageSize,
+    records: rows.map((d) => adaptRecord("auditEvents", d.id, d.data())),
+    cursor: rows.length ? rows[rows.length - 1]! : null,
+    hasMore: truncated,
   };
 }
 

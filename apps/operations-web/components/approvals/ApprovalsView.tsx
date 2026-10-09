@@ -17,9 +17,9 @@ import { mapConsoleError, type ConsoleError } from "@/lib/console/errors";
 import { caseOutcome } from "@/lib/console/outcomes";
 import { useAdminSession } from "@/lib/firebase/auth";
 import { cn } from "@/lib/format";
-import { decideCase, type LiveGovernanceRecord } from "@/lib/governance-api";
+import { adaptRecord, decideCase, type LiveGovernanceRecord } from "@/lib/governance-api";
 import { useNow } from "@/lib/hooks";
-import { useGovernanceCollection } from "@/lib/use-governance";
+import { useGovernanceCollection, useLiveDocument } from "@/lib/use-governance";
 
 
 type OrganizerCode = { code: string; orgId?: string | null; expiresAt?: string | null; subject: string };
@@ -108,7 +108,8 @@ function Queue() {
   const now = useNow(60_000);
   const { consoleRole } = useAdminSession();
   const permitted = can(consoleRole, "governance.decide");
-  const { records, loading, error, truncated, refresh } = useGovernanceCollection("governanceCases");
+  // Open cases only, newest first (the same read as the rail badge and Needs-you).
+  const { records: open, loading, error, truncated, refresh, newest } = useGovernanceCollection("governanceCases", true, "open");
 
   const [lane, setLane] = useState<Lane>("all");
   const [decision, setDecision] = useState<{ outcome: CaseOutcome; caseId: string } | null>(null);
@@ -117,10 +118,17 @@ function Queue() {
   const [code, setCode] = useState<OrganizerCode | null>(null);
   const book = useRef(new RequestIdBook("governanceCases"));
 
+  const caseParam = params.get("case");
+  // A linked case outside the open list (decided, or past the cap) is read on its own.
+  const linkedId = caseParam && !loading && !open.some((r) => r.id === caseParam) ? caseParam : null;
+  const linked = useLiveDocument(linkedId ? "governanceCases" : null, linkedId);
+  const records = useMemo(
+    () => (linkedId && linked.data ? [...open, adaptRecord("governanceCases", linkedId, linked.data)] : open),
+    [open, linkedId, linked.data],
+  );
   const counts = useMemo(() => laneCounts(records), [records]);
   const list = useMemo(() => laneRecords(records, lane), [records, lane]);
   const ids = useMemo(() => list.map((r) => r.id), [list]);
-  const caseParam = params.get("case");
   const selectedId = caseParam ?? ids[0] ?? null;
   // Always the live version: versions move under us.
   const selected = selectedId ? records.find((r) => r.id === selectedId) ?? null : null;
@@ -232,7 +240,7 @@ function Queue() {
   const inboxZero = !loading && !error && counts.all === 0 && !caseParam;
 
   let detail: ReactNode;
-  if (loading) {
+  if (loading || (linkedId && linked.loading)) {
     detail = (
       <div className="flex flex-col gap-5" aria-busy="true">
         <Skeleton className="h-[180px] rounded-card" />
@@ -259,8 +267,8 @@ function Queue() {
       <div className="rounded-card border border-line-soft bg-[rgba(26,23,38,0.55)]">
         <Empty
           emoji="🔎"
-          title="Case not found"
-          body="It may be older than the newest 250 cases, or it no longer exists."
+          title={linked.error ? "Couldn’t load this case" : "Case not found"}
+          body={linked.error ?? "No case has this id. The link may be wrong, or the case no longer exists."}
           action={<Button variant="ghost" icon={<ArrowLeft />} onClick={() => router.replace(pathname, { scroll: false })}>Back to the queue</Button>}
         />
       </div>
@@ -322,7 +330,8 @@ function Queue() {
               error={error}
               onRetry={refresh}
               truncated={truncated}
-              shown={records.length}
+              newest={newest}
+              shown={open.length}
               now={now}
             />
           </div>

@@ -223,3 +223,19 @@ describe("collectionLabel", () => {
     expect(collectionLabel(null)).toBe("Record");
   });
 });
+
+describe("applicationReissueKey (ruling R16)", () => {
+  it("is the same key Organizer codes builds, stable on retry and new once the application moves", async () => {
+    const { applicationReissueKey, reissueCodeKey } = await import("@/lib/approvals");
+    const { adaptOrganizerApplication } = await import("@/lib/console/records");
+    const raw = { status: "approved", orgId: "o1", activationPending: false, version: 2 };
+    const key = applicationReissueKey("uid_1", raw);
+    expect(key).toBe(reissueCodeKey(adaptOrganizerApplication("uid_1", raw)));
+    expect(applicationReissueKey("uid_1", { ...raw })).toBe(key);
+    expect(applicationReissueKey("uid_1", { ...raw, activationPending: true })).not.toBe(key);
+    expect(applicationReissueKey("uid_1", { ...raw, version: 3 })).not.toBe(key);
+    expect(applicationReissueKey("uid_2", raw)).not.toBe(key);
+    // A non-integer version reads as 0, as the server's asVersion does.
+    expect(applicationReissueKey("uid_1", { ...raw, version: "7" })).toBe(applicationReissueKey("uid_1", { ...raw, version: 0 }));
+  });
+});

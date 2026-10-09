@@ -7,6 +7,7 @@ import { decisionKey } from "./console/actions";
 import { isOpenCase } from "./console/attention";
 import { toDate } from "./console/records";
 import { relTime } from "./format";
+import { entityVersion } from "./organizers";
 import { NEEDS_GLYPH, categoryEmoji } from "./overview";
 
 type Raw = Record<string, unknown>;
@@ -117,7 +118,6 @@ export function stepSelection(ids: string[], current: string | null, delta: 1 | 
   return ids[Math.min(Math.max(i + delta, 0), ids.length - 1)];
 }
 
-/** Where the selection goes once `current` leaves the queue. */
 /** decideCase RequestIdBook key: the case, the outcome and the version it was decided against (ruling R16). */
 export function caseDecisionKey(record: { id: string; version: number; raw: Raw }, outcome: string): string {
   return decisionKey("case", record.id, outcome, record.version, String(record.raw.status ?? ""));
@@ -126,6 +126,11 @@ export function caseDecisionKey(record: { id: string; version: number; raw: Raw 
 /** reissueOrganizerCode key: the applicant and the application state it was re-issued against. */
 export function reissueCodeKey(record: { id: string; version: number; raw: Raw }): string {
   return decisionKey("reissue-code", record.id, String(record.raw.status ?? ""), record.version, record.raw.activationPending === true);
+}
+
+/** reissueCodeKey from a live organizerApplications/{uid} document (Organizer 360), the same key Organizer codes builds. */
+export function applicationReissueKey(applicationId: string, raw: Raw): string {
+  return reissueCodeKey({ id: applicationId, version: entityVersion(raw.version), raw });
 }
 
 /** Where an organizer application stands on its one-time code. */
@@ -148,6 +153,7 @@ export function collectionLabel(collection: string | null | undefined): string {
   return (collection && COLLECTION_LABEL[collection]) || "Record";
 }
 
+/** Where the selection goes once `current` leaves the queue. */
 export function neighbourId(ids: string[], current: string): string | null {
   const i = ids.indexOf(current);
   if (i < 0) return ids[0] ?? null;

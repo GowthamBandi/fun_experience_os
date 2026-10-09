@@ -100,10 +100,9 @@ export default function LivePage() {
           <>
             {section("live-happening", "Happening now", live, "live", "No events running right now 🌙")}
             {section("live-soon", "Starting in the next 12 h", soon, "soon", "Nothing starts in the next 12 hours.")}
-            {live.some((e) => e.endsAssumed) ? <p className="text-[11px] text-text-3">* End time not recorded; assumed 3 h after start.</p> : null}
           </>
         )}
-        {truncated && !error ? <Truncated shown={LIVE_LIMIT} /> : null}
+        {truncated && !error ? <Truncated shown={LIVE_LIMIT} noun="events" /> : null}
       </Card>
       <Sheet
         open={target !== null}

@@ -94,11 +94,13 @@ function View({ orgId, onRetry }: { orgId: string; onRetry: () => void }) {
   const rating = useMemo(() => averageRating(reviews.rows), [reviews.rows]);
   const timeline = useMemo(() => orgTimeline(auditByOrg.rows, auditOnOrg.rows), [auditByOrg.rows, auditOnOrg.rows]);
   const terms = agreementSummary(agreements.rows).current?.raw ?? null;
-  // The organizer doc is live; these lists are one-shot reads, so re-read them after an action.
+  // The organizer doc is live; these lists and the money figures are one-shot (cached) reads, so re-read them after an action.
   const afterAction = () => {
     agreements.retry();
     auditByOrg.retry();
     auditOnOrg.retry();
+    gross.retry();
+    refunds.retry();
   };
 
 

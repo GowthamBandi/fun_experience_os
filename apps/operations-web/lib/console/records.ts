@@ -3,7 +3,7 @@
  * No Firebase imports, so everything here is unit-testable.
  */
 
-import { formatMoney, isMinorAmount, needsRefundDualControl } from "./money";
+import { commissionLabel, formatMoney, isMinorAmount, needsRefundDualControl } from "./money";
 
 export type DisplayStatus = "Approved" | "Pending" | "Paused" | "Blocked" | "Under review" | "On hold" | "Hidden";
 
@@ -75,7 +75,7 @@ function versionOf(data: Data): number {
 export function adaptGeneric(id: string, data: Data): DisplayRecord {
   const minor = data.amountMinor ?? data.exposureMinor ?? data.projectedGmvMinor ?? data.priceMinor;
   const amount = isMinorAmount(minor) ? formatMoney(minor, data.currency) : null;
-  const rate = typeof data.commissionBps === "number" ? `${(data.commissionBps / 100).toFixed(2).replace(/\.00$/, "")}% commission` : null;
+  const rate = typeof data.commissionBps === "number" && Number.isFinite(data.commissionBps) ? `${commissionLabel(data.commissionBps)} commission` : null;
   const location = text(data, "location", "city", "territoryName");
   const owner = text(data, "organizerName", "subjectType", "category", "action");
   return {

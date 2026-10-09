@@ -14,7 +14,7 @@
  */
 
 import type { BadgeTone } from "@/components/pulse/Badge";
-import { CONFIRM_PHRASES, type EntityStatus } from "./console/actions";
+import { CONFIRM_PHRASES, decisionKey, type EntityStatus } from "./console/actions";
 import { isOpenRisk } from "./console/attention";
 import { toDate } from "./console/records";
 import { entityVersion } from "./organizers";
@@ -278,6 +278,11 @@ export function toModReview(id: string, d: Raw): ModReview {
     moderatedAt: m ? toDate(m.at) : null,
     version: entityVersion(d.version),
   };
+}
+
+/** moderateReview RequestIdBook key: the review, the target status and the state it was moderated from (ruling R16). */
+export function reviewModerationKey(review: Pick<ModReview, "id" | "status" | "at">, target: string): string {
+  return decisionKey("review", review.id, target, review.status, review.at?.getTime() ?? null);
 }
 
 export type ReviewFilter = "all" | "published" | "hidden";

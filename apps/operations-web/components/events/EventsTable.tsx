@@ -310,7 +310,7 @@ function View() {
             <DataTable rows={shown} columns={columns} rowKey={(e) => e.id} onRowClick={(e) => router.push(`/events/${e.id}`)} caption={`${EVENT_TABS.find((t) => t.id === tab)?.label} events`} className="max-h-[72vh]" />
           </>
         )}
-        {!loading && !error && (source.truncated || (tab === "past" && !experienceId && open.truncated)) ? <Truncated shown={tabRows.length} className="mt-4" /> : null}
+        {!loading && !error && (source.truncated || (tab === "past" && !experienceId && open.truncated)) ? <Truncated shown={tabRows.length} noun="events" className="mt-4" /> : null}
         {!loading && !error && !experienceId && counts.error ? (
           <p role="status" className="mt-4 flex flex-wrap items-center gap-2 text-[12px] text-warn">
             <AlertTriangle aria-hidden className="h-3.5 w-3.5" />

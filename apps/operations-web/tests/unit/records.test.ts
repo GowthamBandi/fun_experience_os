@@ -116,3 +116,13 @@ describe("attention queue", () => {
     expect(isPrivilegedAudit({ action: "booking.cancelled", source: "pulse-app" })).toBe(false);
   });
 });
+
+describe("commission format", () => {
+  it("reads the same on every screen", async () => {
+    const { adaptGeneric } = await import("@/lib/console/records");
+    const { commissionLabel } = await import("@/lib/organizers");
+    expect(adaptGeneric("a1", { commissionBps: 1250 }).value).toBe("12.5% commission");
+    expect(adaptGeneric("a2", { commissionBps: 1000 }).value).toBe("10% commission");
+    expect(commissionLabel(1250)).toBe("12.5%");
+  });
+});

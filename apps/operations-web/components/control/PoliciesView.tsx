@@ -12,7 +12,7 @@ import { JsonBlock, SummaryPill } from "./ControlBits";
 
 /** Versioned rules used by automated checks and human approvals. Read-only: policies are shipped with a release. */
 export function PoliciesView() {
-  const { records, loading, error, truncated, refresh } = useGovernanceCollection("policyVersions");
+  const { records, loading, error, truncated, refresh, newest } = useGovernanceCollection("policyVersions");
   const cards = useMemo(() => sortPolicies(records.map(toPolicyCard)), [records]);
   const ready = !loading && !error;
   return (
@@ -65,7 +65,7 @@ export function PoliciesView() {
           ))}
         </ul>
       )}
-      {ready && truncated ? <Truncated shown={records.length} /> : null}
+      {ready && truncated ? <Truncated shown={records.length} newest={newest} /> : null}
     </PageContainer>
   );
 }

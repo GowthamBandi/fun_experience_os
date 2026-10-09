@@ -280,7 +280,7 @@ export function MoneyTab({
               })}
             </ol>
           )}
-          {agreements.truncated ? <Truncated shown={agreements.rows.length} className="mt-3" /> : null}
+          {agreements.truncated ? <Truncated shown={agreements.rows.length} newest noun="agreements" className="mt-3" /> : null}
         </Card>
       </div>
 
@@ -408,7 +408,7 @@ export function TimelineTab({
       ) : (
         <>
           <Timeline items={items} />
-          {truncated ? <Truncated shown={items.length} className="mt-5" /> : null}
+          {truncated ? <Truncated shown={items.length} newest noun="entries" className="mt-5" /> : null}
         </>
       )}
     </Card>

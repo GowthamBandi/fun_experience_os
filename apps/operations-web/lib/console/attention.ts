@@ -30,8 +30,18 @@ export interface AttentionInput {
   truncated?: Partial<Record<"governanceCases" | "riskAlerts" | "refunds" | "settlements", boolean>>;
 }
 
-export const OPEN_CASE_STATUSES = new Set(["pending", "under-review", "information-requested"]);
+/** governance/service.ts decideCase accepts exactly these. */
+export const OPEN_CASE_STATUS_LIST = ["pending", "under-review", "information-requested"] as const;
+export const OPEN_CASE_STATUSES = new Set<string>(OPEN_CASE_STATUS_LIST);
 const CLOSED_RISK_STATUSES = new Set(["resolved", "closed", "dismissed", "blocked"]);
+/**
+ * Every risk-alert status the backend writes that isn't closed: "open" (raiseRiskAlert),
+ * setMarketplaceEntityStatus values, decideCase outcomes on a fraud-alert target, and
+ * the legacy "on-hold". The server-side `in` filter for the attention read.
+ */
+export const OPEN_RISK_STATUS_LIST = ["open", "on-hold", "active", "paused", "under-review", "information-requested", "rejected"] as const;
+/** Settlements the attention queue counts: held, pending approval, approved awaiting payout. */
+export const OPEN_SETTLEMENT_STATUS_LIST = ["pending-approval", "approved", "held"] as const;
 
 export function isOpenCase(raw: Record<string, unknown>): boolean {
   return OPEN_CASE_STATUSES.has(String(raw.status ?? "pending"));

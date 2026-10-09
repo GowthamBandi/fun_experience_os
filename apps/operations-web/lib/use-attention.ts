@@ -25,11 +25,12 @@ export interface Attention {
 export function useAttention(): Attention {
   const { consoleRole } = useAdminSession();
   // Auditors cannot read these collections; skip the listeners rather than collect permission errors.
+  // Open items only, newest first: a capped read of the whole collection would count an arbitrary sample.
   const enabled = canViewRoute(consoleRole, "/approvals");
-  const cases = useGovernanceCollection("governanceCases", enabled);
-  const risks = useGovernanceCollection("riskAlerts", enabled);
-  const refunds = useGovernanceCollection("refunds", enabled);
-  const settlements = useGovernanceCollection("settlements", enabled);
+  const cases = useGovernanceCollection("governanceCases", enabled, "open");
+  const risks = useGovernanceCollection("riskAlerts", enabled, "open");
+  const refunds = useGovernanceCollection("refunds", enabled, "open");
+  const settlements = useGovernanceCollection("settlements", enabled, "open");
   const sources = [cases, risks, refunds, settlements];
   const loading = sources.some((s) => s.loading);
   const error = sources.find((s) => s.error)?.error ?? null;

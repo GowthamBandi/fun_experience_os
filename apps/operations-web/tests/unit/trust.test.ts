@@ -152,3 +152,17 @@ describe("reviews", () => {
     expect(moderationAction("hidden")).toMatchObject({ status: "published", label: "Publish", tone: "volt" });
   });
 });
+
+describe("reviewModerationKey (ruling R16)", () => {
+  it("is stable for an identical retry and changes when the review state moves", async () => {
+    const { reviewModerationKey, toModReview } = await import("@/lib/trust");
+    const at = (iso: string) => ({ toDate: () => new Date(iso) });
+    const review = toModReview("rv1", { status: "published", updatedAt: at("2026-10-09T10:00:00Z"), createdAt: at("2026-10-01T10:00:00Z") });
+    const key = reviewModerationKey(review, "hidden");
+    expect(key).toBe(`review|rv1|hidden|published|${Date.parse("2026-10-09T10:00:00Z")}`);
+    expect(reviewModerationKey({ ...review }, "hidden")).toBe(key);
+    expect(reviewModerationKey(review, "published")).not.toBe(key);
+    expect(reviewModerationKey({ ...review, status: "hidden" }, "hidden")).not.toBe(key);
+    expect(reviewModerationKey({ ...review, at: new Date("2026-10-09T11:00:00Z") }, "hidden")).not.toBe(key);
+  });
+});

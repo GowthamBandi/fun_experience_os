@@ -41,7 +41,7 @@ export function TopCities({ range, rangeKey }: { range: TimeRange; rangeKey: Ran
           </p>
           <BarList items={cities.slice(0, SHOWN).map((c) => ({ label: c.city, value: c.count, display: countFull(c.count) }))} />
           {cities.length > SHOWN ? <p className="mt-3 text-[12px] text-text-3">+{cities.length - SHOWN} more cities</p> : null}
-          {truncated ? <Truncated shown={MAX} className="mt-4" /> : null}
+          {truncated ? <Truncated shown={MAX} noun="events" className="mt-4" /> : null}
         </>
       )}
     </Card>

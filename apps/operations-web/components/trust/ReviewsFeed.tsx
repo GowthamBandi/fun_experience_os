@@ -18,7 +18,7 @@ import { moderateReview } from "@/lib/governance-api";
 import { useNow } from "@/lib/hooks";
 import { averageRating } from "@/lib/organizers";
 import { fetchOrganizerNames } from "@/lib/organizers-firestore";
-import { REVIEW_FILTERS, distinctIds, filterReviews, nameOrId, moderationAction, reviewCounts, sortReviews, toModReview, type ModReview, type ModerationAction, type ReviewFilter } from "@/lib/trust";
+import { REVIEW_FILTERS, distinctIds, filterReviews, nameOrId, moderationAction, reviewCounts, reviewModerationKey, sortReviews, toModReview, type ModReview, type ModerationAction, type ReviewFilter } from "@/lib/trust";
 import { useGovernanceCollection } from "@/lib/use-governance";
 import { useOneShot } from "@/lib/use-query";
 import { CountChips, ReadOnly, SearchField } from "./TrustBits";
@@ -33,7 +33,7 @@ const FILTER_EMPTY: Record<ReviewFilter, { emoji: string; title: string; body: s
 };
 
 export function ReviewsFeed() {
-  const { records, loading, error, truncated, refresh } = useGovernanceCollection("reviews");
+  const { records, loading, error, truncated, refresh, newest } = useGovernanceCollection("reviews");
   const { consoleRole: role } = useAdminSession();
   const permitted = can(role, "governance.decide");
   const now = useNow();
@@ -123,7 +123,7 @@ export function ReviewsFeed() {
           </ul>
         </>
       )}
-      {ready && truncated ? <Truncated shown={records.length} /> : null}
+      {ready && truncated ? <Truncated shown={records.length} newest={newest} /> : null}
       {ready && !permitted ? (
         <div>
           <ReadOnly role={role} what="reviews" />
@@ -193,7 +193,7 @@ function ModerateSheet({ target, onClose }: { target: { review: ModReview; actio
     if (!target) return;
     const { review, action } = target;
     try {
-      const result = await moderateReview({ requestId: book.current.idFor(`${review.id}-${action.status}`), reviewId: review.id, status: action.status, reason });
+      const result = await moderateReview({ requestId: book.current.idFor(reviewModerationKey(review, action.status)), reviewId: review.id, status: action.status, reason });
       book.current.reset();
       toast.show({ tone: result.status === "hidden" ? "info" : "ok", title: `Review ${result.status === "hidden" ? "hidden" : "published"}`, body: review.author ? `By ${review.author}.` : undefined });
     } catch (cause) {

@@ -28,12 +28,12 @@ describe("toEv", () => {
       capacity: { maxPhysicalCapacity: 16, blockedSlots: 0 },
       occupancy: { confirmedPaidBookings: 12, confirmedComplimentaryBookings: 2 },
     });
-    expect(ev).toMatchObject({ city: "Bengaluru", capacity: 16, taken: 14, endsAssumed: false });
+    expect(ev).toMatchObject({ city: "Bengaluru", capacity: 16, taken: 14 });
+    expect(ev.endsAt?.toISOString()).toBe("2026-10-09T15:00:00.000Z");
   });
-  it("assumes 3 h when endsAt is missing and never invents numbers", () => {
+  it("never invents an end time or numbers when fields are missing", () => {
     const ev = toEv("e2", { startsAt: at("2026-10-09T13:00:00Z"), occupancy: { confirmedPaidBookings: "x" } });
-    expect(ev.endsAt?.toISOString()).toBe("2026-10-09T16:00:00.000Z");
-    expect(ev.endsAssumed).toBe(true);
+    expect(ev.endsAt).toBeNull();
     expect(ev.taken).toBeNull();
     expect(ev.capacity).toBeNull();
     expect(ev.city).toBeNull();
@@ -54,9 +54,9 @@ describe("splitLive", () => {
     toEv("later", { ...base, startsAt: at("2026-10-10T03:00:00Z") }),
     toEv("no-end", { ...base, status: "live", startsAt: at("2026-10-09T12:00:00Z") }),
   ];
-  it("live is start ≤ now < end on a running status; end is exclusive", () => {
+  it("live is start ≤ now < end on a running status; end is exclusive; no stored end is never live", () => {
     const { live, soon } = splitLive(evs, NOW);
-    expect(live.map((e) => e.id)).toEqual(["live", "no-end"]);
+    expect(live.map((e) => e.id)).toEqual(["live"]);
     expect(soon.map((e) => e.id)).toEqual(["soon"]);
   });
 });
