@@ -4,6 +4,7 @@
 # next.js
 /.next/
 /.next-smoke/
+/.next-verify/
 /test-results/
 /out/
 
