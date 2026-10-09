@@ -1,47 +1,36 @@
 "use client";
 
-import { Suspense, useCallback, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, useMemo } from "react";
 import { AreaChart, BarList, Card, Chip, CountUp, DeltaPill, Empty, ErrorState, PageHeader, Skeleton, Stat, Truncated } from "@/components/pulse";
+import { BarListSkeleton, BentoSkeleton } from "@/components/overview/Skeletons";
 import { Tile, TileHeader } from "@/components/overview/Tile";
 import { PageContainer } from "@/components/shell/PageContainer";
 import { deltaPct, inrCompact, inrMinor } from "@/lib/format";
-import { useNow } from "@/lib/hooks";
-import { rangeFor, ratio, type RangeKey, type TimeRange } from "@/lib/metrics";
-import { RANGE_COMPARE, RANGE_KEYS, RANGE_LABEL, categoryEmoji, countFull, parseRange, percent, toEv, type Ev } from "@/lib/overview";
+import { ratio, type RangeKey, type TimeRange } from "@/lib/metrics";
+import { IN_RANGE, RANGE_COMPARE, RANGE_KEYS, RANGE_LABEL, categoryEmoji, countFull, percent, toEv, type Ev } from "@/lib/overview";
 import { bookedValueBy, netMinor, seriesSummary, type BookedBreakdown } from "@/lib/revenue";
 import { eventsStartingBetween } from "@/lib/use-live-events";
-import { useMetric, useSeries, type MetricState } from "@/lib/use-metric";
+import { useConsoleRange } from "@/lib/use-console-range";
+import { pair, useMetric, useSeries } from "@/lib/use-metric";
 import { useBoundedQuery, type BoundedQuery } from "@/lib/use-query";
-import { useSearchParamSetter } from "@/lib/use-search-param";
 
 const MAX = 250;
 const SHOWN = 6;
 const TREND_DAYS = 30;
-const IN_RANGE: Record<RangeKey, string> = { today: "today", "7d": "in the last 7 days", "30d": "in the last 30 days" };
 const GRID = "grid grid-cols-2 gap-3.5 md:grid-cols-6 xl:grid-cols-12";
 
 /** Full rupees while they fit a card; compact from ₹10L up. */
 const money = (minor: number | null) => (minor !== null && Math.abs(minor) >= 1e8 ? inrCompact(minor) : inrMinor(minor));
 
-/** Loading, error and retry for a figure built from two metrics. */
-function pair(a: MetricState, b: MetricState) {
-  return {
-    loading: a.loading || b.loading,
-    error: a.error ?? b.error,
-    retry: () => {
-      if (a.error) a.retry();
-      if (b.error) b.retry();
-    },
-  };
-}
-
-function Legend({ tone, label, value }: { tone: string; label: string; value: string }) {
+function Legend({ tone, label, value, hint }: { tone: string; label: string; value: string; hint?: string }) {
   return (
-    <div className="flex min-w-0 items-center gap-2 text-[12px]">
-      <span aria-hidden className={`h-2.5 w-2.5 shrink-0 rounded-full ${tone}`} />
-      <span className="truncate text-text-2">{label}</span>
-      <span className="ml-auto font-display font-bold tabular-nums text-text">{value}</span>
+    <div className="min-w-0 text-[12px]">
+      <div className="flex min-w-0 items-center gap-2">
+        <span aria-hidden className={`h-2.5 w-2.5 shrink-0 rounded-full ${tone}`} />
+        <span className="truncate text-text-2">{label}</span>
+        <span className="ml-auto font-display font-bold tabular-nums text-text">{value}</span>
+      </div>
+      {hint ? <p className="mt-0.5 pl-[18px] text-[11px] leading-4 text-text-3">{hint}</p> : null}
     </div>
   );
 }
@@ -51,6 +40,8 @@ function MoneySplit({ gross, refunds, commission, net }: { gross: number | null;
   if (gross === null || refunds === null) return null;
   const base = Math.max(gross, refunds);
   if (base <= 0) return null;
+  const share = net === null || commission === null ? null : net - commission;
+  // Bar widths clamp at zero; the legend shows the real, possibly negative, figures.
   const kept = Math.max(net ?? 0, 0);
   const commissionShare = commission !== null && commission > 0 ? Math.min(commission, kept) / base : 0;
   const keptShare = kept / base;
@@ -59,7 +50,7 @@ function MoneySplit({ gross, refunds, commission, net }: { gross: number | null;
     <div className="mt-auto pt-6">
       <div
         role="img"
-        aria-label={`Of ${inrMinor(gross)} captured, ${inrMinor(refunds)} refunded, ${inrMinor(net)} net, ${inrMinor(commission)} PULSE commission`}
+        aria-label={`Of ${inrMinor(gross)} captured, ${inrMinor(refunds)} refunded, ${inrMinor(net)} net, ${inrMinor(commission)} PULSE commission, ${inrMinor(share)} organizer share`}
         className="flex h-3 overflow-hidden rounded-pill bg-surface-high"
       >
         <span className="h-full bg-[linear-gradient(90deg,var(--primary),#B4A3FF)]" style={{ width: `${(keptShare - commissionShare) * 100}%` }} />
@@ -67,7 +58,7 @@ function MoneySplit({ gross, refunds, commission, net }: { gross: number | null;
         <span className="h-full bg-err" style={{ width: `${refundShare * 100}%` }} />
       </div>
       <div className="mt-3 flex flex-col gap-2">
-        <Legend tone="bg-primary" label="After commission" value={inrCompact(net === null || commission === null ? null : Math.max(net - commission, 0))} />
+        <Legend tone="bg-primary" label="Organizer share" hint="Net − commission (organizer payable movement); not a payout" value={inrCompact(share)} />
         <Legend tone="bg-info" label="PULSE commission" value={inrCompact(commission)} />
         <Legend tone="bg-err" label="Refunded" value={inrCompact(refunds)} />
       </div>
@@ -247,15 +238,7 @@ function Breakdown({
       </TileHeader>
       <p className="-mt-2 mb-4 text-[12px] text-text-3">Booked value by event date</p>
       {loading ? (
-        <div aria-hidden className="flex flex-col gap-3.5 pt-1">
-          {["w-[90%]", "w-[70%]", "w-1/2", "w-[35%]"].map((w) => (
-            <div key={w} className="grid grid-cols-[6rem_1fr_3.5rem] items-center gap-3">
-              <Skeleton className="h-3.5 rounded-pill" />
-              <Skeleton className={`h-2 rounded-pill ${w}`} />
-              <Skeleton className="h-3.5 rounded-pill" />
-            </div>
-          ))}
-        </div>
+        <BarListSkeleton />
       ) : error ? (
         <ErrorState message={error} onRetry={retry} />
       ) : n === 0 ? (
@@ -329,19 +312,6 @@ const SKELETON_CELLS = [
   "md:col-span-6 xl:col-span-12 h-[400px]",
 ];
 
-function BentoSkeleton() {
-  return (
-    <>
-      {SKELETON_CELLS.map((c, i) => (
-        <div key={i} aria-hidden className={`col-span-2 rounded-card border border-line-soft bg-[rgba(26,23,38,0.6)] p-5 ${c}`}>
-          <Skeleton className="h-3 w-24 rounded-pill" />
-          <Skeleton className="mt-3 h-8 w-32 rounded-[12px]" />
-        </div>
-      ))}
-    </>
-  );
-}
-
 function Header() {
   return (
     <PageHeader
@@ -357,14 +327,7 @@ function Header() {
 }
 
 function Revenue() {
-  const now = useNow();
-  const params = useSearchParams();
-  const rangeKey = parseRange(params.get("range"));
-  // Ranges only move at IST midnight; keying on the day keeps the metric hooks' inputs stable.
-  const dayKey = now ? rangeFor("today", now).start.getTime() : null;
-  const range = useMemo(() => (dayKey === null ? null : rangeFor(rangeKey, new Date(dayKey))), [rangeKey, dayKey]);
-  const setParam = useSearchParamSetter();
-  const setRange = useCallback((key: RangeKey) => setParam("range", key === "today" ? null : key), [setParam]);
+  const { rangeKey, range, setRange } = useConsoleRange();
 
   return (
     <PageContainer>
@@ -386,7 +349,7 @@ function Revenue() {
             <Breakdowns range={range} rangeKey={rangeKey} />
           </>
         ) : (
-          <BentoSkeleton />
+          <BentoSkeleton cells={SKELETON_CELLS} />
         )}
       </div>
     </PageContainer>
@@ -400,7 +363,7 @@ export function RevenueView() {
         <PageContainer>
           <Header />
           <div className={`${GRID} mt-[72px]`}>
-            <BentoSkeleton />
+            <BentoSkeleton cells={SKELETON_CELLS} />
           </div>
         </PageContainer>
       }

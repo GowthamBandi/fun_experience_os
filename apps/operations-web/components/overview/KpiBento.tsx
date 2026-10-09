@@ -4,25 +4,12 @@ import { RotateCw } from "lucide-react";
 import { Skeleton, Sparkline, Stat } from "@/components/pulse";
 import { deltaPct, inrCompact, inrMinor } from "@/lib/format";
 import { ratio, type RangeKey, type TimeRange } from "@/lib/metrics";
-import { RANGE_COMPARE, countFull, percent } from "@/lib/overview";
-import { useMetric, useSeries, type MetricState } from "@/lib/use-metric";
+import { IN_RANGE, RANGE_COMPARE, countFull, percent } from "@/lib/overview";
+import { pair, useMetric, useSeries } from "@/lib/use-metric";
 import { Tile } from "./Tile";
 
 const SERIES_DAYS: Record<RangeKey, number> = { today: 14, "7d": 14, "30d": 30 };
 const LABEL_RANGE: Record<RangeKey, string> = { today: "today", "7d": "7 days", "30d": "30 days" };
-const IN_RANGE: Record<RangeKey, string> = { today: "today", "7d": "in the last 7 days", "30d": "in the last 30 days" };
-
-/** Loading, error and retry for a figure built from two metrics. */
-function pair(a: MetricState, b: MetricState) {
-  return {
-    loading: a.loading || b.loading,
-    error: a.error ?? b.error,
-    retry: () => {
-      if (a.error) a.retry();
-      if (b.error) b.retry();
-    },
-  };
-}
 
 function GrossSpark({ days }: { days: number }) {
   const series = useSeries("grossBookings", days);

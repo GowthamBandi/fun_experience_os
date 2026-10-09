@@ -1,25 +1,24 @@
 "use client";
 
 import { PAGE_CONTAINER } from "@/components/shell/PageContainer";
-import { Suspense, useCallback, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, useMemo } from "react";
 import { Chip, CountUp, PageHeader, Skeleton } from "@/components/pulse";
 import { KpiBento } from "@/components/overview/KpiBento";
 import { LiveNowCard } from "@/components/overview/LiveNowCard";
 import { NeedsYou } from "@/components/overview/NeedsYou";
+import { BentoSkeleton } from "@/components/overview/Skeletons";
 import { PrivilegedActivity } from "@/components/overview/PrivilegedActivity";
 import { Tile } from "@/components/overview/Tile";
 import { TopCities } from "@/components/overview/TopCities";
 import { formatCount } from "@/lib/console/attention";
 import { useAdminSession } from "@/lib/firebase/auth";
 import { inrCompact } from "@/lib/format";
-import { useNow } from "@/lib/hooks";
-import { rangeFor, type RangeKey } from "@/lib/metrics";
-import { RANGE_KEYS, RANGE_LABEL, greetingFor, headlineFor, parseRange } from "@/lib/overview";
+import { rangeFor } from "@/lib/metrics";
+import { RANGE_KEYS, RANGE_LABEL, greetingFor, headlineFor } from "@/lib/overview";
+import { useConsoleRange } from "@/lib/use-console-range";
 import { useSharedAttention } from "@/lib/use-attention";
 import { useSharedLiveEvents } from "@/lib/use-live-events";
 import { useMetric } from "@/lib/use-metric";
-import { useSearchParamSetter } from "@/lib/use-search-param";
 
 function Headline({ live, attention, degraded }: { live: number; attention: number; degraded: boolean }) {
   const h = headlineFor(live, attention, degraded);
@@ -87,19 +86,6 @@ const SKELETON_CELLS = [
   "md:col-span-6 xl:col-span-5 h-[204px]",
 ];
 
-function BentoSkeleton() {
-  return (
-    <>
-      {SKELETON_CELLS.map((c, i) => (
-        <div key={i} aria-hidden className={`col-span-2 rounded-card border border-line-soft bg-[rgba(26,23,38,0.6)] p-5 ${c}`}>
-          <Skeleton className="h-3 w-24 rounded-pill" />
-          <Skeleton className="mt-3 h-8 w-32 rounded-[12px]" />
-        </div>
-      ))}
-    </>
-  );
-}
-
 const GRID = "grid grid-cols-2 gap-3.5 md:grid-cols-6 xl:grid-cols-12";
 const PAGE = PAGE_CONTAINER;
 
@@ -107,15 +93,7 @@ function CommandCenter() {
   const { user } = useAdminSession();
   const attention = useSharedAttention();
   const live = useSharedLiveEvents();
-  const now = useNow();
-  const params = useSearchParams();
-  const rangeKey = parseRange(params.get("range"));
-  // Ranges only move at IST midnight; keying on the day keeps the metric hooks' inputs stable.
-  const dayKey = now ? rangeFor("today", now).start.getTime() : null;
-  const range = useMemo(() => (dayKey === null ? null : rangeFor(rangeKey, new Date(dayKey))), [rangeKey, dayKey]);
-
-  const setParam = useSearchParamSetter();
-  const setRange = useCallback((key: RangeKey) => setParam("range", key === "today" ? null : key), [setParam]);
+  const { now, rangeKey, dayKey, range, setRange } = useConsoleRange();
 
   const firstName = user?.displayName?.trim().split(/\s+/)[0] || null;
   const hello = now ? greetingFor(now) : null;
@@ -168,7 +146,7 @@ function CommandCenter() {
             </Tile>
           </>
         ) : (
-          <BentoSkeleton />
+          <BentoSkeleton cells={SKELETON_CELLS} />
         )}
       </div>
     </div>
@@ -183,7 +161,7 @@ export default function CommandCenterPage() {
           <Skeleton className="h-4 w-48 rounded-pill" />
           <Skeleton className="mt-4 h-[44px] w-[min(520px,90%)] rounded-[14px]" />
           <div className={`${GRID} mt-[88px]`}>
-            <BentoSkeleton />
+            <BentoSkeleton cells={SKELETON_CELLS} />
           </div>
         </div>
       }

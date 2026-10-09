@@ -62,6 +62,18 @@ export function useMetric(specKey: MetricKey, range: TimeRange | undefined, comp
   return { ...state, retry };
 }
 
+/** Loading, error and retry for a figure built from two metrics; retry re-runs only the failed one(s). */
+export function pair(a: MetricState, b: MetricState): Pick<MetricState, "loading" | "error" | "retry"> {
+  return {
+    loading: a.loading || b.loading,
+    error: a.error ?? b.error,
+    retry: () => {
+      if (a.error) a.retry();
+      if (b.error) b.retry();
+    },
+  };
+}
+
 const dayLabel = (d: Date) => new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" }).format(d);
 
 export interface SeriesState {

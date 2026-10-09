@@ -33,6 +33,8 @@ export function headlineFor(live: number, attention: number, degraded = false): 
 
 export const RANGE_KEYS: RangeKey[] = ["today", "7d", "30d"];
 export const RANGE_LABEL: Record<RangeKey, string> = { today: "Today", "7d": "7 days", "30d": "30 days" };
+/** Phrase for "within the range", e.g. "No captured payments in the last 7 days". */
+export const IN_RANGE: Record<RangeKey, string> = { today: "today", "7d": "in the last 7 days", "30d": "in the last 30 days" };
 export const RANGE_COMPARE: Record<RangeKey, string> = { today: "vs yesterday", "7d": "vs prev 7 days", "30d": "vs prev 30 days" };
 
 export function parseRange(value: string | null | undefined): RangeKey {

@@ -12,7 +12,7 @@ describe("formatPaise", () => {
     expect(formatPaise(1_00_00_000_00)).toBe("₹1,00,00,000.00");
   });
   it("handles negatives", () => {
-    expect(formatPaise(-2550)).toBe("-₹25.50");
+    expect(formatPaise(-2550)).toBe("−₹25.50");
   });
   it("refuses non-integer or non-number input rather than guessing", () => {
     expect(formatPaise(12.5)).toBe("—");

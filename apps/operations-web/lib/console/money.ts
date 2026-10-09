@@ -34,7 +34,7 @@ export function formatPaise(minor: unknown, currency: unknown = "INR"): string {
   const whole = Math.trunc(abs / 100);
   const paise = abs % 100;
   const text = formatter(code).format(whole + paise / 100);
-  return negative ? `-${text}` : text;
+  return negative ? `−${text}` : text;
 }
 
 /** Thresholds mirrored from firebase/functions/src/commerce/config.ts (display only; the server enforces). */

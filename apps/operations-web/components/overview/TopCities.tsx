@@ -1,10 +1,11 @@
 "use client";
 
-import { BarList, Card, CountUp, Empty, ErrorState, Skeleton, Truncated } from "@/components/pulse";
+import { BarList, Card, CountUp, Empty, ErrorState, Truncated } from "@/components/pulse";
 import type { RangeKey, TimeRange } from "@/lib/metrics";
 import { RANGE_LABEL, cityCounts, toEv } from "@/lib/overview";
 import { eventsStartingBetween } from "@/lib/use-live-events";
 import { useBoundedQuery } from "@/lib/use-query";
+import { BarListSkeleton } from "./Skeletons";
 import { TileHeader } from "./Tile";
 
 const MAX = 250;
@@ -27,15 +28,7 @@ export function TopCities({ range, rangeKey }: { range: TimeRange; rangeKey: Ran
       </TileHeader>
 
       {loading ? (
-        <div aria-hidden className="flex flex-col gap-3.5 pt-1">
-          {["w-[90%]", "w-[70%]", "w-1/2", "w-[35%]"].map((w) => (
-            <div key={w} className="grid grid-cols-[6rem_1fr_2.5rem] items-center gap-3">
-              <Skeleton className="h-3.5 rounded-pill" />
-              <Skeleton className={`h-2 rounded-pill ${w}`} />
-              <Skeleton className="h-3.5 rounded-pill" />
-            </div>
-          ))}
-        </div>
+        <BarListSkeleton />
       ) : error ? (
         <ErrorState message={error} onRetry={retry} />
       ) : cities.length === 0 ? (
