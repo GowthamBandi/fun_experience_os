@@ -116,6 +116,10 @@ export const QUERIES = [
   Q("W05", "console", "users", ["scope"], null, [], ["apps/operations-web/lib/governance-api.ts", `where("scope", "==", "platform")`]),
   Q("W06", "console", "auditEvents", [], null, [["at", "desc"]], ["apps/operations-web/lib/governance-api.ts", `orderBy("at", "desc"), startAfter(cursor)`],
     "paged audit history (startAfter cursor) on the single-field index."),
+  Q("W07", "console", "users", ["phone"], null, [], ["apps/operations-web/lib/search.ts", `where("phone", "==", value)`], "⌘K phone search, limit 5."),
+  Q("W08", "console", "bookings", ["reference"], null, [], ["apps/operations-web/lib/search.ts", `where("reference", "==", value)`], "⌘K booking-reference search, limit 5."),
+  Q("W09", "console", "publicOrganizers", [], null, [["name", "asc"]], ["apps/operations-web/lib/search.ts", `orderBy("name"), startAt(p)`], "⌘K name prefix (startAt/endAt) on the single-field index."),
+  Q("W10", "console", "events", [], null, [["title", "asc"]], ["apps/operations-web/lib/search.ts", `orderBy("title"), startAt(p)`], "⌘K title prefix (startAt/endAt) on the single-field index."),
 ];
 
 /* --------------------------------------------------------------- matching */

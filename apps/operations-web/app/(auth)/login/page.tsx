@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, Eye, EyeOff, KeyRound, ShieldCheck } from "lucide-react";
 import { useAdminSession } from "@/lib/firebase/auth";
 import { ConfigurationNotice } from "@/components/console/ConfigurationNotice";
-import { EnvironmentBadge } from "@/components/console/EnvironmentBadge";
+import { EnvBadge } from "@/components/shell/EnvBadge";
 import { landingRoute } from "@/lib/console/capabilities";
 
 /** Signed in but not ready: the console layout explains the state (verify email, no role, disabled…). */
@@ -67,7 +67,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="text-center">
           <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-indigo-400/20 bg-indigo-400/10 text-indigo-300"><ShieldCheck className="h-6 w-6" /></span>
-          <div className="mt-4 flex justify-center"><EnvironmentBadge /></div>
+          <div className="mt-4 flex justify-center"><EnvBadge /></div>
           <h1 className="mt-4 text-2xl font-semibold tracking-tight text-white">Operations Console</h1>
           <p className="mt-2 text-sm text-slate-400">Sign in with your verified Experience OS account.</p>
         </div>

@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { subscribeDocument, subscribeGovernanceCollection, type GovernanceCollection, type LiveGovernanceRecord, type PageCursor } from "./governance-api";
 import { describeReadError } from "./console/errors";
 
-export function useGovernanceCollection(name: GovernanceCollection) {
+/** `enabled: false` skips the listener (e.g. a role the rules would refuse) and reports an empty, settled source. */
+export function useGovernanceCollection(name: GovernanceCollection, enabled = true) {
   const [records, setRecords] = useState<LiveGovernanceRecord[]>([]);
   const [truncated, setTruncated] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -13,6 +14,7 @@ export function useGovernanceCollection(name: GovernanceCollection) {
   /** Last document of the live page — the startAfter cursor for older pages. */
   const [cursor, setCursor] = useState<PageCursor | null>(null);
   useEffect(() => {
+    if (!enabled) { setRecords([]); setTruncated(false); setCursor(null); setLoading(false); setError(null); return; }
     setLoading(true);
     setError(null);
     let unsubscribe = () => {};
@@ -27,7 +29,7 @@ export function useGovernanceCollection(name: GovernanceCollection) {
       setLoading(false);
     }
     return unsubscribe;
-  }, [name, attempt]);
+  }, [name, attempt, enabled]);
   /** Re-subscribes (fresh read) — used by the conflict "refresh" action. */
   const refresh = useCallback(() => setAttempt((n) => n + 1), []);
   return { records, loading, error, truncated, refresh, cursor };

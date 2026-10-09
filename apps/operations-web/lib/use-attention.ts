@@ -1,0 +1,61 @@
+"use client";
+
+import { useCallback, useMemo } from "react";
+import { buildAttentionQueue, type AttentionItem } from "@/lib/console/attention";
+import { canViewRoute } from "@/lib/console/capabilities";
+import { useAdminSession } from "@/lib/firebase/auth";
+import { useGovernanceCollection } from "@/lib/use-governance";
+
+export type AttentionRoute = "approvals" | "risk" | "refunds";
+
+export interface Attention {
+  items: AttentionItem[];
+  total: number;
+  byRoute: Record<AttentionRoute, number>;
+  loading: boolean;
+  /** First source that failed to load; counts are then incomplete. */
+  error: string | null;
+  /** Re-subscribes the sources that failed. */
+  refresh: () => void;
+}
+
+/** The Command Center's attention queue, shared by the rail badges and the notifications drawer. */
+export function useAttention(): Attention {
+  const { consoleRole } = useAdminSession();
+  // Auditors cannot read these collections; skip the listeners rather than collect permission errors.
+  const enabled = canViewRoute(consoleRole, "/approvals");
+  const cases = useGovernanceCollection("governanceCases", enabled);
+  const risks = useGovernanceCollection("riskAlerts", enabled);
+  const refunds = useGovernanceCollection("refunds", enabled);
+  const settlements = useGovernanceCollection("settlements", enabled);
+  const sources = [cases, risks, refunds, settlements];
+  const loading = sources.some((s) => s.loading);
+  const error = sources.find((s) => s.error)?.error ?? null;
+  const refresh = useCallback(() => {
+    for (const s of [cases, risks, refunds, settlements]) if (s.error) s.refresh();
+  }, [cases.error, risks.error, refunds.error, settlements.error]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const items = useMemo(
+    () =>
+      buildAttentionQueue({
+        governanceCases: cases.records,
+        riskAlerts: risks.records,
+        refunds: refunds.records,
+        settlements: settlements.records,
+        truncated: { governanceCases: cases.truncated, riskAlerts: risks.truncated, refunds: refunds.truncated, settlements: settlements.truncated },
+      }),
+    [cases.records, risks.records, refunds.records, settlements.records, cases.truncated, risks.truncated, refunds.truncated, settlements.truncated],
+  );
+
+  return useMemo(() => {
+    const count = (href: string) => items.filter((i) => i.href === href).reduce((n, i) => n + i.count, 0);
+    return {
+      items,
+      total: items.reduce((n, i) => n + i.count, 0),
+      byRoute: { approvals: count("/approvals"), risk: count("/risk"), refunds: count("/refunds") },
+      loading,
+      error,
+      refresh,
+    };
+  }, [items, loading, error, refresh]);
+}
