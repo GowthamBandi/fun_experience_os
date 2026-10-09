@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Plus_Jakarta_Sans, Space_Grotesk } from "next/font/google";
-import { StoreProvider } from "@/lib/store";
+import { ToastProvider } from "@/components/pulse";
 import { AdminAuthProvider } from "@/lib/firebase/auth";
 import "./globals.css";
 
@@ -20,7 +20,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={`${display.variable} ${ui.variable} bg-ink text-text font-ui antialiased`}>
       <body>
-        <StoreProvider><AdminAuthProvider>{children}</AdminAuthProvider></StoreProvider>
+        <ToastProvider><AdminAuthProvider>{children}</AdminAuthProvider></ToastProvider>
       </body>
     </html>
   );

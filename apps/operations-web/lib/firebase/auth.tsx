@@ -4,9 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { onIdTokenChanged, sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword, signOut as firebaseSignOut, type User } from "firebase/auth";
 import { getFirebaseClient } from "./client";
 import { configurationProblemFromError, dataModeProblem, type DataModeProblem } from "./data-mode";
-import { useStore } from "@/lib/store";
 import { gateSession, verificationCooldownRemaining, type ConsoleRole } from "@/lib/console/capabilities";
-import type { RoleId } from "@/lib/types";
 
 /**
  * - ready            verified, active, platform-owner | super-admin | auditor
@@ -44,7 +42,6 @@ interface AdminSession {
 const Context = createContext<AdminSession | null>(null);
 
 export function AdminAuthProvider({ children }: { children: ReactNode }) {
-  const prototypeStore = useStore();
   const [state, setState] = useState<SessionState>("loading");
   const [user, setUser] = useState<User | null>(null);
   const [roleId, setRoleId] = useState<string | null>(null);
@@ -64,13 +61,10 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     setRoleId(raw);
     setConsoleRole(gate.state === "ready" ? gate.role : null);
     if (gate.state === "ready") {
-      prototypeStore.signIn("op-1", gate.role as RoleId);
       setState("ready");
       return;
     }
     setState(gate.state === "unsupported-role" ? "forbidden" : gate.state);
-    // Store methods are stable callbacks.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -90,7 +84,6 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
         if (!nextUser) {
           setRoleId(null);
           setConsoleRole(null);
-          prototypeStore.signOut();
           setState("signed-out");
           return;
         }
@@ -113,7 +106,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
       }
     }
     return unsubscribe;
-    // Store methods are stable callbacks; subscribing once avoids auth listener churn.
+    // Subscribe once to avoid auth listener churn.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -125,8 +118,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   }, []);
   const signOut = useCallback(async () => {
     await firebaseSignOut(getFirebaseClient().auth);
-    prototypeStore.signOut();
-  }, [prototypeStore]);
+  }, []);
   const resetPassword = useCallback(async (email: string) => sendPasswordResetEmail(getFirebaseClient().auth, email.trim()), []);
 
   const sendVerification = useCallback(async (): Promise<VerificationEmailResult> => {

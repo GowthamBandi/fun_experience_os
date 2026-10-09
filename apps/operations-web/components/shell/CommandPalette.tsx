@@ -3,32 +3,34 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, Building2, Compass, Fingerprint } from "lucide-react";
-import { useStore } from "@/lib/store";
-import { consoleNav } from "@/lib/nav";
-import { useAdminSession } from "@/lib/firebase/auth";
-import { territoryViews } from "@/lib/prototype/repositories";
+import { ArrowRight, Compass } from "lucide-react";
+import { NAV } from "@/lib/nav";
 import { useHotkey } from "@/lib/hooks";
 import { cn } from "@/lib/format";
 
 interface Entry {
-  kind: "page" | "territory" | "role";
+  kind: "page";
   label: string;
   sub: string;
-  href?: string;
-  action?: () => void;
+  href: string;
   icon: typeof Compass;
 }
 
-export function CommandPalette({ prototype = false }: { prototype?: boolean }) {
-  const { paletteOpen, setPaletteOpen, switchTerritory, state } = useStore();
-  const { consoleRole } = useAdminSession();
+export const OPEN_PALETTE_EVENT = "pulse:open-palette";
+
+export function CommandPalette() {
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [index, setIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useHotkey(["mod", "k"], () => setPaletteOpen(true));
+  useEffect(() => {
+    const open = () => setPaletteOpen(true);
+    window.addEventListener(OPEN_PALETTE_EVENT, open);
+    return () => window.removeEventListener(OPEN_PALETTE_EVENT, open);
+  }, []);
 
   useEffect(() => {
     if (paletteOpen) {
@@ -40,34 +42,14 @@ export function CommandPalette({ prototype = false }: { prototype?: boolean }) {
 
   const entries = useMemo<Entry[]>(() => {
     const q = query.toLowerCase();
-    const pages: Entry[] = consoleNav(consoleRole).filter((n) => !q || n.label.toLowerCase().includes(q) || n.keyword.includes(q)).map((n) => ({
-      kind: "page",
+    return NAV.filter((n) => !q || n.label.toLowerCase().includes(q) || n.keywords.includes(q)).map((n) => ({
+      kind: "page" as const,
       label: n.label,
-      sub: "Module",
+      sub: "Page",
       href: n.href,
-      icon: Compass,
+      icon: n.icon,
     }));
-    const territories: Entry[] = territoryViews(state).filter((t) => !q || t.name.toLowerCase().includes(q)).map((t) => ({
-      kind: "territory",
-      label: t.name,
-      sub: `${t.tonight} missions tonight`,
-      action: () => switchTerritory(t.id),
-      icon: Building2,
-    }));
-    const roles: Entry[] = [
-      {
-        kind: "role",
-        label: "Position simulator",
-        sub: "Switch current position",
-        action: () => {
-          setPaletteOpen(false);
-        },
-        icon: Fingerprint,
-      },
-    ];
-    // Territories and the position simulator are archived-prototype sample data only.
-    return prototype ? [...pages, ...territories, ...roles] : pages;
-  }, [query, consoleRole, prototype, switchTerritory, setPaletteOpen, state]);
+  }, [query]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -84,12 +66,11 @@ export function CommandPalette({ prototype = false }: { prototype?: boolean }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [paletteOpen, entries.length, setPaletteOpen]);
+  }, [paletteOpen, entries.length]);
 
   const run = (e: Entry) => {
     setPaletteOpen(false);
-    if (e.href) router.push(e.href);
-    else e.action?.();
+    router.push(e.href);
   };
 
   return (

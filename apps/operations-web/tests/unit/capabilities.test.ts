@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 import {
   CALLABLE_CAPABILITY,
   CONSOLE_ROLES,
+  CONSOLE_ROUTES,
+  isConsoleRoute,
   ROUTE_CAPABILITY,
   can,
   canViewRoute,
@@ -15,7 +17,6 @@ import {
   VERIFICATION_EMAIL_COOLDOWN_MS,
   type ConsoleCallable,
 } from "@/lib/console/capabilities";
-import { GOVERNANCE_ROUTES } from "@/lib/console/archived";
 import { NAV, consoleNav } from "@/lib/nav";
 
 const REPO = path.resolve(__dirname, "../../../..");
@@ -37,7 +38,7 @@ describe("role → capability matrix", () => {
   it("auditors are read-only: audit trail and settlements, no actions", () => {
     expect(can("auditor", "audit.read")).toBe(true);
     expect(can("auditor", "settlements.read")).toBe(true);
-    for (const capability of ["governance.read", "governance.decide", "access.read", "access.manage", "archived.view"] as const) {
+    for (const capability of ["governance.read", "governance.decide", "access.read", "access.manage"] as const) {
       expect(can("auditor", capability)).toBe(false);
     }
   });
@@ -108,8 +109,8 @@ describe("callable parity with the backend", () => {
 
 describe("route guard", () => {
   it("every governance route has a capability", () => {
-    for (const route of GOVERNANCE_ROUTES) expect(ROUTE_CAPABILITY[route]).toBeDefined();
-    expect(Object.keys(ROUTE_CAPABILITY).sort()).toEqual([...GOVERNANCE_ROUTES].sort());
+    for (const route of CONSOLE_ROUTES) expect(ROUTE_CAPABILITY[route]).toBeDefined();
+    expect(Object.keys(ROUTE_CAPABILITY).sort()).toEqual([...CONSOLE_ROUTES].sort());
   });
   it("admins see every governance route; auditors only audit, settlements and compliance/health views", () => {
     for (const item of NAV) {
@@ -122,10 +123,22 @@ describe("route guard", () => {
     expect(canViewRoute("auditor", "/operators")).toBe(false);
     expect(canViewRoute("auditor", "/audit?x=1")).toBe(true);
   });
-  it("auditors and unknown roles never reach the archived prototype", () => {
+  it("unknown roles and unknown routes never open anything", () => {
     expect(canViewRoute("auditor", "/missions")).toBe(false);
     expect(canViewRoute(null, "/missions")).toBe(false);
     expect(canViewRoute(null, "/")).toBe(false);
+  });
+  it("new console routes are governed and fail closed", () => {
+    expect(canViewRoute("super-admin", "/live")).toBe(true);
+    expect(canViewRoute("super-admin", "/revenue")).toBe(true);
+    expect(canViewRoute("super-admin", "/partners/org123")).toBe(true);
+    expect(canViewRoute("super-admin", "/customers/uid9")).toBe(true);
+    expect(canViewRoute("auditor", "/live")).toBe(false);
+    expect(canViewRoute("super-admin", "/missions")).toBe(false);
+    expect(isConsoleRoute("/missions/abc")).toBe(false);
+  });
+  it("every nav item is a console route and vice versa", () => {
+    expect(NAV.map((n) => n.href).sort()).toEqual([...CONSOLE_ROUTES].sort());
   });
   it("lands each role on a page it can open", () => {
     expect(landingRoute("platform-owner")).toBe("/");

@@ -15,8 +15,6 @@
  * the roles drift apart.
  */
 
-import { isArchivedRoute, isGovernanceRoute } from "./archived";
-
 export const CONSOLE_ROLES = ["platform-owner", "super-admin", "auditor"] as const;
 export type ConsoleRole = (typeof CONSOLE_ROLES)[number];
 
@@ -36,13 +34,11 @@ export type Capability =
   /** List operator accounts (users collection). */
   | "access.read"
   /** setOperatorAccess. */
-  | "access.manage"
-  /** The archived company-operated prototype (never in firebase-live). */
-  | "archived.view";
+  | "access.manage";
 
 const MATRIX: Record<ConsoleRole, readonly Capability[]> = {
-  "platform-owner": ["governance.read", "governance.decide", "settlements.read", "audit.read", "access.read", "access.manage", "archived.view"],
-  "super-admin": ["governance.read", "governance.decide", "settlements.read", "audit.read", "access.read", "archived.view"],
+  "platform-owner": ["governance.read", "governance.decide", "settlements.read", "audit.read", "access.read", "access.manage"],
+  "super-admin": ["governance.read", "governance.decide", "settlements.read", "audit.read", "access.read"],
   auditor: ["settlements.read", "audit.read"],
 };
 
@@ -80,9 +76,32 @@ export function rolesAllowedFor(callable: ConsoleCallable): ConsoleRole[] {
   return CONSOLE_ROLES.filter((role) => can(role, CALLABLE_CAPABILITY[callable]));
 }
 
-/** Governance route → capability needed to open it. Sub-routes inherit. */
+export const CONSOLE_ROUTES = [
+  "/",
+  "/live",
+  "/approvals",
+  "/partners",
+  "/events",
+  "/arenas",
+  "/customers",
+  "/risk",
+  "/reviews",
+  "/revenue",
+  "/refunds",
+  "/settlements",
+  "/commercials",
+  "/audit",
+  "/policies",
+  "/legal-holds",
+  "/system",
+  "/operators",
+] as const;
+
+/** Console route → capability needed to open it. Sub-routes inherit. */
 export const ROUTE_CAPABILITY: Record<string, Capability> = {
   "/": "governance.read",
+  "/live": "governance.read",
+  "/revenue": "governance.read",
   "/approvals": "governance.read",
   "/partners": "governance.read",
   "/arenas": "governance.read",
@@ -115,14 +134,15 @@ export function routeCapability(pathname: string): Capability | null {
   return match ? ROUTE_CAPABILITY[match]! : null;
 }
 
-/**
- * Whether the role may open the route. Archived prototype routes additionally
- * need NEXT_PUBLIC_SHOW_ARCHIVED_PROTOTYPE (checked by the layout); unknown
- * governance routes are refused (fail closed).
- */
+/** True when the path is a console route (or a sub-route of one). "/" matches only itself. */
+export function isConsoleRoute(pathname: string): boolean {
+  const path = normalize(pathname);
+  return CONSOLE_ROUTES.some((route) => (route === "/" ? path === "/" : path === route || path.startsWith(`${route}/`)));
+}
+
+/** Whether the role may open the route; unknown routes are refused (fail closed). */
 export function canViewRoute(role: ConsoleRole | null | undefined, pathname: string): boolean {
-  if (isArchivedRoute(pathname)) return can(role, "archived.view");
-  if (!isGovernanceRoute(pathname)) return false;
+  if (!isConsoleRoute(pathname)) return false;
   const capability = routeCapability(pathname);
   return capability ? can(role, capability) : false;
 }

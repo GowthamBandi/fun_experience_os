@@ -3,59 +3,24 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import {
-  BadgeIndianRupee,
-  HandCoins,
-  Building,
-  ChevronLeft,
-  CircleGauge,
-  ClipboardCheck,
-  FileClock,
-  KeyRound,
-  ReceiptIndianRupee,
-  Scale,
-  SearchCheck,
-  ShieldCheck,
-  Star,
-  Tickets,
-  TriangleAlert,
-  Users,
-} from "lucide-react";
-import { useStore } from "@/lib/store";
+import { useState } from "react";
+import { ChevronLeft, ShieldCheck } from "lucide-react";
 import { consoleNav } from "@/lib/nav";
 import { useAdminSession } from "@/lib/firebase/auth";
 import { ROLE_LABEL } from "@/lib/console/capabilities";
 import { cn } from "@/lib/format";
 import { useIsMobile } from "@/lib/hooks";
-import { TerritorySwitcher } from "@/components/shell/TerritorySwitcher";
 import { Avatar } from "@/components/ui/primitives";
-
-const ICONS: Record<string, typeof CircleGauge> = {
-  "/": CircleGauge,
-  "/approvals": ClipboardCheck,
-  "/partners": Users,
-  "/arenas": Building,
-  "/events": Tickets,
-  "/customers": SearchCheck,
-  "/risk": TriangleAlert,
-  "/reviews": Star,
-  "/refunds": ReceiptIndianRupee,
-  "/settlements": HandCoins,
-  "/commercials": BadgeIndianRupee,
-  "/policies": Scale,
-  "/audit": FileClock,
-  "/operators": KeyRound,
-};
 
 const LIGHT = [0.19, 1, 0.22, 1] as const;
 
-export function Sidebar({ prototype = false }: { prototype?: boolean }) {
-  const { role, sidebarCollapsed, toggleSidebar, operator } = useStore();
+export function Sidebar() {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const toggleSidebar = () => setSidebarCollapsed((v) => !v);
   const { user, consoleRole } = useAdminSession();
   const pathname = usePathname();
   const isMobile = useIsMobile();
   const collapsed = isMobile || sidebarCollapsed;
-  // Navigation follows the signed-in console role (server-enforced), not the prototype store.
   const items = consoleNav(consoleRole);
   const identity = user?.displayName || user?.email || "Operator";
 
@@ -77,17 +42,10 @@ export function Sidebar({ prototype = false }: { prototype?: boolean }) {
         )}
       </div>
 
-      {/* territory scope — archived prototype only (sample data) */}
-      {prototype && (
-        <div className={cn("px-3 pt-3", collapsed && "px-2")}>
-          <TerritorySwitcher collapsed={collapsed} />
-        </div>
-      )}
-
       {/* navigation */}
       <nav className="mt-4 flex-1 space-y-0.5 overflow-y-auto px-3 pb-4" aria-label="Modules">
         {items.map((item, i) => {
-          const Icon = ICONS[item.href] ?? ShieldCheck;
+          const Icon = item.icon ?? ShieldCheck;
           const previous = items[i - 1];
           const showGroup = !collapsed && item.group !== previous?.group;
           const active = pathname === item.href || (item.href.length > 1 && pathname.startsWith(item.href + "/"));
@@ -132,16 +90,7 @@ export function Sidebar({ prototype = false }: { prototype?: boolean }) {
 
       {/* footer */}
       <div className="shrink-0 border-t border-white/5 p-3">
-        {!collapsed && prototype && operator && (
-          <div className="mb-3 flex items-center gap-2.5 px-1">
-            <Avatar initials={operator.initials} size="sm" />
-            <div className="min-w-0">
-              <p className="truncate text-xs font-medium text-ink-lum">{operator.name}</p>
-              <p className="truncate text-[11px] text-ink-mut">{role.name}</p>
-            </div>
-          </div>
-        )}
-        {!collapsed && !prototype && user && (
+        {!collapsed && user && (
           <div className="mb-3 flex items-center gap-2.5 px-1">
             <Avatar initials={identity.slice(0, 2).toUpperCase()} size="sm" />
             <div className="min-w-0">

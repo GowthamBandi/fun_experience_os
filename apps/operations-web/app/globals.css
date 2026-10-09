@@ -26,6 +26,25 @@
   --err: #ff6178;
   --info: #63beff;
 
+  /* RGB triplets so Tailwind /opacity modifiers work */
+  --ink-rgb: 11 10 18;
+  --night-rgb: 18 16 28;
+  --surface-rgb: 26 23 38;
+  --surface-high-rgb: 36 32 51;
+  --surface-top-rgb: 46 41 65;
+  --line-rgb: 51 46 71;
+  --text-rgb: 246 244 255;
+  --text-2-rgb: 189 184 209;
+  --text-3-rgb: 149 144 173;
+  --primary-rgb: 142 114 255;
+  --primary-strong-rgb: 110 77 255;
+  --volt-rgb: 217 255 63;
+  --on-volt-rgb: 20 22 11;
+  --ok-rgb: 63 221 154;
+  --warn-rgb: 255 184 77;
+  --err-rgb: 255 97 120;
+  --info-rgb: 99 190 255;
+
   --ease-pulse: cubic-bezier(0.2, 0.8, 0.2, 1);
 
   /* aliases for screens not yet converted */
