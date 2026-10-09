@@ -149,7 +149,7 @@ export function CustomerPaymentsTab({ q, titles, now }: { q: BoundedQuery<Paymen
         <div className="flex flex-col gap-4">
           <ul className="flex flex-wrap gap-2 text-[12px]" aria-label="Payment summary">
             <MoneyPill tone="ok" label="Captured" value={inrMinor(totals.captured)} />
-            <MoneyPill tone="info" label="Refunded" value={inrMinor(totals.refunded)} />
+            <MoneyPill tone="info" label="Refunded (approved)" value={inrMinor(totals.refunded)} />
             <MoneyPill tone="violet" label="Attempts" value={String(rows.length)} />
           </ul>
           <DataTable rows={rows} columns={columns} rowKey={(p) => p.id} caption="This customer's payments, newest first" className="max-h-[70vh]" />

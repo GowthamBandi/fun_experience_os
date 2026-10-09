@@ -9,6 +9,7 @@ import {
   holdBadge,
   isPermissionDenied,
   newestCustomers,
+  newestShort,
   openRefunds,
   paymentBadge,
   paymentTotals,
@@ -23,7 +24,7 @@ import {
   userStatusBadge,
 } from "@/lib/customers";
 import { maskPhone } from "@/lib/format";
-import { METRIC_SPECS, scopeWhere } from "@/lib/metrics";
+import { METRIC_SPECS, resolveMetric, scopeWhere } from "@/lib/metrics";
 
 const ts = (iso: string) => ({ toDate: () => new Date(iso) });
 
@@ -46,6 +47,11 @@ describe("users", () => {
     const c = toCustomer("u1", { phone: "+919100000001", createdAt: ts("2026-10-01T10:00:00Z") });
     expect(c).toEqual({ uid: "u1", phone: "+919100000001", createdAt: new Date("2026-10-01T10:00:00Z"), operator: false, status: null });
     expect(toCustomer("o1", { scope: "platform", status: "active" }).operator).toBe(true);
+  });
+  it("flags a short newest list only when the read was truncated", () => {
+    expect(newestShort(14, true)).toBe(true);
+    expect(newestShort(14, false)).toBe(false);
+    expect(newestShort(20, true)).toBe(false);
   });
   it("drops operators from the newest list and caps it", () => {
     const rows = [toCustomer("o1", { scope: "platform" }), ...Array.from({ length: 25 }, (_, i) => toCustomer(`c${i}`, {}))];
@@ -150,7 +156,20 @@ describe("customer-scoped metrics", () => {
   it("filters on the customer's own field", () => {
     expect(scopeWhere(METRIC_SPECS.customerSpent, { customerUid: "u1" })).toEqual([["customerUid", "==", "u1"]]);
     expect(scopeWhere(METRIC_SPECS.customerReviews, { customerUid: "u1" })).toEqual([["authorUid", "==", "u1"]]);
-    expect(METRIC_SPECS.customerSpent.where).toEqual([["status", "in", ["confirmed", "completed"]]]);
+  });
+  it("bases Spent on captured payments, so a refunded cancellation still counts, matching paymentTotals", () => {
+    expect(METRIC_SPECS.customerSpent.collection).toBe("payments");
+    expect(METRIC_SPECS.customerSpent.where).toEqual([["status", "in", ["captured", "refunded", "partially-refunded"]]]);
+    const rows = ["captured", "refunded", "partially-refunded", "created", "failed", "creating"].map((status, i) => toPayment(`p${i}`, { status, amountMinor: 100 }));
+    expect(paymentTotals(rows).captured).toBe(300);
+  });
+  it("runs a minus spec through the same scoped runner", async () => {
+    const seen: string[] = [];
+    await resolveMetric("newCustomers", async (spec) => {
+      seen.push(spec.collection);
+      return 0;
+    });
+    expect(seen).toEqual(["users", "users"]);
   });
   it("refuses to narrow a ledger metric to a customer (ledger lines carry no customerUid)", () => {
     expect(() => scopeWhere(METRIC_SPECS.grossBookings, { customerUid: "u1" })).toThrow();

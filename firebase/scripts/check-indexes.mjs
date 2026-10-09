@@ -157,7 +157,7 @@ export const QUERIES = [
   Q("M37", "console", "users", ["phone"], null, [], ["apps/operations-web/lib/customers-firestore.ts", `where("phone", "==", lookup.value)`], "Customers search by phone, limit 5."),
   Q("M38", "console", "bookings", ["reference"], null, [], ["apps/operations-web/lib/customers-firestore.ts", `where("reference", "==", lookup.value)`], "Customers search by booking reference, limit 5."),
   Q("M39", "console", "bookings", ["customerUid"], null, [], ["apps/operations-web/lib/metrics.ts", `customerBookings: { collection: "bookings"`], "Customer 360 bookings count: count aggregation on one equality."),
-  Q("M40", "console", "bookings", ["customerUid", "status(in)"], null, [], ["apps/operations-web/lib/metrics.ts", `customerSpent: {`], "Customer 360 spent: sum of amountMinor over confirmed + completed bookings (ledger lines carry no customerUid)."),
+  Q("M40", "console", "payments", ["customerUid", "status(in)"], null, [], ["apps/operations-web/lib/metrics.ts", `customerSpent: {`], "Customer 360 spent: sum of amountMinor over captured, refunded and partially-refunded payments (ledger lines carry no customerUid)."),
   Q("M41", "console", "refunds", ["customerUid", "status"], null, [], ["apps/operations-web/lib/metrics.ts", `customerRefunded: {`], "Customer 360 refunds: sum of completed refunds."),
   Q("M42", "console", "reviews", ["authorUid"], null, [], ["apps/operations-web/lib/metrics.ts", `customerReviews: { collection: "reviews"`], "Customer 360 reviews count: count aggregation on one equality."),
 ];

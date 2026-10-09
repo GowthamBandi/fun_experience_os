@@ -12,6 +12,7 @@
 import type { BadgeTone } from "@/components/pulse/Badge";
 import { toDate } from "./console/records";
 import { str, toBooking, toReview, type BookingRow, type ReviewRow } from "./events";
+import { CAPTURED_PAYMENT_STATUSES } from "./metrics";
 import { classifyQuery } from "./search";
 
 type Raw = Record<string, unknown>;
@@ -117,6 +118,11 @@ export function eligibilitySummary(rows: CustomerBookingRow[]): { checked: numbe
   return { checked, failed, unrecorded: rows.length - checked };
 }
 
+/** The newest-customers list came up short because operators filled part of a truncated read. */
+export function newestShort(shown: number, truncated: boolean, want = 20): boolean {
+  return truncated && shown < want;
+}
+
 /* ---------------------------------------------------------------- payments */
 
 export interface PaymentRow {
@@ -156,12 +162,14 @@ const PAYMENT_STATUS: Record<string, { label: string; tone: BadgeTone }> = {
 
 export const paymentBadge = (status: unknown) => badge(PAYMENT_STATUS, status);
 
-/** Captured money across the loaded payments (captured or later refunded), and what went back. */
+const CAPTURED = new Set<string>(CAPTURED_PAYMENT_STATUSES);
+
+/** Captured money across the loaded payments (the Spent metric's statuses), and refunds approved against them. */
 export function paymentTotals(rows: PaymentRow[]): { captured: number; refunded: number } {
   let captured = 0;
   let refunded = 0;
   for (const p of rows) {
-    if (p.status === "captured" || p.status === "refunded" || p.status === "partially-refunded") captured += p.amountMinor ?? 0;
+    if (p.status !== null && CAPTURED.has(p.status)) captured += p.amountMinor ?? 0;
     refunded += p.refundedMinor ?? 0;
   }
   return { captured, refunded };

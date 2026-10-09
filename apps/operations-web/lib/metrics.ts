@@ -55,6 +55,9 @@ export function metricErrorMessage(err: unknown): string {
   }
 }
 
+/** Payment statuses that hold captured money (commerce/types.ts PaymentStatus). */
+export const CAPTURED_PAYMENT_STATUSES = ["captured", "refunded", "partially-refunded"] as const;
+
 export type WhereOp = "==" | "in";
 export type MetricWhere = [field: string, op: WhereOp, value: string | string[]];
 
@@ -158,11 +161,13 @@ export const METRIC_SPECS: Record<MetricKey, MetricSpec> = {
     agg: { kind: "sum", field: "amountMinor" },
   },
   // Customer 360. Ledger lines carry no customerUid (commerce/ledger.ts), so these read the
-  // customer-keyed docs: bookings and refunds (customerUid) and reviews (authorUid).
+  // customer-keyed docs: bookings, payments and refunds (customerUid) and reviews (authorUid).
   customerBookings: { collection: "bookings", where: [], dateField: null, agg: { kind: "count" }, customerField: "customerUid" },
+  // A captured payment keeps counting after refunds (status moves to refunded / partially-refunded),
+  // unlike its booking, which a refunded cancellation turns "cancelled".
   customerSpent: {
-    collection: "bookings",
-    where: [["status", "in", ["confirmed", "completed"]]],
+    collection: "payments",
+    where: [["status", "in", [...CAPTURED_PAYMENT_STATUSES]]],
     dateField: null,
     agg: { kind: "sum", field: "amountMinor" },
     customerField: "customerUid",

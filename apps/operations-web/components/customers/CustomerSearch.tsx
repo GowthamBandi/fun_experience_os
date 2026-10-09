@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowUpRight, Hash, Info, Phone, Search, Ticket, X } from "lucide-react";
 import { Avatar, Badge, Card, Empty, ErrorState, PageHeader, Skeleton } from "@/components/pulse";
 import { PageContainer } from "@/components/shell/PageContainer";
-import { customerLookup, customerName, newestCustomers, toCustomer, type CustomerLookup, type CustomerRow } from "@/lib/customers";
+import { customerLookup, customerName, newestCustomers, newestShort, toCustomer, type CustomerLookup, type CustomerRow } from "@/lib/customers";
 import { fetchDisplayNames, lookupCustomers, newestUsersQuery } from "@/lib/customers-firestore";
 import { maskPhone, relTime } from "@/lib/format";
 import { useNow } from "@/lib/hooks";
@@ -249,7 +249,7 @@ function NewestCustomers() {
   const rows = useMemo(() => newestCustomers(users.rows, NEWEST), [users.rows]);
   const uids = rows.map((r) => r.uid);
   const names = useOneShot(uids.length ? `newest-names|${uids.join(",")}` : null, () => fetchDisplayNames(uids));
-  const short = users.truncated && rows.length < NEWEST;
+  const short = newestShort(rows.length, users.truncated, NEWEST);
 
   return (
     <section aria-labelledby="newest-customers" className="flex flex-col gap-4">

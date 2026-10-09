@@ -268,7 +268,7 @@ function View({ uid, onRetry }: { uid: string; onRetry: () => void }) {
           </div>
           <dl aria-label="At a glance" className="grid w-full grid-cols-3 gap-2.5 sm:w-auto sm:min-w-[380px]">
             <Fact label="Last booked" value={bookings.loading || bookings.error ? "—" : now && glance.last ? relTime(glance.last, now) : "—"} />
-            <Fact label="Spots booked" value={bookings.loading || bookings.error ? "—" : String(glance.spots)} />
+            <Fact label="Spots booked" value={bookings.loading || bookings.error ? "—" : `${glance.spots}${bookings.truncated ? "+" : ""}`} />
             <Fact label="Events" value={bookings.loading || bookings.error ? "—" : `${glance.events}${bookings.truncated ? "+" : ""}`} />
           </dl>
         </div>
@@ -276,7 +276,7 @@ function View({ uid, onRetry }: { uid: string; onRetry: () => void }) {
 
       <section aria-label="Key numbers" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label="Bookings" value={countFull(bookingCount.value)} hint="All time · every status" loading={bookingCount.loading} error={bookingCount.error} onRetry={bookingCount.retry} />
-        <Stat label="Spent" value={inrMinor(spent.value)} hint="Confirmed + completed bookings, before refunds" loading={spent.loading} error={spent.error} onRetry={spent.retry} />
+        <Stat label="Spent" value={inrMinor(spent.value)} hint="Captured payments, before refunds" loading={spent.loading} error={spent.error} onRetry={spent.retry} />
         <Stat
           label="Refunds"
           value={inrMinor(refunded.value)}

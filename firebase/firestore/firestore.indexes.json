@@ -717,7 +717,7 @@
       ]
     },
     {
-      "collectionGroup": "bookings",
+      "collectionGroup": "payments",
       "queryScope": "COLLECTION",
       "fields": [
         {
