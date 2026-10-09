@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatPaise, needsRefundDualControl, needsSettlementDualControl } from "@/lib/console/money";
+import { formatMoney, formatPaise, needsRefundDualControl, needsSettlementDualControl } from "@/lib/console/money";
 
 describe("formatPaise", () => {
   it("formats integer paise as INR with two decimals", () => {
@@ -22,6 +22,18 @@ describe("formatPaise", () => {
   });
   it("falls back to INR for an invalid currency code", () => {
     expect(formatPaise(100, "rupees")).toBe("₹1.00");
+  });
+});
+
+describe("formatMoney", () => {
+  it("matches inrMinor for INR, exact to the paisa", () => {
+    expect(formatMoney(1_500_000)).toBe("₹15,000");
+    expect(formatMoney(44_950, "inr")).toBe("₹449.50");
+    expect(formatMoney(-95_000)).toBe("−₹950");
+    expect(formatMoney(12.5)).toBe("—");
+  });
+  it("keeps two decimals for other currencies", () => {
+    expect(formatMoney(1234, "USD")).toMatch(/12\.34/);
   });
 });
 

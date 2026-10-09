@@ -3,7 +3,7 @@
  * No Firebase imports, so everything here is unit-testable.
  */
 
-import { formatPaise, isMinorAmount, needsRefundDualControl } from "./money";
+import { formatMoney, isMinorAmount, needsRefundDualControl } from "./money";
 
 export type DisplayStatus = "Approved" | "Pending" | "Paused" | "Blocked" | "Under review" | "On hold" | "Hidden";
 
@@ -74,7 +74,7 @@ function versionOf(data: Data): number {
 /** Generic governance adapter (the original console behaviour). */
 export function adaptGeneric(id: string, data: Data): DisplayRecord {
   const minor = data.amountMinor ?? data.exposureMinor ?? data.projectedGmvMinor ?? data.priceMinor;
-  const amount = isMinorAmount(minor) ? formatPaise(minor, data.currency) : null;
+  const amount = isMinorAmount(minor) ? formatMoney(minor, data.currency) : null;
   const rate = typeof data.commissionBps === "number" ? `${(data.commissionBps / 100).toFixed(2).replace(/\.00$/, "")}% commission` : null;
   const location = text(data, "location", "city", "territoryName");
   const owner = text(data, "organizerName", "subjectType", "category", "action");
@@ -122,7 +122,7 @@ export function adaptRefund(id: string, data: Data): DisplayRecord {
     primary: `${reason}`,
     secondary: `Org ${text(data, "orgId")} · booking ${text(data, "bookingId")}`,
     status: displayStatus(status),
-    value: formatPaise(data.amountMinor, data.currency),
+    value: formatMoney(data.amountMinor, data.currency),
     meta: meta.join(" · "),
     version: versionOf(data),
     raw: { ...data },
@@ -138,11 +138,11 @@ export function adaptSettlement(id: string, data: Data): DisplayRecord {
     primary: `Settlement · org ${text(data, "orgId")}`,
     secondary: `Period ending ${formatDate(data.periodEnd)} · ${typeof data.entryCount === "number" ? data.entryCount : 0} ledger entries`,
     status: displayStatus(status),
-    value: `${formatPaise(data.netMinor, data.currency)} net`,
+    value: `${formatMoney(data.netMinor, data.currency)} net`,
     meta: [
-      `Gross ${formatPaise(data.grossMinor, data.currency)}`,
-      `Commission ${formatPaise(data.commissionMinor, data.currency)}`,
-      `Refunds ${formatPaise(data.refundsMinor, data.currency)}`,
+      `Gross ${formatMoney(data.grossMinor, data.currency)}`,
+      `Commission ${formatMoney(data.commissionMinor, data.currency)}`,
+      `Refunds ${formatMoney(data.refundsMinor, data.currency)}`,
       `Status: ${status}`,
       typeof data.payoutReference === "string" && data.payoutReference ? `Payout ref ${data.payoutReference}` : null,
     ].filter(Boolean).join(" · "),
@@ -182,7 +182,7 @@ export function adaptEvent(id: string, data: Data): DisplayRecord {
   return {
     ...base,
     primary: text(data, "title", "name", "subject"),
-    value: isMinorAmount(data.priceMinor) ? formatPaise(data.priceMinor, data.currency) : base.value,
+    value: isMinorAmount(data.priceMinor) ? formatMoney(data.priceMinor, data.currency) : base.value,
     meta: [starts, venue ? [text(venue, "name"), text(venue, "city")].filter((v) => v !== "—").join(", ") : text(data, "location"), `Status: ${String(data.status ?? "—")}`]
       .filter((v) => v && v !== "—").join(" · ") || base.meta,
   };
@@ -270,7 +270,7 @@ export function caseTargetFields(kind: string, target: Data | null): KeyField[] 
   }
   return [
     ...common,
-    { label: "Price", value: isMinorAmount(target.priceMinor) ? (target.priceMinor === 0 ? "Free" : formatPaise(target.priceMinor, target.currency)) : "—" },
+    { label: "Price", value: isMinorAmount(target.priceMinor) ? (target.priceMinor === 0 ? "Free" : formatMoney(target.priceMinor, target.currency)) : "—" },
     { label: "Capacity", value: capacity ? `${typeof capacity.min === "number" ? `${capacity.min}–` : ""}${typeof capacity.max === "number" ? capacity.max : "?"} spots` : "—" },
     { label: "Starts", value: formatDateTime(target.startsAt) },
     { label: "Duration", value: typeof target.durationMinutes === "number" ? `${target.durationMinutes} min` : "—" },

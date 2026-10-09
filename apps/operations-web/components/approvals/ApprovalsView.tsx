@@ -9,7 +9,7 @@ import { OrganizerCodeModal } from "@/components/governance/OrganizerCodeModal";
 import { CaseList } from "./CaseList";
 import { CaseDetail } from "./CaseDetail";
 import { OrganizerCodes } from "./OrganizerCodes";
-import { caseQuery, isTypingTarget, laneCounts, laneRecords, liveDecision, neighbourId, stepSelection, type Lane } from "@/lib/approvals";
+import { caseDecisionKey, caseQuery, isTypingTarget, laneCounts, laneRecords, liveDecision, neighbourId, stepSelection, type Lane } from "@/lib/approvals";
 import { CONFIRM_PHRASES, RequestIdBook, isConfirmed, type CaseOutcome } from "@/lib/console/actions";
 import { isOpenCase } from "@/lib/console/attention";
 import { ROLE_LABEL, can } from "@/lib/console/capabilities";
@@ -196,7 +196,7 @@ function Queue() {
     setConflict(null);
     setDual(null);
     try {
-      const requestId = book.current.idFor(`${record.id}-${outcome}`);
+      const requestId = book.current.idFor(caseDecisionKey(record, outcome));
       const result = await decideCase({ requestId, caseId: record.id, expectedVersion: record.version, outcome, note });
       book.current.reset();
       const mapped = caseOutcome(kind, outcome, result);

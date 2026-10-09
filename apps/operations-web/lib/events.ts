@@ -6,6 +6,8 @@
  */
 
 import type { BadgeTone } from "@/components/pulse/Badge";
+import type { ToastInput } from "@/components/pulse/Toast";
+import { decisionKey } from "./console/actions";
 import { toDate } from "./console/records";
 import type { OrgEventRow } from "./organizers";
 
@@ -40,6 +42,22 @@ const CANCELLABLE = new Set(["draft", "submitted", "changes-requested", "approve
 
 export function isCancellable(status: unknown): boolean {
   return CANCELLABLE.has(String(status ?? ""));
+}
+
+/** adminCancelEvent RequestIdBook key: the event and the status it was cancelled from (ruling R16). */
+export function cancelEventKey(eventId: string, status: unknown): string {
+  return decisionKey("event-cancel", eventId, typeof status === "string" ? status : "");
+}
+
+/** The toast for an adminCancelEvent result, titled from the server's `{ status }`. */
+export function cancelEventToast(result: unknown, title: string): ToastInput {
+  const status = typeof result === "object" && result !== null && typeof (result as Raw).status === "string" ? String((result as Raw).status) : null;
+  if (status === "cancelled") {
+    return { tone: "ok", title: `Event cancelled · ${title}`, body: "Refunds for every confirmed booking are being issued; attendees are notified." };
+  }
+  return status
+    ? { tone: "info", title: `Event is now ${status} · ${title}`, body: "The server didn't report a cancellation. Refresh to see the event's current state." }
+    : { tone: "info", title: `Cancel sent · ${title}`, body: "The server didn't return the event's status. Refresh to confirm it's cancelled." };
 }
 
 /** Statuses the event lifecycle doesn't know (written by setMarketplaceEntityStatus on an event). */

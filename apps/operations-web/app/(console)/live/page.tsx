@@ -1,14 +1,16 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Badge, Button, Card, Empty, ErrorState, PageHeader, SkeletonRows, Sheet, Tooltip, Truncated, useToast } from "@/components/pulse";
 import { PageContainer } from "@/components/shell/PageContainer";
 import { LiveEventRow } from "@/components/live/LiveEventRow";
+import { PhraseBox } from "@/components/governance/PhraseBox";
 import { can } from "@/lib/console/capabilities";
-import { newRequestId } from "@/lib/console/actions";
-import { mapConsoleError } from "@/lib/console/errors";
+import { CONFIRM_PHRASES, RequestIdBook, isConfirmed } from "@/lib/console/actions";
+import { rethrowForSheet } from "@/lib/console/errors";
 import { useAdminSession } from "@/lib/firebase/auth";
 import { cn } from "@/lib/format";
+import { cancelEventKey, cancelEventToast } from "@/lib/events";
 import { adminCancelEvent } from "@/lib/governance-api";
 import { useNow } from "@/lib/hooks";
 import type { Ev } from "@/lib/overview";
@@ -21,23 +23,22 @@ export default function LivePage() {
   const now = useNow(30_000);
   const canCancel = can(consoleRole, "governance.decide");
   const [target, setTarget] = useState<Ev | null>(null);
-  const requestId = useRef<string | null>(null);
+  const [typed, setTyped] = useState("");
+  const book = useRef(new RequestIdBook("liveCancel"));
 
-  const open = (ev: Ev) => {
-    requestId.current = newRequestId("cancel");
-    setTarget(ev);
-  };
+  useEffect(() => setTyped(""), [target?.id]);
+
+  const open = (ev: Ev) => setTarget(ev);
 
   const confirm = async (reason: string) => {
     if (!target) return;
+    if (!isConfirmed(typed, CONFIRM_PHRASES.cancelEvent)) throw new Error(`Type ${CONFIRM_PHRASES.cancelEvent} to confirm.`);
     try {
-      const result = await adminCancelEvent({ requestId: requestId.current ?? newRequestId("cancel"), eventId: target.id, reason });
-      const status = typeof result.status === "string" ? result.status : null;
-      toast.show({ tone: "ok", title: "Event cancelled", body: `${target.title}${status ? ` · ${status}` : ""}. Refunds are being issued and attendees notified.` });
-      requestId.current = null;
-    } catch (e) {
-      const err = mapConsoleError(e);
-      throw new Error(err.nextStep ? `${err.message} ${err.nextStep}` : err.message);
+      const result = await adminCancelEvent({ requestId: book.current.idFor(cancelEventKey(target.id, target.status)), eventId: target.id, reason });
+      book.current.reset();
+      toast.show(cancelEventToast(result, target.title));
+    } catch (cause) {
+      rethrowForSheet(cause, book.current);
     }
   };
 
@@ -106,12 +107,22 @@ export default function LivePage() {
       </Card>
       <Sheet
         open={target !== null}
-        title="Cancel this event?"
-        description={target ? `${target.title} will be cancelled, every ticket voided and a 100% refund issued to each confirmed booking. Attendees are notified. This cannot be undone.` : undefined}
+        title={target ? `Cancel ${target.title}?` : "Cancel this event?"}
         confirmLabel="Cancel event"
         tone="danger"
         requireReason
         minReason={10}
+        reasonLabel="Reason (kept on the event and in the audit trail)"
+        extra={
+          target ? (
+            <PhraseBox
+              phrase={CONFIRM_PHRASES.cancelEvent}
+              consequence={`${target.title} will be cancelled, every ticket voided and a 100% refund issued to each confirmed booking. Attendees are notified. This cannot be undone.`}
+              value={typed}
+              onChange={setTyped}
+            />
+          ) : undefined
+        }
         onConfirm={confirm}
         onClose={() => setTarget(null)}
       />

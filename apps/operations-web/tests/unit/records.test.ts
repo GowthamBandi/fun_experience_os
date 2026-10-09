@@ -11,7 +11,7 @@ describe("refund stages", () => {
   });
   it("renders refund rows from paise", () => {
     const row = adaptRefund("req_1", { status: "under-review", amountMinor: 1_500_000, currency: "INR", approvals: ["a"], reason: "organizer-request", orgId: "org1", bookingId: "b1" });
-    expect(row.value).toBe("₹15,000.00");
+    expect(row.value).toBe("₹15,000");
     expect(row.meta).toContain("Awaiting second approver");
     expect(row.status).toBe("Under review");
   });
@@ -20,10 +20,21 @@ describe("refund stages", () => {
 describe("settlement rows", () => {
   it("shows gross/commission/refunds/net formatted from paise", () => {
     const row = adaptSettlement("stl_1", { orgId: "org1", status: "pending-approval", grossMinor: 1_000_000, commissionMinor: 100_000, refundsMinor: 50_000, netMinor: 850_000, currency: "INR", entryCount: 3 });
-    expect(row.value).toBe("₹8,500.00 net");
-    expect(row.meta).toContain("Gross ₹10,000.00");
-    expect(row.meta).toContain("Commission ₹1,000.00");
-    expect(row.meta).toContain("Refunds ₹500.00");
+    expect(row.value).toBe("₹8,500 net");
+    expect(row.meta).toContain("Gross ₹10,000");
+    expect(row.meta).toContain("Commission ₹1,000");
+    expect(row.meta).toContain("Refunds ₹500");
+  });
+});
+
+describe("record money matches the money pages (exact inrMinor)", () => {
+  it("never rounds paise and uses a true minus", () => {
+    const row = adaptSettlement("stl_2", { orgId: "org1", status: "held", grossMinor: 44_950, commissionMinor: 4_495, refundsMinor: 0, netMinor: -95_050, currency: "INR" });
+    expect(row.value).toBe("−₹950.50 net");
+    expect(row.meta).toContain("Gross ₹449.50");
+    expect(row.meta).toContain("Commission ₹44.95");
+    expect(adaptRefund("r2", { status: "approved", amountMinor: 99, currency: "INR" }).value).toBe("₹0.99");
+    expect(adaptRefund("r3", { status: "approved", amountMinor: 12.5 }).value).toBe("—");
   });
 });
 
@@ -45,7 +56,7 @@ describe("case target key fields", () => {
     });
     const byLabel = Object.fromEntries(fields.map((f) => [f.label, f.value]));
     expect(byLabel.Title).toBe("Sunset Trek");
-    expect(byLabel.Price).toBe("₹1,499.00");
+    expect(byLabel.Price).toBe("₹1,499");
     expect(byLabel.Eligibility).toBe("Age 18+ · Women only");
     expect(byLabel.Capacity).toBe("4–20 spots");
     expect(byLabel.Venue).toBe("Base Camp, Hills, Pune");

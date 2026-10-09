@@ -4,6 +4,8 @@
  * float arithmetic on money.
  */
 
+import { inrMinor } from "../format";
+
 const formatters = new Map<string, Intl.NumberFormat>();
 
 function formatter(currency: string): Intl.NumberFormat {
@@ -35,6 +37,17 @@ export function formatPaise(minor: unknown, currency: unknown = "INR"): string {
   const paise = abs % 100;
   const text = formatter(code).format(whole + paise / 100);
   return negative ? `−${text}` : text;
+}
+
+/**
+ * The console's money figure for a record: exact en-IN rupees via `inrMinor` (the same
+ * string the money pages show, "₹15,000" / "₹449.50" / "−₹950"); other currencies fall
+ * back to `formatPaise`. Non-integer paise read "—".
+ */
+export function formatMoney(minor: unknown, currency: unknown = "INR"): string {
+  if (!isMinorAmount(minor)) return "—";
+  const code = typeof currency === "string" && /^[A-Za-z]{3}$/.test(currency) ? currency.toUpperCase() : "INR";
+  return code === "INR" ? inrMinor(minor) : formatPaise(minor, code);
 }
 
 /** Thresholds mirrored from firebase/functions/src/commerce/config.ts (display only; the server enforces). */

@@ -191,3 +191,14 @@ describe("caseMeta", () => {
     expect(caseMeta({}, null)).toBe("—");
   });
 });
+
+describe("caseDecisionKey (ruling R16)", () => {
+  it("changes with the outcome and the version decided against", async () => {
+    const { caseDecisionKey } = await import("@/lib/approvals");
+    const rec = { id: "case1", version: 3, raw: { status: "open" } };
+    expect(caseDecisionKey(rec, "approved")).toBe("case|case1|approved|3|open");
+    expect(caseDecisionKey(rec, "approved")).toBe(caseDecisionKey({ ...rec }, "approved"));
+    expect(caseDecisionKey({ ...rec, version: 4 }, "approved")).not.toBe(caseDecisionKey(rec, "approved"));
+    expect(caseDecisionKey(rec, "rejected")).not.toBe(caseDecisionKey(rec, "approved"));
+  });
+});

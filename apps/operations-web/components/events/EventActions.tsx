@@ -7,7 +7,7 @@ import { PhraseBox } from "@/components/governance/PhraseBox";
 import { CONFIRM_PHRASES, RequestIdBook, isConfirmed } from "@/lib/console/actions";
 import { ROLE_LABEL, can, type ConsoleRole } from "@/lib/console/capabilities";
 import { rethrowForSheet } from "@/lib/console/errors";
-import { isCancellable } from "@/lib/events";
+import { cancelEventKey, cancelEventToast, isCancellable } from "@/lib/events";
 import { eventBadge } from "@/lib/organizers";
 import { adminCancelEvent } from "@/lib/governance-api";
 
@@ -60,11 +60,10 @@ export function EventActions({
   const confirm = async (reason: string) => {
     if (!isConfirmed(typed, CONFIRM_PHRASES.cancelEvent)) throw new Error(`Type ${CONFIRM_PHRASES.cancelEvent} to confirm.`);
     try {
-      const result = await adminCancelEvent({ requestId: book.current.idFor(`${eventId}-cancel`), eventId, reason });
+      const result = await adminCancelEvent({ requestId: book.current.idFor(cancelEventKey(eventId, status)), eventId, reason });
       book.current.reset();
       onChanged();
-      const next = typeof result.status === "string" ? result.status : null;
-      toast.show({ tone: "ok", title: `Event cancelled · ${title}`, body: `${next ? `Status is now ${next}. ` : ""}Refunds for every confirmed booking are being issued; attendees are notified.` });
+      toast.show(cancelEventToast(result, title));
     } catch (cause) {
       rethrowForSheet(cause, book.current);
     }

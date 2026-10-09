@@ -132,8 +132,10 @@ export interface DecisionSpec {
 export function DecisionSheet({ spec, book, onClose }: { spec: DecisionSpec | null; book: RequestIdBook; onClose: () => void }) {
   const toast = useToast();
   const [typed, setTyped] = useState("");
-  const key = spec ? `${spec.idKey}|${spec.title}` : null;
-  useEffect(() => setTyped(""), [key]);
+  // A new decision clears the phrase; a live update that only moves the idKey (status/updatedAt) keeps it,
+  // like the Sheet keeps the note. The changed key still gets its own request id.
+  const opened = spec ? `${spec.title}|${spec.confirmLabel}` : null;
+  useEffect(() => setTyped(""), [opened]);
 
   const confirm = async (reason: string) => {
     if (!spec) return;

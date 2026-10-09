@@ -3,6 +3,7 @@
  */
 
 import type { BadgeTone } from "@/components/pulse/Badge";
+import { decisionKey } from "./console/actions";
 import { isOpenCase } from "./console/attention";
 import { toDate } from "./console/records";
 import { relTime } from "./format";
@@ -117,6 +118,11 @@ export function stepSelection(ids: string[], current: string | null, delta: 1 | 
 }
 
 /** Where the selection goes once `current` leaves the queue. */
+/** decideCase RequestIdBook key: the case, the outcome and the version it was decided against (ruling R16). */
+export function caseDecisionKey(record: { id: string; version: number; raw: Raw }, outcome: string): string {
+  return decisionKey("case", record.id, outcome, record.version, String(record.raw.status ?? ""));
+}
+
 export function neighbourId(ids: string[], current: string): string | null {
   const i = ids.indexOf(current);
   if (i < 0) return ids[0] ?? null;

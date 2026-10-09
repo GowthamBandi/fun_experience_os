@@ -166,3 +166,18 @@ describe("actions", () => {
     expect(isOffLifecycle("published")).toBe(false);
   });
 });
+
+describe("event cancel key and toast", () => {
+  it("keys on the event and the status it was cancelled from", async () => {
+    const { cancelEventKey } = await import("@/lib/events");
+    expect(cancelEventKey("ev1", "published")).toBe("event-cancel|ev1|published");
+    expect(cancelEventKey("ev1", "live")).not.toBe(cancelEventKey("ev1", "published"));
+    expect(cancelEventKey("ev1", undefined)).toBe("event-cancel|ev1|");
+  });
+  it("titles the toast from the server's status", async () => {
+    const { cancelEventToast } = await import("@/lib/events");
+    expect(cancelEventToast({ eventId: "ev1", status: "cancelled" }, "Sunset Trek")).toMatchObject({ tone: "ok", title: "Event cancelled · Sunset Trek" });
+    expect(cancelEventToast({ status: "completed" }, "X")).toMatchObject({ tone: "info", title: "Event is now completed · X" });
+    expect(cancelEventToast(null, "X")).toMatchObject({ tone: "info", title: "Cancel sent · X" });
+  });
+});
