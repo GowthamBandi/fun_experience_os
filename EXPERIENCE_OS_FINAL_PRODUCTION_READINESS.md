@@ -215,7 +215,7 @@ What remains is owner-only, in checklist §4:
 - KYC purge covers only rejected applicants; offboarding approved organizers isn't built yet.
 
 **Other:**
-- The launcher icons and splash are Flutter defaults until brand art is supplied (owner, D4).
+- Launcher icons, notification glyph and launch screens use the generated heartbeat mark; a designer may replace it (D4, optional).
 - An unused `flutter create` scaffold sits at the backend repo root. Deleting it was blocked by the permission system in this session; that decision is left to the owner (D5).
 
 ## 9. Human actions

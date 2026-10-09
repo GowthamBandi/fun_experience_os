@@ -17,7 +17,7 @@ Your Firebase / Google Cloud account: **frameingos@gmail.com**. Repositories:
 | D1 | **App id / bundle id.** It can never change after the first store upload. | `app.pulse.experience` (Android and iOS) | `exprerience_os/android/app/build.gradle.kts`, `ios/Runner.xcodeproj`. To change it, see `exprerience_os/docs/RELEASE_CHECKLIST.md` §0 |
 | D2 | **Firebase project ids** for staging and production. The staging id must contain `staging`, `dev` or `test`; the production id must not. | none (never guessed) | `.firebaserc`, build defines |
 | D3 | **Console domain**, e.g. `ops.<your-domain>` | none | App Hosting, Auth authorized domains, reCAPTCHA key |
-| D4 | **Brand art:** 1024×1024 app icon and a monochrome notification glyph. The launcher icons and splash are still Flutter defaults. | a placeholder ticket glyph for notifications | `exprerience_os/docs/RELEASE_CHECKLIST.md` H10 |
+| D4 | **Brand art:** optional. Icons, notification glyph and launch screens are generated from the in-app heartbeat mark (`exprerience_os/tool/app_icon/generate_icons.py`); replace only if a designer supplies new art. | heartbeat mark (done) | `exprerience_os/docs/RELEASE_CHECKLIST.md` H10 |
 | D5 | **Unused Flutter scaffold** at the root of this repo: delete it or keep it. Deleting it was blocked by the permission system in the automated session. | kept, marked unused in `README.md` | `lib/ test/ android/ ios/ web/ linux/ macos/ windows/ pubspec.*` |
 
 ---
