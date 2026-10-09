@@ -1,2 +1,5 @@
-import { SystemHealthWorkspace } from "@/components/governance/SystemHealthWorkspace";
-export default function Page(){return <SystemHealthWorkspace/>}
+import { SystemHealthView } from "@/components/control/SystemHealthView";
+
+export default function Page() {
+  return <SystemHealthView />;
+}

@@ -1,2 +1,5 @@
-import { AuditWorkspace } from "@/components/governance/AuditWorkspace";
-export default function Page(){return <AuditWorkspace/>}
+import { AuditTimeline } from "@/components/control/AuditTimeline";
+
+export default function Page() {
+  return <AuditTimeline />;
+}

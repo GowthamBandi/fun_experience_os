@@ -1,2 +1,5 @@
-import { OperatorsWorkspace } from "@/components/governance/OperatorsWorkspace";
-export default function Page(){return <OperatorsWorkspace/>}
+import { OperatorsView } from "@/components/control/OperatorsView";
+
+export default function Page() {
+  return <OperatorsView />;
+}

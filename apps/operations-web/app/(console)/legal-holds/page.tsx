@@ -1,2 +1,5 @@
-import { LegalHoldsWorkspace } from "@/components/governance/LegalHoldsWorkspace";
-export default function Page(){return <LegalHoldsWorkspace/>}
+import { LegalHoldsView } from "@/components/control/LegalHoldsView";
+
+export default function Page() {
+  return <LegalHoldsView />;
+}
