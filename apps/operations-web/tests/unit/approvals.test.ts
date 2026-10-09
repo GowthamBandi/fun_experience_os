@@ -202,3 +202,15 @@ describe("caseDecisionKey (ruling R16)", () => {
     expect(caseDecisionKey(rec, "rejected")).not.toBe(caseDecisionKey(rec, "approved"));
   });
 });
+
+describe("organizer codes", () => {
+  it("labels activation and keys a re-issue on the application state", async () => {
+    const { applicationActivation, reissueCodeKey } = await import("@/lib/approvals");
+    expect(applicationActivation({ status: "approved", orgId: "o1", activationPending: true }).label).toBe("Code issued, not redeemed");
+    expect(applicationActivation({ status: "approved", orgId: "o1", activationPending: false }).label).toBe("Activated");
+    expect(applicationActivation({ status: "submitted" }).label).toBe("No code");
+    const rec = { id: "uid_1", version: 2, raw: { status: "approved", activationPending: true } };
+    expect(reissueCodeKey(rec)).toBe("reissue-code|uid_1|approved|2|true");
+    expect(reissueCodeKey({ ...rec, version: 3 })).not.toBe(reissueCodeKey(rec));
+  });
+});

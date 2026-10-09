@@ -123,6 +123,18 @@ export function caseDecisionKey(record: { id: string; version: number; raw: Raw 
   return decisionKey("case", record.id, outcome, record.version, String(record.raw.status ?? ""));
 }
 
+/** reissueOrganizerCode key: the applicant and the application state it was re-issued against. */
+export function reissueCodeKey(record: { id: string; version: number; raw: Raw }): string {
+  return decisionKey("reissue-code", record.id, String(record.raw.status ?? ""), record.version, record.raw.activationPending === true);
+}
+
+/** Where an organizer application stands on its one-time code. */
+export function applicationActivation(raw: Raw): { label: string; tone: BadgeTone } {
+  if (raw.status !== "approved") return { label: "No code", tone: "muted" };
+  if (typeof raw.orgId !== "string" || !raw.orgId) return { label: "—", tone: "muted" };
+  return raw.activationPending === false ? { label: "Activated", tone: "ok" } : { label: "Code issued, not redeemed", tone: "warn" };
+}
+
 export function neighbourId(ids: string[], current: string): string | null {
   const i = ids.indexOf(current);
   if (i < 0) return ids[0] ?? null;

@@ -378,3 +378,11 @@ export function adaptLegalHold(id: string, data: Data): DisplayRecord {
     raw: { ...data },
   };
 }
+
+/** Up to `max` primitive fields from a raw document (fallback detail view). */
+export function rawFields(raw: Record<string, unknown>, max = 12): KeyField[] {
+  return Object.entries(raw)
+    .filter(([, value]) => typeof value === "string" || typeof value === "number" || typeof value === "boolean")
+    .slice(0, max)
+    .map(([key, value]) => ({ label: key.replace(/([A-Z])/g, " $1"), value: String(value) }));
+}

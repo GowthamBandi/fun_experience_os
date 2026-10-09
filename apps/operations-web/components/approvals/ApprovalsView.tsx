@@ -337,18 +337,8 @@ function Queue() {
 }
 
 function Codes() {
-  const router = useRouter();
   const pathname = usePathname() ?? "/approvals";
-  return (
-    <div>
-      <div className="mx-auto w-full max-w-[1440px] px-5 pt-4 lg:px-8">
-        <Button variant="quiet" size="sm" icon={<ArrowLeft />} onClick={() => router.push(pathname)}>
-          Back to the queue
-        </Button>
-      </div>
-      <OrganizerCodes />
-    </div>
-  );
+  return <OrganizerCodes backHref={pathname} />;
 }
 
 function Route() {

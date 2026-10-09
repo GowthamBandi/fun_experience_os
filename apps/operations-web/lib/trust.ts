@@ -221,7 +221,7 @@ const CLOSE_BLOCKED: AlertAction = {
 
 /**
  * Alert status changes (setMarketplaceEntityStatus, entityType "risk-alert"); no-ops are hidden.
- * Resolve, Pause exposure and Close as blocked keep GovernanceRoutePage's "resolved" / "paused" / "blocked"
+ * Resolve, Pause exposure and Close as blocked keep the original risk console's "resolved" / "paused" / "blocked"
  * (blocked is a distinct closed disposition in the audit trail); Keep open writes "under-review".
  */
 export function alertActions(status: string | null): AlertAction[] {

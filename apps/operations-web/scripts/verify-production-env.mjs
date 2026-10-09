@@ -14,7 +14,6 @@
  *       staging    → MUST contain staging|stage|stg
  *   - EXPECTED_FIREBASE_PROJECT_ID (optional, set per CI environment) equals the project id exactly
  *   - authDomain / storageBucket, when on Firebase-owned domains, belong to the same project
- *   - the archived prototype flag is not enabled
  *
  * Pure `checkProductionEnv(env)` is exported for tests/unit/verify-production-env.test.ts.
  */
@@ -83,10 +82,6 @@ export function checkProductionEnv(env) {
     if (firebaseBucket && firebaseBucket[1] !== projectId) {
       errors.push(`NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET (${bucket}) belongs to a different project than ${projectId}.`);
     }
-  }
-
-  if (get("NEXT_PUBLIC_SHOW_ARCHIVED_PROTOTYPE") === "true") {
-    errors.push("NEXT_PUBLIC_SHOW_ARCHIVED_PROTOTYPE must not be true in a deployed build (ADR-0006).");
   }
 
   return { errors, warnings, appEnv: appEnv || null, projectId: projectId || null };
