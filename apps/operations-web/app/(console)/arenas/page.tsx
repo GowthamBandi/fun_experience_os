@@ -1,2 +1,5 @@
-import { GovernanceRoutePage } from "@/components/governance/GovernanceRoutePage";
-export default function Page(){return <GovernanceRoutePage config={{collection:"arenas",entityType:"arena",eyebrow:"Marketplace",title:"Arenas",description:"Approve, pause or block organizer-submitted arenas based on ownership, safety, capacity and inspection evidence.",metricLabel:"Arena records",primaryAction:"Review arena"}}/>}
+import { ArenasView } from "@/components/arenas/ArenasView";
+
+export default function Page() {
+  return <ArenasView />;
+}

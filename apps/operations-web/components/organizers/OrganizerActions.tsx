@@ -5,12 +5,13 @@ import { Ban, Handshake, KeyRound, Lock, Pause, Play } from "lucide-react";
 import { Button, Chip, Sheet, Tooltip, useToast } from "@/components/pulse";
 import { OrganizerCodeModal } from "@/components/governance/OrganizerCodeModal";
 import { PhraseBox } from "@/components/governance/PhraseBox";
+import { StatusSheet } from "@/components/governance/StatusSheet";
 import { CONFIRM_PHRASES, PAYOUT_CADENCES, RequestIdBook, commissionPercentToBps, isConfirmed, type PayoutCadence } from "@/lib/console/actions";
 import { ROLE_LABEL, can, type ConsoleRole } from "@/lib/console/capabilities";
 import { rethrowForSheet } from "@/lib/console/errors";
 import { canReissueOrganizerCode } from "@/lib/console/records";
-import { proposeCommercialAgreement, reissueOrganizerCode, setEntityStatus } from "@/lib/governance-api";
-import { commissionLabel, entityVersion, statusActions, type StatusAction } from "@/lib/organizers";
+import { proposeCommercialAgreement, reissueOrganizerCode } from "@/lib/governance-api";
+import { commissionLabel, statusActions, type StatusAction } from "@/lib/organizers";
 import { useLiveDocument } from "@/lib/use-governance";
 
 type Raw = Record<string, unknown>;
@@ -76,30 +77,6 @@ export function OrganizerActions({
 
   const actions = statusActions(status);
   const reactivate = actions.find((a) => a.status === "active");
-
-  const confirmStatus = async (action: StatusAction, reason: string) => {
-    if (action.phrase && !isConfirmed(typed, action.phrase)) throw new Error(`Type ${action.phrase} to confirm.`);
-    const version = live.current.version;
-    try {
-      const result = await setEntityStatus({
-        requestId: book.current.idFor(`${orgId}-${action.status}`),
-        entityType: "organizer",
-        entityId: orgId,
-        expectedVersion: entityVersion(version),
-        status: action.status,
-        reason,
-      });
-      book.current.reset();
-      onChanged();
-      toast.show({
-        tone: action.status === "active" ? "ok" : "info",
-        title: `${action.status === "active" ? "Reactivated" : action.status === "paused" ? "Paused" : "Blocked"} · ${name}`,
-        body: result.replayed ? "This request had already been applied." : `Status is now ${result.status} (version ${result.version}).`,
-      });
-    } catch (cause) {
-      rethrowForSheet(cause, book.current);
-    }
-  };
 
   const confirmPropose = async (note: string) => {
     try {
@@ -168,17 +145,14 @@ export function OrganizerActions({
         ) : null}
       </div>
 
-      <Sheet
-        open={!!statusOpen}
-        title={statusOpen ? `${statusOpen.label} ${name}?` : ""}
-        description={statusOpen && !statusOpen.phrase ? statusOpen.consequence : undefined}
-        confirmLabel={statusOpen ? `${statusOpen.label} organizer` : ""}
-        tone={statusOpen?.tone ?? "danger"}
-        requireReason
-        minReason={10}
-        reasonLabel="Reason (kept in the audit trail)"
-        extra={statusOpen?.phrase ? <PhraseBox phrase={statusOpen.phrase} consequence={statusOpen.consequence} value={typed} onChange={setTyped} /> : undefined}
-        onConfirm={(reason) => (statusOpen ? confirmStatus(statusOpen, reason) : Promise.resolve())}
+      <StatusSheet
+        action={statusOpen}
+        entityType="organizer"
+        entityId={orgId}
+        noun="organizer"
+        name={name}
+        getVersion={() => live.current.version}
+        onChanged={onChanged}
         onClose={() => setOpen(null)}
       />
 
