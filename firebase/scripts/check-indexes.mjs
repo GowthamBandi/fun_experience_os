@@ -92,6 +92,8 @@ export const QUERIES = [
 
   // ------------------------------------------------------------ PULSE app
   Q("P01", "pulse", "events", ["status"], "startsAt", [["startsAt", "asc"]], ["lib/src/data/firebase/firebase_repositories.dart", `.orderBy('startsAt')`]),
+  Q("P01b", "pulse", "events", ["status", "venue.cityKey"], "startsAt", [["startsAt", "asc"]], ["lib/src/data/firebase/firebase_repositories.dart", `where('venue.cityKey'`],
+    "Explore for the person's city (location or chosen): published, upcoming, in venue.cityKey."),
   Q("P02", "pulse", "experiences", ["__name__(in)", "status"], null, [], ["lib/src/data/firebase/firebase_repositories.dart", `FieldPath.documentId, whereIn`],
     "documentId-in + one equality is served by the automatic single-field index on status (its entries are already ordered by __name__)."),
   Q("P03", "pulse", "bookings", ["customerUid"], null, [["createdAt", "desc"]], ["lib/src/data/firebase/firebase_repositories.dart", `.collection('bookings')`]),

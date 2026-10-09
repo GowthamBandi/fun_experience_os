@@ -27,6 +27,7 @@
  */
 
 import type { Transaction } from "firebase-admin/firestore";
+import { cityKey } from "./cityKey";
 import { callable, docId, int, obj, oneOf, requestId, str } from "../platform/callable";
 import { requirePhoneUser } from "../platform/actors";
 import { requireAdmin } from "../platform/auth";
@@ -57,7 +58,8 @@ type Phase = (typeof PHASE_ORDER)[number];
 export interface EventInput {
   experienceId: string;
   arenaId: string | null;
-  venue: { name: string; area: string; city: string; address: string; lat?: number; lng?: number };
+  /** cityKey: normalised city, what the PULSE app's "my city" query matches. */
+  venue: { name: string; area: string; city: string; cityKey: string; address: string; lat?: number; lng?: number };
   startsAt: Timestamp;
   durationMinutes: number;
   capacity: { max: number; min: number; blocked: number };
@@ -73,8 +75,10 @@ export function parseEventInput(d: Json, nowMs: number): EventInput {
     name: str(v.name, "Venue name", 2, 100),
     area: str(v.area, "Area", 2, 80),
     city: str(v.city, "City", 2, 60),
+    cityKey: "",
     address: str(v.address, "Address", 5, 240),
   };
+  venue.cityKey = cityKey(venue.city);
   if (v.lat !== undefined && v.lat !== null) venue.lat = num(v.lat, "Latitude", -90, 90);
   if (v.lng !== undefined && v.lng !== null) venue.lng = num(v.lng, "Longitude", -180, 180);
   if ((venue.lat === undefined) !== (venue.lng === undefined)) {
@@ -144,11 +148,15 @@ function materialChanges(ev: Json, input: EventInput): string[] {
   if (ev.durationMinutes !== input.durationMinutes) out.push("duration");
   if ((ev.arenaId ?? null) !== input.arenaId) out.push("arena");
   if (ev.priceMinor !== input.priceMinor || ev.currency !== input.currency) out.push("price");
-  for (const k of ["name", "area", "city", "address", "lat", "lng"] as const) {
-    if ((venue[k] ?? null) !== (input.venue[k] ?? null)) {
-      out.push("venue");
-      break;
-    }
+  const moved = ["lat", "lng"].some((k) => {
+    // Adding coordinates to a venue that had none (the app geocodes the
+    // address) is enrichment, not a change people booked against.
+    const was = venue[k] ?? null;
+    const now = input.venue[k as "lat" | "lng"] ?? null;
+    return was !== null && now !== null && was !== now;
+  });
+  if (moved || (["name", "area", "city", "address"] as const).some((k) => (venue[k] ?? null) !== (input.venue[k] ?? null))) {
+    out.push("venue");
   }
   return out;
 }

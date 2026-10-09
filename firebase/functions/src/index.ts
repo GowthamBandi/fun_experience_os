@@ -6,6 +6,7 @@ export * from "./identity";
 export * from "./catalog";
 export * from "./commerce";
 export { runDataRetention, setLegalHold } from "./platform/retention";
+export { eventPage } from "./web/eventPage";
 
 /** Region of checkHealth: us-central1, where the console and runbook expect it (API_CONTRACT). */
 const HEALTH_REGION = "us-central1";

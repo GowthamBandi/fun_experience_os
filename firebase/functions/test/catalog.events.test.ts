@@ -364,6 +364,11 @@ describe("events", () => {
     }
     const err = await call(saveEvent, { ...same, requestId: rid(), priceMinor: 1 }, owner).catch((e) => e);
     expect(err.details.nextStep).toMatch(/Cancel this event/);
+    // adding map coordinates to a booked venue that had none is not a venue
+    // change (the app geocodes the address); moving them later is.
+    expect(await codeOf(call(saveEvent, { ...same, requestId: rid(), venue: { ...base.venue, lat: 17.43, lng: 78.41 } }, owner))).toBe("RESOLVED");
+    expect((await db().doc(`events/${id}`).get()).data()!.venue).toMatchObject({ lat: 17.43, lng: 78.41, cityKey: "hyderabad" });
+    expect(await messageOf(call(saveEvent, { ...same, requestId: rid(), venue: { ...base.venue, lat: 12.97, lng: 77.59 } }, owner))).toMatch(/already booked/);
     // capacity change: allowed, but not below seats taken
     expect(await codeOf(call(saveEvent, { ...same, requestId: rid(), capacity: { max: 30, min: 6 } }, owner))).toBe("RESOLVED");
     expect((await db().doc(`events/${id}`).get()).data()).toMatchObject({ status: "published", capacity: { maxPhysicalCapacity: 30 } });
