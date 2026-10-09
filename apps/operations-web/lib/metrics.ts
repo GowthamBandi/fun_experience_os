@@ -85,21 +85,22 @@ export type MetricKey =
 
 // Field names verified against firebase/functions/src (see the task 7 report).
 export const METRIC_SPECS: Record<MetricKey, MetricSpec> = {
+  // Money metrics share one basis, the ledger, so gross and refunds line up per period.
   grossBookings: {
-    collection: "bookings",
-    where: [["status", "in", ["confirmed", "completed"]]],
+    collection: "ledgerEntries",
+    where: [["account", "==", "customer_payments"], ["kind", "==", "capture"], ["direction", "==", "debit"]],
     dateField: "createdAt",
     agg: { kind: "sum", field: "amountMinor" },
   },
   confirmedBookings: {
-    collection: "bookings",
-    where: [["status", "in", ["confirmed", "completed"]]],
+    collection: "ledgerEntries",
+    where: [["account", "==", "customer_payments"], ["kind", "==", "capture"], ["direction", "==", "debit"]],
     dateField: "createdAt",
     agg: { kind: "count" },
   },
   refundsAmount: {
-    collection: "refunds",
-    where: [["status", "==", "completed"]],
+    collection: "ledgerEntries",
+    where: [["account", "==", "customer_refunds"], ["kind", "==", "refund"], ["direction", "==", "credit"]],
     dateField: "createdAt",
     agg: { kind: "sum", field: "amountMinor" },
   },
@@ -151,3 +152,11 @@ export const METRIC_SPECS: Record<MetricKey, MetricSpec> = {
     agg: { kind: "sum", field: "amountMinor" },
   },
 };
+
+/** Resolves a metric through `run`, subtracting its `minus` spec (net commission, customers excluding operators). */
+export async function resolveMetric(key: MetricKey, run: (spec: MetricSpec) => Promise<number>): Promise<number> {
+  const spec = METRIC_SPECS[key];
+  if (spec.available === false) throw new Error(spec.reason ?? "Not recorded");
+  const [value, minus] = await Promise.all([run(spec), spec.minus ? resolveMetric(spec.minus, run) : Promise.resolve(0)]);
+  return value - minus;
+}

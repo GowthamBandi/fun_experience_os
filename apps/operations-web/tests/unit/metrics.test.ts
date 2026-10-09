@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dailyBuckets, metricErrorMessage, previousRange, rangeFor, ratio, readNumber } from "@/lib/metrics";
+import { METRIC_SPECS, dailyBuckets, metricErrorMessage, previousRange, rangeFor, ratio, readNumber, resolveMetric } from "@/lib/metrics";
 
 describe("IST ranges", () => {
   it("today starts at IST midnight even just after it", () => {
@@ -46,5 +46,26 @@ describe("metric errors", () => {
     expect(metricErrorMessage({ code: "permission-denied" })).toMatch(/role/);
     expect(metricErrorMessage({ code: "unavailable" })).toMatch(/connection/);
     expect(metricErrorMessage(new Error("x"))).toBe("This number couldn't load.");
+  });
+});
+
+describe("metric specs", () => {
+  it("money metrics share the ledger basis", () => {
+    const eq = (k: keyof typeof METRIC_SPECS) => METRIC_SPECS[k].where.map(([f, , v]) => `${f}=${v}`).join(",");
+    for (const k of ["grossBookings", "confirmedBookings", "refundsAmount", "commission"] as const) {
+      expect(METRIC_SPECS[k].collection).toBe("ledgerEntries");
+      expect(METRIC_SPECS[k].dateField).toBe("createdAt");
+    }
+    expect(eq("grossBookings")).toBe("account=customer_payments,kind=capture,direction=debit");
+    expect(eq("confirmedBookings")).toBe(eq("grossBookings"));
+    expect(METRIC_SPECS.confirmedBookings.agg).toEqual({ kind: "count" });
+    expect(eq("refundsAmount")).toBe("account=customer_refunds,kind=refund,direction=credit");
+    expect(eq("commission")).toBe("account=platform_commission,kind=capture,direction=credit");
+    expect(METRIC_SPECS.commission.minus).toBe("commissionReversed");
+  });
+  it("subtracts the minus spec", async () => {
+    const run = async (spec: (typeof METRIC_SPECS)[keyof typeof METRIC_SPECS]) => (spec === METRIC_SPECS.commission ? 500 : spec === METRIC_SPECS.commissionReversed ? 120 : 0);
+    expect(await resolveMetric("commission", run)).toBe(380);
+    expect(await resolveMetric("ticketsIssued", run)).toBe(0);
   });
 });

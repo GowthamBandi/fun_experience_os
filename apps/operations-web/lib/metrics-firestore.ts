@@ -1,6 +1,6 @@
 import { collection, count, getAggregateFromServer, query, sum, Timestamp, where, type QueryConstraint } from "firebase/firestore";
 import { getFirebaseClient } from "./firebase/client";
-import { METRIC_SPECS, readNumber, type MetricKey, type MetricSpec, type TimeRange } from "./metrics";
+import { readNumber, resolveMetric, type MetricKey, type MetricSpec, type TimeRange } from "./metrics";
 
 /** One server-side aggregation. A sum skips docs missing the field; a non-finite result throws. */
 export async function runMetric(spec: MetricSpec, range?: TimeRange): Promise<number> {
@@ -16,10 +16,7 @@ export async function runMetric(spec: MetricSpec, range?: TimeRange): Promise<nu
   return value;
 }
 
-/** A metric by key, with any `minus` spec subtracted (net commission, customers excluding operators). */
-export async function runMetricKey(key: MetricKey, range?: TimeRange): Promise<number> {
-  const spec = METRIC_SPECS[key];
-  if (spec.available === false) throw new Error(spec.reason ?? "Not recorded");
-  const [gross, minus] = await Promise.all([runMetric(spec, range), spec.minus ? runMetricKey(spec.minus, range) : Promise.resolve(0)]);
-  return gross - minus;
+/** A metric by key, with any `minus` spec subtracted. */
+export function runMetricKey(key: MetricKey, range?: TimeRange): Promise<number> {
+  return resolveMetric(key, (spec) => runMetric(spec, range));
 }
