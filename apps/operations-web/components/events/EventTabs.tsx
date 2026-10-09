@@ -203,11 +203,11 @@ function LinkedBooking({
 
 /* ----------------------------------------------------------------- reviews */
 
-export function Stars({ value, className }: { value: number | null; className?: string }) {
+export function Stars({ value, className, tone = "warn" }: { value: number | null; className?: string; tone?: "warn" | "volt" }) {
   return (
     <span className={cn("inline-flex items-center gap-0.5", className)} aria-label={value === null ? "No rating" : `${value} out of 5`}>
       {[1, 2, 3, 4, 5].map((i) => (
-        <Star key={i} aria-hidden className={cn("h-3.5 w-3.5", value !== null && i <= Math.round(value) ? "fill-warn text-warn" : "text-text-3 opacity-40")} />
+        <Star key={i} aria-hidden className={cn("h-3.5 w-3.5", value !== null && i <= Math.round(value) ? (tone === "volt" ? "fill-volt text-volt" : "fill-warn text-warn") : "text-text-3 opacity-40")} />
       ))}
     </span>
   );

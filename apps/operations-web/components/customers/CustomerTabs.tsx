@@ -31,7 +31,7 @@ export type EventTitles = Record<string, string | null>;
 
 const LINK = "focus-ring rounded-[6px] underline-offset-2 hover:text-text hover:underline";
 
-function EventLink({ id, titles, booking }: { id: string | null; titles: EventTitles; booking?: string }) {
+export function EventLink({ id, titles, booking }: { id: string | null; titles: EventTitles; booking?: string }) {
   if (!id) return <span className="text-text-3">—</span>;
   const title = titles[id];
   return (

@@ -3,13 +3,24 @@
 import { useEffect, useRef, useState } from "react";
 import { Sheet, useToast } from "@/components/pulse";
 import { PhraseBox } from "@/components/governance/PhraseBox";
-import { RequestIdBook, isConfirmed, type EntityType } from "@/lib/console/actions";
+import { RequestIdBook, isConfirmed, type EntityStatus, type EntityType } from "@/lib/console/actions";
 import { rethrowForSheet } from "@/lib/console/errors";
 import { setEntityStatus } from "@/lib/governance-api";
 import { entityVersion, type StatusAction } from "@/lib/organizers";
 
+/** A StatusAction, or any status change with optional copy overrides (risk alerts). */
+export type SheetStatusAction = Omit<StatusAction, "status"> & {
+  status: EntityStatus;
+  /** Toast title prefix; defaults from the status. */
+  done?: string;
+  /** Sheet title; defaults to "{label} {name}?". */
+  question?: string;
+  /** Confirm button; defaults to "{label} {noun}". */
+  confirm?: string;
+};
+
 /**
- * The confirm Sheet for an active/paused/blocked change on an organizer or arena:
+ * The confirm Sheet for a status change on an organizer, arena or risk alert:
  * reason (10+ chars), optional typed phrase, a stable request id per attempt and the
  * live version at confirm time (`getVersion` is read when confirming, not when opened).
  */
@@ -24,8 +35,8 @@ export function StatusSheet({
   onClose,
 }: {
   /** null keeps the sheet closed. */
-  action: StatusAction | null;
-  entityType: Extract<EntityType, "organizer" | "arena">;
+  action: SheetStatusAction | null;
+  entityType: Extract<EntityType, "organizer" | "arena" | "risk-alert">;
   entityId: string;
   /** Lower-case singular used in copy ("organizer", "arena"). */
   noun: string;
@@ -54,8 +65,8 @@ export function StatusSheet({
       book.current.reset();
       onChanged();
       toast.show({
-        tone: action.status === "active" ? "ok" : "info",
-        title: `${action.status === "active" ? "Reactivated" : action.status === "paused" ? "Paused" : "Blocked"} · ${name}`,
+        tone: action.tone === "volt" ? "ok" : "info",
+        title: `${action.done ?? (action.status === "active" ? "Reactivated" : action.status === "paused" ? "Paused" : "Blocked")} · ${name}`,
         body: result.replayed ? "This request had already been applied." : `Status is now ${result.status} (version ${result.version}).`,
       });
     } catch (cause) {
@@ -66,9 +77,9 @@ export function StatusSheet({
   return (
     <Sheet
       open={!!action}
-      title={action ? `${action.label} ${name}?` : ""}
+      title={action ? action.question ?? `${action.label} ${name}?` : ""}
       description={action && !action.phrase ? action.consequence : undefined}
-      confirmLabel={action ? `${action.label} ${noun}` : ""}
+      confirmLabel={action ? action.confirm ?? `${action.label} ${noun}` : ""}
       tone={action?.tone ?? "danger"}
       requireReason
       minReason={10}

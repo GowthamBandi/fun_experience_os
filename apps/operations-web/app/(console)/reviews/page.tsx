@@ -1,2 +1,5 @@
-import { ReviewsWorkspace } from "@/components/governance/ReviewsWorkspace";
-export default function Page(){return <ReviewsWorkspace/>}
+import { ReviewsFeed } from "@/components/trust/ReviewsFeed";
+
+export default function Page() {
+  return <ReviewsFeed />;
+}

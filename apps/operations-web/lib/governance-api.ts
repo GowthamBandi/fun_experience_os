@@ -91,6 +91,7 @@ const ORDERING: Partial<Record<GovernanceCollection, QueryConstraint>> = {
   settlements: orderBy("createdAt", "desc"),
   legalHolds: orderBy("updatedAt", "desc"),
   jobRuns: orderBy("updatedAt", "desc"),
+  reviews: orderBy("updatedAt", "desc"),
 };
 
 export function adaptRecord(name: GovernanceCollection, id: string, data: DocumentData): DisplayRecord {

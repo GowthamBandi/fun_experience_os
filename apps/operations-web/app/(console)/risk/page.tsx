@@ -1,2 +1,5 @@
-import { GovernanceRoutePage } from "@/components/governance/GovernanceRoutePage";
-export default function Page(){return <GovernanceRoutePage config={{collection:"riskAlerts",entityType:"risk-alert",eyebrow:"Trust",title:"Risk & fraud",description:"Investigate fraud signals, disputes, payout changes and chargeback exposure before customer or organizer funds move.",metricLabel:"Open alerts",primaryAction:"Investigate"}}/>}
+import { RiskView } from "@/components/trust/RiskView";
+
+export default function Page() {
+  return <RiskView />;
+}
