@@ -1,2 +1,5 @@
-import { SettlementsWorkspace } from "@/components/governance/SettlementsWorkspace";
-export default function Page(){return <SettlementsWorkspace/>}
+import { SettlementsView } from "@/components/money/SettlementsView";
+
+export default function Page() {
+  return <SettlementsView />;
+}

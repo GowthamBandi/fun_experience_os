@@ -1,2 +1,5 @@
-import { CommercialsWorkspace } from "@/components/governance/CommercialsWorkspace";
-export default function Page(){return <CommercialsWorkspace/>}
+import { CommercialsView } from "@/components/money/CommercialsView";
+
+export default function Page() {
+  return <CommercialsView />;
+}

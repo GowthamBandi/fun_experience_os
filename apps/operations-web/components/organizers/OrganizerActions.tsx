@@ -2,16 +2,17 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Ban, Handshake, KeyRound, Lock, Pause, Play } from "lucide-react";
-import { Button, Chip, Sheet, Tooltip, useToast } from "@/components/pulse";
+import { Button, Sheet, Tooltip, useToast } from "@/components/pulse";
+import { ProposeTermsSheet } from "@/components/money/ProposeTermsSheet";
 import { OrganizerCodeModal } from "@/components/governance/OrganizerCodeModal";
 import { PhraseBox } from "@/components/governance/PhraseBox";
 import { StatusSheet } from "@/components/governance/StatusSheet";
-import { CONFIRM_PHRASES, PAYOUT_CADENCES, RequestIdBook, commissionPercentToBps, isConfirmed, type PayoutCadence } from "@/lib/console/actions";
+import { CONFIRM_PHRASES, RequestIdBook, isConfirmed } from "@/lib/console/actions";
 import { ROLE_LABEL, can, type ConsoleRole } from "@/lib/console/capabilities";
 import { rethrowForSheet } from "@/lib/console/errors";
 import { canReissueOrganizerCode } from "@/lib/console/records";
-import { proposeCommercialAgreement, reissueOrganizerCode } from "@/lib/governance-api";
-import { commissionLabel, statusActions, type StatusAction } from "@/lib/organizers";
+import { reissueOrganizerCode } from "@/lib/governance-api";
+import { statusActions, type StatusAction } from "@/lib/organizers";
 import { useLiveDocument } from "@/lib/use-governance";
 
 type Raw = Record<string, unknown>;
@@ -48,21 +49,13 @@ export function OrganizerActions({
 
   const [open, setOpen] = useState<Open>(null);
   const [typed, setTyped] = useState("");
-  const [percent, setPercent] = useState("");
-  const [cadence, setCadence] = useState<PayoutCadence>("weekly");
   const [code, setCode] = useState<Code | null>(null);
   const book = useRef(new RequestIdBook("organizer"));
   // The live version at confirm time: versions move under us.
   const live = useRef(org);
   live.current = org;
 
-  useEffect(() => {
-    setTyped("");
-    if (open?.kind === "propose") {
-      setPercent(currentBps !== null ? commissionLabel(currentBps).replace("%", "") : "");
-      setCadence((PAYOUT_CADENCES as readonly string[]).includes(currentCadence ?? "") ? (currentCadence as PayoutCadence) : "weekly");
-    }
-  }, [open, currentBps, currentCadence]);
+  useEffect(() => setTyped(""), [open]);
 
   if (!permitted) {
     return (
@@ -77,21 +70,6 @@ export function OrganizerActions({
 
   const actions = statusActions(status);
   const reactivate = actions.find((a) => a.status === "active");
-
-  const confirmPropose = async (note: string) => {
-    try {
-      const result = await proposeCommercialAgreement({ requestId: book.current.idFor(`${orgId}-propose`), orgId, commissionPercent: percent, payoutCadence: cadence, note });
-      book.current.reset();
-      onChanged();
-      toast.show({
-        tone: "ok",
-        title: `Terms proposed · ${percent.trim()}% ${cadence}`,
-        body: `Agreement ${result.agreementId} is ${result.status}. Another admin approves it in Commercials; it then applies to newly published events.`,
-      });
-    } catch (cause) {
-      rethrowForSheet(cause, book.current);
-    }
-  };
 
   const confirmReissue = async (reason: string) => {
     if (!applicationId) throw new Error("This organizer has no application on record.");
@@ -112,14 +90,6 @@ export function OrganizerActions({
   };
 
   const statusOpen = open?.kind === "status" ? open.action : null;
-  const proposePct = (() => {
-    try {
-      return commissionPercentToBps(percent) / 100;
-    } catch {
-      return null;
-    }
-  })();
-
   return (
     <>
       <div className="flex flex-wrap items-center gap-2" data-testid="organizer-actions">
@@ -156,55 +126,7 @@ export function OrganizerActions({
         onClose={() => setOpen(null)}
       />
 
-      <Sheet
-        open={open?.kind === "propose"}
-        title="Propose commercial terms"
-        description={`New terms for ${name}. A different admin must approve them; approved terms apply to events published afterwards.`}
-        confirmLabel="Propose terms"
-        tone="volt"
-        requireReason
-        minReason={10}
-        reasonLabel="Note for the approving admin"
-        extra={
-          <div className="flex flex-col gap-4">
-            <label className="block">
-              <span className="text-[12px] font-semibold text-text-3">Commission</span>
-              <span className="field mt-1.5 flex h-12 items-center rounded-control px-3.5">
-                <input
-                  value={percent}
-                  onChange={(e) => setPercent(e.target.value)}
-                  inputMode="decimal"
-                  autoComplete="off"
-                  aria-label="Commission percent"
-                  placeholder="10"
-                  className="num h-full min-w-0 flex-1 bg-transparent text-[20px] font-bold text-text outline-none placeholder:text-text-3"
-                />
-                <span aria-hidden className="font-display text-[18px] font-bold text-text-3">
-                  %
-                </span>
-              </span>
-              <span className="mt-1.5 block text-[12px] text-text-3">
-                {proposePct !== null
-                  ? `PULSE keeps ₹${new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(proposePct * 10)} of every ₹1,000 booked.`
-                  : "0–50%, up to two decimals."}
-                {currentBps !== null ? ` Now ${commissionLabel(currentBps)}.` : " No terms in force yet."}
-              </span>
-            </label>
-            <fieldset>
-              <legend className="text-[12px] font-semibold text-text-3">Payout cadence</legend>
-              <div className="mt-1.5 flex flex-wrap gap-2">
-                {PAYOUT_CADENCES.map((c) => (
-                  <Chip key={c} selected={cadence === c} onClick={() => setCadence(c)} className="capitalize">
-                    {c}
-                  </Chip>
-                ))}
-              </div>
-            </fieldset>
-          </div>
-        }
-        onConfirm={confirmPropose}
-        onClose={() => setOpen(null)}
-      />
+      <ProposeTermsSheet open={open?.kind === "propose"} orgId={orgId} name={name} terms={() => ({ bps: currentBps, cadence: currentCadence })} onChanged={onChanged} onClose={() => setOpen(null)} />
 
       <Sheet
         open={open?.kind === "reissue"}
