@@ -2,7 +2,7 @@
 
 import { PAGE_CONTAINER } from "@/components/shell/PageContainer";
 import { Suspense, useCallback, useMemo } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Chip, CountUp, PageHeader, Skeleton } from "@/components/pulse";
 import { KpiBento } from "@/components/overview/KpiBento";
 import { LiveNowCard } from "@/components/overview/LiveNowCard";
@@ -19,6 +19,7 @@ import { RANGE_KEYS, RANGE_LABEL, greetingFor, headlineFor, parseRange } from "@
 import { useSharedAttention } from "@/lib/use-attention";
 import { useSharedLiveEvents } from "@/lib/use-live-events";
 import { useMetric } from "@/lib/use-metric";
+import { useSearchParamSetter } from "@/lib/use-search-param";
 
 function Headline({ live, attention, degraded }: { live: number; attention: number; degraded: boolean }) {
   const h = headlineFor(live, attention, degraded);
@@ -107,24 +108,14 @@ function CommandCenter() {
   const attention = useSharedAttention();
   const live = useSharedLiveEvents();
   const now = useNow();
-  const router = useRouter();
-  const pathname = usePathname() ?? "/";
   const params = useSearchParams();
   const rangeKey = parseRange(params.get("range"));
   // Ranges only move at IST midnight; keying on the day keeps the metric hooks' inputs stable.
   const dayKey = now ? rangeFor("today", now).start.getTime() : null;
   const range = useMemo(() => (dayKey === null ? null : rangeFor(rangeKey, new Date(dayKey))), [rangeKey, dayKey]);
 
-  const setRange = useCallback(
-    (key: RangeKey) => {
-      const next = new URLSearchParams(params.toString());
-      if (key === "today") next.delete("range");
-      else next.set("range", key);
-      const qs = next.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-    },
-    [params, pathname, router],
-  );
+  const setParam = useSearchParamSetter();
+  const setRange = useCallback((key: RangeKey) => setParam("range", key === "today" ? null : key), [setParam]);
 
   const firstName = user?.displayName?.trim().split(/\s+/)[0] || null;
   const hello = now ? greetingFor(now) : null;

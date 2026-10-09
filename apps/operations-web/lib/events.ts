@@ -11,7 +11,7 @@ import type { OrgEventRow } from "./organizers";
 
 type Raw = Record<string, unknown>;
 
-const str = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
+export const str = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
 
 /* -------------------------------------------------------------------- tabs */

@@ -1,10 +1,11 @@
 "use client";
 
-import { Suspense, useCallback, useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { AlertTriangle, ArrowLeft, AtSign, BadgeCheck, CalendarDays, Copy, MapPin } from "lucide-react";
-import { Avatar, Badge, Card, Empty, ErrorState, Skeleton, Stat, Tabs, Tooltip, useToast, type TabItem } from "@/components/pulse";
+import { useSearchParams } from "next/navigation";
+import { AlertTriangle, AtSign, BadgeCheck, CalendarDays, MapPin } from "lucide-react";
+import { Avatar, Badge, Card, CopyIdPill, Empty, ErrorState, Skeleton, Stat, Tabs, type TabItem } from "@/components/pulse";
+import { BackLink } from "@/components/shell/BackLink";
 import { PageContainer } from "@/components/shell/PageContainer";
 import { artFor } from "@/lib/approvals";
 import { formatDate } from "@/lib/console/records";
@@ -27,16 +28,16 @@ import {
 } from "@/lib/organizers-firestore";
 import { useLiveDocument } from "@/lib/use-governance";
 import { useMetric } from "@/lib/use-metric";
+import { useTabParam } from "@/lib/use-search-param";
 import { useBoundedQuery, useOneShot } from "@/lib/use-query";
 import { categoryEmoji, countFull } from "@/lib/overview";
-import { EventsTab, ExperiencesTab, MoneyTab, TeamTab, TimelineTab, type DocRow } from "./OrganizerTabs";
+import { EventsTab, ExperiencesTab, MoneyTab, TeamTab, TimelineTab, docRow } from "./OrganizerTabs";
 import { OrganizerActions } from "./OrganizerActions";
 
 type TabId = "events" | "experiences" | "money" | "team" | "timeline";
 const TAB_IDS: TabId[] = ["events", "experiences", "money", "team", "timeline"];
 const AUDIT_MAX = 100;
 
-const docRow = (id: string, raw: Record<string, unknown>): DocRow => ({ id, raw });
 
 export function Organizer360({ orgId }: { orgId: string }) {
   // Remounting re-subscribes the live documents (the retry for a failed listener).
@@ -64,20 +65,9 @@ function Loading() {
   );
 }
 
-function BackLink() {
-  return (
-    <Link href="/partners" className="focus-ring inline-flex w-fit items-center gap-1.5 rounded-pill px-2 py-1 text-[13px] font-semibold text-text-3 transition-colors duration-150 hover:text-text">
-      <ArrowLeft aria-hidden className="h-4 w-4" />
-      Organizers
-    </Link>
-  );
-}
-
 function View({ orgId, onRetry }: { orgId: string; onRetry: () => void }) {
   const params = useSearchParams();
-  const router = useRouter();
-  const pathname = usePathname() ?? `/partners/${orgId}`;
-  const toast = useToast();
+  const [tab, setTab] = useTabParam(TAB_IDS, "events");
   const now = useNow(60_000);
   const { consoleRole } = useAdminSession();
 
@@ -111,24 +101,12 @@ function View({ orgId, onRetry }: { orgId: string; onRetry: () => void }) {
     auditOnOrg.retry();
   };
 
-  const tabParam = params.get("tab");
-  const tab: TabId = TAB_IDS.includes(tabParam as TabId) ? (tabParam as TabId) : "events";
-  const setTab = useCallback(
-    (id: string) => {
-      const next = new URLSearchParams(params.toString());
-      if (id === "events") next.delete("tab");
-      else next.set("tab", id);
-      const qs = next.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-    },
-    [params, pathname, router],
-  );
 
   if (org.loading) return <Loading />;
   if (org.error) {
     return (
       <PageContainer className="flex flex-col gap-5">
-        <BackLink />
+        <BackLink href="/partners" label="Organizers" />
         <Card>
           <ErrorState message={org.error} onRetry={onRetry} />
         </Card>
@@ -138,7 +116,7 @@ function View({ orgId, onRetry }: { orgId: string; onRetry: () => void }) {
   if (!org.data) {
     return (
       <PageContainer className="flex flex-col gap-5">
-        <BackLink />
+        <BackLink href="/partners" label="Organizers" />
         <Card>
           <Empty emoji="🔎" title="Organizer not found" body={`There's no organizer with the ID ${orgId}. It may have been removed, or the link is wrong.`} action={<Link href="/partners" className="focus-ring inline-flex h-10 items-center rounded-[14px] border border-line bg-surface-high px-4 text-[13px] font-semibold text-text hover:bg-surface-top">Back to organizers</Link>} />
         </Card>
@@ -153,15 +131,6 @@ function View({ orgId, onRetry }: { orgId: string; onRetry: () => void }) {
   const suspended = card.status === "paused" || card.status === "blocked";
   const statusReason = typeof org.data.statusReason === "string" && org.data.statusReason.trim() ? org.data.statusReason : null;
 
-  const copyId = async () => {
-    try {
-      await navigator.clipboard.writeText(orgId);
-      toast.show({ tone: "ok", title: "Organizer ID copied", body: orgId });
-    } catch {
-      toast.show({ tone: "err", title: "Couldn't copy", body: "Select the ID and copy it manually." });
-    }
-  };
-
   const ratingHint = reviews.truncated ? `newest ${reviews.rows.length} reviews` : rating.count ? `from ${rating.count} ${rating.count === 1 ? "review" : "reviews"}` : "No reviews yet";
   const tabs: TabItem[] = [
     { id: "events", label: "Events", count: events.loading || events.error ? undefined : events.rows.length },
@@ -173,7 +142,7 @@ function View({ orgId, onRetry }: { orgId: string; onRetry: () => void }) {
 
   return (
     <PageContainer className="flex flex-col gap-5">
-      <BackLink />
+      <BackLink href="/partners" label="Organizers" />
 
       <Card as="header" className="overflow-hidden p-6 lg:p-7">
         <span aria-hidden className="pointer-events-none absolute -left-16 -top-24 h-72 w-72 rounded-full opacity-25 blur-3xl" style={{ background: accent }} />
@@ -231,17 +200,7 @@ function View({ orgId, onRetry }: { orgId: string; onRetry: () => void }) {
                   Hosting since {card.since ? formatDate(card.since) : "—"}
                 </li>
                 <li>
-                  <Tooltip label="Copy organizer ID">
-                    <button
-                      type="button"
-                      onClick={copyId}
-                      aria-label={`Copy organizer ID ${orgId}`}
-                      className="focus-ring inline-flex items-center gap-1.5 rounded-pill border border-line-soft bg-[rgba(255,255,255,0.04)] px-2.5 py-1 font-mono text-[11.5px] text-text-2 transition-colors duration-150 hover:border-line hover:text-text"
-                    >
-                      {orgId}
-                      <Copy aria-hidden className="h-3 w-3" />
-                    </button>
-                  </Tooltip>
+                  <CopyIdPill id={orgId} noun="organizer" />
                 </li>
               </ul>
               {pub.error ? (

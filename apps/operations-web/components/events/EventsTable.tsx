@@ -1,8 +1,8 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, Info, Layers, MapPin, Search, X } from "lucide-react";
 import { Card, Chip, DataTable, Empty, ErrorState, PageHeader, SkeletonRows, Tabs, Truncated, type Column, type TabItem } from "@/components/pulse";
 import { PageContainer } from "@/components/shell/PageContainer";
@@ -15,6 +15,7 @@ import { toOrgEvent, type OrgEventRow } from "@/lib/organizers";
 import { categoryEmoji } from "@/lib/overview";
 import { useLiveDocument } from "@/lib/use-governance";
 import { useBoundedQuery, useOneShot } from "@/lib/use-query";
+import { useSearchParamSetter } from "@/lib/use-search-param";
 import { EventStatusBadge, EventTitleCell, FillCell, priceLabel } from "./cells";
 
 const TAB_STATUSES: Partial<Record<EventTab, readonly string[]>> = { past: ["completed"], drafts: DRAFT_STATUSES, cancelled: ["cancelled"] };
@@ -49,7 +50,7 @@ function Shell() {
 function View() {
   const params = useSearchParams();
   const router = useRouter();
-  const pathname = usePathname() ?? "/events";
+  const setParam = useSearchParamSetter();
   const now = useNow(60_000);
   const experienceId = params.get("experience");
   const bookingId = params.get("booking");
@@ -107,16 +108,6 @@ function View() {
   const tabs: TabItem[] = EVENT_TABS.map((t) => ({ id: t.id, label: t.label, count: tabCount(t.id) }));
   const liveCount = experienceId ? expParts?.live.length ?? 0 : openParts?.live.length ?? 0;
 
-  const setParam = useCallback(
-    (key: string, value: string | null) => {
-      const next = new URLSearchParams(params.toString());
-      if (value === null) next.delete(key);
-      else next.set(key, value);
-      const qs = next.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-    },
-    [params, pathname, router],
-  );
 
   const columns: Array<Column<OrgEventRow>> = [
     { key: "title", header: "Event", sort: (a, b) => a.title.localeCompare(b.title), cell: (e) => <EventTitleCell e={e} /> },
@@ -319,7 +310,7 @@ function View() {
             <DataTable rows={shown} columns={columns} rowKey={(e) => e.id} onRowClick={(e) => router.push(`/events/${e.id}`)} caption={`${EVENT_TABS.find((t) => t.id === tab)?.label} events`} className="max-h-[72vh]" />
           </>
         )}
-        {!loading && !error && (source.truncated || (tab === "past" && !experienceId && open.truncated)) ? <Truncated shown={source.rows.length} className="mt-4" /> : null}
+        {!loading && !error && (source.truncated || (tab === "past" && !experienceId && open.truncated)) ? <Truncated shown={tabRows.length} className="mt-4" /> : null}
         {!loading && !error && !experienceId && counts.error ? (
           <p role="status" className="mt-4 flex flex-wrap items-center gap-2 text-[12px] text-warn">
             <AlertTriangle aria-hidden className="h-3.5 w-3.5" />

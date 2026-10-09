@@ -5,6 +5,7 @@ export { Card, type CardProps } from "./Card";
 export { AreaChart, BarList, ProgressBar, Sparkline } from "./charts";
 export { chartPath, chartPoints } from "./chart-math";
 export { Chip, type ChipProps } from "./Chip";
+export { CopyIdPill } from "./CopyIdPill";
 export { DataTable, type Column, type DataTableProps } from "./DataTable";
 export { Drawer, type DrawerProps } from "./Drawer";
 export { Glyph } from "./Glyph";

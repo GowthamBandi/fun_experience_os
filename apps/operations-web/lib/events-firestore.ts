@@ -5,7 +5,7 @@ import { getFirebaseClient } from "./firebase/client";
 import { DRAFT_STATUSES, OPEN_STATUSES } from "./events";
 
 // Query builders for the Events table and Event 360. Kept in lib/ so
-// firebase/scripts/check-indexes.mjs sees them (entries M22–M31).
+// firebase/scripts/check-indexes.mjs sees them (entries M22–M30).
 const col = (name: string) => collection(getFirebaseClient().firestore, name);
 
 /** On sale or running, soonest first (the existing events status + startsAt index). Feeds Upcoming, Live and stale Past rows. */
@@ -34,7 +34,7 @@ export const eventReviewsQuery = (eventId: string): Query =>
 /** The audit trail of the event record (saved, submitted, published, phases, cancellation, governance). */
 export const eventAuditQuery = (eventId: string): Query => query(col("auditEvents"), where("resourceId", "==", eventId), orderBy("at", "desc"));
 
-/** Check-in: tickets with status "used" against admissible ones (valid or used); voided tickets are left out. */
+/** Check-in: tickets with status "used" against admissible ones (valid or used); cancelled, refunded and expired tickets are left out. */
 export async function countEventTickets(eventId: string): Promise<{ checkedIn: number; admissible: number }> {
   const n = async (statuses: string[]) =>
     (await getCountFromServer(query(col("tickets"), where("eventId", "==", eventId), where("status", "in", statuses)))).data().count;

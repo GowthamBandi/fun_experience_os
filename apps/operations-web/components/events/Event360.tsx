@@ -1,15 +1,16 @@
 "use client";
 
-import { Suspense, useCallback, useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { AlertTriangle, ArrowLeft, CalendarDays, Clock, Copy, Layers, MapPin, Radio, Users, XCircle } from "lucide-react";
-import { Badge, Card, Empty, ErrorState, ProgressBar, Skeleton, Stat, Tabs, Tooltip, useToast, type TabItem } from "@/components/pulse";
-import { TimelineTab } from "@/components/organizers/OrganizerTabs";
+import { useSearchParams } from "next/navigation";
+import { AlertTriangle, CalendarDays, Clock, Layers, MapPin, Radio, Users, XCircle } from "lucide-react";
+import { Badge, Card, CopyIdPill, Empty, ErrorState, ProgressBar, Skeleton, Stat, Tabs, type TabItem } from "@/components/pulse";
+import { TimelineTab, docRow } from "@/components/organizers/OrganizerTabs";
+import { BackLink } from "@/components/shell/BackLink";
 import { PageContainer } from "@/components/shell/PageContainer";
 import { artFor, artGradient } from "@/lib/approvals";
 import { formatDateTime, toDate } from "@/lib/console/records";
-import { eventRange, eventTab, isOffLifecycle, occupancyOf, ratio, startsRel, toBooking, toReview } from "@/lib/events";
+import { eventRange, eventTab, str, isOffLifecycle, occupancyOf, ratio, startsRel, toBooking, toReview } from "@/lib/events";
 import { countEventTickets, eventAuditQuery, eventBookingsQuery, eventReviewsQuery } from "@/lib/events-firestore";
 import { useAdminSession } from "@/lib/firebase/auth";
 import { inrMinor } from "@/lib/format";
@@ -18,6 +19,7 @@ import { entityVersion, orgTimeline, toOrgEvent } from "@/lib/organizers";
 import { categoryEmoji, countFull } from "@/lib/overview";
 import { useLiveDocument } from "@/lib/use-governance";
 import { useMetric } from "@/lib/use-metric";
+import { useTabParam } from "@/lib/use-search-param";
 import { useBoundedQuery, useOneShot } from "@/lib/use-query";
 import { EventStatusBadge, priceLabel } from "./cells";
 import { EventActions } from "./EventActions";
@@ -27,8 +29,6 @@ type TabId = "bookings" | "reviews" | "timeline";
 const TAB_IDS: TabId[] = ["bookings", "reviews", "timeline"];
 const AUDIT_MAX = 100;
 
-const docRow = (id: string, raw: Record<string, unknown>) => ({ id, raw });
-const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
 /** A stable art seed from the id, so each event keeps its own gradient. */
 const seedOf = (id: string) => [...id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
 
@@ -58,20 +58,9 @@ function Loading() {
   );
 }
 
-function BackLink() {
-  return (
-    <Link href="/events" className="focus-ring inline-flex w-fit items-center gap-1.5 rounded-pill px-2 py-1 text-[13px] font-semibold text-text-3 transition-colors duration-150 hover:text-text">
-      <ArrowLeft aria-hidden className="h-4 w-4" />
-      Experiences &amp; Events
-    </Link>
-  );
-}
-
 function View({ eventId, onRetry }: { eventId: string; onRetry: () => void }) {
   const params = useSearchParams();
-  const router = useRouter();
-  const pathname = usePathname() ?? `/events/${eventId}`;
-  const toast = useToast();
+  const [tab, setTab] = useTabParam(TAB_IDS, "bookings");
   const now = useNow(30_000);
   const { consoleRole } = useAdminSession();
   const highlight = params.get("booking");
@@ -96,24 +85,12 @@ function View({ eventId, onRetry }: { eventId: string; onRetry: () => void }) {
     refunds.retry();
   };
 
-  const tabParam = params.get("tab");
-  const tab: TabId = TAB_IDS.includes(tabParam as TabId) ? (tabParam as TabId) : "bookings";
-  const setTab = useCallback(
-    (id: string) => {
-      const next = new URLSearchParams(params.toString());
-      if (id === "bookings") next.delete("tab");
-      else next.set("tab", id);
-      const qs = next.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-    },
-    [params, pathname, router],
-  );
 
   if (ev.loading) return <Loading />;
   if (ev.error) {
     return (
       <PageContainer className="flex flex-col gap-5">
-        <BackLink />
+        <BackLink href="/events" label="Experiences & Events" />
         <Card>
           <ErrorState message={ev.error} onRetry={onRetry} />
         </Card>
@@ -123,7 +100,7 @@ function View({ eventId, onRetry }: { eventId: string; onRetry: () => void }) {
   if (!ev.data) {
     return (
       <PageContainer className="flex flex-col gap-5">
-        <BackLink />
+        <BackLink href="/events" label="Experiences & Events" />
         <Card>
           <Empty
             emoji="🔎"
@@ -149,15 +126,6 @@ function View({ eventId, onRetry }: { eventId: string; onRetry: () => void }) {
   const fill = ratio(occ.taken, occ.capacity);
   const checkPct = tickets.value ? ratio(tickets.value.checkedIn, tickets.value.admissible) : null;
 
-  const copyId = async () => {
-    try {
-      await navigator.clipboard.writeText(eventId);
-      toast.show({ tone: "ok", title: "Event ID copied", body: eventId });
-    } catch {
-      toast.show({ tone: "err", title: "Couldn't copy", body: "Select the ID and copy it manually." });
-    }
-  };
-
   const tabs: TabItem[] = [
     { id: "bookings", label: "Bookings", count: bookings.loading || bookings.error ? undefined : bookings.rows.length },
     { id: "reviews", label: "Reviews", count: reviews.loading || reviews.error ? undefined : reviews.rows.length },
@@ -166,7 +134,7 @@ function View({ eventId, onRetry }: { eventId: string; onRetry: () => void }) {
 
   return (
     <PageContainer className="flex flex-col gap-5">
-      <BackLink />
+      <BackLink href="/events" label="Experiences & Events" />
 
       <Card as="header" className="overflow-hidden p-6 lg:p-7">
         <span aria-hidden className="pointer-events-none absolute -left-16 -top-24 h-72 w-72 rounded-full opacity-25 blur-3xl" style={{ background: accent }} />
@@ -236,17 +204,7 @@ function View({ eventId, onRetry }: { eventId: string; onRetry: () => void }) {
                   </li>
                 ) : null}
                 <li>
-                  <Tooltip label="Copy event ID">
-                    <button
-                      type="button"
-                      onClick={copyId}
-                      aria-label={`Copy event ID ${eventId}`}
-                      className="focus-ring inline-flex items-center gap-1.5 rounded-pill border border-line-soft bg-[rgba(255,255,255,0.04)] px-2.5 py-1 font-mono text-[11.5px] text-text-2 transition-colors duration-150 hover:border-line hover:text-text"
-                    >
-                      {eventId}
-                      <Copy aria-hidden className="h-3 w-3" />
-                    </button>
-                  </Tooltip>
+                  <CopyIdPill id={eventId} noun="event" />
                 </li>
               </ul>
             </div>

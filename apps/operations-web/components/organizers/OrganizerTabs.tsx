@@ -25,6 +25,7 @@ import type { BoundedQuery, OneShot } from "@/lib/use-query";
 
 type Raw = Record<string, unknown>;
 export type DocRow = { id: string; raw: Raw };
+export const docRow = (id: string, raw: Raw): DocRow => ({ id, raw });
 
 /** Skeleton, error-with-retry, empty and truncated states around one bounded read. */
 export function Loaded<T>({ q, empty, skeleton, children }: { q: BoundedQuery<T>; empty: ReactNode; skeleton?: ReactNode; children: (rows: T[]) => ReactNode }) {
