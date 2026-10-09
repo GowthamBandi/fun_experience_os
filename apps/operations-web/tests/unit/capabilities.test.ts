@@ -194,3 +194,16 @@ describe("compliance and system routes", () => {
     expect(rolesAllowedFor("setLegalHold")).toEqual(["platform-owner", "super-admin"]);
   });
 });
+
+describe("⌘K entity search by role", () => {
+  it("is admin-only; auditors search pages alone", async () => {
+    const { canSearchEntities, canViewRoute } = await import("@/lib/console/capabilities");
+    expect(canSearchEntities("platform-owner")).toBe(true);
+    expect(canSearchEntities("super-admin")).toBe(true);
+    expect(canSearchEntities("auditor")).toBe(false);
+    expect(canSearchEntities(null)).toBe(false);
+    // Auditors get the RoleRestricted screen on entity 360s rather than a read error.
+    expect(canViewRoute("auditor", "/partners/org_1")).toBe(false);
+    expect(canViewRoute("auditor", "/events/ev_1")).toBe(false);
+  });
+});

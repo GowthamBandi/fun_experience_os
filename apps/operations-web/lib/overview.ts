@@ -48,7 +48,7 @@ export function percent(r: number | null): string {
   return p > 0 && p < 10 ? `${p.toFixed(1).replace(/\.0$/, "")}%` : `${Math.round(p)}%`;
 }
 
-export const countFull = (n: number | null): string => (n === null || !Number.isFinite(n) ? "—" : new Intl.NumberFormat("en-IN").format(n));
+export { countFull } from "@/lib/format";
 
 /* ------------------------------------------------------------------ events */
 

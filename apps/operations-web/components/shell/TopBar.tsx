@@ -7,7 +7,7 @@ import { Avatar, Badge, Kbd } from "@/components/pulse";
 import { EnvBadge } from "@/components/shell/EnvBadge";
 import { NotificationsDrawer } from "@/components/shell/NotificationsDrawer";
 import { OPEN_PALETTE_EVENT } from "@/components/shell/CommandPalette";
-import { ROLE_LABEL } from "@/lib/console/capabilities";
+import { ROLE_LABEL, canSearchEntities } from "@/lib/console/capabilities";
 import { useAdminSession } from "@/lib/firebase/auth";
 import { cn } from "@/lib/format";
 import { useClickOutside, useNow } from "@/lib/hooks";
@@ -37,6 +37,8 @@ export function TopBar({ attention }: { attention: Attention }) {
   const [menu, setMenu] = useState(false);
   const menuRef = useClickOutside<HTMLDivElement>(() => setMenu(false));
   const firstItem = useRef<HTMLButtonElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const entities = canSearchEntities(consoleRole);
 
   const name = user?.displayName?.trim() || null;
   const firstName = name?.split(/\s+/)[0] ?? null;
@@ -46,7 +48,17 @@ export function TopBar({ attention }: { attention: Attention }) {
   const pending = attention.total;
 
   useEffect(() => {
-    if (menu) firstItem.current?.focus();
+    if (!menu) return;
+    firstItem.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      setMenu(false);
+      trigger.current?.focus();
+    };
+    // Capture phase: useClickOutside also closes on Esc, and its re-render would drop this listener first.
+    document.addEventListener("keydown", onKey, true);
+    return () => document.removeEventListener("keydown", onKey, true);
   }, [menu]);
 
   return (
@@ -67,14 +79,14 @@ export function TopBar({ attention }: { attention: Attention }) {
       <button
         type="button"
         onClick={() => window.dispatchEvent(new Event(OPEN_PALETTE_EVENT))}
-        aria-label="Search organizers, events, bookings and people"
+        aria-label={entities ? "Search organizers, events, bookings and people" : "Go to a console page"}
         aria-keyshortcuts="Meta+K Control+K /"
         className="focus-ring group ml-auto flex h-11 min-w-0 max-w-[460px] flex-1 items-center gap-3 rounded-control border border-line-soft bg-[rgba(255,255,255,0.05)] px-4 text-left text-[14px] text-text-3 transition-[background-color,border-color] duration-150 ease-pulse hover:border-[rgba(142,114,255,0.35)] hover:bg-[rgba(255,255,255,0.07)]"
       >
         <Search aria-hidden className="h-4 w-4 shrink-0 transition-colors group-hover:text-[#C2B4FF]" />
         <span className="min-w-0 flex-1 truncate">
           <span className="xl:hidden">Search…</span>
-          <span className="hidden xl:inline">Search organizers, events, bookings, people…</span>
+          <span className="hidden xl:inline">{entities ? "Search organizers, events, bookings, people…" : "Go to a page…"}</span>
         </span>
         <Kbd>{mac ? "⌘K" : "Ctrl K"}</Kbd>
       </button>
@@ -102,6 +114,7 @@ export function TopBar({ attention }: { attention: Attention }) {
 
       <div ref={menuRef} className="relative shrink-0">
         <button
+          ref={trigger}
           type="button"
           onClick={() => setMenu((v) => !v)}
           aria-haspopup="menu"

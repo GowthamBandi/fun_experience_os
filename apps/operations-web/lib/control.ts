@@ -56,11 +56,29 @@ export function auditRoleKey(raw: Record<string, unknown>): string {
 }
 
 /** "platform:super-admin" → "Super Admin"; unknown roles keep their recorded text. */
-export function auditRoleLabel(raw: Record<string, unknown>): string {
+export function auditRoleLabel(raw: Record<string, unknown>, orgNames: Record<string, string | null> = {}): string {
   const role = auditActorRole(raw);
   if (role === "—") return role;
   const known = toConsoleRole(role.replace(/^platform:/, ""));
-  return known ? ROLE_LABEL[known].replace(" (read-only)", "") : role;
+  if (known) return ROLE_LABEL[known].replace(" (read-only)", "");
+  // "org:<orgId>:owner" → "Owner · Clay & Coffee" (the organizer's name when it's loaded).
+  const org = /^org:([^:]+):(.+)$/.exec(role);
+  if (org) {
+    const member = org[2].replace(/[-_]+/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+    return `${member} · ${orgNames[org[1]] ?? `org ${org[1]}`}`;
+  }
+  return role.replace(/^\w/, (c) => c.toUpperCase());
+}
+
+/** The orgIds inside "org:<orgId>:<role>" actor roles, for a name lookup. */
+export function auditRoleOrgIds(records: DisplayRecord[]): string[] {
+  const ids = new Set<string>();
+  for (const record of records) {
+    const m = /^org:([^:]+):/.exec(auditActorRole(record.raw));
+    if (m) ids.add(m[1]);
+    if (typeof record.raw.orgId === "string" && record.raw.orgId) ids.add(record.raw.orgId);
+  }
+  return [...ids];
 }
 
 export interface AuditView {
@@ -77,12 +95,12 @@ export const isAuditFiltering = (view: AuditView) => view.role !== "" || view.ac
 const str = (value: unknown) => (typeof value === "string" ? value : "");
 
 /** Distinct actor roles (as recorded, labelled for display) with how many loaded events each has. */
-export function auditRoleFacets(records: DisplayRecord[]): Array<{ value: string; label: string; count: number }> {
+export function auditRoleFacets(records: DisplayRecord[], orgNames: Record<string, string | null> = {}): Array<{ value: string; label: string; count: number }> {
   const byRole = new Map<string, { label: string; count: number }>();
   for (const record of records) {
     const value = auditRoleKey(record.raw);
     if (value === "—") continue;
-    const entry = byRole.get(value) ?? { label: auditRoleLabel(record.raw), count: 0 };
+    const entry = byRole.get(value) ?? { label: auditRoleLabel(record.raw, orgNames), count: 0 };
     entry.count += 1;
     byRole.set(value, entry);
   }

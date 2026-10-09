@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { AlertTriangle, Check, Copy, Info, GitCompareArrows, KeyRound, Lock, RotateCw, UsersRound } from "lucide-react";
 import { Badge, Button, Glyph, Skeleton, Tooltip, useToast, type BadgeTone } from "@/components/pulse";
 import { ExperiencePreview } from "./ExperiencePreview";
-import { KIND_LABEL, caseBadge, caseGlyph, caseTarget, experienceDiff, type DiffRow } from "@/lib/approvals";
+import { KIND_LABEL, caseBadge, caseGlyph, caseTarget, collectionLabel, experienceDiff, type DiffRow } from "@/lib/approvals";
 import type { CaseOutcome } from "@/lib/console/actions";
 import { isOpenCase } from "@/lib/console/attention";
 import type { ConsoleError } from "@/lib/console/errors";
@@ -230,7 +230,7 @@ export function CaseDetail({
   else if (kind === "experience-approval") body = <ExperienceBody record={record} target={live.data} />;
   else {
     const fields = caseTargetFields(kind, live.data);
-    body = <Card title={`Submitted record · ${target.collection}`}><Fields fields={fields.length ? fields : rawFields(live.data)} /></Card>;
+    body = <Card title={`Submitted ${collectionLabel(target.collection).toLowerCase()}`}><Fields fields={fields.length ? fields : rawFields(live.data)} /></Card>;
   }
 
   return (
@@ -254,7 +254,7 @@ export function CaseDetail({
         <p className="relative mt-4 text-[13.5px] leading-[1.5] text-text-2">{text(raw, "summary")}</p>
         <div className="relative mt-3 flex flex-wrap gap-1.5">
           <CopyId label="Case" value={record.id} />
-          {target.id ? <CopyId label={target.collection ?? "Target"} value={target.id} /> : null}
+          {target.id ? <CopyId label={collectionLabel(target.collection)} value={target.id} /> : null}
           {str(raw.orgId) ? <CopyId label="Org" value={String(raw.orgId)} /> : null}
         </div>
         <p className="relative mt-3 text-[12px] text-text-3">

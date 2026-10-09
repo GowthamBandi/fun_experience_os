@@ -7,6 +7,8 @@ import { Sheet, useToast, type ToastInput } from "@/components/pulse";
 import { PhraseBox } from "@/components/governance/PhraseBox";
 import { isConfirmed, type RequestIdBook } from "@/lib/console/actions";
 import { rethrowForSheet } from "@/lib/console/errors";
+import { canViewRoute } from "@/lib/console/capabilities";
+import { useAdminSession } from "@/lib/firebase/auth";
 import { formatDateTime } from "@/lib/console/records";
 import { cn, relTime } from "@/lib/format";
 import { fetchOrganizerNames } from "@/lib/organizers-firestore";
@@ -25,8 +27,12 @@ export function useOrgNames(ids: Array<string | null>, scope: string): Record<st
 }
 
 export function OrgLink({ id, names, className }: { id: string | null; names: Record<string, string | null>; className?: string }) {
+  const { consoleRole } = useAdminSession();
+  const canOpen = canViewRoute(consoleRole, "/partners");
   if (!id) return <span className="text-text-3">—</span>;
   const org = nameOrId(id, names);
+  // Organizer 360 is admin-only; other roles (auditors on Settlements) get the name without a dead-end link.
+  if (!canOpen) return <span className={cn("inline-flex max-w-[220px] truncate", org.isName ? "font-semibold text-text" : "font-mono text-[12px] text-text-2", className)}>{org.text}</span>;
   return (
     <Link
       href={`/partners/${encodeURIComponent(id)}`}

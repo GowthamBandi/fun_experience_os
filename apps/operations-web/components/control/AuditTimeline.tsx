@@ -5,7 +5,7 @@ import { History } from "lucide-react";
 import { Badge, Button, Card, Chip, CopyIdPill, Drawer, Empty, ErrorState, PageHeader, SkeletonRows, Timeline, Truncated, type TimelineItem } from "@/components/pulse";
 import { PageContainer } from "@/components/shell/PageContainer";
 import { SearchField } from "@/components/trust/TrustBits";
-import { Field, Fields, Gone } from "@/components/money/MoneyBits";
+import { Field, Fields, Gone, useOrgNames } from "@/components/money/MoneyBits";
 import { describeReadError } from "@/lib/console/errors";
 import { mergeAuditPages } from "@/lib/console/audit";
 import { formatDateTime, text, toDate, type DisplayRecord } from "@/lib/console/records";
@@ -15,13 +15,14 @@ import {
   auditFieldFacets,
   auditRoleFacets,
   auditRoleLabel,
+  auditRoleOrgIds,
   auditTone,
   groupAuditByDay,
   humanize,
   isAuditFiltering,
   type AuditView,
 } from "@/lib/control";
-import { cn } from "@/lib/format";
+import { cn, countFull } from "@/lib/format";
 import { fetchOlderAuditEvents, QUERY_LIMIT, type PageCursor } from "@/lib/governance-api";
 import { useNow } from "@/lib/hooks";
 import { useGovernanceCollection } from "@/lib/use-governance";
@@ -29,7 +30,6 @@ import { useSearchParamSetter } from "@/lib/use-search-param";
 import { useSearchParams } from "next/navigation";
 import { ControlSuspense, JsonBlock, SummaryPill } from "./ControlBits";
 
-const fmt = new Intl.NumberFormat("en-IN");
 
 export function AuditTimeline() {
   return (
@@ -56,7 +56,9 @@ function Audit() {
   const setParam = useSearchParamSetter();
 
   const all = useMemo(() => mergeAuditPages(live.records, retained), [live.records, retained]);
-  const roles = useMemo(() => auditRoleFacets(all), [all]);
+  const orgIds = useMemo(() => auditRoleOrgIds(all), [all]);
+  const names = useOrgNames(orgIds, "audit");
+  const roles = useMemo(() => auditRoleFacets(all, names), [all, names]);
   const entities = useMemo(() => auditFieldFacets(all, "resourceType"), [all]);
   const actions = useMemo(() => auditFieldFacets(all, "action"), [all]);
   const visible = useMemo(() => applyAuditView(all, view), [all, view]);
@@ -103,9 +105,9 @@ function Audit() {
 
       {ready ? (
         <ul aria-label="Audit summary" className="flex flex-wrap gap-2 text-[12px]">
-          <SummaryPill label={filtering ? "Matching (loaded)" : "Loaded"} value={fmt.format(filtering ? visible.length : all.length)} />
-          {!filtering ? <SummaryPill label="Today" value={fmt.format(today)} /> : null}
-          {pagedOnce ? <SummaryPill label="Paged back" value={`${fmt.format(retained.length)} older`} /> : null}
+          <SummaryPill label={filtering ? "Matching (loaded)" : "Loaded"} value={countFull(filtering ? visible.length : all.length)} />
+          {!filtering ? <SummaryPill label="Today" value={countFull(today)} /> : null}
+          {pagedOnce ? <SummaryPill label="Paged back" value={`${countFull(retained.length)} older`} /> : null}
         </ul>
       ) : null}
 
@@ -156,7 +158,7 @@ function Audit() {
                 <span className="num rounded-pill bg-[rgba(255,255,255,0.07)] px-2 py-0.5 text-[11px] font-bold text-text-2">{group.records.length}</span>
               </h2>
               <Card className="px-5 py-5">
-                <Timeline items={group.records.map(toItem)} stamp="time" onSelect={(id) => setParam("event", id)} />
+                <Timeline items={group.records.map((r) => toItem(r, names))} stamp="time" onSelect={(id) => setParam("event", id)} />
               </Card>
             </section>
           ))}
@@ -170,7 +172,7 @@ function Audit() {
               {paging ? "Loading…" : `Load ${QUERY_LIMIT} older`}
             </Button>
           ) : null}
-          {exhausted ? <p className="text-[12px] text-text-3">Showing all {fmt.format(all.length)} audit records.</p> : null}
+          {exhausted ? <p className="text-[12px] text-text-3">Showing all {countFull(all.length)} audit records.</p> : null}
           {pageError ? (
             <span role="alert" className="text-[12px] text-err">
               {pageError}
@@ -180,7 +182,7 @@ function Audit() {
       ) : null}
       {ready && live.truncated && !exhausted ? <Truncated shown={all.length} /> : null}
 
-      <AuditDrawer open={!!selectedId} loading={live.loading} record={selected} onClose={() => setParam("event", null)} />
+      <AuditDrawer open={!!selectedId} loading={live.loading} record={selected} names={names} onClose={() => setParam("event", null)} />
     </PageContainer>
   );
 }
@@ -190,14 +192,14 @@ function istShort(key: string): string {
   return new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${key}T12:00:00Z`));
 }
 
-function toItem(record: DisplayRecord): TimelineItem {
+function toItem(record: DisplayRecord, names: Record<string, string | null>): TimelineItem {
   const raw = record.raw;
   const resource = [text(raw, "resourceType"), text(raw, "resourceId")].filter((p) => p !== "—").join("/");
   const org = text(raw, "orgId");
   const reason = text(raw, "reason");
-  const body = [[resource, org !== "—" ? `org ${org}` : null].filter(Boolean).join(" · "), reason !== "—" ? `“${reason}”` : null].filter(Boolean).join(" — ");
+  const body = [[resource, org !== "—" ? names[org] ?? `org ${org}` : null].filter(Boolean).join(" · "), reason !== "—" ? `“${reason}”` : null].filter(Boolean).join(" — ");
   const actorUid = text(raw, "actorUid");
-  const role = auditRoleLabel(raw);
+  const role = auditRoleLabel(raw, names);
   return {
     id: record.id,
     at: toDate(raw.at),
@@ -241,7 +243,7 @@ function FilterRow({
   );
 }
 
-function AuditDrawer({ open, loading, record, onClose }: { open: boolean; loading: boolean; record: DisplayRecord | null; onClose: () => void }) {
+function AuditDrawer({ open, loading, record, names, onClose }: { open: boolean; loading: boolean; record: DisplayRecord | null; names: Record<string, string | null>; onClose: () => void }) {
   const raw = record?.raw ?? {};
   const action = text(raw, "action");
   const requestId = text(raw, "requestId");
@@ -260,9 +262,10 @@ function AuditDrawer({ open, loading, record, onClose }: { open: boolean; loadin
           <p className="num font-display text-[22px] font-bold leading-tight tracking-[-0.02em] text-text">{formatDateTime(raw.at)}</p>
           <Fields label="Audit record">
             <Field label="Actor" mono>{text(raw, "actorUid")}</Field>
-            <Field label="Actor role">{auditRoleLabel(raw)}</Field>
+            <Field label="Actor role">{auditRoleLabel(raw, names)}</Field>
             <Field label="Resource">{[text(raw, "resourceType"), text(raw, "resourceId")].filter((p) => p !== "—").join(" / ") || "—"}</Field>
-            <Field label="Organizer" mono>{text(raw, "orgId")}</Field>
+            {typeof raw.orgId === "string" && names[raw.orgId] ? <Field label="Organizer">{names[raw.orgId]}</Field> : null}
+            <Field label="Organizer ID" mono>{text(raw, "orgId")}</Field>
             <Field label="Reason">{text(raw, "reason")}</Field>
             <Field label="Request ID" mono>{requestId !== "—" ? <CopyIdPill id={requestId} noun="request" /> : "—"}</Field>
             <Field label="Source">{text(raw, "source")}</Field>

@@ -49,7 +49,7 @@ export function OrganizerCodes({ backHref }: { backHref: string }) {
       cell: (r) => (
         <div className="max-w-[340px]">
           <div className="truncate text-[14px] font-semibold text-text">{r.primary}</div>
-          <div className="mt-0.5 truncate text-[12px] text-text-3">{r.secondary === "—" ? "Organizer application" : r.secondary}</div>
+          <div className="mt-0.5 truncate text-[12px] text-text-3">{r.secondary === "—" ? "Organizer application" : `${r.secondary.charAt(0).toUpperCase()}${r.secondary.slice(1)}`}</div>
         </div>
       ),
     },

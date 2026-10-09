@@ -5,6 +5,7 @@ import { Chip, Sheet, useToast } from "@/components/pulse";
 import { PAYOUT_CADENCES, RequestIdBook, commissionPercentToBps, type PayoutCadence } from "@/lib/console/actions";
 import { rethrowForSheet } from "@/lib/console/errors";
 import { proposeCommercialAgreement } from "@/lib/governance-api";
+import { inrMinor } from "@/lib/format";
 import { proposeKey } from "@/lib/money-views";
 import { commissionLabel } from "@/lib/organizers";
 import { OrgPicker } from "./MoneyBits";
@@ -104,7 +105,7 @@ export function ProposeTermsSheet({
             </span>
             <span className="mt-1.5 block text-[12px] text-text-3">
               {proposePct !== null
-                ? `PULSE keeps ₹${new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(proposePct * 10)} of every ₹1,000 booked.`
+                ? `PULSE keeps ${inrMinor(Math.round(proposePct * 1000))} of every ₹1,000 booked.`
                 : "0–50%, up to two decimals."}
               {!target ? "" : current.bps !== null ? ` Now ${commissionLabel(current.bps)}.` : " No terms in force yet."}
             </span>

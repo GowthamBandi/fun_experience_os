@@ -135,6 +135,19 @@ export function applicationActivation(raw: Raw): { label: string; tone: BadgeTon
   return raw.activationPending === false ? { label: "Activated", tone: "ok" } : { label: "Code issued, not redeemed", tone: "warn" };
 }
 
+const COLLECTION_LABEL: Record<string, string> = {
+  organizerApplications: "Application",
+  organizers: "Organizer",
+  events: "Event",
+  experiences: "Experience",
+  arenas: "Arena",
+};
+
+/** A reader-facing noun for a case target's collection ("Application", not "organizerApplications"). */
+export function collectionLabel(collection: string | null | undefined): string {
+  return (collection && COLLECTION_LABEL[collection]) || "Record";
+}
+
 export function neighbourId(ids: string[], current: string): string | null {
   const i = ids.indexOf(current);
   if (i < 0) return ids[0] ?? null;

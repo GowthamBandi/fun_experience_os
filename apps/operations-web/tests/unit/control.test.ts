@@ -208,3 +208,14 @@ describe("policy cards", () => {
     expect(card).toMatchObject({ title: "Cancellation v1", version: null, status: null, summary: null, effectiveFrom: null, rules: null, facts: [] });
   });
 });
+
+describe("audit role labels with organizer names", () => {
+  it("names org-scoped roles and keeps platform roles", async () => {
+    const { auditRoleLabel, auditRoleOrgIds } = await import("@/lib/control");
+    expect(auditRoleLabel({ actorRole: "org:abc123:owner" }, { abc123: "Clay & Coffee" })).toBe("Owner · Clay & Coffee");
+    expect(auditRoleLabel({ actorRole: "org:abc123:co-host" })).toBe("Co host · org abc123");
+    expect(auditRoleLabel({ actorRole: "platform:platform-owner" }, { abc123: "x" })).toBe("Platform Owner");
+    expect(auditRoleLabel({ actorRole: "customer" })).toBe("Customer");
+    expect(auditRoleOrgIds([{ raw: { actorRole: "org:o1:owner", orgId: "o2" } } as never])).toEqual(["o1", "o2"]);
+  });
+});

@@ -39,7 +39,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       className={cn(
         "focus-ring relative inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap",
         "transition-[background-color,border-color,color,box-shadow,transform,filter] duration-200 ease-pulse",
-        "active:scale-[0.97] disabled:active:scale-100 motion-reduce:active:scale-100",
+        "active:scale-[0.97] disabled:active:scale-100 aria-disabled:active:scale-100 motion-reduce:active:scale-100",
         loading ? "cursor-progress opacity-90" : "disabled:cursor-not-allowed disabled:opacity-50",
         VARIANT[variant],
         SIZE[size],

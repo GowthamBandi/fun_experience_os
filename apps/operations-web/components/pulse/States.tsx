@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
 import { AlertTriangle, Info, RotateCw } from "lucide-react";
-import { cn } from "@/lib/format";
+import { cn, countFull } from "@/lib/format";
 import { Button } from "./Button";
 
+/** Empty and error titles are styled paragraphs, not headings, so they never skip a level under a page h1. */
 export function Empty({ emoji, title, body, action, className }: { emoji: string; title: string; body?: string; action?: ReactNode; className?: string }) {
   return (
     <div className={cn("flex flex-col items-center px-6 py-12 text-center", className)}>
@@ -12,7 +13,7 @@ export function Empty({ emoji, title, body, action, className }: { emoji: string
       >
         {emoji}
       </div>
-      <h3 className="mt-4 font-display text-[18px] font-bold tracking-[-0.02em] text-text">{title}</h3>
+      <p className="mt-4 font-display text-[18px] font-bold tracking-[-0.02em] text-text">{title}</p>
       {body ? <p className="mt-1.5 max-w-sm text-[14px] leading-[1.5] text-text-2">{body}</p> : null}
       {action ? <div className="mt-5">{action}</div> : null}
     </div>
@@ -25,7 +26,7 @@ export function ErrorState({ message, onRetry, className }: { message: string; o
       <div aria-hidden className="grid h-14 w-14 place-items-center rounded-[18px] bg-[rgba(255,97,120,0.14)] text-err shadow-[0_0_0_6px_rgba(255,97,120,0.06)]">
         <AlertTriangle className="h-6 w-6" />
       </div>
-      <h3 className="mt-4 font-display text-[17px] font-bold tracking-[-0.02em] text-text">Couldn’t load this</h3>
+      <p className="mt-4 font-display text-[17px] font-bold tracking-[-0.02em] text-text">Couldn’t load this</p>
       <p className="mt-1.5 max-w-md break-words text-[13px] leading-[1.5] text-text-2">{message}</p>
       {onRetry ? (
         <Button variant="ghost" size="sm" icon={<RotateCw />} onClick={onRetry} className="mt-4">
@@ -41,7 +42,7 @@ export function Truncated({ shown, className }: { shown: number; className?: str
     <p className={cn("flex items-center gap-2 rounded-control border border-dashed border-line px-3.5 py-2.5 text-[12px] text-text-3", className)}>
       <Info aria-hidden className="h-3.5 w-3.5 shrink-0 text-info" />
       <span>
-        Showing the newest {new Intl.NumberFormat("en-IN").format(shown)}. Narrow the filters to see older records.
+        Showing the newest {countFull(shown)}. Narrow the filters to see older records.
       </span>
     </p>
   );

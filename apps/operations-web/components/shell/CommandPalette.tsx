@@ -7,7 +7,7 @@ import { createPortal } from "react-dom";
 import { ArrowRight, CalendarDays, CornerDownLeft, Hash, Loader2, Phone, Search, Sparkles, Store, Ticket, UserRound, type LucideIcon } from "lucide-react";
 import { Kbd } from "@/components/pulse";
 import { useDialog } from "@/components/pulse/use-dialog";
-import { canViewRoute } from "@/lib/console/capabilities";
+import { canSearchEntities, canViewRoute } from "@/lib/console/capabilities";
 import { describeReadError } from "@/lib/console/errors";
 import { getFirebaseClient } from "@/lib/firebase/client";
 import { useAdminSession } from "@/lib/firebase/auth";
@@ -85,7 +85,8 @@ function Palette({ onClose }: { onClose: () => void }) {
 
   const trimmed = query.trim();
   const detected = trimmed ? classifyQuery(trimmed) : null;
-  const searchable = !!detected && (detected.kind !== "text" || detected.value.length >= 2);
+  const entities = canSearchEntities(consoleRole);
+  const searchable = entities && !!detected && (detected.kind !== "text" || detected.value.length >= 2);
 
   useEffect(() => {
     const ticket = ++seq.current;
@@ -205,7 +206,7 @@ function Palette({ onClose }: { onClose: () => void }) {
             aria-controls={`${id}-list`}
             aria-activedescendant={options.length ? optionId(current) : undefined}
             aria-autocomplete="list"
-            aria-label="Search organizers, events, bookings and people, or go to a page"
+            aria-label={entities ? "Search organizers, events, bookings and people, or go to a page" : "Go to a console page"}
             placeholder="Search or jump to…"
             autoComplete="off"
             spellCheck={false}
@@ -304,7 +305,9 @@ function Palette({ onClose }: { onClose: () => void }) {
             <div className="px-6 py-10 text-center">
               <p aria-hidden className="text-[28px]">🔍</p>
               <p className="mt-2 font-display text-[16px] font-bold text-text">No matches for “{trimmed}”</p>
-              <p className="mt-1 text-[13px] text-text-3">Names match from their first letters. Try a phone number, PLS-XXXXXX, or a document ID.</p>
+              <p className="mt-1 text-[13px] text-text-3">
+                {entities ? "Names match from their first letters. Try a phone number, PLS-XXXXXX, or a document ID." : "Your role searches console pages only; organizers, events and people aren't available to it."}
+              </p>
             </div>
           ) : null}
         </div>
@@ -313,7 +316,7 @@ function Palette({ onClose }: { onClose: () => void }) {
           <span className="flex items-center gap-1.5"><Kbd>↑</Kbd><Kbd>↓</Kbd> move</span>
           <span className="flex items-center gap-1.5"><Kbd>↵</Kbd> open</span>
           <span className="flex items-center gap-1.5"><Kbd>esc</Kbd> close</span>
-          <span className="ml-auto hidden sm:inline">Live from Firestore · 5 per type</span>
+          <span className="ml-auto hidden sm:inline">{entities ? "Live from Firestore · 5 per type" : "Pages only for your role"}</span>
         </div>
       </motion.div>
     </div>

@@ -76,6 +76,14 @@ export function rolesAllowedFor(callable: ConsoleCallable): ConsoleRole[] {
   return CONSOLE_ROLES.filter((role) => can(role, CALLABLE_CAPABILITY[callable]));
 }
 
+/**
+ * ⌘K entity search reads organizers, events, bookings and users, which the rules give admins only.
+ * Other roles (auditors) search pages alone, so the palette never shows an unclearable permission error.
+ */
+export function canSearchEntities(role: ConsoleRole | null | undefined): boolean {
+  return can(role, "governance.read");
+}
+
 export const CONSOLE_ROUTES = [
   "/",
   "/live",

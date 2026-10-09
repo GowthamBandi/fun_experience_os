@@ -9,7 +9,7 @@ import { useAdminSession } from "@/lib/firebase/auth";
 import { ARENA_FILTERS, arenaCounts, arenaStatusActions, arenaStatusBadge, filterArenas, sortArenas, toArena, type ArenaCard, type ArenaFilter } from "@/lib/arenas";
 import { ROLE_LABEL, can } from "@/lib/console/capabilities";
 import { formatDateTime } from "@/lib/console/records";
-import { cn } from "@/lib/format";
+import { cn, countFull } from "@/lib/format";
 import { useGovernanceCollection } from "@/lib/use-governance";
 import type { StatusAction } from "@/lib/organizers";
 
@@ -135,7 +135,7 @@ export function ArenasView() {
   );
 }
 
-const capacityLabel = (a: ArenaCard) => (a.capacity !== null ? new Intl.NumberFormat("en-IN").format(a.capacity) : a.capacityText ?? "—");
+const capacityLabel = (a: ArenaCard) => (a.capacity !== null ? countFull(a.capacity) : a.capacityText ?? "—");
 
 function ArenaTile({ card, onOpen }: { card: ArenaCard; onOpen: () => void }) {
   const badge = arenaStatusBadge(card.status);

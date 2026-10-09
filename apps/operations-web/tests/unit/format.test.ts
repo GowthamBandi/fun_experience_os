@@ -97,3 +97,13 @@ describe("phones", () => {
     expect(normalizePhone("5876543210")).toBeNull(); // Indian mobiles start 6–9
   });
 });
+
+describe("countFull", () => {
+  it("groups en-IN and shows — when missing", async () => {
+    const { countFull } = await import("@/lib/format");
+    expect(countFull(184320)).toBe("1,84,320");
+    expect(countFull(0)).toBe("0");
+    expect(countFull(null)).toBe("—");
+    expect(countFull(Number.NaN)).toBe("—");
+  });
+});

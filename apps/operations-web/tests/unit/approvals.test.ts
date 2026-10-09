@@ -214,3 +214,12 @@ describe("organizer codes", () => {
     expect(reissueCodeKey({ ...rec, version: 3 })).not.toBe(reissueCodeKey(rec));
   });
 });
+
+describe("collectionLabel", () => {
+  it("names case targets for readers", async () => {
+    const { collectionLabel } = await import("@/lib/approvals");
+    expect(collectionLabel("organizerApplications")).toBe("Application");
+    expect(collectionLabel("events")).toBe("Event");
+    expect(collectionLabel(null)).toBe("Record");
+  });
+});
