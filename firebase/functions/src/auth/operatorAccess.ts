@@ -1,6 +1,6 @@
 import * as functions from "firebase-functions/v1";
 import { getAuth } from "firebase-admin/auth";
-import { db, COLLECTIONS, serverNow } from "../platform/firestore";
+import { app, db, COLLECTIONS, serverNow } from "../platform/firestore";
 import { requireActor } from "../platform/auth";
 import { DomainError, invalidInput, notPermitted } from "../platform/errors";
 import { correlationIdOf, logCallableFailure } from "../platform/log";
@@ -30,7 +30,7 @@ export const setOperatorAccess = functions.runWith({ enforceAppCheck: process.en
     const command = parse(data);
     if (command.uid === actor.uid && command.status !== "active") throw invalidInput("You cannot suspend or disable your own account.");
 
-    const auth = getAuth();
+    const auth = getAuth(app());
     const user = await auth.getUser(command.uid);
     const previousClaims = user.customClaims ?? {};
     const disabled = command.status !== "active";

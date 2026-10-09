@@ -181,3 +181,23 @@ These are served for every route by `next.config.mjs` → `security-headers.mjs`
 `script-src` keeps `'unsafe-inline'`: Next.js App Router hydration requires it unless a per-request nonce is added via middleware, and a nonce forces every page to render dynamically. Tightening this with a nonce is a possible follow-up.
 
 The HSTS `preload` directive is only a request. Submit the domain to hstspreload.org only if every subdomain of that domain is HTTPS-only.
+
+## 10. Local data
+
+The emulators start empty apart from what earlier sessions left in `.emulator-data/`. To fill every console screen with realistic data, start the emulators (`npm run firebase:emulators`), then from the repo root run:
+
+```bash
+FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 npm run seed:emulator
+```
+
+In PowerShell: `$env:FIRESTORE_EMULATOR_HOST="127.0.0.1:8080"; npm run seed:emulator`.
+
+`firebase/scripts/seed-emulator.ts` refuses to run unless `FIRESTORE_EMULATOR_HOST` points at this machine and the project is `demo-experience-os`. It drives the real callables over HTTP, so every record carries the same audit trail, receipts and ledger entries as production. It creates or reuses:
+
+- `admin@pulse.test` / `PulseAdmin#2026` (platform owner) and `ops@pulse.test` / `PulseOps#2026` (super-admin, for dual control);
+- five organizer applications (phones `+919000000001` to `+919000000005`), three approved and activated, two left pending in Approvals;
+- approved 10% commercial terms (proposed by ops, approved by admin), six approved experiences and nine published events in Bengaluru, Pune and Hyderabad over the next seven days;
+- twelve customers (`+919100000001` to `+919100000012`) with about 25 paid bookings, some for two spots, paid through `createPaymentOrder` and `confirmPayment` with the emulator's Razorpay dev signature;
+- one event moved to the `live` phase with about 60% of its tickets checked in, one organizer refund request awaiting review, and a settlement run for the first organizer.
+
+Re-running is safe: commands reuse deterministic request ids, so the second run only replays. `saveEvent` refuses starts less than 2 hours ahead, so the "live" event starts about 2 h 20 min after the seed and appears under "Happening now" once it starts. Reviews, and settlements with entries, need a completed event: re-run the seed after the live event ends (about 7 h 20 min after the first run) and it completes that event and posts two reviews.
