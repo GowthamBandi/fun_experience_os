@@ -310,6 +310,17 @@ export function sortReviews(reviews: ModReview[]): ModReview[] {
   return [...reviews].sort((a, b) => (b.at?.getTime() ?? 0) - (a.at?.getTime() ?? 0) || a.id.localeCompare(b.id));
 }
 
+/** Distinct non-empty ids, sorted, capped (the batch for a one-read-per-id lookup). */
+export function distinctIds(values: Array<string | null>, max: number): string[] {
+  return [...new Set(values.filter((x): x is string => !!x))].sort().slice(0, max);
+}
+
+/** The resolved name, or the raw id (flagged so it can be shown as an id) when none resolved. */
+export function nameOrId(id: string, names: Record<string, string | null>): { text: string; isName: boolean } {
+  const name = names[id];
+  return name ? { text: name, isName: true } : { text: id, isName: false };
+}
+
 export interface ModerationAction {
   status: "published" | "hidden";
   label: string;

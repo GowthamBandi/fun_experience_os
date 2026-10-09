@@ -52,3 +52,12 @@ export async function fetchMemberPeople(uids: string[]): Promise<Record<string, 
     rows.map(([profile, user, application], i) => [uids[i], { name: text(profile.data()?.displayName), phone: text(user.data()?.phone) ?? text(application.data()?.phone) }]),
   );
 }
+
+/** publicOrganizers.name per orgId, one read per distinct id (null when missing). */
+export async function fetchOrganizerNames(ids: string[]): Promise<Record<string, string | null>> {
+  const snaps = await Promise.all(ids.map((id) => getDoc(doc(getFirebaseClient().firestore, "publicOrganizers", id))));
+  return Object.fromEntries(snaps.map((s, i) => {
+    const name = s.data()?.name;
+    return [ids[i], typeof name === "string" && name.trim() ? name.trim() : null];
+  }));
+}

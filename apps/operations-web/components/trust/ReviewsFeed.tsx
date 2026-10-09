@@ -17,7 +17,8 @@ import { cn, relTime } from "@/lib/format";
 import { moderateReview } from "@/lib/governance-api";
 import { useNow } from "@/lib/hooks";
 import { averageRating } from "@/lib/organizers";
-import { REVIEW_FILTERS, filterReviews, moderationAction, reviewCounts, sortReviews, toModReview, type ModReview, type ModerationAction, type ReviewFilter } from "@/lib/trust";
+import { fetchOrganizerNames } from "@/lib/organizers-firestore";
+import { REVIEW_FILTERS, distinctIds, filterReviews, nameOrId, moderationAction, reviewCounts, sortReviews, toModReview, type ModReview, type ModerationAction, type ReviewFilter } from "@/lib/trust";
 import { useGovernanceCollection } from "@/lib/use-governance";
 import { useOneShot } from "@/lib/use-query";
 import { CountChips, ReadOnly, SearchField } from "./TrustBits";
@@ -43,7 +44,10 @@ export function ReviewsFeed() {
   const reviews = useMemo(() => sortReviews(records.map((r) => toModReview(r.id, r.raw))), [records]);
   const counts = useMemo(() => reviewCounts(reviews), [reviews]);
   const avg = useMemo(() => averageRating(reviews.map((r) => ({ rating: r.rating, status: r.status }))), [reviews]);
-  const eventIds = useMemo(() => [...new Set(reviews.map((r) => r.eventId).filter((x): x is string => !!x))].sort().slice(0, TITLE_MAX), [reviews]);
+  const eventIds = useMemo(() => distinctIds(reviews.map((r) => r.eventId), TITLE_MAX), [reviews]);
+  const orgIds = useMemo(() => distinctIds(reviews.map((r) => r.orgId), TITLE_MAX), [reviews]);
+  const orgNames = useOneShot(orgIds.length ? `review-org-names|${orgIds.join(",")}` : null, () => fetchOrganizerNames(orgIds));
+  const orgNameMap = useMemo(() => orgNames.value ?? {}, [orgNames.value]);
   const titles = useOneShot(eventIds.length ? `review-event-titles|${eventIds.join(",")}` : null, () => fetchEventTitles(eventIds));
   const titleMap = useMemo(() => titles.value ?? {}, [titles.value]);
   const shown = useMemo(() => filterReviews(reviews, filter, search, titleMap), [reviews, filter, search, titleMap]);
@@ -113,7 +117,7 @@ export function ReviewsFeed() {
           <ul className="columns-1 gap-4 md:columns-2 xl:columns-3">
             {shown.map((r) => (
               <li key={r.id} className="mb-4 break-inside-avoid">
-                <ReviewCard review={r} titles={titleMap} now={now} permitted={permitted} onModerate={(action) => setTarget({ review: r, action })} />
+                <ReviewCard review={r} titles={titleMap} orgNames={orgNameMap} now={now} permitted={permitted} onModerate={(action) => setTarget({ review: r, action })} />
               </li>
             ))}
           </ul>
@@ -131,9 +135,10 @@ export function ReviewsFeed() {
   );
 }
 
-function ReviewCard({ review: r, titles, now, permitted, onModerate }: { review: ModReview; titles: Record<string, string | null>; now: Date | null; permitted: boolean; onModerate: (a: ModerationAction) => void }) {
+function ReviewCard({ review: r, titles, orgNames, now, permitted, onModerate }: { review: ModReview; titles: Record<string, string | null>; orgNames: Record<string, string | null>; now: Date | null; permitted: boolean; onModerate: (a: ModerationAction) => void }) {
   const hidden = r.status === "hidden";
   const action = moderationAction(r.status);
+  const org = r.orgId ? nameOrId(r.orgId, orgNames) : null;
   return (
     <article className={cn("glass rounded-card p-5", hidden && "border-dashed opacity-80")}>
       <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
@@ -147,16 +152,16 @@ function ReviewCard({ review: r, titles, now, permitted, onModerate }: { review:
       <p className={cn("mt-3 whitespace-pre-line break-words text-[14px] leading-[1.6]", r.comment ? "text-text" : "italic text-text-3")}>{r.comment ? `“${r.comment}”` : "No comment"}</p>
       <div className="mt-4 flex flex-col gap-1 border-t border-line-soft pt-3 text-[12px] text-text-3">
         <span>
-          by <b className="font-semibold text-text-2">{r.author ?? "—"}</b>
+          from <b className="font-semibold text-text-2">{r.author ?? "—"}</b>
         </span>
         <span className="min-w-0 truncate">
           on <EventLink id={r.eventId} titles={titles} />
         </span>
-        {r.orgId ? (
+        {r.orgId && org ? (
           <span className="min-w-0 truncate">
-            host{" "}
-            <Link href={`/partners/${encodeURIComponent(r.orgId)}`} className="focus-ring rounded-[6px] font-mono text-[12px] text-text-2 underline-offset-2 hover:text-text hover:underline">
-              {r.orgId}
+            by{" "}
+            <Link href={`/partners/${encodeURIComponent(r.orgId)}`} className={cn("focus-ring rounded-[6px] underline-offset-2 hover:text-text hover:underline", org.isName ? "font-semibold text-text-2" : "font-mono text-[12px] text-text-2")}>
+              {org.text}
             </Link>
           </span>
         ) : null}

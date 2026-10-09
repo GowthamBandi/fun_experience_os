@@ -4,7 +4,9 @@ import {
   blockTarget,
   filterReviews,
   filterRisks,
+  distinctIds,
   moderationAction,
+  nameOrId,
   reviewCounts,
   riskCounts,
   riskDetailRows,
@@ -137,6 +139,13 @@ describe("reviews", () => {
     expect(filterReviews([r1, r2, r3], "hidden", "").map((r) => r.id)).toEqual(["e1__u2"]);
     expect(filterReviews([r1, r2, r3], "all", "asha").map((r) => r.id)).toEqual(["e1__u1"]);
     expect(filterReviews([r1, r2, r3], "all", "sunburn", { e2: "Sunburn Arena" }).map((r) => r.id)).toEqual(["e2__u3"]);
+  });
+  it("batches distinct ids and falls back to the id when no name resolves", () => {
+    expect(distinctIds(["o2", null, "o1", "o2", ""], 40)).toEqual(["o1", "o2"]);
+    expect(distinctIds(["c", "b", "a"], 2)).toEqual(["a", "b"]);
+    expect(nameOrId("o1", { o1: "Harbor Events" })).toEqual({ text: "Harbor Events", isName: true });
+    expect(nameOrId("o2", { o2: null })).toEqual({ text: "o2", isName: false });
+    expect(nameOrId("o3", {})).toEqual({ text: "o3", isName: false });
   });
   it("offers the opposite moderation status", () => {
     expect(moderationAction("published")).toMatchObject({ status: "hidden", label: "Hide", tone: "danger" });
