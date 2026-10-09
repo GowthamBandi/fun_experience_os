@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Badge, Button, Card, Empty, ErrorState, PageHeader, SkeletonRows, Sheet, Tooltip, Truncated, useToast } from "@/components/pulse";
+import { PageContainer } from "@/components/shell/PageContainer";
 import { LiveEventRow } from "@/components/live/LiveEventRow";
 import { can } from "@/lib/console/capabilities";
 import { newRequestId } from "@/lib/console/actions";
@@ -42,7 +43,7 @@ export default function LivePage() {
 
   const cancelButton = (ev: Ev) => {
     const button = (
-      <Button variant="danger" size="sm" disabled={!canCancel} onClick={() => open(ev)}>
+      <Button variant="danger" size="sm" aria-disabled={!canCancel || undefined} className={canCancel ? undefined : "cursor-not-allowed opacity-50"} onClick={() => canCancel && open(ev)}>
         Cancel event
       </Button>
     );
@@ -60,7 +61,7 @@ export default function LivePage() {
       ) : now ? (
         <ul className="flex flex-col gap-3">
           {items.map((ev) => (
-            <LiveEventRow key={ev.id} ev={ev} phase={phase} now={now} action={phase === "live" ? cancelButton(ev) : undefined} />
+            <LiveEventRow key={ev.id} ev={ev} phase={phase} now={now} action={cancelButton(ev)} />
           ))}
         </ul>
       ) : null}
@@ -68,7 +69,7 @@ export default function LivePage() {
   );
 
   return (
-    <div className="flex flex-col gap-6">
+    <PageContainer className="flex flex-col gap-6">
       <PageHeader
         overline="Monitor"
         title={
@@ -93,7 +94,7 @@ export default function LivePage() {
         ) : error ? (
           <ErrorState message={error} onRetry={retry} />
         ) : live.length === 0 && soon.length === 0 ? (
-          <Empty emoji="🌙" title="No events running right now 🌙" body="Events starting in the next 12 hours will show up here." />
+          <Empty emoji="🌙" title="No events running right now" body="Events starting in the next 12 hours will show up here." />
         ) : (
           <>
             {section("live-happening", "Happening now", live, "live", "No events running right now 🌙")}
@@ -114,6 +115,6 @@ export default function LivePage() {
         onConfirm={confirm}
         onClose={() => setTarget(null)}
       />
-    </div>
+    </PageContainer>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { PAGE_CONTAINER } from "@/components/shell/PageContainer";
 import { Suspense, useCallback, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Chip, CountUp, PageHeader, Skeleton } from "@/components/pulse";
@@ -99,7 +100,7 @@ function BentoSkeleton() {
 }
 
 const GRID = "grid grid-cols-2 gap-3.5 md:grid-cols-6 xl:grid-cols-12";
-const PAGE = "mx-auto w-full max-w-[1440px] px-5 pb-12 pt-2 lg:px-7";
+const PAGE = PAGE_CONTAINER;
 
 function CommandCenter() {
   const { user } = useAdminSession();
