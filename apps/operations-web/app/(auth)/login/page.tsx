@@ -2,13 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Eye, EyeOff, KeyRound, ShieldCheck } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { useAdminSession } from "@/lib/firebase/auth";
 import { ConfigurationNotice } from "@/components/console/ConfigurationNotice";
+import { Button, useToast } from "@/components/pulse";
 import { EnvBadge } from "@/components/shell/EnvBadge";
 import { landingRoute } from "@/lib/console/capabilities";
 
 /** Signed in but not ready: the console layout explains the state (verify email, no role, disabled…). */
+const STICKERS = ["🪪 Approve hosts", "🛡 Keep it safe", "💸 Move the money", "📈 Watch it grow"];
+
+const FIELD =
+  "mt-1.5 h-12 w-full rounded-control border border-line bg-night px-3.5 text-[14px] text-text outline-none transition-[border-color,box-shadow] duration-200 ease-pulse placeholder:text-text-3 focus:border-primary focus:shadow-[0_0_0_4px_rgba(142,114,255,0.18)] disabled:cursor-not-allowed disabled:opacity-50";
+
 const EXPLAINED_STATES = new Set(["unverified", "disabled", "no-role", "forbidden"]);
 
 function messageFor(error: unknown): string {
@@ -22,6 +28,7 @@ function messageFor(error: unknown): string {
 export default function LoginPage() {
   const router = useRouter();
   const session = useAdminSession();
+  const toast = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
@@ -56,33 +63,77 @@ export default function LoginPage() {
     }
     try {
       await session.resetPassword(email);
-      setNotice("A password reset link has been sent if the account exists.");
+      setNotice(null);
+      toast.show({ tone: "ok", title: "A password reset link has been sent if the account exists." });
     } catch {
-      setNotice("A password reset link could not be sent right now.");
+      toast.show({ tone: "err", title: "A password reset link could not be sent right now." });
     }
   }
 
+  const alert = notice ?? session.error ?? (session.state === "forbidden" ? "This account cannot use the Operations Console." : null);
+  const disabled = !email.trim() || !password || misconfigured;
+
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#0a111a] p-6">
-      <div className="w-full max-w-md">
-        <div className="text-center">
-          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-indigo-400/20 bg-indigo-400/10 text-indigo-300"><ShieldCheck className="h-6 w-6" /></span>
-          <div className="mt-4 flex justify-center"><EnvBadge /></div>
-          <h1 className="mt-4 text-2xl font-semibold tracking-tight text-white">Operations Console</h1>
-          <p className="mt-2 text-sm text-slate-400">Sign in with your verified Experience OS account.</p>
+    <main className="relative grid min-h-screen overflow-hidden bg-ink lg:grid-cols-[1.1fr_1fr]">
+      <div aria-hidden className="page-glow" />
+      <section className="relative z-10 flex flex-col justify-between gap-10 px-6 pb-6 pt-8 sm:px-10 lg:min-h-screen lg:px-14 lg:py-14">
+        <div className="flex items-center gap-3">
+          <svg aria-hidden width="34" height="24" viewBox="0 0 34 24" className="shrink-0">
+            <polyline points="0,13 9.5,13 13.6,3 18.7,22 23.1,9.6 25.8,13 34,13" fill="none" stroke="#D9FF3F" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <span className="font-display text-[18px] font-bold tracking-[-0.02em] text-text">
+            PULSE <span className="font-medium text-text-3">Admin</span>
+          </span>
         </div>
+        <div>
+          <h2 className="font-display text-[44px] font-bold leading-none tracking-[-0.04em] text-text sm:text-[56px]">
+            Run the city&rsquo;s<br />
+            <em className="hl">pulse.</em>
+          </h2>
+          <ul className="mt-5 flex flex-wrap gap-2">
+            {STICKERS.map((sticker) => (
+              <li key={sticker} className="rounded-[12px] border border-line-soft bg-[rgba(255,255,255,0.06)] px-3 py-2 text-[13px] text-text">{sticker}</li>
+            ))}
+          </ul>
+        </div>
+        <p className="hidden text-[12px] text-text-3 lg:block">Operators only · every action is audited</p>
+      </section>
 
-        {misconfigured && session.configProblem && <div className="mt-8"><ConfigurationNotice problem={session.configProblem} /></div>}
+      <section className="relative z-10 flex items-center justify-center px-6 pb-10 pt-2 sm:px-10 lg:justify-start lg:px-14 lg:py-14">
+        <div className="w-full max-w-[420px]">
+          {misconfigured && session.configProblem && <div className="mb-4"><ConfigurationNotice problem={session.configProblem} /></div>}
+          <form onSubmit={submit} className="glass rounded-card p-[30px] shadow-glow">
+            <h1 className="font-display text-[24px] font-bold tracking-[-0.02em] text-text">Welcome back 👋</h1>
+            <p className="mt-1 text-[14px] text-text-2">Sign in with your verified work email.</p>
 
-        <form onSubmit={submit} className="mt-8 rounded-2xl border border-white/10 bg-[#111925] p-6 shadow-2xl">
-          <label className="block"><span className="text-xs font-medium text-slate-300">Work email</span><input type="email" autoComplete="username" required disabled={misconfigured} value={email} onChange={(event) => setEmail(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#0a111a] px-3.5 text-sm text-white outline-none placeholder:text-slate-600 focus:border-indigo-400/60 focus:ring-2 focus:ring-indigo-400/10" placeholder="admin@company.com" /></label>
-          <label className="mt-4 block"><span className="text-xs font-medium text-slate-300">Password</span><span className="relative mt-2 block"><input type={show ? "text" : "password"} autoComplete="current-password" required disabled={misconfigured} value={password} onChange={(event) => setPassword(event.target.value)} className="h-11 w-full rounded-xl border border-white/10 bg-[#0a111a] px-3.5 pr-11 text-sm text-white outline-none placeholder:text-slate-600 focus:border-indigo-400/60 focus:ring-2 focus:ring-indigo-400/10" /><button type="button" onClick={() => setShow((value) => !value)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-200" aria-label={show ? "Hide password" : "Show password"}>{show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></span></label>
-          {(notice || session.error || session.state === "forbidden") && <div role="alert" className="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-xs leading-5 text-amber-200">{notice ?? session.error ?? "This account cannot use the Operations Console."}</div>}
-          <button type="submit" disabled={!email.trim() || !password || busy || misconfigured} className="mt-5 flex h-11 w-full items-center justify-between rounded-xl bg-indigo-500 px-4 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-50"><span>{busy ? "Signing in…" : "Sign in"}</span><ArrowRight className="h-4 w-4" /></button>
-          <button type="button" onClick={reset} disabled={misconfigured} className="mt-4 disabled:opacity-40 inline-flex items-center gap-2 text-xs text-slate-500 hover:text-slate-300"><KeyRound className="h-3.5 w-3.5" />Forgot password?</button>
-        </form>
-        <p className="mt-5 text-center text-[11px] leading-5 text-slate-600">Access is restricted by verified email, account status and server-managed role claims. All privileged actions are audited.</p>
-      </div>
+            <label className="mt-5 block">
+              <span className="text-[12px] font-semibold text-text-3">Email</span>
+              <input type="email" autoComplete="username" required disabled={misconfigured} value={email} onChange={(event) => setEmail(event.target.value)} className={FIELD} placeholder="admin@company.com" />
+            </label>
+            <label className="mt-4 block">
+              <span className="text-[12px] font-semibold text-text-3">Password</span>
+              <span className="relative block">
+                <input type={show ? "text" : "password"} autoComplete="current-password" required disabled={misconfigured} value={password} onChange={(event) => setPassword(event.target.value)} className={`${FIELD} pr-12`} />
+                <button type="button" onClick={() => setShow((value) => !value)} className="focus-ring absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-[10px] text-text-3 transition-colors duration-200 hover:text-text" aria-label={show ? "Hide password" : "Show password"}>
+                  {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </span>
+            </label>
+
+            {alert && <div role="alert" className="mt-4 rounded-control border border-[rgba(255,97,120,0.35)] bg-[rgba(255,97,120,0.1)] p-3 text-[13px] leading-5 text-err">{alert}</div>}
+
+            <Button type="submit" variant="volt" size="lg" loading={busy} disabled={disabled} className="mt-6 w-full">
+              {busy ? "Signing in…" : "Sign in →"}
+            </Button>
+
+            <div className="mt-4 flex items-center justify-center gap-3 text-[12px]">
+              <button type="button" onClick={reset} disabled={misconfigured} className="focus-ring rounded-[8px] px-1 text-text-3 transition-colors duration-200 hover:text-text disabled:opacity-40">Forgot password?</button>
+              <EnvBadge />
+            </div>
+          </form>
+          <p className="mt-5 text-center text-[12px] text-text-3 lg:hidden">Operators only · every action is audited</p>
+        </div>
+      </section>
     </main>
   );
 }
