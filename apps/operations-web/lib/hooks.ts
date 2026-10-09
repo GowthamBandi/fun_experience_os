@@ -21,6 +21,17 @@ export function useClickOutside<T extends HTMLElement>(onOutside: () => void): R
   return ref;
 }
 
+/** The current time, ticking every `everyMs`; null until mounted so server and client render alike. */
+export function useNow(everyMs = 60_000): Date | null {
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => {
+    setNow(new Date());
+    const t = window.setInterval(() => setNow(new Date()), everyMs);
+    return () => window.clearInterval(t);
+  }, [everyMs]);
+  return now;
+}
+
 export function useIsMobile(breakpoint = 768): boolean {
   const [mobile, setMobile] = useState(false);
   useEffect(() => {

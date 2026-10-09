@@ -58,13 +58,28 @@ function useCountUp(value: string): string {
   return shown;
 }
 
-export function DeltaPill({ delta, className }: { delta: Delta; className?: string }) {
+const FLIPPED: Partial<Record<Delta["tone"], Delta["tone"]>> = { up: "down", down: "up" };
+
+/** `goodWhenDown` colours a rise red and a fall green (refund rate); the spoken direction stays literal. */
+/** A number that counts up to `value` (any countable string, e.g. "₹1,84,320" or "87%"); others render as-is. */
+export function CountUp({ value, className }: { value: string; className?: string }) {
+  const shown = useCountUp(value);
+  return (
+    <span className={className}>
+      <span aria-hidden>{shown}</span>
+      <span className="sr-only">{value}</span>
+    </span>
+  );
+}
+
+export function DeltaPill({ delta, goodWhenDown = false, className }: { delta: Delta; goodWhenDown?: boolean; className?: string }) {
   if (delta.tone === "none" || !delta.label) return null;
+  const colour = goodWhenDown ? FLIPPED[delta.tone] ?? delta.tone : delta.tone;
   const spoken = `${DELTA_WORD[delta.tone]} ${delta.label.replace(/[▲▼]\s*/, "")}`;
   return (
     <span
       aria-label={spoken}
-      className={cn("inline-flex items-center rounded-pill px-2 py-[3px] font-display text-[12px] font-bold leading-4", DELTA_TONE[delta.tone], className)}
+      className={cn("inline-flex items-center rounded-pill px-2 py-[3px] font-display text-[12px] font-bold leading-4", DELTA_TONE[colour], className)}
     >
       {delta.tone === "new" ? "✦ new" : delta.label}
     </span>
@@ -75,6 +90,7 @@ export type StatProps = {
   label: string;
   value: string;
   delta?: Delta;
+  goodWhenDown?: boolean;
   hint?: string;
   loading?: boolean;
   error?: string | null;
@@ -83,7 +99,7 @@ export type StatProps = {
   children?: ReactNode;
 };
 
-export function Stat({ label, value, delta, hint, loading = false, error = null, onRetry, className, children }: StatProps) {
+export function Stat({ label, value, delta, goodWhenDown, hint, loading = false, error = null, onRetry, className, children }: StatProps) {
   const shown = useCountUp(loading || error ? "" : value);
 
   return (
@@ -111,7 +127,7 @@ export function Stat({ label, value, delta, hint, loading = false, error = null,
           </div>
           {(delta && delta.tone !== "none") || hint ? (
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              {delta ? <DeltaPill delta={delta} /> : null}
+              {delta ? <DeltaPill delta={delta} goodWhenDown={goodWhenDown} /> : null}
               {hint ? <span className="text-[12px] text-text-3">{hint}</span> : null}
             </div>
           ) : null}

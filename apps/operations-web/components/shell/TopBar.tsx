@@ -10,27 +10,9 @@ import { OPEN_PALETTE_EVENT } from "@/components/shell/CommandPalette";
 import { ROLE_LABEL } from "@/lib/console/capabilities";
 import { useAdminSession } from "@/lib/firebase/auth";
 import { cn } from "@/lib/format";
-import { useClickOutside } from "@/lib/hooks";
+import { useClickOutside, useNow } from "@/lib/hooks";
+import { greetingFor } from "@/lib/overview";
 import type { Attention } from "@/lib/use-attention";
-
-const IST = "Asia/Kolkata";
-
-function greetingFor(now: Date) {
-  const hour = Number(new Intl.DateTimeFormat("en-GB", { hour: "numeric", hourCycle: "h23", timeZone: IST }).format(now));
-  const part = hour < 5 ? "evening" : hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
-  const date = new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short", timeZone: IST }).format(now);
-  return { date, greeting: `Good ${part}` };
-}
-
-function useClock() {
-  const [now, setNow] = useState<Date | null>(null);
-  useEffect(() => {
-    setNow(new Date());
-    const t = window.setInterval(() => setNow(new Date()), 60_000);
-    return () => window.clearInterval(t);
-  }, []);
-  return now;
-}
 
 function useIsMac() {
   const [mac, setMac] = useState(false);
@@ -47,7 +29,7 @@ const STATUS = {
 export function TopBar({ attention }: { attention: Attention }) {
   const { user, consoleRole, signOut } = useAdminSession();
   const router = useRouter();
-  const now = useClock();
+  const now = useNow();
   const mac = useIsMac();
   const [bell, setBell] = useState(false);
   const [menu, setMenu] = useState(false);

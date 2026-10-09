@@ -315,3 +315,8 @@ body {
 :root:has(.firebase-emulator-warning) .min-h-screen {
   min-height: calc(100vh - 28px);
 }
+
+/* Tailwind ships an `overline` utility (text-decoration) under the same name as the label style above; keep only the label. */
+.overline {
+  text-decoration-line: none;
+}

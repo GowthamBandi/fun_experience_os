@@ -115,7 +115,7 @@ export function Rail({ counts, pinned, onTogglePin }: { counts: RailCounts; pinn
                       {countLabel(count)}
                     </span>
                   ) : null}
-                  {count > 0 ? <span className="sr-only">, {count} need attention</span> : null}
+                  {count > 0 ? <span className="sr-only">, {count} {item.badge === "live" ? "live now" : "need attention"}</span> : null}
                 </Link>
               </div>
             );

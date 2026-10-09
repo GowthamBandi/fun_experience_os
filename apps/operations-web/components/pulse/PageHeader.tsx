@@ -9,7 +9,7 @@ export function PageHeader({
   actions,
   className,
 }: {
-  overline?: string;
+  overline?: ReactNode;
   title: ReactNode;
   subtitle?: ReactNode;
   actions?: ReactNode;

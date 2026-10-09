@@ -13,7 +13,7 @@ export { PageHeader } from "./PageHeader";
 export { PhoneFrame } from "./PhoneFrame";
 export { Sheet, type SheetProps } from "./Sheet";
 export { Skeleton, SkeletonRows } from "./Skeleton";
-export { DeltaPill, Stat, type StatProps } from "./Stat";
+export { CountUp, DeltaPill, Stat, type StatProps } from "./Stat";
 export { Empty, ErrorState, Truncated } from "./States";
 export { Tabs, type TabItem } from "./Tabs";
 export { Timeline, type TimelineItem } from "./Timeline";

@@ -1,137 +1,195 @@
 "use client";
 
-import Link from "next/link";
-import { ArrowRight, CircleAlert, Clock3, Flame, ListChecks, RefreshCw } from "lucide-react";
-import { useGovernanceCollection } from "@/lib/use-governance";
-import { cn } from "@/lib/format";
-import {
-  SEVERITY_LABEL,
-  SEVERITY_ORDER,
-  buildAttentionQueue,
-  formatCount,
-  groupBySeverity,
-  isPrivilegedAudit,
-  type Severity,
-} from "@/lib/console/attention";
-import { formatDateTime } from "@/lib/console/records";
+import { Suspense, useCallback, useMemo } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Chip, CountUp, PageHeader, Skeleton } from "@/components/pulse";
+import { KpiBento } from "@/components/overview/KpiBento";
+import { LiveNowCard } from "@/components/overview/LiveNowCard";
+import { NeedsYou } from "@/components/overview/NeedsYou";
+import { PrivilegedActivity } from "@/components/overview/PrivilegedActivity";
+import { Tile } from "@/components/overview/Tile";
+import { TopCities } from "@/components/overview/TopCities";
+import { formatCount } from "@/lib/console/attention";
+import { useAdminSession } from "@/lib/firebase/auth";
+import { inrCompact } from "@/lib/format";
+import { useNow } from "@/lib/hooks";
+import { rangeFor, type RangeKey } from "@/lib/metrics";
+import { RANGE_KEYS, RANGE_LABEL, greetingFor, headlineFor, parseRange } from "@/lib/overview";
+import { useSharedAttention } from "@/lib/use-attention";
+import { useSharedLiveEvents } from "@/lib/use-live-events";
+import { useMetric } from "@/lib/use-metric";
 
-const SEVERITY_STYLE: Record<Severity, { ring: string; badge: string; icon: typeof Flame }> = {
-  critical: { ring: "border-red-400/25", badge: "bg-red-400/10 text-red-200", icon: Flame },
-  high: { ring: "border-amber-400/25", badge: "bg-amber-400/10 text-amber-200", icon: CircleAlert },
-  normal: { ring: "border-white/8", badge: "bg-indigo-400/10 text-indigo-200", icon: ListChecks },
-};
-
-export default function CommandCenter() {
-  const cases = useGovernanceCollection("governanceCases");
-  const risks = useGovernanceCollection("riskAlerts");
-  const refunds = useGovernanceCollection("refunds");
-  const settlements = useGovernanceCollection("settlements");
-  const audit = useGovernanceCollection("auditEvents");
-  const sources = [
-    { name: "Governance cases", source: cases },
-    { name: "Risk alerts", source: risks },
-    { name: "Refunds", source: refunds },
-    { name: "Settlements", source: settlements },
-    { name: "Audit", source: audit },
-  ];
-  const loading = sources.some(({ source }) => source.loading);
-  const failures = sources.filter(({ source }) => source.error);
-
-  const queue = buildAttentionQueue({
-    governanceCases: cases.records,
-    riskAlerts: risks.records,
-    refunds: refunds.records,
-    settlements: settlements.records,
-    truncated: { governanceCases: cases.truncated, riskAlerts: risks.truncated, refunds: refunds.truncated, settlements: settlements.truncated },
-  });
-  const grouped = groupBySeverity(queue);
-  const totalOpen = queue.reduce((sum, item) => sum + item.count, 0);
-  const privileged = audit.records.filter((record) => isPrivilegedAudit(record.raw)).slice(0, 10);
-
-  function retryAll() {
-    failures.forEach(({ source }) => source.refresh());
+function Headline({ live, attention }: { live: number; attention: number }) {
+  const h = headlineFor(live, attention);
+  if (h.kind === "buzzing") {
+    return (
+      <>
+        The city’s <em className="hl">buzzing</em> tonight.
+      </>
+    );
   }
+  if (h.kind === "needs") {
+    return h.n === 1 ? (
+      <>
+        <em className="hl">1 thing</em> needs you.
+      </>
+    ) : (
+      <>
+        <em className="hl">{h.n} things</em> need you.
+      </>
+    );
+  }
+  return (
+    <>
+      All <em className="hl">quiet</em> right now.
+    </>
+  );
+}
+
+const Pending = () => <span aria-hidden className="skeleton inline-block h-3.5 w-8 rounded-pill align-middle" />;
+
+function Summary({ dayKey }: { dayKey: number }) {
+  const attention = useSharedAttention();
+  const live = useSharedLiveEvents();
+  const today = useMemo(() => rangeFor("today", new Date(dayKey)), [dayKey]);
+  const gross = useMetric("grossBookings", today);
+  const truncated = Object.values(attention.sources.truncated).some(Boolean);
 
   return (
-    <div className="mx-auto w-full max-w-[1440px] px-5 py-7 lg:px-8">
-      <header className="flex flex-col gap-4 border-b border-white/8 pb-6 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="overline">Operations Command Center</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-[-0.035em] text-white">What needs governance attention</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Organizers operate their events. This console approves access, protects customers and money, and intervenes only when governance requires it. Counts are live from Firestore.</p>
-        </div>
-        <div className="rounded-xl border border-white/8 bg-[#111925] px-4 py-3 text-right">
-          <p className="text-[10px] uppercase tracking-[0.1em] text-slate-500">Open items</p>
-          <p className="tabular text-2xl font-semibold text-white" data-testid="open-items">{loading ? "…" : totalOpen}</p>
-        </div>
-      </header>
+    <>
+      {attention.loading ? <Pending /> : <CountUp value={formatCount(attention.total, truncated)} className="num font-bold text-text" />}{" "}
+      {attention.total === 1 ? "thing needs" : "things need"} you ·{" "}
+      {live.loading ? <Pending /> : live.error ? "—" : <CountUp value={String(live.live.length)} className="num font-bold text-text" />}{" "}
+      {live.live.length === 1 ? "event" : "events"} live ·{" "}
+      {gross.loading ? <Pending /> : <span className="num font-bold text-text">{inrCompact(gross.value)}</span>} moved today
+    </>
+  );
+}
 
-      {failures.length > 0 && (
-        <div role="alert" className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-400/20 bg-red-400/5 p-4 text-sm text-red-200">
-          <div>
-            <p className="font-medium">Some live sources could not be loaded — counts below may be incomplete.</p>
-            <ul className="mt-1 text-xs text-red-200/80">{failures.map(({ name, source }) => <li key={name}>{name}: {source.error}</li>)}</ul>
-          </div>
-          <button onClick={retryAll} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-red-300/30 px-3 text-xs font-semibold text-red-100 hover:bg-red-400/10"><RefreshCw className="h-3.5 w-3.5" />Retry</button>
-        </div>
-      )}
+const SKELETON_CELLS = [
+  "md:col-span-6 xl:col-span-5 xl:row-span-2 h-[268px] xl:h-auto",
+  "col-span-1 md:col-span-2 xl:col-span-2 h-[132px]",
+  "col-span-1 md:col-span-2 xl:col-span-2 h-[132px]",
+  "md:col-span-2 xl:col-span-3 h-[132px]",
+  "col-span-1 md:col-span-3 xl:col-span-4 h-[132px]",
+  "col-span-1 md:col-span-3 xl:col-span-3 h-[132px]",
+  "md:col-span-6 xl:col-span-7 xl:row-span-2 h-[420px]",
+  "md:col-span-6 xl:col-span-5 h-[204px]",
+  "md:col-span-6 xl:col-span-5 h-[204px]",
+];
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="space-y-6">
-          {SEVERITY_ORDER.map((severity) => {
-            const style = SEVERITY_STYLE[severity];
-            const Icon = style.icon;
-            const items = grouped[severity];
-            const open = items.filter((item) => item.count > 0);
-            return (
-              <section key={severity} aria-labelledby={`sev-${severity}`} className={cn("overflow-hidden rounded-2xl border bg-[#101823]", style.ring)}>
-                <div className="flex items-center justify-between border-b border-white/8 px-5 py-4">
-                  <h2 id={`sev-${severity}`} className="flex items-center gap-2 text-sm font-semibold text-white"><Icon className="h-4 w-4" />{SEVERITY_LABEL[severity]}</h2>
-                  <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", style.badge)}>{loading ? "…" : open.reduce((sum, item) => sum + item.count, 0)}</span>
-                </div>
-                <div className="divide-y divide-white/7">
-                  {items.map((item) => (
-                    <Link key={item.key} href={item.href} data-testid={`attention-${item.key}`} className={cn("grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 px-5 py-4 hover:bg-white/[0.025]", item.count === 0 && "opacity-55")}>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-slate-100">{item.label}</p>
-                        <p className="mt-0.5 text-xs text-slate-500">{item.detail}</p>
-                      </div>
-                      <span className={cn("tabular text-lg font-semibold", item.count > 0 ? "text-white" : "text-slate-500")}>{loading ? "…" : formatCount(item.count, item.truncated)}</span>
-                      <ArrowRight className="h-4 w-4 text-slate-500" />
-                    </Link>
-                  ))}
-                </div>
-              </section>
-            );
-          })}
-          {!loading && failures.length === 0 && totalOpen === 0 && <p className="rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-4 text-sm text-emerald-100">Nothing needs governance attention right now.</p>}
+function BentoSkeleton() {
+  return (
+    <>
+      {SKELETON_CELLS.map((c, i) => (
+        <div key={i} aria-hidden className={`col-span-2 rounded-card border border-line-soft bg-[rgba(26,23,38,0.6)] p-5 ${c}`}>
+          <Skeleton className="h-3 w-24 rounded-pill" />
+          <Skeleton className="mt-3 h-8 w-32 rounded-[12px]" />
         </div>
+      ))}
+    </>
+  );
+}
 
-        <aside>
-          <section className="rounded-2xl border border-white/8 bg-[#111925] p-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-white">Recent privileged actions</h2>
-              <Link href="/audit" className="text-xs text-indigo-300 hover:text-indigo-200">Full audit</Link>
-            </div>
-            <p className="mt-1 text-xs text-slate-500">Console decisions, access changes and money controls (server-written audit).</p>
-            <div className="mt-3 divide-y divide-white/8">
-              {audit.loading && <p className="py-6 text-center text-xs text-slate-500">Loading audit…</p>}
-              {!audit.loading && audit.error && <p className="py-4 text-xs text-red-300">{audit.error}</p>}
-              {!audit.loading && !audit.error && privileged.length === 0 && <p className="py-6 text-center text-xs text-slate-500">No privileged actions recorded yet.</p>}
-              {privileged.map((record) => (
-                <div key={record.id} className="flex gap-3 py-3">
-                  <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
-                  <div className="min-w-0">
-                    <p className="break-words text-xs font-medium text-slate-200">{String(record.raw.action ?? record.primary)}</p>
-                    <p className="mt-1 break-words text-[11px] text-slate-500">{[record.raw.resourceType, record.raw.resourceId].filter(Boolean).join(" · ")}{record.raw.reason ? ` — “${String(record.raw.reason)}”` : ""}</p>
-                    <p className="mt-0.5 text-[11px] text-slate-600">{formatDateTime(record.raw.at)} · {String(record.raw.actorRoleId ?? record.raw.actorRole ?? "")}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        </aside>
+const GRID = "grid grid-cols-2 gap-3.5 md:grid-cols-6 xl:grid-cols-12";
+const PAGE = "mx-auto w-full max-w-[1440px] px-5 pb-12 pt-2 lg:px-7";
+
+function CommandCenter() {
+  const { user } = useAdminSession();
+  const attention = useSharedAttention();
+  const live = useSharedLiveEvents();
+  const now = useNow();
+  const router = useRouter();
+  const pathname = usePathname() ?? "/";
+  const params = useSearchParams();
+  const rangeKey = parseRange(params.get("range"));
+  // Ranges only move at IST midnight; keying on the day keeps the metric hooks' inputs stable.
+  const dayKey = now ? rangeFor("today", now).start.getTime() : null;
+  const range = useMemo(() => (dayKey === null ? null : rangeFor(rangeKey, new Date(dayKey))), [rangeKey, dayKey]);
+
+  const setRange = useCallback(
+    (key: RangeKey) => {
+      const next = new URLSearchParams(params.toString());
+      if (key === "today") next.delete("range");
+      else next.set("range", key);
+      const qs = next.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [params, pathname, router],
+  );
+
+  const firstName = user?.displayName?.trim().split(/\s+/)[0] || null;
+  const hello = now ? greetingFor(now) : null;
+  const ready = !attention.loading && !live.loading;
+
+  return (
+    <div className={PAGE}>
+      <PageHeader
+        overline={
+          hello ? (
+            <span className="text-[13px] normal-case tracking-normal">
+              {hello.date} ·{" "}
+              <b className="font-semibold text-text">
+                {hello.greeting}
+                {firstName ? `, ${firstName}` : ""} <span aria-hidden className="text-[#C2B4FF]">✦</span>
+              </b>
+            </span>
+          ) : (
+            <span aria-hidden className="skeleton inline-block h-3.5 w-48 rounded-pill align-middle" />
+          )
+        }
+        title={ready ? <Headline live={live.live.length} attention={attention.total} /> : <Skeleton className="h-[44px] w-[min(520px,90%)] rounded-[14px]" />}
+        subtitle={dayKey !== null ? <Summary dayKey={dayKey} /> : null}
+        className="[&_h1]:text-[34px] md:[&_h1]:text-[44px]"
+      />
+
+      <div role="group" aria-label="Time range" className="mb-5 mt-5 flex flex-wrap gap-2">
+        {RANGE_KEYS.map((key) => (
+          <Chip key={key} selected={key === rangeKey} onClick={() => setRange(key)}>
+            {RANGE_LABEL[key]}
+          </Chip>
+        ))}
+      </div>
+
+      <div className={GRID}>
+        {range && now ? (
+          <>
+            <KpiBento range={range} rangeKey={rangeKey} start={0} />
+            <Tile index={6} className="md:col-span-6 xl:col-span-7 xl:row-span-2">
+              <NeedsYou now={now} />
+            </Tile>
+            <Tile index={7} className="md:col-span-6 xl:col-span-5">
+              <LiveNowCard now={now} />
+            </Tile>
+            <Tile index={8} className="md:col-span-6 xl:col-span-5">
+              <TopCities range={range} rangeKey={rangeKey} />
+            </Tile>
+            <Tile index={9} className="md:col-span-6 xl:col-span-12">
+              <PrivilegedActivity />
+            </Tile>
+          </>
+        ) : (
+          <BentoSkeleton />
+        )}
       </div>
     </div>
+  );
+}
+
+export default function CommandCenterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className={PAGE}>
+          <Skeleton className="h-4 w-48 rounded-pill" />
+          <Skeleton className="mt-4 h-[44px] w-[min(520px,90%)] rounded-[14px]" />
+          <div className={`${GRID} mt-[88px]`}>
+            <BentoSkeleton />
+          </div>
+        </div>
+      }
+    >
+      <CommandCenter />
+    </Suspense>
   );
 }

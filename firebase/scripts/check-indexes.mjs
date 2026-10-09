@@ -125,6 +125,8 @@ export const QUERIES = [
   Q("M05", "console", "ledgerEntries", ["account", "kind", "direction"], "createdAt", [], ["apps/operations-web/lib/metrics.ts", `["direction", "==", "credit"]`], "Dashboard money metrics (gross, refunds, commission): ledger account + kind + direction equality, per createdAt range; one composite serves all."),
   Q("M06", "console", "tickets", [], "issuedAt", [], ["apps/operations-web/lib/metrics.ts", `dateField: "issuedAt"`], "Dashboard tickets issued: issuedAt range only, single-field index."),
   Q("M07", "console", "organizers", ["status"], null, [], ["apps/operations-web/lib/metrics.ts", `collection: "organizers"`], "Dashboard active organizers: single equality, no date."),
+  Q("M08", "console", "events", [], "startsAt", [["startsAt", "asc"]], ["apps/operations-web/lib/use-live-events.ts", `orderBy("startsAt", direction)`], "Live now: startsAt in now ± 12 h, ordered by startsAt, limit 100; range and order on one field, single-field index."),
+  Q("M09", "console", "events", [], "startsAt", [["startsAt", "desc"]], ["apps/operations-web/lib/use-live-events.ts", `eventsStartingBetween(`], "Top cities (components/overview/TopCities.tsx): startsAt in the dashboard range, newest first, limit 251; single-field index."),
 ];
 
 /* --------------------------------------------------------------- matching */
@@ -323,11 +325,12 @@ for (const [file] of sources.filter(([f]) => f.includes("operations-web"))) {
   const text = readFileSync(file, "utf8");
   for (const m of text.matchAll(/[^.\w]where\(\s*["'`]([\w.]+)["'`]/g)) {
     const rel = relative(ROOT, file).replaceAll("\\", "/");
-    const ok = QUERIES.some((q) => q.area === "console" && q.src[0] === rel && q.eq.map(bare).includes(m[1]));
+    const ok = QUERIES.some((q) => q.area === "console" && q.src[0] === rel && (q.eq.map(bare).includes(m[1]) || q.range === m[1]));
     if (!ok) errors.push(`${rel}:${text.slice(0, m.index).split("\n").length} modular where("${m[1]}") is not declared in QUERIES`);
   }
   // Modular multi-constraint queries need a declared entry too (where + orderBy on different fields).
-  if (/query\([^;]*where\([^;]*orderBy\(/s.test(text) && !QUERIES.some((q) => q.area === "console" && q.eq.length && q.order.length)) {
+  const relFile = relative(ROOT, file).replaceAll("\\", "/");
+  if (/query\([^;]*where\([^;]*orderBy\(/s.test(text) && !QUERIES.some((q) => q.area === "console" && q.src[0] === relFile && (q.eq.length || q.range) && q.order.length)) {
     warnings.push(`${relative(ROOT, file)}: a query() combines where() and orderBy(); check it needs no composite`);
   }
 }
