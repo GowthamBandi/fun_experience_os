@@ -18,30 +18,61 @@ export const cn = (...parts: Array<string | false | null | undefined>): string =
 const finite = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n);
 const trim = (s: string) => s.replace(/\.0+$|(\.\d*?)0+$/, "$1");
 
+const MINUS = "−";
+
+type Unit = { div: number; suffix: string; digits: number };
+
+/** Scales `a` (≥ 0) to the largest unit it reaches, re-checking after rounding so 999.6 reads "1k", not "1000". */
+function scaled(a: number, units: Unit[]): string {
+  let i = 0;
+  while (i + 1 < units.length && a >= units[i + 1].div) i++;
+  for (;;) {
+    const u = units[i];
+    const fixed = (a / u.div).toFixed(u.digits);
+    const next = units[i + 1];
+    if (next && Number(fixed) * u.div >= next.div) {
+      i++;
+      continue;
+    }
+    return `${u.digits ? trim(fixed) : fixed}${u.suffix}`;
+  }
+}
+
+const signed = (negative: boolean, body: string) => (negative && !/^\D*0$/.test(body) ? `${MINUS}${body}` : body);
+
+/** Paise as en-IN rupees; negatives read "−₹950". */
 export const inrMinor = (minor: number | null | undefined): string =>
-  finite(minor) ? inr(Math.round(minor) / 100) : "—";
+  finite(minor) ? signed(minor < 0, inr(Math.abs(Math.round(minor)) / 100)) : "—";
+
+const INR_UNITS = (a: number): Unit[] => [
+  { div: 1, suffix: "", digits: 0 },
+  { div: 1e3, suffix: "k", digits: 1 },
+  { div: 1e5, suffix: "L", digits: 2 },
+  { div: 1e7, suffix: "Cr", digits: a >= 1e8 ? 1 : 2 },
+];
 
 export function inrCompact(minor: number | null | undefined): string {
   if (!finite(minor)) return "—";
-  const r = minor / 100;
-  const a = Math.abs(r);
-  if (a >= 1e7) return `₹${trim((r / 1e7).toFixed(a >= 1e8 ? 1 : 2))}Cr`;
-  if (a >= 1e5) return `₹${trim((r / 1e5).toFixed(2))}L`;
-  if (a >= 1e3) return `₹${trim((r / 1e3).toFixed(1))}k`;
-  return `₹${Math.round(r)}`;
+  const a = Math.abs(minor / 100);
+  return signed(minor < 0, `₹${scaled(a, INR_UNITS(a))}`);
 }
+
+const COUNT_UNITS: Unit[] = [
+  { div: 1, suffix: "", digits: 0 },
+  { div: 1e3, suffix: "k", digits: 1 },
+  { div: 1e5, suffix: "L", digits: 1 },
+  { div: 1e7, suffix: "Cr", digits: 1 },
+];
 
 export function countCompact(n: number | null | undefined): string {
   if (!finite(n)) return "—";
-  if (Math.abs(n) >= 1e5) return `${trim((n / 1e5).toFixed(1))}L`;
-  if (Math.abs(n) >= 1e3) return `${trim((n / 1e3).toFixed(1))}k`;
-  return String(Math.round(n));
+  return signed(n < 0, scaled(Math.abs(n), COUNT_UNITS));
 }
 
 export function deltaPct(current: number | null, previous: number | null): { label: string; tone: "up" | "down" | "flat" | "new" | "none" } {
   if (!finite(current) || !finite(previous)) return { label: "", tone: "none" };
   if (previous === 0) return current === 0 ? { label: "0%", tone: "flat" } : { label: "new", tone: "new" };
-  const p = Math.round(((current - previous) / previous) * 100);
+  const p = Math.round(((current - previous) / Math.abs(previous)) * 100);
   if (p === 0) return { label: "0%", tone: "flat" };
   return p > 0 ? { label: `▲ ${p}%`, tone: "up" } : { label: `▼ ${Math.abs(p)}%`, tone: "down" };
 }

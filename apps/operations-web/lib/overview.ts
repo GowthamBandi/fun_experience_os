@@ -66,6 +66,10 @@ export interface Ev {
   capacity: number | null;
   /** occupancy.confirmedPaidBookings + confirmedComplimentaryBookings. */
   taken: number | null;
+  /** occupancy.confirmedPaidBookings alone: the spots that brought money in. */
+  paid: number | null;
+  /** Ticket price per spot, in paise. */
+  priceMinor: number | null;
   checkedIn?: number;
 }
 
@@ -98,6 +102,8 @@ export function toEv(id: string, data: Record<string, unknown>): Ev {
     status: str(data.status) ?? "unknown",
     capacity: readNumber(capacity.maxPhysicalCapacity) ?? readNumber(capacity.max),
     taken: paid === null && comp === null ? null : (paid ?? 0) + (comp ?? 0),
+    paid,
+    priceMinor: readNumber(data.priceMinor),
   };
 }
 

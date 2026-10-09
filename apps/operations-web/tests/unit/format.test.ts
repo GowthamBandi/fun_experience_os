@@ -20,6 +20,30 @@ describe("money", () => {
     expect(countCompact(1200)).toBe("1.2k");
     expect(countCompact(340000)).toBe("3.4L");
   });
+  it("signs negatives with a true minus before the rupee", () => {
+    expect(inrMinor(-95000)).toBe("−₹950");
+    expect(inrMinor(-18432000)).toBe("−₹1,84,320");
+    expect(inrCompact(-95000)).toBe("−₹950");
+    expect(inrCompact(-18432000)).toBe("−₹1.84L");
+    expect(inrCompact(-900)).toBe("−₹9");
+    expect(countCompact(-1200)).toBe("−1.2k");
+  });
+  it("never shows a minus on zero", () => {
+    expect(inrMinor(-40)).toBe("₹0");
+    expect(inrCompact(-40)).toBe("₹0");
+    expect(inrMinor(-0)).toBe("₹0");
+  });
+  it("moves up a unit when rounding reaches it", () => {
+    expect(inrCompact(99960)).toBe("₹1k");
+    expect(inrCompact(100000)).toBe("₹1k");
+    expect(inrCompact(9999990)).toBe("₹1L");
+    expect(inrCompact(999999900)).toBe("₹1Cr");
+    expect(inrCompact(-999999900)).toBe("−₹1Cr");
+    expect(inrCompact(99940)).toBe("₹999");
+    expect(countCompact(999.6)).toBe("1k");
+    expect(countCompact(99960)).toBe("1L");
+    expect(countCompact(9_999_000)).toBe("1Cr");
+  });
 });
 
 describe("deltaPct", () => {
@@ -27,6 +51,11 @@ describe("deltaPct", () => {
     expect(deltaPct(118, 100)).toEqual({ label: "▲ 18%", tone: "up" });
     expect(deltaPct(90, 100)).toEqual({ label: "▼ 10%", tone: "down" });
     expect(deltaPct(100, 100)).toEqual({ label: "0%", tone: "flat" });
+  });
+  it("reads direction correctly from a negative baseline", () => {
+    expect(deltaPct(-50, -100)).toEqual({ label: "▲ 50%", tone: "up" });
+    expect(deltaPct(50, -100)).toEqual({ label: "▲ 150%", tone: "up" });
+    expect(deltaPct(-150, -100)).toEqual({ label: "▼ 50%", tone: "down" });
   });
   it("never shows Infinity or NaN", () => {
     expect(deltaPct(5, 0)).toEqual({ label: "new", tone: "new" });
