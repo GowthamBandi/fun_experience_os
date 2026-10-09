@@ -54,6 +54,16 @@ export class RequestIdBook {
   }
 }
 
+/**
+ * The RequestIdBook key for one intended command: the action, the record state it was
+ * decided against (status, version or updatedAt) and every payload field that matters.
+ * The server replays by requestId alone, so an identical retry must map to the same key
+ * (and replay) while a changed command, or a repeat after the record moved, gets a new id.
+ */
+export function decisionKey(...parts: Array<string | number | boolean | null | undefined>): string {
+  return parts.map((p) => (p === null || p === undefined ? "" : typeof p === "string" ? p.trim() : String(p))).join("|");
+}
+
 function requireRequestId(requestId: string): string {
   if (!REQUEST_ID_PATTERN.test(requestId)) throw new CommandValidationError("Internal error: the request ID is invalid.");
   return requestId;

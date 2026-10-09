@@ -5,6 +5,7 @@ import { Chip, Sheet, useToast } from "@/components/pulse";
 import { PAYOUT_CADENCES, RequestIdBook, commissionPercentToBps, type PayoutCadence } from "@/lib/console/actions";
 import { rethrowForSheet } from "@/lib/console/errors";
 import { proposeCommercialAgreement } from "@/lib/governance-api";
+import { proposeKey } from "@/lib/money-views";
 import { commissionLabel } from "@/lib/organizers";
 import { OrgPicker } from "./MoneyBits";
 
@@ -51,7 +52,7 @@ export function ProposeTermsSheet({
   const confirm = async (note: string) => {
     if (!target) throw new Error("Choose the organizer these terms are for.");
     try {
-      const result = await proposeCommercialAgreement({ requestId: book.current.idFor(`${target}-propose`), orgId: target, commissionPercent: percent, payoutCadence: cadence, note });
+      const result = await proposeCommercialAgreement({ requestId: book.current.idFor(proposeKey(target, percent, cadence)), orgId: target, commissionPercent: percent, payoutCadence: cadence, note });
       book.current.reset();
       onChanged?.();
       toast.show({

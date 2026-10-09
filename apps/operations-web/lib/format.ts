@@ -40,9 +40,14 @@ function scaled(a: number, units: Unit[]): string {
 
 const signed = (negative: boolean, body: string) => (negative && !/^\D*0$/.test(body) ? `${MINUS}${body}` : body);
 
-/** Paise as en-IN rupees; negatives read "−₹950". */
-export const inrMinor = (minor: number | null | undefined): string =>
-  finite(minor) ? signed(minor < 0, inr(Math.abs(Math.round(minor)) / 100)) : "—";
+const inrPaise = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/** Paise as en-IN rupees, exact: "₹1,84,320", "₹449.50"; negatives read "−₹950". Paise show only when non-zero. */
+export const inrMinor = (minor: number | null | undefined): string => {
+  if (!finite(minor)) return "—";
+  const abs = Math.abs(Math.round(minor));
+  return signed(minor < 0, abs % 100 ? inrPaise.format(abs / 100) : inr(abs / 100));
+};
 
 const INR_UNITS = (a: number): Unit[] => [
   { div: 1, suffix: "", digits: 0 },

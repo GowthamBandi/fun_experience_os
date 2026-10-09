@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
+import { RequestIdBook, decisionKey } from "@/lib/console/actions";
 import {
   agreementCounts,
   agreementDecision,
+  agreementKey,
+  buildKey,
+  proposeKey,
+  refundKey,
+  refundToast,
+  settlementKey,
   filterAgreements,
   filterRefunds,
   filterSettlements,
@@ -166,5 +173,64 @@ describe("small helpers", () => {
   it("today in IST rolls over at 18:30Z", () => {
     expect(todayIst(new Date("2026-10-09T18:29:00Z"))).toBe("2026-10-09");
     expect(todayIst(new Date("2026-10-09T18:30:00Z"))).toBe("2026-10-10");
+  });
+});
+
+describe("refund outcome toast", () => {
+  it("titles from the server status, never calling a provider failure a second approval", () => {
+    expect(refundToast("awaiting-second-approval", "approve", "₹12,000")).toMatchObject({ tone: "info", title: "Awaiting second approver" });
+    const failed = refundToast("failed", "approve", "₹449.50");
+    expect(failed).toMatchObject({ tone: "err", title: "Refund approved · provider failed" });
+    expect(failed.body).toContain("payment provider reported a failure");
+    expect(refundToast("processing", "approve", "₹449.50")).toEqual({ tone: "ok", title: "Refund approved · ₹449.50", body: "Refund approved and sent to the payment provider (processing)." });
+    expect(refundToast("completed", "approve", "₹449.50").title).toBe("Refund approved · ₹449.50");
+    expect(refundToast("rejected", "reject", "₹449.50")).toMatchObject({ tone: "ok", title: "Refund rejected · ₹449.50" });
+  });
+});
+
+describe("command keys (the server replays by requestId alone)", () => {
+  const book = () => new RequestIdBook("t");
+
+  it("decisionKey trims and joins every part", () => {
+    expect(decisionKey("a", " b ", 3, null, undefined, false)).toBe("a|b|3|||false");
+  });
+
+  it("an identical retry replays; a changed payload gets a fresh id", () => {
+    const b = book();
+    expect(b.idFor(proposeKey("org1", "10", "weekly"))).toBe(b.idFor(proposeKey("org1", "10.00", "weekly")));
+    expect(b.idFor(proposeKey("org1", "10", "weekly"))).not.toBe(b.idFor(proposeKey("org1", "11", "weekly")));
+    expect(proposeKey("org1", "10", "weekly")).not.toBe(proposeKey("org1", "10", "monthly"));
+    expect(proposeKey("org1", "10", "weekly")).not.toBe(proposeKey("org2", "10", "weekly"));
+  });
+
+  it("mark paid carries the UTR; other settlement actions don't", () => {
+    const row = stl("s1", "approved", 10_000, { updatedAt: ts("2026-10-09T10:00:00Z") });
+    expect(settlementKey(row, "mark-paid", "UTR111")).not.toBe(settlementKey(row, "mark-paid", "UTR112"));
+    expect(settlementKey(row, "mark-paid", " UTR111 ")).toBe(settlementKey(row, "mark-paid", "UTR111"));
+    expect(settlementKey(row, "hold", "UTR111")).toBe(settlementKey(row, "hold", ""));
+    expect(settlementKey(row, "hold")).not.toBe(settlementKey(row, "mark-paid", ""));
+  });
+
+  it("a repeat after the record moved is a new command", () => {
+    const before = stl("s1", "approved", 10_000, { updatedAt: ts("2026-10-09T10:00:00Z") });
+    const after = stl("s1", "approved", 10_000, { updatedAt: ts("2026-10-09T11:00:00Z") });
+    expect(settlementKey(before, "hold")).not.toBe(settlementKey(after, "hold"));
+    const r1 = toRefundRow("r", { status: "under-review", amountMinor: 1_200_000, approvals: [], updatedAt: ts("2026-10-09T10:00:00Z") });
+    const r2 = toRefundRow("r", { status: "under-review", amountMinor: 1_200_000, approvals: ["a"], updatedAt: ts("2026-10-09T10:00:00Z") });
+    expect(refundKey(r1, "approve")).not.toBe(refundKey(r2, "approve"));
+    expect(refundKey(r1, "approve")).not.toBe(refundKey(r1, "reject"));
+    const a1 = agr("g", "pending-approval", { updatedAt: ts("2026-10-09T10:00:00Z") });
+    expect(agreementKey(a1, "approve")).toBe(agreementKey(agr("g", "pending-approval", { updatedAt: ts("2026-10-09T10:00:00Z") }), "approve"));
+    expect(agreementKey(a1, "approve")).not.toBe(agreementKey(a1, "reject"));
+  });
+
+  it("build is keyed by organizer and period end", () => {
+    expect(buildKey("org1", "2026-10-09")).toBe(buildKey("org1", "2026-10-09"));
+    expect(buildKey("org1", "2026-10-09")).not.toBe(buildKey("org1", "2026-10-08"));
+    expect(buildKey("org1", "2026-10-09")).not.toBe(buildKey("org2", "2026-10-09"));
+  });
+
+  it("status changes key by entity version (StatusSheet)", () => {
+    expect(decisionKey("organizer", "o1", "paused", 1)).not.toBe(decisionKey("organizer", "o1", "paused", 2));
   });
 });

@@ -8,8 +8,10 @@
  */
 
 import type { BadgeTone } from "@/components/pulse/Badge";
-import { CONFIRM_PHRASES, settlementActionsFor, type SettlementAction } from "./console/actions";
+import type { ToastInput } from "@/components/pulse/Toast";
+import { CONFIRM_PHRASES, commissionPercentToBps, decisionKey, settlementActionsFor, type SettlementAction } from "./console/actions";
 import { isMinorAmount, needsRefundDualControl, needsSettlementDualControl } from "./console/money";
+import { AWAITING_SECOND_APPROVER, refundOutcome } from "./console/outcomes";
 import { REFUND_REASON_LABEL, refundStage, toDate, type RefundStage } from "./console/records";
 import { refundBadge } from "./customers";
 import { agreementBadge, settlementBadge } from "./organizers";
@@ -18,6 +20,7 @@ type Raw = Record<string, unknown>;
 
 const str = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
 const minor = (v: unknown): number | null => (isMinorAmount(v) ? v : null);
+const ms = (d: Date | null) => d?.getTime() ?? null;
 const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && x !== "") : []);
 
 export type ViewBadge = { label: string; tone: BadgeTone };
@@ -159,6 +162,20 @@ export function refundApproveConsequence(row: RefundRow, amount: string): string
   }`;
 }
 
+/** decideRefund key: the decision against this exact state (status, approvals, updatedAt). */
+export function refundKey(row: RefundRow, decision: "approve" | "reject"): string {
+  return decisionKey("refund", row.id, decision, row.status, row.approvals.length, ms(row.updatedAt));
+}
+
+/** The toast for a decideRefund result, titled from the server status (refundOutcome copy as the body). */
+export function refundToast(status: string, decision: "approve" | "reject", amount: string): ToastInput {
+  const { message } = refundOutcome(status, decision);
+  if (status === "awaiting-second-approval") return { tone: "info", title: AWAITING_SECOND_APPROVER, body: message };
+  if (decision === "reject" || status === "rejected") return { tone: "ok", title: `Refund rejected · ${amount}`, body: message };
+  if (status === "failed") return { tone: "err", title: "Refund approved · provider failed", body: message };
+  return { tone: "ok", title: `Refund approved · ${amount}`, body: message };
+}
+
 export const REFUND_REJECT_CONSEQUENCE = "Rejects this refund request. The customer keeps their booking; the reason is recorded in the audit trail.";
 
 /* -------------------------------------------------------------- settlements */
@@ -192,6 +209,7 @@ export interface SettlementRow {
   paidBy: string | null;
   payoutReference: string | null;
   createdAt: Date | null;
+  updatedAt: Date | null;
   /** Above ₹50,000: the admin who approved can't also mark it paid. */
   dual: boolean;
 }
@@ -214,6 +232,7 @@ export function toSettlementRow(id: string, raw: Raw): SettlementRow {
     paidBy: str(raw.paidBy),
     payoutReference: str(raw.payoutReference),
     createdAt: toDate(raw.createdAt),
+    updatedAt: toDate(raw.updatedAt),
     dual: needsSettlementDualControl(raw.netMinor),
   };
 }
@@ -293,6 +312,16 @@ export function settlementConsequence(action: SettlementAction, net: string, dua
   }
 }
 
+/** decideSettlement key: the action against this state; mark paid also carries the UTR. */
+export function settlementKey(row: SettlementRow, action: SettlementAction, payoutReference = ""): string {
+  return decisionKey("settlement", row.id, action, row.status, ms(row.updatedAt), action === "mark-paid" ? payoutReference : null);
+}
+
+/** buildSettlement key: the organizer and period end (the server derives the settlement id from the request id). */
+export function buildKey(orgId: string, periodEndDate: string): string {
+  return decisionKey("build", orgId, periodEndDate);
+}
+
 export const BUILD_SETTLEMENT_CONSEQUENCE =
   "Claims every unsettled organizer-payable ledger entry of this organizer's COMPLETED events up to the period end into one settlement (pending approval). An entry can never be in two settlements.";
 
@@ -322,6 +351,7 @@ export interface AgreementRow {
   decidedAt: Date | null;
   decisionNote: string | null;
   supersededBy: string | null;
+  updatedAt: Date | null;
 }
 
 export function toAgreementRow(id: string, raw: Raw): AgreementRow {
@@ -338,6 +368,7 @@ export function toAgreementRow(id: string, raw: Raw): AgreementRow {
     decidedAt: toDate(raw.decidedAt),
     decisionNote: str(raw.decisionNote),
     supersededBy: str(raw.supersededBy),
+    updatedAt: toDate(raw.updatedAt),
   };
 }
 
@@ -386,6 +417,22 @@ export function agreementConsequence(action: "approve" | "reject", percent: stri
   return action === "approve"
     ? `Applies ${percent} commission to events this organizer publishes from now on. Their current approved terms are superseded; events already published keep their commission.`
     : "Rejects this version. The organizer's current terms (if any) stay in force.";
+}
+
+/** decideCommercialAgreement key: the outcome against this state. */
+export function agreementKey(row: AgreementRow, action: "approve" | "reject"): string {
+  return decisionKey("agreement", row.id, action, row.status, ms(row.updatedAt));
+}
+
+/** proposeCommercialAgreement key: organizer, commission (as bps when it parses) and cadence. */
+export function proposeKey(orgId: string, percent: string, cadence: string): string {
+  let bps: number | string;
+  try {
+    bps = commissionPercentToBps(percent);
+  } catch {
+    bps = percent.trim();
+  }
+  return decisionKey("propose", orgId, bps, cadence);
 }
 
 /** The approved terms in force for one organizer (newest decision wins), for pre-filling a proposal. */

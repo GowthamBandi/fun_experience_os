@@ -10,8 +10,8 @@ import { PageContainer } from "@/components/shell/PageContainer";
 import { useAdminSession } from "@/lib/firebase/auth";
 import { RequestIdBook } from "@/lib/console/actions";
 import { CALLABLE_CAPABILITY, can } from "@/lib/console/capabilities";
-import { formatPaise } from "@/lib/console/money";
-import { AWAITING_SECOND_APPROVER, refundOutcome } from "@/lib/console/outcomes";
+import { AWAITING_SECOND_APPROVER } from "@/lib/console/outcomes";
+import { inrMinor } from "@/lib/format";
 import { decideRefund } from "@/lib/governance-api";
 import { useNow } from "@/lib/hooks";
 import {
@@ -21,7 +21,9 @@ import {
   refundApproveConsequence,
   refundCounts,
   refundDecision,
+  refundKey,
   refundStageBadge,
+  refundToast,
   toRefundRow,
   waitingAmount,
   who,
@@ -78,7 +80,7 @@ function Refunds() {
       header: "Amount",
       align: "right",
       sort: (a, b) => (a.amountMinor ?? -1) - (b.amountMinor ?? -1),
-      cell: (r) => <span className="num font-display text-[15px] font-bold text-text">{formatPaise(r.amountMinor, r.currency)}</span>,
+      cell: (r) => <span className="num font-display text-[15px] font-bold text-text">{inrMinor(r.amountMinor)}</span>,
     },
     {
       key: "reason",
@@ -129,7 +131,7 @@ function Refunds() {
         <ul aria-label="Refund summary" className="flex flex-wrap gap-2 text-[12px]">
           <li className="inline-flex items-center gap-2 rounded-pill border border-line-soft bg-[rgba(255,255,255,0.03)] px-3 py-1.5">
             <span className="text-text-3">Waiting on a decision</span>
-            <b className="num text-[13px] text-text">{formatPaise(waitingMinor)}</b>
+            <b className="num text-[13px] text-text">{inrMinor(waitingMinor)}</b>
           </li>
         </ul>
       ) : null}
@@ -165,15 +167,15 @@ function RefundDrawer({ open, loading, row, names, now, onClose }: { open: boole
   const book = useRef(new RequestIdBook("refund"));
   const [sheet, setSheet] = useState<"approve" | "reject" | null>(null);
 
-  const amount = row ? formatPaise(row.amountMinor, row.currency) : "—";
+  const amount = row ? inrMinor(row.amountMinor) : "—";
   const d = row ? refundDecision(row, user?.uid) : null;
   const badge = row ? refundStageBadge(row) : null;
 
   const spec: DecisionSpec | null =
-    row && d && sheet
+    row && d && sheet && !d.closed
       ? sheet === "approve"
         ? {
-            idKey: `${row.id}-approve`,
+            idKey: refundKey(row, "approve"),
             title: `${d.approveLabel} of ${amount}?`,
             consequence: refundApproveConsequence(row, amount),
             confirmLabel: d.approveLabel,
@@ -182,12 +184,11 @@ function RefundDrawer({ open, loading, row, names, now, onClose }: { open: boole
             reasonMin: 10,
             execute: async (requestId, note) => {
               const result = await decideRefund({ requestId, refundId: row.id, decision: "approve", note });
-              const out = refundOutcome(result.status, "approve");
-              return { tone: out.tone === "info" ? "info" : "ok", title: out.tone === "info" ? AWAITING_SECOND_APPROVER : `Refund approved · ${amount}`, body: out.message };
+              return refundToast(result.status, "approve", amount);
             },
           }
         : {
-            idKey: `${row.id}-reject`,
+            idKey: refundKey(row, "reject"),
             title: `Reject the ${amount} refund?`,
             consequence: REFUND_REJECT_CONSEQUENCE,
             confirmLabel: "Reject refund",
@@ -195,8 +196,7 @@ function RefundDrawer({ open, loading, row, names, now, onClose }: { open: boole
             reasonMin: 10,
             execute: async (requestId, note) => {
               const result = await decideRefund({ requestId, refundId: row.id, decision: "reject", note });
-              const out = refundOutcome(result.status, "reject");
-              return { tone: out.tone === "info" ? "info" : "ok", title: `Refund rejected · ${amount}`, body: out.message };
+              return refundToast(result.status, "reject", amount);
             },
           }
       : null;

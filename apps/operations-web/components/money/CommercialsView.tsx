@@ -16,6 +16,7 @@ import {
   agreementConsequence,
   agreementCounts,
   agreementDecision,
+  agreementKey,
   agreementStatusBadge,
   filterAgreements,
   sortAgreements,
@@ -155,9 +156,9 @@ function AgreementDrawer({ open, loading, row, names, now, onClose }: { open: bo
   const badge = row ? agreementStatusBadge(row) : null;
 
   const spec: DecisionSpec | null =
-    row && action
+    row && action && d?.pending && !d.blocked
       ? {
-          idKey: `${row.id}-${action}`,
+          idKey: agreementKey(row, action),
           title: action === "approve" ? `Approve ${percent} commission?` : `Reject ${percent} commission?`,
           consequence: agreementConsequence(action, percent),
           confirmLabel: action === "approve" ? "Approve terms" : "Reject terms",

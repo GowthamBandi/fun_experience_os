@@ -9,21 +9,22 @@ import { PageContainer } from "@/components/shell/PageContainer";
 import { useAdminSession } from "@/lib/firebase/auth";
 import { RequestIdBook, type SettlementAction } from "@/lib/console/actions";
 import { CALLABLE_CAPABILITY, can } from "@/lib/console/capabilities";
-import { formatPaise } from "@/lib/console/money";
 import { settlementOutcome } from "@/lib/console/outcomes";
 import { formatDate } from "@/lib/console/records";
-import { cn } from "@/lib/format";
+import { cn, inrMinor } from "@/lib/format";
 import { buildSettlement, decideSettlement } from "@/lib/governance-api";
 import { useNow } from "@/lib/hooks";
 import {
   BUILD_SETTLEMENT_CONSEQUENCE,
   SETTLEMENT_TABS,
+  buildKey,
   filterSettlements,
   needsSecondPayer,
   needsSettlementAction,
   settlementButtons,
   settlementConsequence,
   settlementCounts,
+  settlementKey,
   settlementStatusBadge,
   toSettlementRow,
   todayIst,
@@ -71,7 +72,6 @@ function Settlements() {
   const [tab, setTab] = useTabParam(TAB_IDS, "approve");
   const now = useNow();
   const [building, setBuilding] = useState(false);
-  const book = useRef(new RequestIdBook("settlement"));
   const rows = useMemo(() => records.map((r) => toSettlementRow(r.id, r.raw)), [records]);
   const counts = useMemo(() => settlementCounts(rows), [rows]);
   const shown = useMemo(() => filterSettlements(rows, tab), [rows, tab]);
@@ -89,7 +89,7 @@ function Settlements() {
       header: "Net payable",
       align: "right",
       sort: (a, b) => (a.netMinor ?? -1) - (b.netMinor ?? -1),
-      cell: (r) => <span className="num font-display text-[15px] font-bold text-text">{formatPaise(r.netMinor, r.currency)}</span>,
+      cell: (r) => <span className="num font-display text-[15px] font-bold text-text">{inrMinor(r.netMinor)}</span>,
     },
     { key: "entries", header: "Entries", align: "right", cell: (r) => <span className="num text-[13px] text-text-2">{r.entryCount ?? "—"}</span> },
     { key: "age", header: "Built", sort: (a, b) => (a.createdAt?.getTime() ?? 0) - (b.createdAt?.getTime() ?? 0), cell: (r) => <Age at={r.createdAt} now={now} /> },
@@ -153,13 +153,15 @@ function Settlements() {
       )}
       {ready && truncated ? <Truncated shown={records.length} /> : null}
 
-      <SettlementDrawer open={!!selectedId} loading={loading} row={selected} names={names} now={now} book={book.current} onClose={() => setParam("settlement", null)} />
-      <BuildSheet open={building} now={now} book={book.current} onClose={() => setBuilding(false)} />
+      <SettlementDrawer open={!!selectedId} loading={loading} row={selected} names={names} now={now} onClose={() => setParam("settlement", null)} />
+      <BuildSheet open={building} now={now} onClose={() => setBuilding(false)} />
     </PageContainer>
   );
 }
 
-function BuildSheet({ open, now, book, onClose }: { open: boolean; now: Date | null; book: RequestIdBook; onClose: () => void }) {
+function BuildSheet({ open, now, onClose }: { open: boolean; now: Date | null; onClose: () => void }) {
+  // Its own book: a build never shares an id with a drawer decision.
+  const book = useRef(new RequestIdBook("build"));
   const [orgId, setOrgId] = useState("");
   const [date, setDate] = useState("");
   const today = now ? todayIst(now) : undefined;
@@ -171,7 +173,7 @@ function BuildSheet({ open, now, book, onClose }: { open: boolean; now: Date | n
 
   const spec: DecisionSpec | null = open
     ? {
-        idKey: `build-${orgId}-${date}`,
+        idKey: buildKey(orgId, date),
         title: "Build settlement",
         consequence: BUILD_SETTLEMENT_CONSEQUENCE,
         confirmLabel: "Build settlement",
@@ -193,12 +195,12 @@ function BuildSheet({ open, now, book, onClose }: { open: boolean; now: Date | n
           if (!result.settlementId || result.status === "empty") {
             return { tone: "info", title: "Nothing to settle", body: "Nothing to settle: there are no unsettled ledger entries from completed events for this organizer up to that date." };
           }
-          return { tone: "ok", title: "Settlement built", body: `Settlement ${result.settlementId} built: ${result.entryCount} entries, net ${formatPaise(result.netMinor)} (status: ${result.status}).` };
+          return { tone: "ok", title: "Settlement built", body: `Settlement ${result.settlementId} built: ${result.entryCount} entries, net ${inrMinor(result.netMinor)} (status: ${result.status}).` };
         },
       }
     : null;
 
-  return <DecisionSheet spec={spec} book={book} onClose={onClose} />;
+  return <DecisionSheet spec={spec} book={book.current} onClose={onClose} />;
 }
 
 function MoneyTile({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
@@ -216,7 +218,6 @@ function SettlementDrawer({
   row,
   names,
   now,
-  book,
   onClose,
 }: {
   open: boolean;
@@ -224,16 +225,16 @@ function SettlementDrawer({
   row: SettlementRow | null;
   names: Record<string, string | null>;
   now: Date | null;
-  book: RequestIdBook;
   onClose: () => void;
 }) {
   const { user, consoleRole: role } = useAdminSession();
   const permitted = can(role, CALLABLE_CAPABILITY.decideSettlement);
+  const book = useRef(new RequestIdBook("settlement"));
   const [action, setAction] = useState<SettlementAction | null>(null);
   const [payoutRef, setPayoutRef] = useState("");
   useEffect(() => setPayoutRef(""), [action]);
 
-  const net = row ? formatPaise(row.netMinor, row.currency) : "—";
+  const net = row ? inrMinor(row.netMinor) : "—";
   const buttons = row ? settlementButtons(row.status) : [];
   const chosen = buttons.find((b) => b.action === action) ?? null;
   const approvedByMe = !!row && !!user && row.approvedBy === user.uid;
@@ -242,7 +243,7 @@ function SettlementDrawer({
   const spec: DecisionSpec | null =
     row && chosen
       ? {
-          idKey: `${row.id}-${chosen.action}`,
+          idKey: settlementKey(row, chosen.action, payoutRef),
           title: `${chosen.label} · ${net}?`,
           consequence: settlementConsequence(chosen.action, net, row.dual),
           confirmLabel: chosen.label,
@@ -293,9 +294,9 @@ function SettlementDrawer({
             {needsSecondPayer(row) && !approvedByMe ? <Note>Above ₹50,000: the admin who approved it can’t also mark it paid.</Note> : null}
 
             <section aria-label="Money split" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <MoneyTile label="Gross" value={formatPaise(row.grossMinor, row.currency)} />
-              <MoneyTile label="Commission" value={formatPaise(row.commissionMinor, row.currency)} />
-              <MoneyTile label="Refunds" value={formatPaise(row.refundsMinor, row.currency)} />
+              <MoneyTile label="Gross" value={inrMinor(row.grossMinor)} />
+              <MoneyTile label="Commission" value={inrMinor(row.commissionMinor)} />
+              <MoneyTile label="Refunds" value={inrMinor(row.refundsMinor)} />
               <MoneyTile label="Net payable" value={net} strong />
             </section>
 
@@ -329,7 +330,7 @@ function SettlementDrawer({
           </div>
         )}
       </Drawer>
-      <DecisionSheet spec={spec} book={book} onClose={() => setAction(null)} />
+      <DecisionSheet spec={spec} book={book.current} onClose={() => setAction(null)} />
     </>
   );
 }

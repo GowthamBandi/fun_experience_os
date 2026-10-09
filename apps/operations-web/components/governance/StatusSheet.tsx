@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Sheet, useToast } from "@/components/pulse";
 import { PhraseBox } from "@/components/governance/PhraseBox";
-import { RequestIdBook, isConfirmed, type EntityStatus, type EntityType } from "@/lib/console/actions";
+import { RequestIdBook, decisionKey, isConfirmed, type EntityStatus, type EntityType } from "@/lib/console/actions";
 import { rethrowForSheet } from "@/lib/console/errors";
 import { setEntityStatus } from "@/lib/governance-api";
 import { entityVersion, type StatusAction } from "@/lib/organizers";
@@ -53,12 +53,14 @@ export function StatusSheet({
   const confirm = async (reason: string) => {
     if (!action) return;
     if (action.phrase && !isConfirmed(typed, action.phrase)) throw new Error(`Type ${action.phrase} to confirm.`);
+    // The version is part of the command: a repeat after the record moved is a new command.
+    const version = entityVersion(getVersion());
     try {
       const result = await setEntityStatus({
-        requestId: book.current.idFor(`${entityId}-${action.status}`),
+        requestId: book.current.idFor(decisionKey(entityType, entityId, action.status, version)),
         entityType,
         entityId,
-        expectedVersion: entityVersion(getVersion()),
+        expectedVersion: version,
         status: action.status,
         reason,
       });

@@ -8,6 +8,14 @@ describe("money", () => {
     expect(inrMinor(undefined)).toBe("—");
     expect(inrMinor(Number.NaN)).toBe("—");
   });
+  it("keeps paise when there are any", () => {
+    expect(inrMinor(44950)).toBe("₹449.50");
+    expect(inrMinor(45000)).toBe("₹450");
+    expect(inrMinor(1)).toBe("₹0.01");
+    expect(inrMinor(18432005)).toBe("₹1,84,320.05");
+    expect(inrMinor(-44950)).toBe("−₹449.50");
+    expect(inrMinor(-40)).toBe("−₹0.40");
+  });
   it("compacts with k / L / Cr", () => {
     expect(inrCompact(95000)).toBe("₹950");
     expect(inrCompact(1864000)).toBe("₹18.6k");
@@ -29,7 +37,6 @@ describe("money", () => {
     expect(countCompact(-1200)).toBe("−1.2k");
   });
   it("never shows a minus on zero", () => {
-    expect(inrMinor(-40)).toBe("₹0");
     expect(inrCompact(-40)).toBe("₹0");
     expect(inrMinor(-0)).toBe("₹0");
   });
