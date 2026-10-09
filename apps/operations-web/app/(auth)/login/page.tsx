@@ -7,23 +7,16 @@ import { useAdminSession } from "@/lib/firebase/auth";
 import { ConfigurationNotice } from "@/components/console/ConfigurationNotice";
 import { Button, useToast } from "@/components/pulse";
 import { EnvBadge } from "@/components/shell/EnvBadge";
+import { friendlyAuthError } from "@/lib/console/auth-errors";
 import { landingRoute } from "@/lib/console/capabilities";
 
-/** Signed in but not ready: the console layout explains the state (verify email, no role, disabled…). */
 const STICKERS = ["🪪 Approve hosts", "🛡 Keep it safe", "💸 Move the money", "📈 Watch it grow"];
 
 const FIELD =
   "mt-1.5 h-12 w-full rounded-control border border-line bg-night px-3.5 text-[14px] text-text outline-none transition-[border-color,box-shadow] duration-200 ease-pulse placeholder:text-text-3 focus:border-primary focus:shadow-[0_0_0_4px_rgba(142,114,255,0.18)] disabled:cursor-not-allowed disabled:opacity-50";
 
+/** Signed in but not ready: the console layout explains the state (verify email, no role, disabled…). */
 const EXPLAINED_STATES = new Set(["unverified", "disabled", "no-role", "forbidden"]);
-
-function messageFor(error: unknown): string {
-  const code = typeof error === "object" && error && "code" in error ? String((error as { code: unknown }).code) : "";
-  if (code.includes("invalid-credential")) return "The email or password is incorrect.";
-  if (code.includes("too-many-requests")) return "Sign-in is temporarily locked after repeated attempts. Try again later.";
-  if (code.includes("network-request-failed")) return "The authentication service could not be reached.";
-  return error instanceof Error ? error.message : "Sign-in failed. Try again.";
-}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -33,7 +26,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ tone: "err" | "info"; text: string } | null>(null);
 
   useEffect(() => {
     if (session.state === "ready") router.replace(landingRoute(session.consoleRole));
@@ -50,7 +43,7 @@ export default function LoginPage() {
     try {
       await session.signIn(email, password);
     } catch (error) {
-      setNotice(messageFor(error));
+      setNotice({ tone: "err", text: friendlyAuthError(error) });
       setBusy(false);
     }
   }
@@ -58,19 +51,20 @@ export default function LoginPage() {
   async function reset() {
     if (misconfigured) return;
     if (!email.trim()) {
-      setNotice("Enter your work email first, then request a reset link.");
+      setNotice({ tone: "info", text: "Enter your work email first, then request a reset link." });
       return;
     }
     try {
       await session.resetPassword(email);
       setNotice(null);
       toast.show({ tone: "ok", title: "A password reset link has been sent if the account exists." });
-    } catch {
-      toast.show({ tone: "err", title: "A password reset link could not be sent right now." });
+    } catch (error) {
+      setNotice({ tone: "err", text: friendlyAuthError(error) });
     }
   }
 
-  const alert = notice ?? session.error ?? (session.state === "forbidden" ? "This account cannot use the Operations Console." : null);
+  const sessionAlert = session.error ?? (session.state === "forbidden" ? "This account cannot use the Operations Console." : null);
+  const alert = notice ?? (sessionAlert ? { tone: "err" as const, text: sessionAlert } : null);
   const disabled = !email.trim() || !password || misconfigured;
 
   return (
@@ -120,7 +114,7 @@ export default function LoginPage() {
               </span>
             </label>
 
-            {alert && <div role="alert" className="mt-4 rounded-control border border-[rgba(255,97,120,0.35)] bg-[rgba(255,97,120,0.1)] p-3 text-[13px] leading-5 text-err">{alert}</div>}
+            {alert && <div role="alert" className={`mt-4 rounded-control border p-3 text-[13px] leading-5 ${alert.tone === "info" ? "border-[rgba(99,190,255,0.3)] bg-[rgba(99,190,255,0.08)] text-info" : "border-[rgba(255,97,120,0.35)] bg-[rgba(255,97,120,0.1)] text-err"}`}>{alert.text}</div>}
 
             <Button type="submit" variant="volt" size="lg" loading={busy} disabled={disabled} className="mt-6 w-full">
               {busy ? "Signing in…" : "Sign in →"}

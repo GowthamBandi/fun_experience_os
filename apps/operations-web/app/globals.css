@@ -295,3 +295,23 @@ body {
     animation: none;
   }
 }
+
+/* Firebase SDK's emulator warning strip (kept visible), restyled to PULSE and kept out of the page's way. */
+.firebase-emulator-warning {
+  background: rgba(99, 190, 255, 0.1) !important;
+  color: #63beff !important;
+  border: 0 !important;
+  border-top: 1px solid rgba(99, 190, 255, 0.3) !important;
+  font: 500 12px/16px var(--font-ui, "Plus Jakarta Sans"), system-ui, sans-serif !important;
+  text-align: center !important;
+  padding: 6px 12px !important;
+  height: 28px !important;
+  box-sizing: border-box !important;
+  backdrop-filter: blur(14px);
+}
+:root:has(.firebase-emulator-warning) .h-screen {
+  height: calc(100vh - 28px);
+}
+:root:has(.firebase-emulator-warning) .min-h-screen {
+  min-height: calc(100vh - 28px);
+}
