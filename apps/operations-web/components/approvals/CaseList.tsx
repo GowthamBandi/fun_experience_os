@@ -2,21 +2,9 @@
 
 import { useEffect, useRef } from "react";
 import { Badge, ErrorState, Glyph, SkeletonRows, Tabs, Truncated } from "@/components/pulse";
-import { LANES, caseBadge, caseCategory, caseGlyph, type Lane } from "@/lib/approvals";
-import { toDate } from "@/lib/console/records";
+import { LANES, caseBadge, caseGlyph, caseMeta, type Lane } from "@/lib/approvals";
 import type { LiveGovernanceRecord } from "@/lib/governance-api";
-import { cn, relTime } from "@/lib/format";
-
-const words = (s: string) => s.replace(/[-_]+/g, " ");
-
-function meta(raw: Record<string, unknown>, now: Date | null): string {
-  const city = typeof raw.location === "string" && raw.location.trim() ? raw.location : null;
-  const category = caseCategory(raw);
-  const when = now ? relTime(toDate(raw.createdAt) ?? toDate(raw.updatedAt), now) : null;
-  return [city ?? (raw.kind === "experience-approval" && typeof raw.organizerName === "string" ? raw.organizerName : null), category && words(category), when]
-    .filter((p) => p && p !== "—")
-    .join(" · ") || "—";
-}
+import { cn } from "@/lib/format";
 
 const LANE_EMPTY: Record<Lane, string> = {
   all: "No one is waiting for approval.",
@@ -71,16 +59,17 @@ export function CaseList({
         ) : records.length === 0 ? (
           <p className="rounded-control border border-dashed border-line px-4 py-8 text-center text-[13px] text-text-3">{LANE_EMPTY[lane]}</p>
         ) : (
-          <ul ref={listRef} role="listbox" aria-label="Cases" className="flex flex-col gap-1.5">
+          <ul ref={listRef} aria-label="Cases" className="flex flex-col gap-1.5">
             {records.map((r) => {
               const on = r.id === selectedId;
               const glyph = caseGlyph(r.raw);
               const badge = caseBadge(r.raw.status);
               return (
-                <li key={r.id} role="option" aria-selected={on} data-case={r.id}>
+                <li key={r.id} data-case={r.id}>
                   <button
                     type="button"
                     onClick={() => onSelect(r.id)}
+                    aria-current={on ? "true" : undefined}
                     className={cn(
                       "focus-ring group relative flex w-full items-center gap-3 rounded-control border p-3 text-left transition-[background-color,border-color,box-shadow] duration-200 ease-pulse",
                       on
@@ -92,7 +81,7 @@ export function CaseList({
                     <Glyph emoji={glyph.emoji} tone={glyph.tone} />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-display text-[14.5px] font-bold tracking-[-0.01em] text-text">{r.primary}</span>
-                      <span className="mt-0.5 block truncate text-[12px] text-text-3">{meta(r.raw, now)}</span>
+                      <span className="mt-0.5 block truncate text-[12px] text-text-3">{caseMeta(r.raw, now)}</span>
                     </span>
                     <Badge tone={badge.tone}>{badge.label}</Badge>
                   </button>

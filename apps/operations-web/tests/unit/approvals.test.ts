@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   artGradient,
+  caseMeta,
+  caseQuery,
+  liveDecision,
   caseBadge,
   caseCategory,
   caseGlyph,
@@ -157,5 +160,34 @@ describe("experienceDiff", () => {
   });
   it("treats a missing field as a dash", () => {
     expect(experienceDiff({}, { tagline: "new" })).toEqual([{ field: "tagline", label: "Tagline", before: "—", after: "new" }]);
+  });
+});
+
+describe("selection state", () => {
+  it("drops ?case= when a decision leaves nothing to select", () => {
+    expect(caseQuery("case=a&view=x", null)).toBe("view=x");
+    expect(caseQuery("case=a", null)).toBe("");
+    expect(caseQuery("", "b")).toBe("case=b");
+    expect(caseQuery("case=a", "b")).toBe("case=b");
+  });
+  it("releases an open decision whose case left the live list", () => {
+    const d = { caseId: "a", outcome: "approved" };
+    expect(liveDecision(d, new Set(["a", "b"]))).toBe(d);
+    expect(liveDecision(d, new Set(["b"]))).toBeNull();
+    expect(liveDecision(null, new Set(["a"]))).toBeNull();
+  });
+});
+
+describe("caseMeta", () => {
+  const now = new Date("2026-10-09T10:00:00Z");
+  const at = (iso: string) => ({ toDate: () => new Date(iso) });
+  it("uses the case city when there is one", () => {
+    expect(caseMeta({ kind: "organizer-kyc", location: "Pune", summary: "Business organizer · trips", createdAt: at("2026-10-09T09:50:00Z") }, now)).toBe("Pune · trips · 10 min ago");
+  });
+  it("labels the organizer as host when an experience case has no city", () => {
+    expect(caseMeta({ kind: "experience-approval", location: null, organizerName: "Clay & Coffee", displayValue: "workshops · open · 16+" }, null)).toBe("by Clay & Coffee · workshops");
+  });
+  it("shows a dash when nothing is known", () => {
+    expect(caseMeta({}, null)).toBe("—");
   });
 });

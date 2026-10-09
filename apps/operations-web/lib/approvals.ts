@@ -5,6 +5,7 @@
 import type { BadgeTone } from "@/components/pulse/Badge";
 import { isOpenCase } from "./console/attention";
 import { toDate } from "./console/records";
+import { relTime } from "./format";
 import { NEEDS_GLYPH, categoryEmoji } from "./overview";
 
 type Raw = Record<string, unknown>;
@@ -122,10 +123,32 @@ export function neighbourId(ids: string[], current: string): string | null {
   return ids[i + 1] ?? ids[i - 1] ?? null;
 }
 
+/** The query string for a selection; null drops `case` so the queue falls back to its empty states. */
+export function caseQuery(current: string, id: string | null): string {
+  const next = new URLSearchParams(current);
+  if (id) next.set("case", id);
+  else next.delete("case");
+  return next.toString();
+}
+
+/** An open decision whose case left the live list must be dropped, or it would lock the shortcuts. */
+export function liveDecision<T extends { caseId: string }>(decision: T | null, ids: ReadonlySet<string>): T | null {
+  return decision && ids.has(decision.caseId) ? decision : null;
+}
+
 export function isTypingTarget(el: { tagName?: string; isContentEditable?: boolean } | null): boolean {
   if (!el) return false;
   const tag = (el.tagName ?? "").toUpperCase();
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable === true;
+}
+
+/** Row meta: city (or "by host" when the case has no city) · category · age. */
+export function caseMeta(raw: Raw, now: Date | null): string {
+  const city = str(raw.location);
+  const host = str(raw.organizerName);
+  const category = caseCategory(raw);
+  const when = now ? relTime(toDate(raw.createdAt) ?? toDate(raw.updatedAt), now) : null;
+  return [city ?? (host ? `by ${host}` : null), category?.replace(/[-_]+/g, " "), when].filter((p) => p && p !== "—").join(" · ") || "—";
 }
 
 /* ---------------------------------------------------- PULSE preview model */

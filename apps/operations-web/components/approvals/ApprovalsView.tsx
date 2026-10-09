@@ -4,11 +4,12 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type React
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, KeyRound, ShieldAlert } from "lucide-react";
 import { Button, Empty, Kbd, PageHeader, Sheet, Skeleton, SkeletonRows, useToast } from "@/components/pulse";
+import { PageContainer } from "@/components/shell/PageContainer";
 import { OrganizerCodeModal } from "@/components/governance/OrganizerCodeModal";
 import { CaseList } from "./CaseList";
 import { CaseDetail } from "./CaseDetail";
 import { OrganizerCodes } from "./OrganizerCodes";
-import { isTypingTarget, laneCounts, laneRecords, neighbourId, stepSelection, type Lane } from "@/lib/approvals";
+import { caseQuery, isTypingTarget, laneCounts, laneRecords, liveDecision, neighbourId, stepSelection, type Lane } from "@/lib/approvals";
 import { CONFIRM_PHRASES, RequestIdBook, isConfirmed, type CaseOutcome } from "@/lib/console/actions";
 import { isOpenCase } from "@/lib/console/attention";
 import { ROLE_LABEL, can } from "@/lib/console/capabilities";
@@ -20,7 +21,6 @@ import { decideCase, type LiveGovernanceRecord } from "@/lib/governance-api";
 import { useNow } from "@/lib/hooks";
 import { useGovernanceCollection } from "@/lib/use-governance";
 
-const PAGE = "mx-auto flex w-full max-w-[1600px] flex-col gap-5 px-5 pb-8 pt-2 lg:px-7";
 
 type OrganizerCode = { code: string; orgId?: string | null; expiresAt?: string | null; subject: string };
 type Flagged = { caseId: string; error: ConsoleError } | null;
@@ -125,11 +125,11 @@ function Queue() {
   // Always the live version: versions move under us.
   const selected = selectedId ? records.find((r) => r.id === selectedId) ?? null : null;
 
+  /** null drops `case`, so the queue shows Inbox zero or the lane's empty state. */
   const select = useCallback(
-    (id: string) => {
-      const next = new URLSearchParams(params.toString());
-      next.set("case", id);
-      router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+    (id: string | null) => {
+      const qs = caseQuery(params.toString(), id);
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     },
     [params, pathname, router],
   );
@@ -137,7 +137,8 @@ function Queue() {
   const changeLane = (next: Lane) => {
     setLane(next);
     const nextIds = laneRecords(records, next).map((r) => r.id);
-    if (nextIds.length && (!selectedId || !nextIds.includes(selectedId))) select(nextIds[0]);
+    if (!nextIds.length) select(null);
+    else if (!selectedId || !nextIds.includes(selectedId)) select(nextIds[0]);
   };
 
   const openDecision = useCallback(
@@ -148,10 +149,17 @@ function Queue() {
     [permitted, selected],
   );
 
+  const recordIds = useMemo(() => new Set(records.map((r) => r.id)), [records]);
+  const activeDecision = liveDecision(decision, recordIds);
+  // A case that left the live list can't be decided; release the sheet so the shortcuts work again.
+  useEffect(() => {
+    if (decision && !activeDecision) setDecision(null);
+  }, [decision, activeDecision]);
+
   const keys = useRef<(e: KeyboardEvent) => void>(() => {});
   keys.current = (e: KeyboardEvent) => {
     if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
-    if (decision || code) return;
+    if (activeDecision || code) return;
     if (isTypingTarget(e.target as HTMLElement | null) || isTypingTarget(document.activeElement as HTMLElement | null)) return;
     if (document.querySelector('[aria-modal="true"]')) return;
     const k = e.key.toLowerCase();
@@ -175,7 +183,7 @@ function Queue() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const decided = decision ? records.find((r) => r.id === decision.caseId) ?? null : null;
+  const decided = activeDecision ? records.find((r) => r.id === activeDecision.caseId) ?? null : null;
 
   const confirm = async (outcome: CaseOutcome, note: string, typed: string) => {
     // The live version of the case the sheet was opened for.
@@ -197,8 +205,7 @@ function Queue() {
       if (mapped.showCode && result.organizerCode) {
         setCode({ code: result.organizerCode, orgId: result.orgId ?? null, expiresAt: result.codeExpiresAt ?? null, subject: record.primary });
       }
-      const next = neighbourId(ids, record.id);
-      if (next) select(next);
+      select(neighbourId(ids, record.id));
     } catch (cause) {
       const mapped = mapConsoleError(cause);
       // A definitive server answer ends this attempt; only transport failures keep the requestId so a retry replays.
@@ -267,7 +274,7 @@ function Queue() {
   }
 
   return (
-    <div className={PAGE}>
+    <PageContainer className="flex flex-col gap-5">
       <PageHeader
         overline="Marketplace"
         title={
@@ -323,9 +330,9 @@ function Queue() {
         </div>
       )}
 
-      <DecisionSheet decision={decision?.outcome ?? null} record={decided} onConfirm={confirm} onClose={() => setDecision(null)} />
+      <DecisionSheet decision={activeDecision?.outcome ?? null} record={decided} onConfirm={confirm} onClose={() => setDecision(null)} />
       {code && <OrganizerCodeModal code={code.code} orgId={code.orgId} expiresAt={code.expiresAt} subject={code.subject} onClose={() => setCode(null)} />}
-    </div>
+    </PageContainer>
   );
 }
 
@@ -353,13 +360,13 @@ export function ApprovalsView() {
   return (
     <Suspense
       fallback={
-        <div className={PAGE}>
+        <PageContainer className="flex flex-col gap-5">
           <Skeleton className="h-10 w-64 rounded-pill" />
           <div className="grid gap-5 lg:grid-cols-[360px_minmax(0,1fr)]">
             <SkeletonRows rows={5} />
             <Skeleton className="h-[420px] rounded-card" />
           </div>
-        </div>
+        </PageContainer>
       }
     >
       <Route />
