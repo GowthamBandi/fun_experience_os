@@ -3,7 +3,7 @@
 import { Suspense, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowUpRight, Ban, CheckCircle2, Eye, PauseCircle, RotateCcw } from "lucide-react";
+import { ArrowUpRight, Ban, CheckCircle2, Eye, PauseCircle, RotateCcw, ShieldX } from "lucide-react";
 import { Badge, Button, Card, CopyIdPill, Drawer, Empty, ErrorState, Glyph, PageHeader, Skeleton, SkeletonRows, Truncated } from "@/components/pulse";
 import { SummaryPill } from "@/components/events/EventTabs";
 import { StatusSheet, type SheetStatusAction } from "@/components/governance/StatusSheet";
@@ -41,7 +41,7 @@ const FILTER_EMPTY: Record<RiskFilter, { emoji: string; title: string; body: str
   all: { emoji: "🛡️", title: "No risk alerts yet", body: "The server raises alerts for payment mismatches, failed refunds and retention conflicts." },
 };
 
-const ICON: Record<AlertAction["status"], ReactNode> = { resolved: <CheckCircle2 />, "under-review": <Eye />, paused: <PauseCircle /> };
+const ICON: Record<AlertAction["status"], ReactNode> = { resolved: <CheckCircle2 />, "under-review": <Eye />, paused: <PauseCircle />, blocked: <ShieldX /> };
 
 export function RiskView() {
   return (
@@ -151,7 +151,7 @@ function Risk() {
       )}
       {ready && truncated ? <Truncated shown={records.length} /> : null}
 
-      <AlertDrawer open={!!selectedId} loading={loading} alert={selected ? toRiskAlert(selected.id, selected.raw) : null} raw={selected?.raw ?? null} now={now} onChanged={refresh} onClose={() => setParam("alert", null)} />
+      <AlertDrawer open={!!selectedId} loading={loading} alert={selected ? toRiskAlert(selected.id, selected.raw) : null} raw={selected?.raw ?? null} now={now} onChanged={() => undefined} onClose={() => setParam("alert", null)} />
     </PageContainer>
   );
 }
@@ -292,7 +292,7 @@ function AlertDrawer({ open, loading, alert, raw, now, onChanged, onClose }: { o
               {permitted ? (
                 <div className="flex flex-wrap items-center gap-2" data-testid="alert-actions">
                   {alertActions(alert.status).map((a) => (
-                    <Button key={a.status} variant={a.status === "resolved" ? "volt" : a.status === "paused" ? "danger" : "ghost"} icon={a.label === "Reopen" ? <RotateCcw /> : ICON[a.status]} onClick={() => setAction(a)}>
+                    <Button key={a.status} variant={a.status === "resolved" ? "volt" : a.status === "paused" || a.status === "blocked" ? "danger" : "ghost"} icon={a.label === "Reopen" ? <RotateCcw /> : ICON[a.status]} onClick={() => setAction(a)}>
                       {a.label}
                     </Button>
                   ))}

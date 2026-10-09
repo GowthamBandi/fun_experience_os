@@ -94,17 +94,23 @@ describe("entity links and block target", () => {
 
 describe("alertActions", () => {
   it("keeps Resolve (resolved) and Pause exposure (paused) and adds Keep open (under-review)", () => {
-    expect(alertActions("open").map((a) => [a.label, a.status])).toEqual([["Resolve", "resolved"], ["Keep open", "under-review"], ["Pause exposure", "paused"]]);
-    expect(alertActions(null).map((a) => a.status)).toEqual(["resolved", "under-review", "paused"]);
+    expect(alertActions("open").map((a) => [a.label, a.status])).toEqual([["Resolve", "resolved"], ["Keep open", "under-review"], ["Pause exposure", "paused"], ["Close as blocked", "blocked"]]);
+    expect(alertActions(null).map((a) => a.status)).toEqual(["resolved", "under-review", "paused", "blocked"]);
+  });
+  it("restores the alert-level block as a closed disposition behind the BLOCK phrase", () => {
+    const block = alertActions("open").find((a) => a.status === "blocked")!;
+    expect(block).toMatchObject({ label: "Close as blocked", phrase: "BLOCK", tone: "danger" });
+    expect(block.consequence).toBe("Closes this alert as blocked. To stop the organizer from operating, use Block organizer below.");
+    expect(alertActions("blocked").map((a) => a.status)).toEqual(["under-review"]);
   });
   it("hides no-ops and offers Reopen on a closed alert", () => {
-    expect(alertActions("under-review").map((a) => a.status)).toEqual(["resolved", "paused"]);
-    expect(alertActions("paused").map((a) => a.status)).toEqual(["resolved", "under-review"]);
+    expect(alertActions("under-review").map((a) => a.status)).toEqual(["resolved", "paused", "blocked"]);
+    expect(alertActions("paused").map((a) => a.status)).toEqual(["resolved", "under-review", "blocked"]);
     expect(alertActions("resolved").map((a) => a.label)).toEqual(["Reopen"]);
     expect(alertActions("blocked").map((a) => a.label)).toEqual(["Reopen"]);
   });
   it("never offers a status the alert can't take", () => {
-    for (const s of ["open", "under-review", "paused", "resolved", null]) for (const a of alertActions(s)) expect(["resolved", "under-review", "paused"]).toContain(a.status);
+    for (const s of ["open", "under-review", "paused", "resolved", null]) for (const a of alertActions(s)) expect(["resolved", "under-review", "paused", "blocked"]).toContain(a.status);
   });
 });
 
@@ -119,7 +125,9 @@ describe("reviews", () => {
   it("reads the submitReview shape and rejects out-of-range ratings", () => {
     expect(r1).toMatchObject({ rating: 5, author: "Asha", eventId: "e1", status: "published", moderationReason: null, version: 1 });
     expect(r2).toMatchObject({ moderationReason: "Personal data", status: "hidden" });
-    expect(r3).toMatchObject({ rating: null, comment: null, author: null, at: null });
+    expect(r3).toMatchObject({ rating: null, comment: null, author: null, at: null, postedAt: null });
+    expect(r2.postedAt).toBeNull();
+    expect(r1.postedAt?.toISOString()).toBe("2026-10-08T10:00:00.000Z");
   });
   it("sorts newest first and counts by status", () => {
     expect(sortReviews([r3, r1, r2]).map((r) => r.id)).toEqual(["e1__u2", "e1__u1", "e2__u3"]);

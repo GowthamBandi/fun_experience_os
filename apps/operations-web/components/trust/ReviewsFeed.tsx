@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { Eye, EyeOff, Gavel } from "lucide-react";
 import { Badge, Button, Card, Empty, ErrorState, PageHeader, Sheet, Skeleton, Truncated, useToast } from "@/components/pulse";
 import { EventLink } from "@/components/customers/CustomerTabs";
@@ -139,8 +140,8 @@ function ReviewCard({ review: r, titles, now, permitted, onModerate }: { review:
         <Stars value={r.rating} tone="volt" />
         <span className="num text-[13px] font-bold text-text">{r.rating ?? "—"}</span>
         {hidden ? <Badge tone="muted">Hidden</Badge> : r.status === "published" ? null : <Badge tone="muted">{r.status ?? "—"}</Badge>}
-        <span className="ml-auto text-[12px] text-text-3" title={formatDateTime(r.at)}>
-          {now ? relTime(r.at, now) : "—"}
+        <span className="ml-auto text-[12px] text-text-3" title={formatDateTime(r.postedAt)}>
+          {now ? relTime(r.postedAt, now) : "—"}
         </span>
       </div>
       <p className={cn("mt-3 whitespace-pre-line break-words text-[14px] leading-[1.6]", r.comment ? "text-text" : "italic text-text-3")}>{r.comment ? `“${r.comment}”` : "No comment"}</p>
@@ -151,6 +152,14 @@ function ReviewCard({ review: r, titles, now, permitted, onModerate }: { review:
         <span className="min-w-0 truncate">
           on <EventLink id={r.eventId} titles={titles} />
         </span>
+        {r.orgId ? (
+          <span className="min-w-0 truncate">
+            host{" "}
+            <Link href={`/partners/${encodeURIComponent(r.orgId)}`} className="focus-ring rounded-[6px] font-mono text-[12px] text-text-2 underline-offset-2 hover:text-text hover:underline">
+              {r.orgId}
+            </Link>
+          </span>
+        ) : null}
       </div>
       {r.moderationReason ? (
         <p className="mt-3 flex items-start gap-2 rounded-[12px] bg-[rgba(255,255,255,0.04)] px-3 py-2 text-[12px] leading-5 text-text-2">

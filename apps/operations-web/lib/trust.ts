@@ -14,7 +14,7 @@
  */
 
 import type { BadgeTone } from "@/components/pulse/Badge";
-import type { EntityStatus } from "./console/actions";
+import { CONFIRM_PHRASES, type EntityStatus } from "./console/actions";
 import { isOpenRisk } from "./console/attention";
 import { toDate } from "./console/records";
 import { entityVersion } from "./organizers";
@@ -166,7 +166,7 @@ export function riskDetailRows(detail: Raw): Array<{ label: string; value: strin
 }
 
 export interface AlertAction {
-  status: Extract<EntityStatus, "resolved" | "under-review" | "paused">;
+  status: Extract<EntityStatus, "resolved" | "under-review" | "paused" | "blocked">;
   label: string;
   phrase: string | null;
   consequence: string;
@@ -208,17 +208,28 @@ const PAUSE: AlertAction = {
   question: "Pause exposure on this alert?",
   confirm: "Pause exposure",
 };
+const CLOSE_BLOCKED: AlertAction = {
+  status: "blocked",
+  label: "Close as blocked",
+  phrase: CONFIRM_PHRASES.blockEntity,
+  consequence: "Closes this alert as blocked. To stop the organizer from operating, use Block organizer below.",
+  tone: "danger",
+  done: "Closed as blocked",
+  question: "Close this alert as blocked?",
+  confirm: "Close as blocked",
+};
 
 /**
  * Alert status changes (setMarketplaceEntityStatus, entityType "risk-alert"); no-ops are hidden.
- * Resolve and Pause exposure keep GovernanceRoutePage's "resolved" / "paused"; Keep open writes "under-review".
+ * Resolve, Pause exposure and Close as blocked keep GovernanceRoutePage's "resolved" / "paused" / "blocked"
+ * (blocked is a distinct closed disposition in the audit trail); Keep open writes "under-review".
  */
 export function alertActions(status: string | null): AlertAction[] {
   const s = status ?? "open";
-  if (s === "under-review") return [RESOLVE, PAUSE];
-  if (s === "paused") return [RESOLVE, KEEP_OPEN];
+  if (s === "under-review") return [RESOLVE, PAUSE, CLOSE_BLOCKED];
+  if (s === "paused") return [RESOLVE, KEEP_OPEN, CLOSE_BLOCKED];
   if (!isOpenRisk({ status: s })) return [REOPEN];
-  return [RESOLVE, KEEP_OPEN, PAUSE];
+  return [RESOLVE, KEEP_OPEN, PAUSE, CLOSE_BLOCKED];
 }
 
 /**
@@ -240,7 +251,10 @@ export interface ModReview {
   eventId: string | null;
   experienceId: string | null;
   orgId: string | null;
+  /** updatedAt (falls back to createdAt): sort key only; moderation moves it. */
   at: Date | null;
+  /** When the review was first posted (createdAt): shown on the card. */
+  postedAt: Date | null;
   moderationReason: string | null;
   moderatedAt: Date | null;
   version: number;
@@ -259,6 +273,7 @@ export function toModReview(id: string, d: Raw): ModReview {
     experienceId: str(d.experienceId),
     orgId: str(d.orgId),
     at: toDate(d.updatedAt) ?? toDate(d.createdAt),
+    postedAt: toDate(d.createdAt),
     moderationReason: m ? str(m.reason) : null,
     moderatedAt: m ? toDate(m.at) : null,
     version: entityVersion(d.version),
