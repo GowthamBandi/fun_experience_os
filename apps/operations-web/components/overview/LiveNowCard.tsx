@@ -6,33 +6,11 @@ import { Card, CountUp, Empty, ErrorState, Glyph, SkeletonRows } from "@/compone
 import { cn, relTime } from "@/lib/format";
 import { categoryEmoji, type Ev } from "@/lib/overview";
 import { useSharedLiveEvents } from "@/lib/use-live-events";
+import { Fill } from "@/components/live/LiveEventRow";
 import { TileHeader } from "./Tile";
 
 const SHOWN = 4;
 const TIME = new Intl.DateTimeFormat("en-IN", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" });
-
-function Fill({ ev }: { ev: Ev }) {
-  const { taken, capacity } = ev;
-  const pct = taken !== null && capacity ? Math.min((taken / capacity) * 100, 100) : 0;
-  const full = pct >= 90;
-  return (
-    <div className="flex items-center gap-3">
-      <div
-        role="img"
-        aria-label={taken !== null && capacity ? `${taken} of ${capacity} places taken` : "Occupancy not recorded"}
-        className="h-2 flex-1 overflow-hidden rounded-pill bg-surface-high"
-      >
-        <div
-          className={cn("h-full rounded-pill transition-[width] duration-200 ease-pulse", full ? "bg-[linear-gradient(90deg,var(--primary),var(--warn))]" : "bg-[linear-gradient(90deg,var(--primary),var(--volt))]")}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      <span aria-hidden className="num min-w-[3.25rem] text-right text-[13px] font-bold text-text">
-        {taken ?? "—"}/{capacity ?? "—"}
-      </span>
-    </div>
-  );
-}
 
 export function LiveNowCard({ now }: { now: Date }) {
   const { live, soon, loading, error, truncated, retry } = useSharedLiveEvents();
