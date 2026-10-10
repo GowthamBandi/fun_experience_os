@@ -8,9 +8,12 @@ export const inr = (n: number): string =>
 /** A whole count in en-IN grouping ("1,84,320"); "—" when missing. */
 export const countFull = (n: number | null | undefined): string => (typeof n !== "number" || !Number.isFinite(n) ? "—" : new Intl.NumberFormat("en-IN").format(n));
 
-/** The truncated-list note: "the newest N" only for a read ordered newest first, otherwise "the first N". */
-export const truncatedCopy = (shown: number, newest: boolean, noun = "records"): string =>
-  `Showing the ${newest ? "newest" : "first"} ${countFull(shown)} ${noun}.`;
+/** How a capped read is ordered: newest first, oldest (longest-waiting) first, or no meaningful order. */
+export type ListOrder = "newest" | "oldest" | null;
+
+/** The truncated-list note: "the newest N", "the N longest-waiting", or "the first N" for an unordered read. */
+export const truncatedCopy = (shown: number, order: ListOrder, noun = "records"): string =>
+  order === "oldest" ? `Showing the ${countFull(shown)} longest-waiting ${noun}.` : `Showing the ${order === "newest" ? "newest" : "first"} ${countFull(shown)} ${noun}.`;
 
 export const pct = (n: number): string => `${Math.round(n)}%`;
 

@@ -33,7 +33,8 @@ import {
   adaptSettlement,
   type DisplayRecord,
 } from "./console/records";
-import { QUERY_LIMIT, capRows, isNewestFirst, listSpec, type ListScope, type ListSpec } from "./governance-query";
+import type { ListOrder } from "./format";
+import { QUERY_LIMIT, capRows, listOrder, listSpec, type ListScope, type ListSpec } from "./governance-query";
 
 export { QUERY_LIMIT } from "./governance-query";
 
@@ -94,9 +95,9 @@ export function adaptRecord(name: GovernanceCollection, id: string, data: Docume
   return (ADAPTERS[name] ?? adaptGeneric)(id, data);
 }
 
-/** Whether a capped read of `name` comes back newest first (drives the "newest N" vs "first N" copy). */
-export function listIsNewestFirst(name: GovernanceCollection, scope: ListScope = "all"): boolean {
-  return isNewestFirst(listSpec(name, scope));
+/** How a capped read of `name` is ordered (drives the "newest N" / "N longest-waiting" / "first N" copy). */
+export function listOrderOf(name: GovernanceCollection, scope: ListScope = "all"): ListOrder {
+  return listOrder(listSpec(name, scope));
 }
 
 export function subscribeGovernanceCollection(

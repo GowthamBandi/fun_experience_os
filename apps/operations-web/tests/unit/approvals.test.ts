@@ -176,6 +176,10 @@ describe("selection state", () => {
     expect(liveDecision(d, new Set(["b"]))).toBeNull();
     expect(liveDecision(null, new Set(["a"]))).toBeNull();
   });
+  it("keeps a submitted decision open while its case leaves the open read mid-submit", () => {
+    const d = { caseId: "a", outcome: "approved", pinned: { id: "a" } };
+    expect(liveDecision(d, new Set(["b"]))).toBe(d);
+  });
 });
 
 describe("caseMeta", () => {

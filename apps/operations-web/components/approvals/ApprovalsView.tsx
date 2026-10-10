@@ -108,11 +108,11 @@ function Queue() {
   const now = useNow(60_000);
   const { consoleRole } = useAdminSession();
   const permitted = can(consoleRole, "governance.decide");
-  // Open cases only, newest first (the same read as the rail badge and Needs-you).
-  const { records: open, loading, error, truncated, refresh, newest } = useGovernanceCollection("governanceCases", true, "open");
+  // Open cases only, longest-waiting first (the same read as the rail badge and Needs-you).
+  const { records: open, loading, error, truncated, refresh, order } = useGovernanceCollection("governanceCases", true, "open");
 
   const [lane, setLane] = useState<Lane>("all");
-  const [decision, setDecision] = useState<{ outcome: CaseOutcome; caseId: string } | null>(null);
+  const [decision, setDecision] = useState<{ outcome: CaseOutcome; caseId: string; pinned?: LiveGovernanceRecord } | null>(null);
   const [conflict, setConflict] = useState<Flagged>(null);
   const [dual, setDual] = useState<Flagged>(null);
   const [code, setCode] = useState<OrganizerCode | null>(null);
@@ -191,7 +191,7 @@ function Queue() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const decided = activeDecision ? records.find((r) => r.id === activeDecision.caseId) ?? null : null;
+  const decided = activeDecision ? records.find((r) => r.id === activeDecision.caseId) ?? activeDecision.pinned ?? null : null;
 
   const confirm = async (outcome: CaseOutcome, note: string, typed: string) => {
     // The live version of the case the sheet was opened for.
@@ -203,6 +203,7 @@ function Queue() {
     }
     setConflict(null);
     setDual(null);
+    setDecision((d) => (d && d.caseId === record.id ? { ...d, pinned: record } : d));
     try {
       const requestId = book.current.idFor(caseDecisionKey(record, outcome));
       const result = await decideCase({ requestId, caseId: record.id, expectedVersion: record.version, outcome, note });
@@ -330,7 +331,7 @@ function Queue() {
               error={error}
               onRetry={refresh}
               truncated={truncated}
-              newest={newest}
+              order={order}
               shown={open.length}
               now={now}
             />

@@ -17,7 +17,7 @@ import { JsonBlock, SummaryPill } from "./ControlBits";
  * this page is where an operator looks first.
  */
 export function SystemHealthView() {
-  const { records, loading, error, truncated, refresh, newest } = useGovernanceCollection("jobRuns");
+  const { records, loading, error, truncated, refresh, order } = useGovernanceCollection("jobRuns");
   const now = useNow();
   const cards = useMemo(() => jobCards(records), [records]);
   const failing = cards.filter((c) => c.health.tone === "err").length;
@@ -76,7 +76,7 @@ export function SystemHealthView() {
           ))}
         </ul>
       )}
-      {ready && truncated ? <Truncated shown={records.length} newest={newest} /> : null}
+      {ready && truncated ? <Truncated shown={records.length} order={order} /> : null}
     </PageContainer>
   );
 }

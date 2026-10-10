@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { listIsNewestFirst, subscribeDocument, subscribeGovernanceCollection, type GovernanceCollection, type LiveGovernanceRecord, type PageCursor } from "./governance-api";
+import { listOrderOf, subscribeDocument, subscribeGovernanceCollection, type GovernanceCollection, type LiveGovernanceRecord, type PageCursor } from "./governance-api";
 import type { ListScope } from "./governance-query";
 import { describeReadError } from "./console/errors";
 
@@ -37,27 +37,30 @@ export function useGovernanceCollection(name: GovernanceCollection, enabled = tr
   }, [name, attempt, enabled, scope]);
   /** Re-subscribes (fresh read) — used by the conflict "refresh" action. */
   const refresh = useCallback(() => setAttempt((n) => n + 1), []);
-  /** The read is ordered newest first, so a truncated list is "the newest N". */
-  const newest = listIsNewestFirst(name, scope);
-  return { records, loading, error, truncated, refresh, cursor, newest };
+  /** How the read is ordered, so a truncated list says what it kept ("the newest N", "the N longest-waiting"). */
+  const order = listOrderOf(name, scope);
+  return { records, loading, error, truncated, refresh, cursor, order };
 }
 
+/**
+ * Live single document. `loading` is true from the very render the id changes (the state is keyed
+ * by collection/id), so a caller never sees a settled "not found" before the first snapshot.
+ */
 export function useLiveDocument(collectionName: string | null, id: string | null) {
-  const [data, setData] = useState<Record<string, unknown> | null>(null);
-  const [loading, setLoading] = useState(Boolean(collectionName && id));
-  const [error, setError] = useState<string | null>(null);
+  const key = collectionName && id ? `${collectionName}/${id}` : null;
+  const [state, setState] = useState<{ key: string | null; data: Record<string, unknown> | null; error: string | null }>({ key: null, data: null, error: null });
   useEffect(() => {
-    if (!collectionName || !id) { setData(null); setLoading(false); return; }
-    setLoading(true);
-    setError(null);
+    if (!collectionName || !id) return;
+    const k = `${collectionName}/${id}`;
+    const fail = (error: string) => setState((s) => ({ key: k, data: s.key === k ? s.data : null, error }));
     let unsubscribe = () => {};
     try {
-      unsubscribe = subscribeDocument(collectionName, id, (next) => { setData(next); setLoading(false); }, (message) => { setError(describeReadError(message)); setLoading(false); });
+      unsubscribe = subscribeDocument(collectionName, id, (next) => setState({ key: k, data: next, error: null }), (message) => fail(describeReadError(message)));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "The record could not be loaded.");
-      setLoading(false);
+      fail(cause instanceof Error ? cause.message : "The record could not be loaded.");
     }
     return unsubscribe;
   }, [collectionName, id]);
-  return { data, loading, error };
+  const current = key !== null && state.key === key;
+  return { data: current ? state.data : null, loading: key !== null && !current, error: current ? state.error : null };
 }

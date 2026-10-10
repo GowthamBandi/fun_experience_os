@@ -4,6 +4,7 @@
  */
 
 import type { GovernanceCollection } from "./governance-api";
+import type { ListOrder } from "./format";
 import { OPEN_CASE_STATUS_LIST, OPEN_RISK_STATUS_LIST, OPEN_SETTLEMENT_STATUS_LIST } from "./console/attention";
 
 export const QUERY_LIMIT = 250;
@@ -17,10 +18,11 @@ export interface ListSpec {
   order?: { field: string; direction: "asc" | "desc" };
 }
 
-/** "all" lists everything newest first; "open" reads only items waiting on someone (Approvals inbox, rail badges, Needs-you). */
+/** "all" lists everything newest first; "open" reads only items waiting on someone, oldest first (Approvals inbox, rail badges, Needs-you). */
 export type ListScope = "all" | "open";
 
 const NEWEST = (field: string) => ({ field, direction: "desc" as const });
+const OLDEST = (field: string) => ({ field, direction: "asc" as const });
 
 /**
  * Every timestamp below is written by the backend on create (createdAt) or on every
@@ -51,12 +53,16 @@ export const LIST_SPECS: Record<GovernanceCollection, ListSpec> = {
   jobRuns: { path: "jobRuns", order: NEWEST("updatedAt") },
 };
 
-/** Open-item reads: the statuses the attention queue and the inbox count, newest first. */
+/**
+ * Open-item reads: the statuses the attention queue and the inbox count, longest-waiting
+ * first. Every consumer (inbox lanes, Needs-you) works oldest first, so above the cap the
+ * read drops the most recently opened items, never the most overdue.
+ */
 export const OPEN_SPECS: Partial<Record<GovernanceCollection, ListSpec>> = {
-  governanceCases: { path: "governanceCases", statusIn: OPEN_CASE_STATUS_LIST, order: NEWEST("createdAt") },
-  riskAlerts: { path: "riskAlerts", statusIn: OPEN_RISK_STATUS_LIST, order: NEWEST("createdAt") },
-  refunds: { path: "refunds", statusIn: ["under-review"], order: NEWEST("createdAt") },
-  settlements: { path: "settlements", statusIn: OPEN_SETTLEMENT_STATUS_LIST, order: NEWEST("createdAt") },
+  governanceCases: { path: "governanceCases", statusIn: OPEN_CASE_STATUS_LIST, order: OLDEST("createdAt") },
+  riskAlerts: { path: "riskAlerts", statusIn: OPEN_RISK_STATUS_LIST, order: OLDEST("createdAt") },
+  refunds: { path: "refunds", statusIn: ["under-review"], order: OLDEST("createdAt") },
+  settlements: { path: "settlements", statusIn: OPEN_SETTLEMENT_STATUS_LIST, order: OLDEST("createdAt") },
 };
 
 export function listSpec(name: GovernanceCollection, scope: ListScope = "all"): ListSpec {
@@ -68,9 +74,10 @@ export function listSpec(name: GovernanceCollection, scope: ListScope = "all"): 
   return LIST_SPECS[name];
 }
 
-/** True when the list comes back newest first, so a cut list really is "the newest N". */
-export function isNewestFirst(spec: ListSpec): boolean {
-  return spec.order?.direction === "desc";
+/** What a cut list is: the newest N (desc), the N longest-waiting (asc on a creation time), or just the first N. */
+export function listOrder(spec: ListSpec): ListOrder {
+  if (!spec.order) return null;
+  return spec.order.direction === "desc" ? "newest" : "oldest";
 }
 
 /**

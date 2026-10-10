@@ -44,7 +44,7 @@ export function OperatorsView() {
 function Operators() {
   const { user, consoleRole: role } = useAdminSession();
   const canManage = can(role, CALLABLE_CAPABILITY.setOperatorAccess);
-  const { records, loading, error, truncated, refresh, newest } = useGovernanceCollection("operators");
+  const { records, loading, error, truncated, refresh, order } = useGovernanceCollection("operators");
   const params = useSearchParams();
   const setParam = useSearchParamSetter();
   const now = useNow();
@@ -166,7 +166,7 @@ function Operators() {
           empty={<Empty emoji="🛡️" title="No operator records yet" body="The first Platform Owner is created with the bootstrap script (docs/runbooks/ENVIRONMENTS_AND_DEPLOYMENT.md)." />}
         />
       )}
-      {ready && truncated ? <Truncated shown={records.length} newest={newest} /> : null}
+      {ready && truncated ? <Truncated shown={records.length} order={order} /> : null}
 
       <OperatorDrawer open={!!selectedId} loading={loading} row={selected} canManage={canManage} role={role} selfUid={user?.uid ?? null} actorUid={user?.uid} now={now} book={book.current} onClose={() => setParam("operator", null)} />
       <DecisionSheet spec={grantSpec} book={book.current} onClose={closeGrant} />

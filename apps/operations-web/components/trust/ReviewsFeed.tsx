@@ -33,7 +33,7 @@ const FILTER_EMPTY: Record<ReviewFilter, { emoji: string; title: string; body: s
 };
 
 export function ReviewsFeed() {
-  const { records, loading, error, truncated, refresh, newest } = useGovernanceCollection("reviews");
+  const { records, loading, error, truncated, refresh, order } = useGovernanceCollection("reviews");
   const { consoleRole: role } = useAdminSession();
   const permitted = can(role, "governance.decide");
   const now = useNow();
@@ -123,7 +123,7 @@ export function ReviewsFeed() {
           </ul>
         </>
       )}
-      {ready && truncated ? <Truncated shown={records.length} newest={newest} /> : null}
+      {ready && truncated ? <Truncated shown={records.length} order={order} /> : null}
       {ready && !permitted ? (
         <div>
           <ReadOnly role={role} what="reviews" />

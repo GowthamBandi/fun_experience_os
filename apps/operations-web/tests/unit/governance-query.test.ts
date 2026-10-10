@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { buildAttentionQueue, isOpenCase, isOpenRisk, OPEN_CASE_STATUS_LIST, OPEN_RISK_STATUS_LIST, OPEN_SETTLEMENT_STATUS_LIST } from "@/lib/console/attention";
 import { refundStage } from "@/lib/console/records";
 import { truncatedCopy } from "@/lib/format";
-import { capRows, isNewestFirst, LIST_SPECS, listSpec, OPEN_SPECS, QUERY_LIMIT } from "@/lib/governance-query";
+import { laneRecords } from "@/lib/approvals";
+import { capRows, LIST_SPECS, listOrder, listSpec, OPEN_SPECS, QUERY_LIMIT, type ListSpec } from "@/lib/governance-query";
 
 describe("capped list specs", () => {
   it("orders the lists the console caps newest first on a backend-written timestamp", () => {
@@ -25,13 +26,13 @@ describe("capped list specs", () => {
       const spec = listSpec(name as keyof typeof expected);
       expect(spec, name).toMatchObject({ path: name, order: { field, direction: "desc" } });
       expect(spec.statusIn, name).toBeUndefined();
-      expect(isNewestFirst(spec), name).toBe(true);
+      expect(listOrder(spec), name).toBe("newest");
     }
   });
-  it("keeps operators on one equality filter (no composite) and says it isn't newest first", () => {
+  it("keeps operators on one equality filter (no composite) and says it has no order", () => {
     const spec = listSpec("operators");
     expect(spec).toEqual({ path: "users", equals: { field: "scope", value: "platform" } });
-    expect(isNewestFirst(spec)).toBe(false);
+    expect(listOrder(spec)).toBeNull();
   });
   it("never combines an equality filter with an ordering in the all-items lists (that would need a composite)", () => {
     for (const [name, spec] of Object.entries(LIST_SPECS)) expect(!!spec.equals && !!spec.order, name).toBe(false);
@@ -39,13 +40,13 @@ describe("capped list specs", () => {
 });
 
 describe("open-item specs (Approvals inbox, rail badges, Needs-you)", () => {
-  it("filters open statuses server-side, newest first", () => {
-    expect(listSpec("governanceCases", "open")).toEqual({ path: "governanceCases", statusIn: ["pending", "under-review", "information-requested"], order: { field: "createdAt", direction: "desc" } });
-    expect(listSpec("refunds", "open")).toMatchObject({ statusIn: ["under-review"], order: { field: "createdAt", direction: "desc" } });
-    expect(listSpec("settlements", "open")).toMatchObject({ statusIn: ["pending-approval", "approved", "held"] });
-    expect(listSpec("riskAlerts", "open").statusIn).toEqual(OPEN_RISK_STATUS_LIST);
+  it("filters open statuses server-side, longest-waiting first", () => {
+    expect(listSpec("governanceCases", "open")).toEqual({ path: "governanceCases", statusIn: ["pending", "under-review", "information-requested"], order: { field: "createdAt", direction: "asc" } });
+    expect(listSpec("refunds", "open")).toMatchObject({ statusIn: ["under-review"], order: { field: "createdAt", direction: "asc" } });
+    expect(listSpec("settlements", "open")).toMatchObject({ statusIn: ["pending-approval", "approved", "held"], order: { field: "createdAt", direction: "asc" } });
+    expect(listSpec("riskAlerts", "open")).toMatchObject({ statusIn: OPEN_RISK_STATUS_LIST, order: { field: "createdAt", direction: "asc" } });
     for (const spec of Object.values(OPEN_SPECS)) {
-      expect(isNewestFirst(spec!)).toBe(true);
+      expect(listOrder(spec!)).toBe("oldest");
       expect(spec!.statusIn!.length).toBeLessThanOrEqual(30); // Firestore `in` limit
     }
     expect(() => listSpec("reviews", "open")).toThrow(/No open-item read/);
@@ -78,6 +79,35 @@ describe("open-item specs (Approvals inbox, rail badges, Needs-you)", () => {
   });
 });
 
+describe("open cases above the cap", () => {
+  /** What Firestore returns for `spec` with limit(max + 1): docs sorted by the spec's order field. */
+  const read = (docs: { id: string; raw: { createdAt: Date } & Record<string, unknown> }[], spec: ListSpec) => {
+    const dir = spec.order?.direction === "desc" ? -1 : 1;
+    const sorted = [...docs].sort((a, b) => dir * (a.raw.createdAt.getTime() - b.raw.createdAt.getTime()));
+    return capRows(sorted.slice(0, QUERY_LIMIT + 1));
+  };
+  const day = 86_400_000;
+  const base = Date.UTC(2026, 0, 1);
+  // 300 open KYC cases, c0 submitted first (waiting longest).
+  const cases = Array.from({ length: QUERY_LIMIT + 50 }, (_, i) => ({ id: `c${i}`, raw: { kind: "organizer-kyc", status: "pending", createdAt: new Date(base + i * day) } }));
+
+  it("keeps the longest-waiting cases at the top of the inbox", () => {
+    const { rows, truncated } = read(cases, listSpec("governanceCases", "open"));
+    expect(truncated).toBe(true);
+    const inbox = laneRecords(rows, "all").map((r) => r.id);
+    expect(inbox).toHaveLength(QUERY_LIMIT);
+    expect(inbox[0]).toBe("c0");
+    expect(inbox.at(-1)).toBe(`c${QUERY_LIMIT - 1}`);
+  });
+  it("cuts the most recently submitted cases, not the most overdue, in every open read", () => {
+    for (const spec of Object.values(OPEN_SPECS)) {
+      const ids = read(cases, spec!).rows.map((r) => r.id);
+      expect(ids, spec!.path).toContain("c0");
+      expect(ids, spec!.path).not.toContain(`c${QUERY_LIMIT + 49}`);
+    }
+  });
+});
+
 describe("capRows (+1 probe)", () => {
   const n = (count: number) => Array.from({ length: count }, (_, i) => i);
   it("is not truncated at exactly the limit", () => {
@@ -97,10 +127,11 @@ describe("capRows (+1 probe)", () => {
 });
 
 describe("truncatedCopy", () => {
-  it("says newest only for a newest-first read and never promises filters fetch more", () => {
-    expect(truncatedCopy(250, true, "open cases")).toBe("Showing the newest 250 open cases.");
-    expect(truncatedCopy(250, false)).toBe("Showing the first 250 records.");
-    expect(truncatedCopy(1500, false, "events")).toBe("Showing the first 1,500 events.");
-    expect(truncatedCopy(250, true)).not.toMatch(/filter/i);
+  it("names the order the read actually has and never promises filters fetch more", () => {
+    expect(truncatedCopy(250, "newest", "reviews")).toBe("Showing the newest 250 reviews.");
+    expect(truncatedCopy(250, "oldest", "open cases")).toBe("Showing the 250 longest-waiting open cases.");
+    expect(truncatedCopy(250, null)).toBe("Showing the first 250 records.");
+    expect(truncatedCopy(1500, null, "events")).toBe("Showing the first 1,500 events.");
+    expect(truncatedCopy(250, "newest")).not.toMatch(/filter/i);
   });
 });

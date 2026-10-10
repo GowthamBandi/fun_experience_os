@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { Badge, ErrorState, Glyph, SkeletonRows, Tabs, Truncated } from "@/components/pulse";
 import { LANES, caseBadge, caseGlyph, caseMeta, type Lane } from "@/lib/approvals";
 import type { LiveGovernanceRecord } from "@/lib/governance-api";
-import { cn } from "@/lib/format";
+import { cn, type ListOrder } from "@/lib/format";
 
 const LANE_EMPTY: Record<Lane, string> = {
   all: "No one is waiting for approval.",
@@ -24,7 +24,7 @@ export function CaseList({
   error,
   onRetry,
   truncated,
-  newest,
+  order,
   shown,
   now,
 }: {
@@ -38,8 +38,8 @@ export function CaseList({
   error: string | null;
   onRetry: () => void;
   truncated: boolean;
-  /** The read is newest first, so a cut list is "the newest N". */
-  newest: boolean;
+  /** How the open read is ordered (longest-waiting first), so a cut list says which N it kept. */
+  order: ListOrder;
   shown: number;
   now: Date | null;
 }) {
@@ -93,7 +93,7 @@ export function CaseList({
             })}
           </ul>
         )}
-        {!loading && !error && truncated ? <Truncated shown={shown} newest={newest} noun="open cases" className="mt-3" /> : null}
+        {!loading && !error && truncated ? <Truncated shown={shown} order={order} noun="open cases" className="mt-3" /> : null}
       </div>
     </aside>
   );

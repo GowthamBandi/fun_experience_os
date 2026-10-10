@@ -26,7 +26,7 @@ const INPUT = "field h-11 w-full rounded-control pl-10 pr-3.5 text-[14px] text-t
 export function OrganizerCodes({ backHref }: { backHref: string }) {
   const { consoleRole: role } = useAdminSession();
   const canAct = can(role, CALLABLE_CAPABILITY.reissueOrganizerCode);
-  const { records, loading, error, truncated, refresh, newest } = useGovernanceCollection("organizerApplications");
+  const { records, loading, error, truncated, refresh, order } = useGovernanceCollection("organizerApplications");
   const params = useSearchParams();
   const setParam = useSearchParamSetter();
   const [query, setQuery] = useState("");
@@ -114,7 +114,7 @@ export function OrganizerCodes({ backHref }: { backHref: string }) {
           }
         />
       )}
-      {!loading && !error && truncated ? <Truncated shown={records.length} newest={newest} noun="applications" /> : null}
+      {!loading && !error && truncated ? <Truncated shown={records.length} order={order} noun="applications" /> : null}
 
       <ApplicationDrawer
         open={!!selectedId}

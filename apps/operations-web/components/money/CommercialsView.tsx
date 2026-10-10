@@ -59,7 +59,7 @@ export function CommercialsView() {
 function Commercials() {
   const { consoleRole: role } = useAdminSession();
   const canPropose = can(role, CALLABLE_CAPABILITY.proposeCommercialAgreement);
-  const { records, loading, error, truncated, refresh, newest } = useGovernanceCollection("commercialAgreements");
+  const { records, loading, error, truncated, refresh, order } = useGovernanceCollection("commercialAgreements");
   const params = useSearchParams();
   const setParam = useSearchParamSetter();
   const [tab, setTab] = useTabParam(TAB_IDS, "pending");
@@ -137,7 +137,7 @@ function Commercials() {
           empty={<Empty {...EMPTY[tab]} />}
         />
       )}
-      {ready && truncated ? <Truncated shown={records.length} newest={newest} /> : null}
+      {ready && truncated ? <Truncated shown={records.length} order={order} /> : null}
 
       <AgreementDrawer open={!!selectedId} loading={loading} row={selected} names={names} now={now} onClose={() => setParam("agreement", null)} />
       <ProposeTermsSheet open={proposing} terms={(orgId) => termsInForce(rows, orgId)} reasonLabel="Basis (signed agreement reference)" onClose={() => setProposing(false)} />

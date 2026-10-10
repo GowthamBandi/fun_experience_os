@@ -168,9 +168,13 @@ export function caseQuery(current: string, id: string | null): string {
   return next.toString();
 }
 
-/** An open decision whose case left the live list must be dropped, or it would lock the shortcuts. */
-export function liveDecision<T extends { caseId: string }>(decision: T | null, ids: ReadonlySet<string>): T | null {
-  return decision && ids.has(decision.caseId) ? decision : null;
+/**
+ * An idle decision whose case left the live list must be dropped, or it would lock the shortcuts.
+ * Once submitted it is `pinned` to the record it was sent for and stays until the sheet closes:
+ * a successful decision takes the case out of the open read before decideCase resolves.
+ */
+export function liveDecision<T extends { caseId: string; pinned?: unknown }>(decision: T | null, ids: ReadonlySet<string>): T | null {
+  return decision && (decision.pinned || ids.has(decision.caseId)) ? decision : null;
 }
 
 export function isTypingTarget(el: { tagName?: string; isContentEditable?: boolean } | null): boolean {

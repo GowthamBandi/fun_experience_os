@@ -25,7 +25,7 @@ const FILTER_EMPTY: Record<ArenaFilter, { emoji: string; title: string; body: st
 const ICON = { active: <Play />, paused: <Pause />, blocked: <Ban /> } as const;
 
 export function ArenasView() {
-  const { records, loading, error, truncated, refresh, newest } = useGovernanceCollection("arenas");
+  const { records, loading, error, truncated, refresh, order } = useGovernanceCollection("arenas");
   const [filter, setFilter] = useState<ArenaFilter>("all");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -128,7 +128,7 @@ export function ArenasView() {
           </ul>
         </>
       )}
-      {ready && truncated ? <Truncated shown={records.length} newest={newest} /> : null}
+      {ready && truncated ? <Truncated shown={records.length} order={order} /> : null}
 
       <ArenaDrawer open={!!selectedId} arena={selected ? toArena(selected.id, selected.raw) : null} raw={selected?.raw ?? null} onChanged={refresh} onClose={() => setSelectedId(null)} />
     </PageContainer>
