@@ -15,6 +15,9 @@ export function focusables(root: HTMLElement): HTMLElement[] {
 export function useDialog(open: boolean, panel: RefObject<HTMLElement | null>, onEscape: () => void, initialFocus?: RefObject<HTMLElement | null>) {
   const escape = useRef(onEscape);
   escape.current = onEscape;
+  // Read once per open; a caller switching its focus target mid-open must not re-run the effect (re-stack, refocus).
+  const focusTarget = useRef(initialFocus);
+  focusTarget.current = initialFocus;
 
   useEffect(() => {
     if (!open) return;
@@ -24,7 +27,7 @@ export function useDialog(open: boolean, panel: RefObject<HTMLElement | null>, o
     const frame = requestAnimationFrame(() => {
       const root = panel.current;
       if (!root) return;
-      (initialFocus?.current ?? focusables(root)[0] ?? root).focus();
+      (focusTarget.current?.current ?? focusables(root)[0] ?? root).focus();
     });
 
     const onKey = (e: KeyboardEvent) => {
@@ -63,5 +66,5 @@ export function useDialog(open: boolean, panel: RefObject<HTMLElement | null>, o
       if (at >= 0) stack.splice(at, 1);
       if (previous && document.contains(previous)) previous.focus();
     };
-  }, [open]);
+  }, [open, panel]);
 }
