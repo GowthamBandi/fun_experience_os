@@ -104,6 +104,8 @@ export const QUERIES = [
 
   // ------------------------------------------------------------ PULSE app
   Q("P01", "pulse", "events", ["status"], "startsAt", [["startsAt", "asc"]], ["lib/src/data/firebase/firebase_repositories.dart", `.orderBy('startsAt')`]),
+  Q("P01c", "pulse", "events", ["orgId", "status"], "startsAt", [["startsAt", "asc"]], ["lib/src/data/firebase/firebase_repositories.dart", `.where('orgId', isEqualTo: hostId)`],
+    "A host profile's upcoming events (fetchHostExperiences), served by events (orgId, status, startsAt)."),
   Q("P01b", "pulse", "events", ["status", "venue.cityKey"], "startsAt", [["startsAt", "asc"]], ["lib/src/data/firebase/firebase_repositories.dart", `where('venue.cityKey'`],
     "Explore for the person's city (location or chosen): published, upcoming, in venue.cityKey."),
   Q("P02", "pulse", "experiences", ["__name__(in)", "status"], null, [], ["lib/src/data/firebase/firebase_repositories.dart", `FieldPath.documentId, whereIn`],
@@ -122,7 +124,7 @@ export const QUERIES = [
   Q("P07", "pulse", "publicOrganizers", [], null, [], ["lib/src/data/firebase/firebase_repositories.dart", `collection('publicOrganizers').limit(200)`]),
   Q("P08", "pulse", "experiences", ["orgId"], null, [], ["lib/src/data/firebase/firebase_host_workspace_repository.dart", `.where('orgId', isEqualTo: orgId);`]),
   Q("P09", "pulse", "experiences", ["orgId", "status"], null, [], ["lib/src/data/firebase/firebase_host_workspace_repository.dart", `q = q.where('status', isEqualTo: 'approved')`]),
-  Q("P10", "pulse", "events", ["orgId"], null, [], ["lib/src/data/firebase/firebase_host_workspace_repository.dart", `.collection('events')`]),
+  Q("P10", "pulse", "events", ["orgId"], null, [["startsAt", "desc"]], ["lib/src/data/firebase/firebase_host_workspace_repository.dart", `.orderBy('startsAt', descending: true)`]),
   Q("P11", "pulse", "ledgerEntries", ["orgId"], null, [], ["lib/src/data/firebase/firebase_host_workspace_repository.dart", `.collection('ledgerEntries')`]),
   Q("P12", "pulse", "settlements", ["orgId"], null, [], ["lib/src/data/firebase/firebase_host_workspace_repository.dart", `.collection('settlements')`]),
 
