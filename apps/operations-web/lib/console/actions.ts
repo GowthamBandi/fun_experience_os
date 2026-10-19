@@ -274,6 +274,33 @@ export function buildSetOperatorAccessPayload(input: { uid: string; roleId: stri
   return { uid, roleId: input.roleId as OperatorRole, status: input.status as OperatorStatus, reason: reason(input.reason, 10, 1000) };
 }
 
+/* ------------------------------------------------------------ trip review */
+
+export type TripOutcome = "approved" | "changes-requested" | "rejected";
+export const TRIP_OUTCOMES: readonly TripOutcome[] = ["approved", "changes-requested", "rejected"];
+/** reviewTrip: a note is required (10+ characters) unless the trip is approved. */
+export const TRIP_NOTE_MIN = 10;
+export const TRIP_NOTE_MAX = 1000;
+
+/**
+ * reviewTrip (asia-south1, admins): `{ requestId, hostTripId, expectedVersion, outcome, note }`.
+ * Approval takes an optional note; changes-requested and rejected need 10+ characters (the organizer sees it).
+ */
+export function buildReviewTripPayload(input: { requestId: string; hostTripId: string; expectedVersion: number; outcome: TripOutcome; note: string }) {
+  if (!TRIP_OUTCOMES.includes(input.outcome)) throw new CommandValidationError("Choose approve, request changes or reject.");
+  const hostTripId = input.hostTripId.trim();
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(hostTripId)) throw new CommandValidationError("The trip ID is not valid.");
+  const note = input.outcome === "approved" ? input.note.trim() : reason(input.note, TRIP_NOTE_MIN, TRIP_NOTE_MAX, "note for the organizer");
+  if (note.length > TRIP_NOTE_MAX) throw new CommandValidationError(`The note must be at most ${TRIP_NOTE_MAX} characters.`);
+  return {
+    requestId: requireRequestId(input.requestId),
+    hostTripId,
+    expectedVersion: version(input.expectedVersion),
+    outcome: input.outcome,
+    note,
+  };
+}
+
 /* ------------------------------------------------------------ legal holds */
 
 export function buildLegalHoldPayload(input: { requestId: string; subjectId: string; action: "place" | "release"; reason: string; reference?: string }) {

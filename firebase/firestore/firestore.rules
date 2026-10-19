@@ -182,6 +182,64 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ------------------------------------------------------------------ trips
+    // Multi-day group trips (functions/src/trips). Every mutation is a
+    // callable; the one client write is a traveller ticking their own packing
+    // checklist.
+
+    // Organizer builder state and review status.
+    match /tripDrafts/{hostTripId} {
+      allow read: if isAdmin() || canOrgWide(resource.data.orgId, 'experiences.view');
+      allow write: if false;
+    }
+
+    // Published only after PULSE approval: marketing content and seat counts.
+    match /trips/{tripId} {
+      allow read: if user() || isAdmin();
+      allow write: if false;
+    }
+    match /tripDepartures/{departureId} {
+      allow read: if user() || isAdmin();
+      allow write: if false;
+    }
+
+    // Bookings carry traveller names, ages and emergency contacts: the booker
+    // and admins only. Organizers get the manifest from `getTripManifest`
+    // (attendees.view); co-travellers never read another booking.
+    match /tripBookings/{bookingId} {
+      allow read: if isAdmin() || (user() && resource.data.customerUid == uid());
+      allow update: if user() && resource.data.customerUid == uid()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['checked'])
+        && request.resource.data.checked is list
+        && request.resource.data.checked.size() <= 300;
+      allow create, delete: if false;
+    }
+
+    match /tripPayments/{paymentId} {
+      allow read: if isAdmin() || (user() && resource.data.customerUid == uid());
+      allow write: if false;
+    }
+
+    match /tripRefunds/{refundId} {
+      allow read: if isAdmin()
+        || (user() && resource.data.customerUid == uid())
+        || canOrgWide(resource.data.orgId, 'refunds.view');
+      allow write: if false;
+    }
+
+    // Organizer messages: the organizer team, and travellers confirmed on
+    // that departure (`tripTravellers/{departureId}__{uid}`, server-written).
+    match /tripUpdates/{updateId} {
+      allow read: if isAdmin()
+        || canOrgWide(resource.data.orgId, 'experiences.view')
+        || (user() && exists(/databases/$(database)/documents/tripTravellers/$(resource.data.departureId + '__' + uid())));
+      allow write: if false;
+    }
+    match /tripTravellers/{id} {
+      allow get: if user() && resource.data.uid == uid();
+      allow list, write: if false;
+    }
+
     // ------------------------------------------------------- reviews & inbox
     // Review documents carry the author's uid (also in the id), so they are
     // not public: participants stay anonymous. Clients show only the rating

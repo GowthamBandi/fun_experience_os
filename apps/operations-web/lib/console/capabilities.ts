@@ -68,6 +68,7 @@ export const CALLABLE_CAPABILITY = {
   decideCommercialAgreement: "governance.decide",
   setOperatorAccess: "access.manage",
   setLegalHold: "governance.decide",
+  reviewTrip: "governance.decide",
 } as const satisfies Record<string, Capability>;
 
 export type ConsoleCallable = keyof typeof CALLABLE_CAPABILITY;
@@ -88,6 +89,7 @@ export const CONSOLE_ROUTES = [
   "/",
   "/live",
   "/approvals",
+  "/trips",
   "/partners",
   "/events",
   "/arenas",
@@ -111,6 +113,8 @@ export const ROUTE_CAPABILITY: Record<string, Capability> = {
   "/live": "governance.read",
   "/revenue": "governance.read",
   "/approvals": "governance.read",
+  /** tripDrafts: admin list/get (firestore.rules). */
+  "/trips": "governance.read",
   "/partners": "governance.read",
   "/arenas": "governance.read",
   "/events": "governance.read",

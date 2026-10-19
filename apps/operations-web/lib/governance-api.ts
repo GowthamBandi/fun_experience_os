@@ -16,11 +16,13 @@ import {
   buildModerateReviewPayload,
   buildReissueOrganizerCodePayload,
   buildSetOperatorAccessPayload,
+  buildReviewTripPayload,
   newRequestId,
   type CaseOutcome,
   type EntityStatus,
   type EntityType,
   type SettlementAction,
+  type TripOutcome,
 } from "./console/actions";
 import {
   adaptAudit,
@@ -120,6 +122,27 @@ export function subscribeGovernanceCollection(
 }
 
 export type PageCursor = QueryDocumentSnapshot<DocumentData>;
+
+/**
+ * tripDrafts with one status (admins list/get them per firestore.rules). Equality only, so the
+ * automatic single-field index on `status` serves it — no composite index. lib/trips.ts orders
+ * the rows in memory (longest-waiting first for the review queue).
+ */
+export function subscribeTripDrafts(
+  status: string,
+  observer: (rows: Array<{ id: string; raw: Record<string, unknown> }>, truncated: boolean) => void,
+  onError: (message: string) => void,
+) {
+  const source = query(collection(getFirebaseClient().firestore, "tripDrafts"), where("status", "==", status), limit(QUERY_LIMIT + 1));
+  return onSnapshot(
+    source,
+    (snapshot) => {
+      const { rows, truncated } = capRows(snapshot.docs);
+      observer(rows.map((d) => ({ id: d.id, raw: { ...d.data() } })), truncated);
+    },
+    (error) => onError(error.message),
+  );
+}
 
 /**
  * One older page of the audit trail (newest first), after `cursor`.
@@ -249,4 +272,19 @@ export interface SetLegalHoldResult { holdId: string; status: "active" | "releas
 /** setLegalHold (asia-south1, admins). Blocks retention deletion for the subject while active. */
 export async function setLegalHold(input: { requestId: string; subjectId: string; action: "place" | "release"; reason: string; reference?: string }) {
   return call<SetLegalHoldResult>(regional(), "setLegalHold", buildLegalHoldPayload(input));
+}
+
+/* ---------------------------------------------------- trip review (asia-south1) */
+
+export interface ReviewTripResult {
+  hostTripId: string;
+  status: string;
+  tripId: string | null;
+  version: number;
+  replayed?: boolean;
+}
+
+/** reviewTrip (asia-south1, admins): approve, request changes or reject a submitted host trip. */
+export async function reviewTrip(input: { requestId: string; hostTripId: string; expectedVersion: number; outcome: TripOutcome; note: string }) {
+  return call<ReviewTripResult>(regional(), "reviewTrip", buildReviewTripPayload(input));
 }

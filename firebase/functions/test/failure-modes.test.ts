@@ -50,6 +50,7 @@ import { SECRET_NAMES, hashCode, isEmulator, secret } from "../src/platform/secu
 import { DomainError } from "../src/platform/errors";
 import { getPaymentProvider, paymentSignature, verifyWebhookSignature, webhookSignature } from "../src/commerce/provider";
 import { ticketSignature } from "../src/commerce/tickets";
+import * as trips from "../src/trips";
 import { handleRazorpayWebhook } from "../src/commerce/webhook";
 
 jest.setTimeout(600_000);
@@ -213,6 +214,9 @@ const LENIENT: Record<string, string[]> = {
   decideSettlement: ["payoutReference"],
   decideCase: ["note"],
   registerPushToken: [],
+  reserveTripSeats: ["roomId", "pickupId", "addOnIds", "payInFull"],
+  reviewTrip: ["note"],
+  postDepartureUpdate: ["important"],
 };
 
 const ORG = "org-fuzz-0001";
@@ -278,6 +282,33 @@ describe("F2 malformed payloads", () => {
         base: { requestId: r(), entityType: "organizer", entityId: ORG, expectedVersion: 0, status: "paused", reason: "Many complaints this week" },
         ctx: "admin",
       },
+      saveTripDraft: { fn: trips.saveTripDraft, base: { requestId: r(), orgId: ORG, hostTripId: "ht-fuzz-0001", draft: { title: "Coorg trails", days: [] } }, ctx: "phone" },
+      deleteTripDraft: { fn: trips.deleteTripDraft, base: { requestId: r(), orgId: ORG, hostTripId: "ht-fuzz-0001" }, ctx: "phone" },
+      submitTrip: { fn: trips.submitTrip, base: { requestId: r(), orgId: ORG, hostTripId: "ht-fuzz-0001" }, ctx: "phone" },
+      withdrawTrip: { fn: trips.withdrawTrip, base: { requestId: r(), orgId: ORG, hostTripId: "ht-fuzz-0001" }, ctx: "phone" },
+      reviewTrip: { fn: trips.reviewTrip, base: { requestId: r(), hostTripId: "ht-fuzz-0001", expectedVersion: 1, outcome: "approved", note: "" }, ctx: "admin" },
+      reserveTripSeats: {
+        fn: trips.reserveTripSeats,
+        base: {
+          requestId: r(), tripId: "trip-fuzz-0001", departureId: "dep-fuzz-0001", roomId: "quad", travellers: 1, addOnIds: [], pickupId: "p1",
+          payInFull: false, people: [{ name: "Asha K", age: 27, gender: "woman" }], emergencyName: "Mum", emergencyPhone: "+919876543210",
+        },
+        ctx: "phone",
+      },
+      createTripPaymentOrder: { fn: trips.createTripPaymentOrder, base: { requestId: r(), bookingId: "tb-fuzz-0001" }, ctx: "phone" },
+      payTripBalance: { fn: trips.payTripBalance, base: { requestId: r(), bookingId: "tb-fuzz-0001" }, ctx: "phone" },
+      confirmTripPayment: { fn: trips.confirmTripPayment, base: { paymentId: "tp-fuzz-0001", providerPaymentId: "pay_abc123", providerSignature: "a".repeat(64) }, ctx: "phone" },
+      cancelTripBooking: { fn: trips.cancelTripBooking, base: { requestId: r(), bookingId: "tb-fuzz-0001" }, ctx: "phone" },
+      setDepartureSeats: { fn: trips.setDepartureSeats, base: { requestId: r(), orgId: ORG, departureId: "dep-fuzz-0001", seats: 10 }, ctx: "phone" },
+      setSalesClosed: { fn: trips.setSalesClosed, base: { requestId: r(), orgId: ORG, departureId: "dep-fuzz-0001", closed: true }, ctx: "phone" },
+      addTripDeparture: {
+        fn: trips.addTripDeparture,
+        base: { requestId: r(), orgId: ORG, tripId: "trip-fuzz-0001", departure: { id: "dep-fuzz-0002", start: "2027-01-01T15:30:00Z", end: "2027-01-03T15:30:00Z", seatsTotal: 10, priceDelta: 0 } },
+        ctx: "phone",
+      },
+      cancelDeparture: { fn: trips.cancelDeparture, base: { requestId: r(), orgId: ORG, departureId: "dep-fuzz-0001", reason: "Landslide on the road" }, ctx: "phone" },
+      postDepartureUpdate: { fn: trips.postDepartureUpdate, base: { requestId: r(), orgId: ORG, departureId: "dep-fuzz-0001", text: "Pickup moved to Gate 3", important: false }, ctx: "phone" },
+      getTripManifest: { fn: trips.getTripManifest, base: { orgId: ORG, departureId: "dep-fuzz-0001" }, ctx: "phone" },
       setOperatorAccess: { fn: setOperatorAccess, base: { uid: opTarget, roleId: "auditor", status: "active", reason: "Needs audit access now" }, ctx: "owner" },
     };
 

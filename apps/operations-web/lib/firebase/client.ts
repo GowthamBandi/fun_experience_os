@@ -53,7 +53,7 @@ interface FirebaseClient {
   firestore: Firestore;
   /** Legacy governance callables (decideCase, setMarketplaceEntityStatus, setOperatorAccess, reissueOrganizerCode). */
   functions: Functions;
-  /** Commerce/catalog callables (decideRefund, buildSettlement, decideSettlement, adminCancelEvent, moderateReview). */
+  /** Commerce/catalog callables (decideRefund, buildSettlement, decideSettlement, adminCancelEvent, moderateReview, setLegalHold, reviewTrip). */
   regionalFunctions: Functions;
 }
 

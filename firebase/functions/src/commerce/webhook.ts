@@ -16,6 +16,7 @@ import { C } from "./config";
 import { verifyWebhookSignature } from "./provider";
 import { markPaymentFailed, resolvePaymentId, settleCapturedPayment } from "./payments";
 import { completeRefundFromProvider } from "./refundCore";
+import { completeTripRefund, markTripPaymentFailed, resolveTripPaymentId, resolveTripRefundId, settleTripCapture } from "../trips/bookings";
 
 export interface WebhookRequest {
   method?: string;
@@ -100,7 +101,20 @@ async function dispatch(body: { event?: string; payload?: Record<string, { entit
     case "payment.captured": {
       if (!payment) return "ignored:no-entity";
       const paymentId = await resolvePaymentId(payment);
-      if (!paymentId) return "ignored:unknown-payment";
+      if (!paymentId) {
+        // Trip payments live in their own collection (trips/bookings.ts).
+        const tripPaymentId = await resolveTripPaymentId(payment);
+        if (!tripPaymentId) return "ignored:unknown-payment";
+        const trip = await settleTripCapture({
+          paymentId: tripPaymentId,
+          providerOrderId: typeof payment.order_id === "string" ? payment.order_id : null,
+          providerPaymentId: String(payment.id ?? ""),
+          amountMinor: Number(payment.amount),
+          currency: String(payment.currency ?? ""),
+          source: "webhook",
+        });
+        return `trip:${trip.outcome}`;
+      }
       const out = await settleCapturedPayment({
         paymentId,
         providerOrderId: typeof payment.order_id === "string" ? payment.order_id : null,
@@ -114,7 +128,11 @@ async function dispatch(body: { event?: string; payload?: Record<string, { entit
     case "payment.failed": {
       if (!payment) return "ignored:no-entity";
       const paymentId = await resolvePaymentId(payment);
-      if (!paymentId) return "ignored:unknown-payment";
+      if (!paymentId) {
+        const tripPaymentId = await resolveTripPaymentId(payment);
+        if (!tripPaymentId) return "ignored:unknown-payment";
+        return (await markTripPaymentFailed(tripPaymentId, String(payment.error_description ?? "failed"))) ? "trip:failed" : "ignored:not-open";
+      }
       const changed = await markPaymentFailed(paymentId, String(payment.id ?? ""), String(payment.error_description ?? "failed"));
       return changed ? "failed" : "ignored:not-open";
     }
@@ -122,7 +140,11 @@ async function dispatch(body: { event?: string; payload?: Record<string, { entit
     case "refund.failed": {
       if (!refund) return "ignored:no-entity";
       const refundId = await resolveRefundId(refund);
-      if (!refundId) return "ignored:unknown-refund";
+      if (!refundId) {
+        const tripRefundId = await resolveTripRefundId(refund);
+        if (!tripRefundId) return "ignored:unknown-refund";
+        return `trip:${await completeTripRefund(tripRefundId, body.event === "refund.processed" ? "processed" : "failed")}`;
+      }
       return completeRefundFromProvider(
         refundId,
         typeof refund.id === "string" ? refund.id : null,

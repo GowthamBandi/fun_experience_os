@@ -6,6 +6,7 @@ import {
   Handshake,
   Landmark,
   LayoutDashboard,
+  Plane,
   Lock,
   KeyRound,
   Radio,
@@ -29,7 +30,7 @@ export interface NavItem {
   group: NavGroup;
   icon: LucideIcon;
   keywords: string;
-  badge?: "approvals" | "risk" | "refunds" | "live";
+  badge?: "approvals" | "trips" | "risk" | "refunds" | "live";
 }
 
 /** One item per CONSOLE_ROUTES entry, in sidebar order. */
@@ -37,6 +38,7 @@ export const NAV: NavItem[] = [
   { href: "/", label: "Command Center", group: "Overview", icon: LayoutDashboard, keywords: "command center overview attention queue decisions" },
   { href: "/live", label: "Live", group: "Overview", icon: Radio, keywords: "live now events running starting soon", badge: "live" },
   { href: "/approvals", label: "Approvals", group: "Marketplace", icon: BadgeCheck, keywords: "applications kyc review approve reject", badge: "approvals" },
+  { href: "/trips", label: "Trips", group: "Marketplace", icon: Plane, keywords: "trips group travel itinerary organizer review approve changes reject", badge: "trips" },
   { href: "/partners", label: "Organizers", group: "Marketplace", icon: Store, keywords: "organizers partners event managers verification" },
   { href: "/events", label: "Experiences & Events", group: "Marketplace", icon: CalendarDays, keywords: "events experiences proposals policy pricing approval" },
   { href: "/arenas", label: "Arenas", group: "Marketplace", icon: Landmark, keywords: "arenas venues verification blocked paused" },

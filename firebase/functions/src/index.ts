@@ -5,6 +5,7 @@ export { setOperatorAccess } from "./auth/operatorAccess";
 export * from "./identity";
 export * from "./catalog";
 export * from "./commerce";
+export * from "./trips";
 export { runDataRetention, setLegalHold } from "./platform/retention";
 export { eventPage } from "./web/eventPage";
 

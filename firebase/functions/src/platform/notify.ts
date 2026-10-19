@@ -17,9 +17,16 @@ export type NotificationKind =
   | "staff-revoked"
   | "experience-decision"
   | "event-decision"
-  | "safety";
+  | "safety"
+  | "trip-decision"
+  | "trip-booking"
+  | "trip-update"
+  | "trip-cancelled";
 
-export type NotificationLinkType = "event" | "booking" | "ticket" | "organizer" | "application" | "experience";
+export type NotificationLinkType =
+  | "event" | "booking" | "ticket" | "organizer" | "application" | "experience"
+  /** A trip booking and a departure (customer), and an organizer's trip (host workspace). */
+  | "trip-booking" | "trip-departure" | "host-trip";
 export interface NotificationLink {
   type: NotificationLinkType;
   id: string;

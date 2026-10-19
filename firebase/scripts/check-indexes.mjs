@@ -76,6 +76,17 @@ export const QUERIES = [
   Q("B22", "backend", "tickets", ["eventId"], null, [], ["firebase/functions/src/commerce/checkin.ts", `tickets).where("eventId"`]),
   Q("B23", "backend", "bookings", ["eventId"], null, [], ["firebase/functions/src/commerce/checkin.ts", `bookings).where("eventId"`]),
   Q("B24", "backend", "tickets", ["eventId", "reference"], null, [], ["firebase/functions/src/commerce/scan.ts", `.where("reference", "==", reference)`]),
+  // Trips (firebase/functions/src/trips; `T` is trips/refs.ts).
+  Q("BT01", "backend", "tripBookings", ["status"], "holdExpiresAt", [], ["firebase/functions/src/trips/bookings.ts", `.where("holdExpiresAt", "<=", now)`]),
+  Q("BT02", "backend", "tripPayments", ["bookingId"], null, [], ["firebase/functions/src/trips/bookings.ts", `tripPayments).where("bookingId"`]),
+  Q("BT03", "backend", "tripRefunds", ["status"], null, [], ["firebase/functions/src/trips/bookings.ts", `tripRefunds).where("status"`]),
+  Q("BT04", "backend", "tripPayments", ["providerOrderId"], null, [], ["firebase/functions/src/trips/bookings.ts", `tripPayments).where("providerOrderId"`]),
+  Q("BT05", "backend", "tripRefunds", ["providerRefundId"], null, [], ["firebase/functions/src/trips/bookings.ts", `tripRefunds).where("providerRefundId"`]),
+  Q("BT06", "backend", "tripDepartures", ["tripId"], null, [], ["firebase/functions/src/trips/drafts.ts", `tripDepartures).where("tripId"`]),
+  Q("BT07", "backend", "tripDepartures", ["tripId"], null, [], ["firebase/functions/src/trips/operations.ts", `tripDepartures).where("tripId"`]),
+  Q("BT08", "backend", "tripBookings", ["departureId"], null, [], ["firebase/functions/src/trips/operations.ts", `tripBookings).where("departureId"`]),
+  Q("BT09", "backend", "tripPayments", ["departureId"], null, [], ["firebase/functions/src/trips/operations.ts", `tripPayments).where("departureId"`]),
+  Q("BT10", "backend", "tripTravellers", ["departureId"], null, [], ["firebase/functions/src/trips/operations.ts", `tripTravellers).where("departureId"`]),
   // platform/retention.ts (scheduled clean-up). R01/R02 run on a collection
   // passed in as a variable, which the chain scanner can't resolve.
   Q("R01", "backend", "staffInvites", ["status"], "expiresAt", [], ["firebase/functions/src/platform/retention.ts", `.where("expiresAt", "<", opts.cutoff)`]),
@@ -97,6 +108,12 @@ export const QUERIES = [
   Q("P02", "pulse", "experiences", ["__name__(in)", "status"], null, [], ["lib/src/data/firebase/firebase_repositories.dart", `FieldPath.documentId, whereIn`],
     "documentId-in + one equality is served by the automatic single-field index on status (its entries are already ordered by __name__)."),
   Q("P03", "pulse", "bookings", ["customerUid"], null, [["createdAt", "desc"]], ["lib/src/data/firebase/firebase_repositories.dart", `.collection('bookings')`]),
+  Q("PT01", "pulse", "tripBookings", ["customerUid"], null, [], ["lib/src/data/firebase/firebase_trip_repository.dart", `.collection('tripBookings')`]),
+  Q("PT02", "pulse", "tripDrafts", ["orgId"], null, [], ["lib/src/data/firebase/firebase_trip_repository.dart", `.collection('tripDrafts')`]),
+  Q("PT03", "pulse", "tripDepartures", ["tripId(in)"], null, [], ["lib/src/data/firebase/firebase_trip_repository.dart", `.collection('tripDepartures')`]),
+  Q("PT04", "pulse", "trips", ["status"], null, [], ["lib/src/data/firebase/firebase_trip_repository.dart", `.where('status', isEqualTo: 'live')`]),
+  Q("PT05", "pulse", "tripUpdates", ["departureId"], null, [], ["lib/src/data/firebase/firebase_trip_repository.dart", `.collection('tripUpdates')`]),
+  Q("PT06", "pulse", "tripUpdates", ["departureId", "orgId"], null, [], ["lib/src/data/firebase/firebase_trip_repository.dart", `q = q.where('orgId'`]),
   Q("P04", "pulse", "tickets", ["customerUid"], null, [], ["lib/src/data/firebase/firebase_repositories.dart", `.collection('tickets')`]),
   Q("P05", "pulse", "refunds", ["customerUid"], null, [], ["lib/src/data/firebase/firebase_repositories.dart", `.collection('refunds')`]),
   Q("P06", "pulse", "userNotifications", ["recipientUid"], null, [["createdAt", "desc"]], ["lib/src/data/firebase/firebase_repositories.dart", `.where('recipientUid'`]),
@@ -230,7 +247,7 @@ function walk(dir, exts, out = []) {
   return out;
 }
 
-const COLLECTION_ARG = /(?:\.collection|\bcol|collectionGroup)\(\s*(?:(?:COLLECTIONS|C)\.(\w+)|["'`](\w+)["'`])\s*\)/g;
+const COLLECTION_ARG = /(?:\.collection|\bcol|collectionGroup)\(\s*(?:(?:COLLECTIONS|C|T)\.(\w+)|["'`](\w+)["'`])\s*\)/g;
 const TS_WHERE = /\.where\(\s*(?:["'`]([\w.]+)["'`]|FieldPath\.documentId\(\))\s*,\s*["'`]([^"'`]+)["'`]/g;
 const DART_WHERE = /\.where\(\s*(?:['"]([\w.]+)['"]|FieldPath\.documentId)\s*,\s*(\w+)\s*:/g;
 const ORDER = /\.orderBy\(\s*["'`]([\w.]+)["'`](?:\s*,\s*(?:["'`](desc|asc)["'`]|descending:\s*(true|false)))?/g;

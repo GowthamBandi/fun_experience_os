@@ -5,8 +5,9 @@ import { buildAttentionQueue, type AttentionInput, type AttentionItem } from "@/
 import { canViewRoute } from "@/lib/console/capabilities";
 import { useAdminSession } from "@/lib/firebase/auth";
 import { useGovernanceCollection } from "@/lib/use-governance";
+import { useTripDrafts } from "@/lib/use-trips";
 
-export type AttentionRoute = "approvals" | "risk" | "refunds";
+export type AttentionRoute = "approvals" | "trips" | "risk" | "refunds";
 
 export interface Attention {
   items: AttentionItem[];
@@ -31,6 +32,8 @@ export function useAttention(): Attention {
   const risks = useGovernanceCollection("riskAlerts", enabled, "open");
   const refunds = useGovernanceCollection("refunds", enabled, "open");
   const settlements = useGovernanceCollection("settlements", enabled, "open");
+  // Trips waiting on review: the rail badge only (status == "in-review", no composite index).
+  const trips = useTripDrafts(canViewRoute(consoleRole, "/trips") ? "in-review" : null);
   const sources = [cases, risks, refunds, settlements];
   const loading = sources.some((s) => s.loading);
   const error = sources.find((s) => s.error)?.error ?? null;
@@ -55,13 +58,13 @@ export function useAttention(): Attention {
     return {
       items,
       total: items.reduce((n, i) => n + i.count, 0),
-      byRoute: { approvals: count("/approvals"), risk: count("/risk"), refunds: count("/refunds") },
+      byRoute: { approvals: count("/approvals"), trips: trips.rows.length, risk: count("/risk"), refunds: count("/refunds") },
       loading,
       error,
       refresh,
       sources: sourceData,
     };
-  }, [items, loading, error, refresh, sourceData]);
+  }, [items, loading, error, refresh, sourceData, trips.rows.length]);
 }
 
 const AttentionContext = createContext<Attention | null>(null);
