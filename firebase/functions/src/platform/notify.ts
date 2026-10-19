@@ -21,7 +21,9 @@ export type NotificationKind =
   | "trip-decision"
   | "trip-booking"
   | "trip-update"
-  | "trip-cancelled";
+  | "trip-cancelled"
+  /** A seat opened on a sold-out departure the person was waiting for. */
+  | "trip-waitlist";
 
 export type NotificationLinkType =
   | "event" | "booking" | "ticket" | "organizer" | "application" | "experience"

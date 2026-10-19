@@ -87,6 +87,7 @@ export const QUERIES = [
   Q("BT08", "backend", "tripBookings", ["departureId"], null, [], ["firebase/functions/src/trips/operations.ts", `tripBookings).where("departureId"`]),
   Q("BT09", "backend", "tripPayments", ["departureId"], null, [], ["firebase/functions/src/trips/operations.ts", `tripPayments).where("departureId"`]),
   Q("BT10", "backend", "tripTravellers", ["departureId"], null, [], ["firebase/functions/src/trips/operations.ts", `tripTravellers).where("departureId"`]),
+  Q("BT12", "backend", "tripWaitlist", ["departureId"], null, [], ["firebase/functions/src/trips/waitlist.ts", `tripWaitlist).where("departureId"`]),
   // platform/retention.ts (scheduled clean-up). R01/R02 run on a collection
   // passed in as a variable, which the chain scanner can't resolve.
   Q("R01", "backend", "staffInvites", ["status"], "expiresAt", [], ["firebase/functions/src/platform/retention.ts", `.where("expiresAt", "<", opts.cutoff)`]),
@@ -114,6 +115,7 @@ export const QUERIES = [
   Q("PT04", "pulse", "trips", ["status"], null, [], ["lib/src/data/firebase/firebase_trip_repository.dart", `.where('status', isEqualTo: 'live')`]),
   Q("PT05", "pulse", "tripUpdates", ["departureId"], null, [], ["lib/src/data/firebase/firebase_trip_repository.dart", `.collection('tripUpdates')`]),
   Q("PT06", "pulse", "tripUpdates", ["departureId", "orgId"], null, [], ["lib/src/data/firebase/firebase_trip_repository.dart", `q = q.where('orgId'`]),
+  Q("PT07", "pulse", "tripWaitlist", ["uid"], null, [], ["lib/src/data/firebase/firebase_trip_repository.dart", `.collection('tripWaitlist')`]),
   Q("P04", "pulse", "tickets", ["customerUid"], null, [], ["lib/src/data/firebase/firebase_repositories.dart", `.collection('tickets')`]),
   Q("P05", "pulse", "refunds", ["customerUid"], null, [], ["lib/src/data/firebase/firebase_repositories.dart", `.collection('refunds')`]),
   Q("P06", "pulse", "userNotifications", ["recipientUid"], null, [["createdAt", "desc"]], ["lib/src/data/firebase/firebase_repositories.dart", `.where('recipientUid'`]),

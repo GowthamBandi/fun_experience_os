@@ -239,6 +239,12 @@ service cloud.firestore {
       allow get: if user() && resource.data.uid == uid();
       allow list, write: if false;
     }
+    // Waiting for a seat on a sold-out departure: the person's own entries
+    // only (`joinTripWaitlist` / `leaveTripWaitlist` write them).
+    match /tripWaitlist/{id} {
+      allow read: if user() && resource.data.uid == uid();
+      allow write: if false;
+    }
 
     // ------------------------------------------------------- reviews & inbox
     // Review documents carry the author's uid (also in the id), so they are

@@ -9,7 +9,8 @@ import { consumeLimit, consumeRateLimit } from "../platform/rateLimit";
 import { DomainError } from "../platform/errors";
 import { SECRET_NAMES, isEmulator, type SecretName } from "../platform/security";
 import { RATE_LIMITS } from "../commerce/config";
-import { runJob } from "../platform/jobs";
+import { isStaleEvent, runJob } from "../platform/jobs";
+import { logInfo } from "../platform/log";
 import { deleteTripDraftCommand, reviewTripCommand, saveTripDraftCommand, submitTripCommand, withdrawTripCommand } from "./drafts";
 import {
   cancelTripBookingCommand, confirmTripPaymentCommand, createTripOrder, releaseExpiredTripHolds as releaseExpiredTripHoldsSvc,
@@ -19,6 +20,7 @@ import {
   addTripDepartureCommand, cancelDepartureCommand, getTripManifestQuery, postDepartureUpdateCommand, setDepartureSeatsCommand,
   setSalesClosedCommand,
 } from "./operations";
+import { joinTripWaitlistCommand, leaveTripWaitlistCommand, notifyTripWaitlist, seatOpened } from "./waitlist";
 
 const RZP: SecretName[] = [SECRET_NAMES.razorpayKeyId, SECRET_NAMES.razorpayKeySecret];
 const bind = (s: SecretName[]) => (isEmulator() ? [] : s);
@@ -149,6 +151,41 @@ export const cancelTripBooking = callable(
   },
   { secrets: RZP }
 );
+
+export const joinTripWaitlist = callable(async (data, context) => {
+  const uid = requirePhoneUser(context).uid;
+  await consumeRateLimit({ bucket: `tripwait_${uid}`, ...RATE_LIMITS.reserve, message: "Too many waitlist requests. Please wait a few minutes." });
+  return joinTripWaitlistCommand(uid, data);
+});
+
+export const leaveTripWaitlist = callable(async (data, context) => {
+  const uid = requirePhoneUser(context).uid;
+  await consumeRateLimit({ bucket: `tripwait_${uid}`, ...RATE_LIMITS.reserve, message: "Too many waitlist requests. Please wait a few minutes." });
+  return leaveTripWaitlistCommand(uid, data);
+});
+
+/* ---------------------------------------------------------------- triggers */
+
+/**
+ * A departure that couldn't be booked has a seat again (cancellation, expired
+ * hold, extra seats, sales reopened): tell the waitlist. A cancelled
+ * departure clears it. Every path that frees a seat writes the departure, so
+ * this one trigger covers them all.
+ */
+export const onTripDepartureChanged = functions
+  .region("asia-south1")
+  .runWith({ failurePolicy: true, timeoutSeconds: 120 })
+  .firestore.document("tripDepartures/{departureId}")
+  .onUpdate(async (change, context) => {
+    const before = change.before.data();
+    const after = change.after.data();
+    const cancelled = before?.cancelled !== true && after?.cancelled === true;
+    if (!cancelled && !seatOpened(before, after)) return;
+    const departureId = context.params.departureId as string;
+    if (isStaleEvent(context.timestamp, 6 * 3_600_000, { job: "onTripDepartureChanged", departureId })) return;
+    const out = await notifyTripWaitlist(departureId);
+    if (out.cleared > 0) logInfo({ event: "job.completed", job: "onTripDepartureChanged", departureId, ...out });
+  });
 
 /* ---------------------------------------------------------------- schedule */
 

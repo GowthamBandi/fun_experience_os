@@ -11,6 +11,7 @@ import {
 import { paymentSignature } from "../src/commerce/provider";
 import * as trips from "../src/trips";
 import { releaseExpiredTripHolds } from "../src/trips/bookings";
+import { notifyTripWaitlist, seatOpened } from "../src/trips/waitlist";
 import { quoteTrip, refundPercent } from "../src/trips/model";
 
 const DAY = 86_400_000;
@@ -319,5 +320,94 @@ describe("live operations and the manifest", () => {
     const updates = await db().collection("tripUpdates").where("departureId", "==", w.d1).get();
     expect(updates.docs[0]!.data().text).toMatch(/cancelled: Landslide/);
     expect((await callErr(trips.reserveTripSeats, reserveInput(w), phoneCtx(uniq("cust")))).message).toMatch(/cancelled that departure/);
+  });
+});
+
+describe("waitlist", () => {
+  /** A live trip whose first departure is sold out: 4 seats, 4 booked. */
+  async function soldOut() {
+    const w = await liveTrip();
+    const booker = uniq("cust");
+    const r = await book(w, booker, { travellers: 4, people: people(4) });
+    await call(trips.setDepartureSeats, { requestId: rid(), orgId: w.orgId, departureId: w.d1, seats: 4 }, phoneCtx(w.owner));
+    return { w, booker, bookingId: r.bookingId };
+  }
+  const entry = async (departureId: string, uid: string) => (await db().doc(`tripWaitlist/${departureId}__${uid}`).get()).data();
+  const kinds = async (uid: string) =>
+    (await db().collection("userNotifications").where("recipientUid", "==", uid).get()).docs.map((d) => d.data());
+
+  test("joining is stored server-side, idempotent, and leaving removes it", async () => {
+    const { w } = await soldOut();
+    const cust = uniq("cust");
+    const req = { requestId: rid(), departureId: w.d1 };
+    expect(await call(trips.joinTripWaitlist, req, phoneCtx(cust))).toMatchObject({ waitlisted: true });
+    expect(await call(trips.joinTripWaitlist, req, phoneCtx(cust))).toMatchObject({ waitlisted: true, replayed: true });
+    expect(await call(trips.joinTripWaitlist, { requestId: rid(), departureId: w.d1 }, phoneCtx(cust))).toMatchObject({ waitlisted: true });
+    expect(await entry(w.d1, cust)).toMatchObject({ departureId: w.d1, tripId: w.tripId, uid: cust });
+    await call(trips.leaveTripWaitlist, { departureId: w.d1 }, phoneCtx(cust));
+    expect(await entry(w.d1, cust)).toBeUndefined();
+  });
+
+  test("only sold-out, bookable dates; not when already booked on it", async () => {
+    const { w, booker } = await soldOut();
+    expect((await callErr(trips.joinTripWaitlist, { requestId: rid(), departureId: w.d2 }, phoneCtx(uniq("cust")))).message).toMatch(/Seats are open/);
+    expect((await callErr(trips.joinTripWaitlist, { requestId: rid(), departureId: w.d1 }, phoneCtx(booker))).message).toMatch(/already booked/);
+    expect(await callCode(trips.joinTripWaitlist, { requestId: rid(), departureId: "nope-d9" }, phoneCtx(uniq("cust")))).toBe("NOT_FOUND");
+    expect(await callCode(trips.joinTripWaitlist, { requestId: rid() }, phoneCtx(uniq("cust")))).toBe("INVALID_INPUT");
+  });
+
+  test("a freed seat notifies everyone waiting once and clears the list", async () => {
+    const { w, booker, bookingId } = await soldOut();
+    const a = uniq("cust");
+    const b = uniq("cust");
+    await call(trips.joinTripWaitlist, { requestId: rid(), departureId: w.d1 }, phoneCtx(a));
+    await call(trips.joinTripWaitlist, { requestId: rid(), departureId: w.d1 }, phoneCtx(b));
+    // Still sold out: nothing happens.
+    expect(await notifyTripWaitlist(w.d1)).toEqual({ notified: 0, cleared: 0 });
+    await call(trips.cancelTripBooking, { requestId: rid(), bookingId }, phoneCtx(booker));
+    expect(await notifyTripWaitlist(w.d1)).toEqual({ notified: 2, cleared: 2 });
+    const n = (await kinds(a)).find((x) => x.kind === "trip-waitlist")!;
+    expect(n).toMatchObject({ title: "A seat opened on Coorg coffee trails", link: { type: "trip-departure", id: w.d1 } });
+    expect(n.body).toMatch(/4 seats are free again/);
+    expect((await kinds(b)).map((x) => x.kind)).toContain("trip-waitlist");
+    expect(await entry(w.d1, a)).toBeUndefined();
+    // A re-run finds nobody left to tell.
+    expect(await notifyTripWaitlist(w.d1)).toEqual({ notified: 0, cleared: 0 });
+  });
+
+  test("a cancelled departure clears its waitlist without a seat alert", async () => {
+    const { w } = await soldOut();
+    const a = uniq("cust");
+    await call(trips.joinTripWaitlist, { requestId: rid(), departureId: w.d1 }, phoneCtx(a));
+    await call(trips.cancelDeparture, { requestId: rid(), orgId: w.orgId, departureId: w.d1, reason: "Landslide on the ghat road" }, phoneCtx(w.owner));
+    expect(await notifyTripWaitlist(w.d1)).toEqual({ notified: 0, cleared: 1 });
+    expect((await kinds(a)).map((x) => x.kind)).not.toContain("trip-waitlist");
+    expect((await callErr(trips.joinTripWaitlist, { requestId: rid(), departureId: w.d1 }, phoneCtx(uniq("cust")))).message).toMatch(/cancelled/);
+  });
+
+  test("the departure trigger fires only when a seat opens or the date is cancelled", async () => {
+    const closed = { seatsTotal: 4, seatsTaken: 4, cancelled: false, salesClosed: false };
+    expect(seatOpened(closed, { ...closed, seatsTaken: 3 })).toBe(true);
+    expect(seatOpened(closed, { ...closed, seatsTotal: 6 })).toBe(true);
+    expect(seatOpened({ ...closed, seatsTaken: 1, salesClosed: true }, { ...closed, seatsTaken: 1 })).toBe(true);
+    expect(seatOpened({ ...closed, seatsTaken: 3 }, { ...closed, seatsTaken: 2 })).toBe(false);
+    expect(seatOpened(closed, { ...closed, seatsTaken: 3, cancelled: true })).toBe(false);
+
+    const { w, booker, bookingId } = await soldOut();
+    const a = uniq("cust");
+    await call(trips.joinTripWaitlist, { requestId: rid(), departureId: w.d1 }, phoneCtx(a));
+    const before = await dep(w.d1);
+    await call(trips.cancelTripBooking, { requestId: rid(), bookingId }, phoneCtx(booker));
+    const after = await dep(w.d1);
+    const run = (b: unknown, x: unknown) =>
+      (trips.onTripDepartureChanged as unknown as { run: (c: unknown, ctx: unknown) => Promise<void> }).run(
+        { before: { data: () => b }, after: { data: () => x } },
+        { params: { departureId: w.d1 }, timestamp: new Date().toISOString() }
+      );
+    await run(after, after); // no transition: ignored
+    expect(await entry(w.d1, a)).toBeDefined();
+    await run(before, after);
+    expect(await entry(w.d1, a)).toBeUndefined();
+    expect((await kinds(a)).map((x) => x.kind)).toContain("trip-waitlist");
   });
 });

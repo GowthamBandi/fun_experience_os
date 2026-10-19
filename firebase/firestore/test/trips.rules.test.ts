@@ -43,6 +43,7 @@ beforeEach(async () => {
     await put("tripRefunds/tr-1", { orgId: ORG, customerUid: "cust-1", bookingId: "tb-1" });
     await put("tripUpdates/up-1", { orgId: ORG, departureId: "dep-1", text: "Pickup moved", important: false });
     await put("tripTravellers/dep-1__cust-1", { departureId: "dep-1", uid: "cust-1", bookings: 1 });
+    await put("tripWaitlist/dep-1__cust-3", { departureId: "dep-1", tripId: "t-ht-1", orgId: ORG, uid: "cust-3" });
   });
 });
 
@@ -113,4 +114,14 @@ test("traveller markers: own only, never listed", async () => {
   await assertSucceeds(getDoc(doc(phone("cust-1"), "tripTravellers/dep-1__cust-1")));
   await assertFails(getDoc(doc(phone("cust-2"), "tripTravellers/dep-1__cust-1")));
   await assertFails(getDocs(query(collection(phone("cust-1"), "tripTravellers"), where("departureId", "==", "dep-1"))));
+});
+
+test("waitlist entries: the person's own, read-only; listing only their own", async () => {
+  await assertSucceeds(getDoc(doc(phone("cust-3"), "tripWaitlist/dep-1__cust-3")));
+  await assertSucceeds(getDocs(query(collection(phone("cust-3"), "tripWaitlist"), where("uid", "==", "cust-3"))));
+  await assertFails(getDoc(doc(phone("cust-1"), "tripWaitlist/dep-1__cust-3")));
+  await assertFails(getDoc(doc(phone("owner"), "tripWaitlist/dep-1__cust-3")));
+  await assertFails(getDocs(query(collection(phone("cust-3"), "tripWaitlist"), where("departureId", "==", "dep-1"))));
+  await assertFails(setDoc(doc(phone("cust-1"), "tripWaitlist/dep-1__cust-1"), { departureId: "dep-1", uid: "cust-1" }));
+  await assertFails(deleteDoc(doc(phone("cust-3"), "tripWaitlist/dep-1__cust-3")));
 });

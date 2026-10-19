@@ -16,6 +16,8 @@ export const T = {
   tripUpdates: "tripUpdates",
   /** `{departureId}__{uid}`: who may read a departure's updates. */
   tripTravellers: "tripTravellers",
+  /** `{departureId}__{uid}`: someone waiting for a seat on a sold-out departure. Owner-readable. */
+  tripWaitlist: "tripWaitlist",
 } as const;
 
 export const draftRef = (id: string) => db().collection(T.tripDrafts).doc(id);
@@ -25,6 +27,7 @@ export const tripBookingRef = (id: string) => db().collection(T.tripBookings).do
 export const tripPaymentRef = (id: string) => db().collection(T.tripPayments).doc(id);
 export const tripRefundRef = (id: string) => db().collection(T.tripRefunds).doc(id);
 export const travellerRef = (departureId: string, uid: string) => db().collection(T.tripTravellers).doc(`${departureId}__${uid}`);
+export const waitlistRef = (departureId: string, uid: string) => db().collection(T.tripWaitlist).doc(`${departureId}__${uid}`);
 
 /** Published trip id for a host trip: stable across revisions. */
 export const tripIdFor = (hostTripId: string) => `t-${hostTripId}`.slice(0, 128);
