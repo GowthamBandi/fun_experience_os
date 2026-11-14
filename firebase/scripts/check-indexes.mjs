@@ -114,6 +114,7 @@ export const QUERIES = [
 
   // ------------------------------------------------------------ PULSE app
   Q("P41", "pulse", "eventWaitlist", ["uid"], null, [], ["lib/src/data/repositories/event_waitlist_repository.dart", `.collection('eventWaitlist')`]),
+  Q("P42", "pulse", "commercialAgreements", ["orgId", "status"], null, [], ["lib/src/data/firebase/firebase_host_verification_repository.dart", `.collection('commercialAgreements')`]),
   Q("P40", "pulse", "supportRequests", ["uid"], null, [["updatedAt", "desc"]], ["lib/src/data/repositories/support_repository.dart", `.collection('supportRequests')`]),
   Q("P01", "pulse", "events", ["status"], "startsAt", [["startsAt", "asc"]], ["lib/src/data/firebase/firebase_repositories.dart", `.orderBy('startsAt')`]),
   Q("P01c", "pulse", "events", ["orgId", "status"], "startsAt", [["startsAt", "asc"]], ["lib/src/data/firebase/firebase_repositories.dart", `.where('orgId', isEqualTo: hostId)`],

@@ -214,3 +214,35 @@ describe("payout accounts and KYC documents (2026-11-14)", () => {
     await assertFails(setDoc(doc(phoneUser(u.cust), `kycDocuments/${u.cust}`), { documents: { id: { path: "x" } } }));
   });
 });
+
+describe("event-day, waitlist, support and agreements (2026-11-14)", () => {
+  const admin = () => env.authenticatedContext("admin-x", { email: "a@ops.test", email_verified: true, roleId: "super-admin" }).firestore();
+
+  test("commercialAgreements: the owner reads their org's; other orgs and customers don't", async () => {
+    await seed(`commercialAgreements/ca-${ORG}`, { orgId: ORG, status: "approved", commissionBps: 1000, payoutCadence: "weekly" });
+    await assertSucceeds(getDoc(doc(phoneUser(u.owner), `commercialAgreements/ca-${ORG}`)));
+    await assertSucceeds(getDocs(query(collection(phoneUser(u.owner), "commercialAgreements"), where("orgId", "==", ORG), where("status", "==", "approved"))));
+    await assertFails(getDoc(doc(phoneUser(u.cust), `commercialAgreements/ca-${ORG}`)));
+    await assertFails(getDoc(doc(phoneUser(u.staff), `commercialAgreements/ca-${ORG}`)));
+    await assertFails(setDoc(doc(phoneUser(u.owner), `commercialAgreements/ca-${ORG}`), { commissionBps: 0 }));
+  });
+
+  test("supportRequests and eventWaitlist: only the owner of the entry (and admins for support)", async () => {
+    await seed(`supportRequests/sr-${u.cust}`, { uid: u.cust, status: "open" });
+    await assertSucceeds(getDoc(doc(phoneUser(u.cust), `supportRequests/sr-${u.cust}`)));
+    await assertSucceeds(getDocs(query(collection(phoneUser(u.cust), "supportRequests"), where("uid", "==", u.cust))));
+    await assertSucceeds(getDoc(doc(admin(), `supportRequests/sr-${u.cust}`)));
+    await assertFails(getDoc(doc(phoneUser(u.other), `supportRequests/sr-${u.cust}`)));
+    await assertFails(setDoc(doc(phoneUser(u.cust), `supportRequests/sr-${u.cust}`), { status: "resolved" }));
+    await seed(`eventWaitlist/ev1__${u.cust}`, { uid: u.cust, eventId: "ev1" });
+    await assertSucceeds(getDocs(query(collection(phoneUser(u.cust), "eventWaitlist"), where("uid", "==", u.cust))));
+    await assertFails(getDoc(doc(phoneUser(u.other), `eventWaitlist/ev1__${u.cust}`)));
+  });
+
+  test("eventDays: the event team reads it; customers don't; nobody writes", async () => {
+    await seed(`eventDays/ev-${ORG}`, { orgId: ORG, eventId: `ev-${ORG}`, teams: {} });
+    await assertSucceeds(getDoc(doc(phoneUser(u.owner), `eventDays/ev-${ORG}`)));
+    await assertFails(getDoc(doc(phoneUser(u.cust), `eventDays/ev-${ORG}`)));
+    await assertFails(setDoc(doc(phoneUser(u.owner), `eventDays/ev-${ORG}`), { teams: { x: 1 } }));
+  });
+});

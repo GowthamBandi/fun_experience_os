@@ -103,6 +103,14 @@ service cloud.firestore {
       allow list, write: if false;
     }
 
+    // The organizer's own commercial agreements (fee + payout cadence), for
+    // the owner and members with org-wide earnings access. Admins read all
+    // through the governance match below.
+    match /commercialAgreements/{id} {
+      allow get, list: if canOrgWide(resource.data.orgId, 'earnings.view');
+      allow write: if false;
+    }
+
     // Waitlist for sold-out experiences: owner reads their own entry.
     match /eventWaitlist/{id} {
       allow get, list: if user() && resource.data.uid == uid();

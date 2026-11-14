@@ -13,6 +13,7 @@
  * events and its rating aggregate stable — and archives the revision.
  */
 
+import { isEmulator } from "../platform/security";
 import type { Transaction } from "firebase-admin/firestore";
 import * as functions from "firebase-functions/v1";
 import { callable, docId, int, obj, oneOf, optStr, requestId, str, strList } from "../platform/callable";
@@ -35,7 +36,7 @@ export const EXPERIENCE_POLICY_VERSION = "EXPERIENCE-1.0";
 export const EXPERIENCE_CONTENT_FIELDS = [
   "title", "tagline", "category", "activity", "description", "highlights", "format", "genderRule",
   "ageMin", "ageMax", "idRequired", "rules", "bring", "safety", "cancellationPolicy", "config",
-  "coverStyle", "mediaPaths",
+  "coverStyle", "mediaPaths", "mediaUrls",
 ] as const;
 
 export interface ExperienceContent {
@@ -57,6 +58,34 @@ export interface ExperienceContent {
   config: Record<string, unknown>;
   coverStyle: { seed: number } | null;
   mediaPaths: string[];
+  /** Download URLs of the same photos, for display (first = cover). */
+  mediaUrls: string[];
+}
+
+/**
+ * A Firebase Storage download URL for an object in `orgMedia/{orgId}/`
+ * (production host, or the Storage emulator in local builds).
+ */
+export function isOrgMediaUrl(url: string, orgId: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return false;
+  }
+  const hostOk =
+    (u.protocol === "https:" && u.hostname === "firebasestorage.googleapis.com") ||
+    (u.protocol === "http:" && isEmulator());
+  if (!hostOk) return false;
+  const m = u.pathname.match(/^\/v0\/b\/[^/]+\/o\/(.+)$/);
+  if (!m) return false;
+  let object: string;
+  try {
+    object = decodeURIComponent(m[1]!);
+  } catch {
+    return false;
+  }
+  return object.startsWith(`orgMedia/${orgId}/`) && !object.includes("..") && object.split("/").length === 3;
 }
 
 export function parseExperienceContent(d: Json, orgId: string): ExperienceContent {
@@ -85,6 +114,12 @@ export function parseExperienceContent(d: Json, orgId: string): ExperienceConten
       throw new DomainError("INVALID_INPUT", "Photos must be uploaded to your organizer's media folder.");
     }
   }
+  const mediaUrls = strList(d.mediaUrls, "Photos", 10, 1000);
+  for (const u of mediaUrls) {
+    if (!isOrgMediaUrl(u, orgId)) {
+      throw new DomainError("INVALID_INPUT", "Photos must be uploaded to your organizer's media folder.");
+    }
+  }
   return {
     title: str(d.title, "Title", 3, 80),
     tagline: optStr(d.tagline, "Tagline", 120) ?? "",
@@ -104,6 +139,7 @@ export function parseExperienceContent(d: Json, orgId: string): ExperienceConten
     config,
     coverStyle,
     mediaPaths,
+    mediaUrls,
   };
 }
 
