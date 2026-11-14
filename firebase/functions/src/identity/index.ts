@@ -20,4 +20,4 @@ export {
 export { reissueOrganizerCode } from "../governance/callables";
 
 // Push delivery for in-app notifications (best-effort; inbox is the truth).
-export { registerPushToken, unregisterPushToken, deliverNotifications } from "./push";
+export { registerPushToken, unregisterPushToken, deliverNotifications, setNotificationPreferences } from "./push";

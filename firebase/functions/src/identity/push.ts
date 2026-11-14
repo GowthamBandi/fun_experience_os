@@ -62,6 +62,13 @@ export async function unregisterPushTokenService(uid: string, data: unknown) {
   return { ok: true };
 }
 
+/** PULSE: which kinds of updates to push (You → Notifications). */
+export const setNotificationPreferences = callable(async (data, context) => {
+  const actor = requirePhoneUser(context);
+  await consumeLimit("profileUpdate", actor.uid);
+  return setNotificationPrefs(actor.uid, data);
+});
+
 export const registerPushToken = callable(async (data, context) => {
   const actor = requirePhoneUser(context);
   return registerPushTokenService(actor.uid, data);
@@ -94,10 +101,39 @@ export function pushData(notificationId: string, data: Record<string, unknown>):
   return out;
 }
 
+/** Customer-choosable push channels (PULSE → You → Notifications). */
+export const PUSH_CHANNELS = ["booking", "reminders", "changes", "offers"] as const;
+export type PushChannel = (typeof PUSH_CHANNELS)[number];
+
+/** The channel a notification kind belongs to; null = always pushed (safety, support, organizer, money). */
+export function channelOf(kind: string): PushChannel | null {
+  if (kind === "event-reminder" || kind === "trip-balance") return "reminders";
+  if (["event-changed", "event-cancelled", "trip-update", "trip-cancelled", "trip-waitlist"].includes(kind)) return "changes";
+  if (["booking-confirmed", "ticket-issued", "trip-booking", "payment-failed", "refund-update"].includes(kind)) return "booking";
+  if (kind === "offer") return "offers";
+  return null;
+}
+
+/** Saves which channels the person wants pushed (the inbox always gets everything). */
+export async function setNotificationPrefs(uid: string, data: unknown) {
+  const d = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
+  const raw = (d.channels && typeof d.channels === "object" ? d.channels : {}) as Record<string, unknown>;
+  const channels: Record<string, boolean> = {};
+  for (const c of PUSH_CHANNELS) if (typeof raw[c] === "boolean") channels[c] = raw[c] as boolean;
+  await db().collection("users").doc(uid).set({ notificationPrefs: channels, updatedAt: serverNow() }, { merge: true });
+  return { channels };
+}
+
 export async function deliverNotification(notificationId: string, data: Record<string, unknown>) {
   const ref = db().collection("userNotifications").doc(notificationId);
   const recipient = String(data.recipientUid ?? "");
   const user = recipient ? await db().collection("users").doc(recipient).get() : null;
+  const channel = channelOf(String(data.kind ?? ""));
+  const prefs = (user?.data()?.notificationPrefs ?? {}) as Record<string, unknown>;
+  if (channel && prefs[channel] === false) {
+    await ref.set({ push: { status: "muted", channel, at: serverNow() } }, { merge: true });
+    return "muted";
+  }
   const tokens: string[] = (user?.data()?.pushTokens as string[] | undefined) ?? [];
   if (tokens.length === 0) {
     await ref.set({ push: { status: "no-device", at: serverNow() } }, { merge: true });
