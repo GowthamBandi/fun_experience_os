@@ -7,7 +7,9 @@
  */
 import {
   call, callErr, callCode, phoneCtx, adminCtx, uniq, rid, db, Timestamp, fakePayId, deliverWebhook, capturedEvent,
+  commerce, expectBalanced, sum, type Entry,
 } from "./commerce-helpers";
+import { commissionFor } from "../src/commerce/ledger";
 import { paymentSignature } from "../src/commerce/provider";
 import * as trips from "../src/trips";
 import { releaseExpiredTripHolds } from "../src/trips/bookings";
@@ -15,10 +17,17 @@ import { notifyTripWaitlist, seatOpened } from "../src/trips/waitlist";
 import { quoteTrip, refundPercent } from "../src/trips/model";
 
 const DAY = 86_400_000;
+/** Commission on the trips' org (10%), from its approved commercial agreement. */
+const BPS = 1_000;
 const iso = (ms: number) => new Date(Date.now() + ms).toISOString();
 
-async function seedOrg(orgId: string, ownerUid: string, staff: Record<string, string[]> = {}) {
+async function seedOrg(orgId: string, ownerUid: string, staff: Record<string, string[]> = {}, commissionBps: number | null = BPS) {
   await db().doc(`organizers/${orgId}`).set({ status: "active", displayName: `Trail ${orgId.slice(-4)}`, version: 1 });
+  if (commissionBps !== null) {
+    await db().doc(`commercialAgreements/ca-${orgId}`).set({
+      orgId, status: "approved", commissionBps, payoutCadence: "weekly", proposedBy: "admin-a", decidedBy: "admin-b", updatedAt: Timestamp.now(),
+    });
+  }
   await db().doc(`memberships/${orgId}__${ownerUid}`).set({
     orgId, uid: ownerUid, role: "owner", status: "active", permissions: [], eventScope: { all: true, eventIds: [] }, version: 1,
   });
@@ -71,10 +80,10 @@ const people = (n: number, over: Record<string, unknown> = {}) =>
 
 interface World { orgId: string; owner: string; hostTripId: string; tripId: string; d1: string; d2: string }
 
-async function liveTrip(over: Record<string, unknown> = {}): Promise<World> {
+async function liveTrip(over: Record<string, unknown> = {}, commissionBps: number | null = BPS): Promise<World> {
   const orgId = uniq("org-trip");
   const owner = uniq("owner");
-  await seedOrg(orgId, owner, { [`${owner}-lead`]: ["events.operate"] });
+  await seedOrg(orgId, owner, { [`${owner}-lead`]: ["events.operate"] }, commissionBps);
   const hostTripId = uniq("ht");
   await call(trips.saveTripDraft, { requestId: rid(), orgId, hostTripId, draft: draft(hostTripId, over) }, phoneCtx(owner));
   await call(trips.submitTrip, { requestId: rid(), orgId, hostTripId }, phoneCtx(owner));
@@ -409,5 +418,105 @@ describe("waitlist", () => {
     await run(before, after);
     expect(await entry(w.d1, a)).toBeUndefined();
     expect((await kinds(a)).map((x) => x.kind)).toContain("trip-waitlist");
+  });
+});
+
+describe("ledger and settlement", () => {
+  const ledger = async (field: string, value: string) =>
+    (await db().collection("ledgerEntries").where(field, "==", value).get()).docs.map((d) => d.data() as Entry & { tripId: string; departureId: string; eventId: string | null });
+
+  test("no approved commercial agreement → the trip can't take payments", async () => {
+    const w = await liveTrip({}, null);
+    const e = await callErr(trips.reserveTripSeats, reserveInput(w), phoneCtx(uniq("cust")));
+    expect(e.code).toBe("SESSION_NOT_BOOKABLE");
+    expect((await dep(w.d1)).seatsTaken).toBe(0);
+  });
+
+  test("captures and refunds post balanced entries at the commission snapshotted at reservation", async () => {
+    const w = await liveTrip();
+    const cust = uniq("cust");
+    const r = await call<{ bookingId: string }>(trips.reserveTripSeats, reserveInput(w), phoneCtx(cust));
+    expect((await booking(r.bookingId)).commissionBps).toBe(BPS);
+    // A later agreement never rewrites a booking's rate.
+    await db().doc(`commercialAgreements/ca-${w.orgId}`).update({ commissionBps: 2_500 });
+    const dep1 = await pay(cust, r.bookingId);
+    const bal = await pay(cust, r.bookingId, trips.payTripBalance);
+    const p1 = (await db().doc(`tripPayments/${dep1.order.paymentId}`).get()).data()!;
+    expect(p1).toMatchObject({ commissionBps: BPS, commissionMinor: commissionFor(dep1.order.amountMinor, BPS) });
+
+    let entries = await ledger("bookingId", r.bookingId);
+    expect(expectBalanced(entries)).toBe(2);
+    for (const e of entries) expect(e).toMatchObject({ orgId: w.orgId, tripId: w.tripId, departureId: w.d1, eventId: null, kind: "capture", settlementId: null });
+    const paidMinor = dep1.order.amountMinor + bal.order.amountMinor;
+    const commission = commissionFor(dep1.order.amountMinor, BPS) + commissionFor(bal.order.amountMinor, BPS);
+    expect(sum(entries, "customer_payments", "debit")).toBe(paidMinor);
+    expect(sum(entries, "platform_commission", "credit")).toBe(commission);
+    expect(sum(entries, "organizer_payable", "credit")).toBe(paidMinor - commission);
+
+    // Cancel 40 days out: 90% back, allocated newest payment first.
+    const out = await call<{ refund: number }>(trips.cancelTripBooking, { requestId: rid(), bookingId: r.bookingId }, phoneCtx(cust));
+    entries = await ledger("bookingId", r.bookingId);
+    expectBalanced(entries);
+    const refunds = entries.filter((e) => e.kind === "refund");
+    expect(sum(refunds, "customer_refunds", "credit")).toBe(out.refund * 100);
+    const reversed = sum(refunds, "platform_commission", "debit");
+    expect(reversed).toBeGreaterThan(0);
+    expect(reversed).toBeLessThan(commission);
+    expect(sum(refunds, "organizer_payable", "debit")).toBe(out.refund * 100 - reversed);
+    const docs = (await db().collection("tripRefunds").where("bookingId", "==", r.bookingId).get()).docs.map((d) => d.data());
+    expect(docs.every((d) => d.ledgerPosted === true)).toBe(true);
+  });
+
+  test("a duplicate capture is refunded without touching the ledger", async () => {
+    const w = await liveTrip();
+    const cust = uniq("cust");
+    const r = await call<{ bookingId: string }>(trips.reserveTripSeats, reserveInput(w), phoneCtx(cust));
+    const { order } = await pay(cust, r.bookingId);
+    const res = await deliverWebhook(capturedEvent({ providerPaymentId: fakePayId(), orderId: order.providerOrderId, paymentId: order.paymentId, amount: order.amountMinor }));
+    expect(res.statusCode).toBe(200);
+    const entries = await ledger("bookingId", r.bookingId);
+    expect(expectBalanced(entries)).toBe(1);
+    const dup = (await db().collection("tripRefunds").where("bookingId", "==", r.bookingId).get()).docs.map((d) => d.data());
+    expect(dup).toEqual([expect.objectContaining({ reason: "duplicate-capture", ledgerPosted: false })]);
+  });
+
+  test("settlement pays the organizer for finished and cancelled departures, not open ones", async () => {
+    const w = await liveTrip();
+    const a = await book(w, uniq("cust"));
+    const b = await book(w, uniq("cust"), { departureId: w.d2 });
+    const add = await call<{ departureId: string }>(trips.addTripDeparture, {
+      requestId: rid(), orgId: w.orgId, tripId: w.tripId,
+      departure: { id: `${w.hostTripId}-d3`, start: iso(60 * DAY), end: iso(62 * DAY), seatsTotal: 10, priceDelta: 0 },
+    }, phoneCtx(w.owner));
+    await book(w, uniq("cust"), { departureId: add.departureId });
+    // d2 is cancelled (everyone refunded in full); d1 has run; d3 is still ahead.
+    await call(trips.cancelDeparture, { requestId: rid(), orgId: w.orgId, departureId: w.d2, reason: "Landslide on the ghat road" }, phoneCtx(w.owner));
+    await db().doc(`tripDepartures/${w.d1}`).update({ start: Timestamp.fromMillis(Date.now() - 3 * DAY), end: Timestamp.fromMillis(Date.now() - DAY) });
+
+    const all = await ledger("orgId", w.orgId);
+    expectBalanced(all);
+    const paidA = (await booking(a.bookingId)).paid * 100;
+    const paidB = (await booking(b.bookingId)).paid * 100;
+    const cA = commissionFor(paidA, BPS);
+    const cB = commissionFor(paidB, BPS);
+
+    const out = await call<{ settlementId: string; status: string; netMinor: number; entryCount: number }>(
+      commerce.buildSettlement, { requestId: rid(), orgId: w.orgId, periodEnd: new Date().toISOString() }, adminCtx("admin-a")
+    );
+    expect(out.status).toBe("pending-approval");
+    const s = (await db().doc(`settlements/${out.settlementId}`).get()).data()!;
+    // B's full refund reverses its whole commission: it nets to zero for the organizer.
+    expect(s).toMatchObject({
+      grossMinor: paidA + paidB,
+      commissionMinor: cA + cB,
+      refundsMinor: paidB - cB,
+      netMinor: paidA - cA,
+      entryCount: 3,
+    });
+    expect(s.grossMinor - s.commissionMinor - s.refundsMinor).toBe(s.netMinor);
+    const after = await ledger("orgId", w.orgId);
+    const claimed = after.filter((e) => e.settlementId === out.settlementId);
+    expect(new Set(claimed.map((e) => e.departureId))).toEqual(new Set([w.d1, w.d2]));
+    expect(after.filter((e) => e.departureId === add.departureId).every((e) => e.settlementId === null)).toBe(true);
   });
 });

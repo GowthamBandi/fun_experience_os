@@ -21,9 +21,16 @@ export interface LedgerLine {
   amountMinor: number;
 }
 
+/**
+ * What a movement belongs to: an event booking (`eventId`), or a trip booking
+ * (`tripId` + `departureId`, with `eventId` null). Settlement eligibility is
+ * decided per context (completed event / finished or cancelled departure).
+ */
 export interface LedgerContext {
   orgId: string;
-  eventId: string;
+  eventId: string | null;
+  tripId?: string | null;
+  departureId?: string | null;
   bookingId: string;
   paymentId: string;
   refundId?: string | null;
@@ -97,6 +104,8 @@ export function postLedger(
       paymentId: ctx.paymentId,
       refundId: ctx.refundId ?? null,
       eventId: ctx.eventId,
+      tripId: ctx.tripId ?? null,
+      departureId: ctx.departureId ?? null,
       settlementId: null,
       // Gross and commission of the whole movement, for settlement statements.
       txnGrossMinor: meta.txnGrossMinor,

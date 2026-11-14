@@ -1,8 +1,10 @@
 /**
  * Organizer settlements (ADR-0005 "Settlements").
  *
- * buildSettlement claims unsettled `organizer_payable` entries of COMPLETED
- * events created up to `periodEnd`. Claiming happens in transactions that set
+ * buildSettlement claims unsettled `organizer_payable` entries created up to
+ * `periodEnd` whose event is COMPLETED or, for trips, whose departure has
+ * ended or was cancelled (a cancelled departure nets to zero: every capture
+ * was refunded in full). Claiming happens in transactions that set
  * `settlementId` only where it is still null and add the claimed amounts to the
  * settlement's running totals in the same commit — so an entry can never be in
  * two settlements, concurrent builds partition the entries, and a crashed
@@ -18,6 +20,7 @@ import { Timestamp, db, serverNow } from "../platform/firestore";
 import { DomainError, notFound, precondition } from "../platform/errors";
 import { writeAudit } from "../platform/audit";
 import type { EventDoc } from "../bookings/reserveSeat";
+import { T } from "../trips/refs";
 import { C, CURRENCY, SETTLEMENT_DUAL_CONTROL_MINOR } from "./config";
 
 export type SettlementStatus = "accruing" | "pending-approval" | "approved" | "held" | "paid" | "empty";
@@ -50,7 +53,8 @@ interface LedgerEntryDoc {
   orgId: string;
   direction: "debit" | "credit";
   amountMinor: number;
-  eventId: string;
+  eventId: string | null;
+  departureId?: string | null;
   settlementId: string | null;
   txnGrossMinor: number;
   txnCommissionMinor: number;
@@ -58,6 +62,17 @@ interface LedgerEntryDoc {
 }
 
 const CHUNK = 200;
+
+/** Those of [ids] in [collection] whose doc passes [ok], fetched 100 at a time. */
+async function idsWhere(collection: string, ids: string[], ok: (data: FirebaseFirestore.DocumentData) => boolean): Promise<Set<string>> {
+  const out = new Set<string>();
+  for (let i = 0; i < ids.length; i += 100) {
+    const refs = ids.slice(i, i + 100).map((id) => db().collection(collection).doc(id));
+    const docs = refs.length ? await db().getAll(...refs) : [];
+    for (const d of docs) if (d.exists && ok(d.data()!)) out.add(d.id);
+  }
+  return out;
+}
 
 export async function buildSettlement(
   admin: { uid: string; roleId: string },
@@ -112,14 +127,19 @@ export async function buildSettlement(
     .where("settlementId", "==", null)
     .get();
   const candidates = snap.docs.filter((d) => (d.data() as LedgerEntryDoc).createdAt.toMillis() <= periodEnd.toMillis());
-  const eventIds = [...new Set(candidates.map((d) => (d.data() as LedgerEntryDoc).eventId))];
-  const completed = new Set<string>();
-  for (let i = 0; i < eventIds.length; i += 100) {
-    const refs = eventIds.slice(i, i + 100).map((id) => db().collection(C.events).doc(id));
-    const events = refs.length ? await db().getAll(...refs) : [];
-    for (const e of events) if (e.exists && (e.data() as EventDoc).status === "completed") completed.add(e.id);
-  }
-  const eligible = candidates.filter((d) => completed.has((d.data() as LedgerEntryDoc).eventId)).map((d) => d.ref);
+  const entry = (d: FirebaseFirestore.QueryDocumentSnapshot) => d.data() as LedgerEntryDoc;
+  const eventIds = [...new Set(candidates.map((d) => entry(d).eventId).filter((x): x is string => !!x))];
+  const departureIds = [...new Set(candidates.map((d) => entry(d).departureId).filter((x): x is string => !!x))];
+  const completed = await idsWhere(C.events, eventIds, (e) => (e as EventDoc).status === "completed");
+  const nowMs = Date.now();
+  const finished = await idsWhere(T.tripDepartures, departureIds, (d) =>
+    d.cancelled === true || (d.end instanceof Timestamp && d.end.toMillis() <= nowMs));
+  const eligible = candidates
+    .filter((d) => {
+      const l = entry(d);
+      return l.eventId ? completed.has(l.eventId) : !!l.departureId && finished.has(l.departureId);
+    })
+    .map((d) => d.ref);
 
   for (let i = 0; i < eligible.length; i += CHUNK) {
     const chunk = eligible.slice(i, i + CHUNK);

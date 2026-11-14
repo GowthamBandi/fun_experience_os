@@ -93,6 +93,7 @@ export const QUERIES = [
   Q("BT08", "backend", "tripBookings", ["departureId"], null, [], ["firebase/functions/src/trips/operations.ts", `tripBookings).where("departureId"`]),
   Q("BT09", "backend", "tripPayments", ["departureId"], null, [], ["firebase/functions/src/trips/operations.ts", `tripPayments).where("departureId"`]),
   Q("BT10", "backend", "tripTravellers", ["departureId"], null, [], ["firebase/functions/src/trips/operations.ts", `tripTravellers).where("departureId"`]),
+  Q("BT11", "backend", "commercialAgreements", ["orgId", "status"], null, [], ["firebase/functions/src/trips/bookings.ts", `commercialAgreements).where("orgId"`]),
   Q("BT12", "backend", "tripWaitlist", ["departureId"], null, [], ["firebase/functions/src/trips/waitlist.ts", `tripWaitlist).where("departureId"`]),
   // platform/retention.ts (scheduled clean-up). R01/R02 run on a collection
   // passed in as a variable, which the chain scanner can't resolve.

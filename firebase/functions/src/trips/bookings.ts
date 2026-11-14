@@ -9,7 +9,11 @@
  * idempotent `settleTripCapture()` (same contract as commerce/payments.ts).
  *
  * Money: trip prices are whole rupees; payment and refund documents carry
- * paise (`amountMinor`) like the rest of commerce.
+ * paise (`amountMinor`) like the rest of commerce. Every capture and refund
+ * posts balanced `ledgerEntries` (commerce/ledger.ts) with `tripId` +
+ * `departureId` and `eventId: null`, at the commission rate snapshotted on the
+ * booking at reservation from the org's approved commercial agreement, so
+ * buildSettlement pays organizers for trips exactly as for events.
  */
 
 import { randomInt } from "node:crypto";
@@ -21,7 +25,8 @@ import { notify } from "../platform/notify";
 import { logError, logWarn } from "../platform/log";
 import { assertWellFormed, docId, obj, requestId } from "../platform/callable";
 import { runCommand, bool, type Json } from "../catalog/common";
-import { CURRENCY, HOLD_MINUTES } from "../commerce/config";
+import { C, CURRENCY, HOLD_MINUTES } from "../commerce/config";
+import { captureLines, commissionFor, postLedger, refundLines, refundSplit, type LedgerContext } from "../commerce/ledger";
 import { getPaymentProvider, verifyPaymentSignature } from "../commerce/provider";
 import { raiseRiskAlert } from "../commerce/shared";
 import {
@@ -56,6 +61,8 @@ export interface TripBookingDoc {
   paid: number;
   openPaymentId: string | null;
   refund: number | null;
+  /** Commission snapshotted at reservation; a later agreement never rewrites it. */
+  commissionBps: number | null;
   cancelledByOrganizer: boolean;
   people: Array<{ name: string; age: number; gender: string; diet: string | null }>;
   emergencyName: string;
@@ -81,6 +88,9 @@ export interface TripPaymentDoc {
   currency: string;
   status: "creating" | "created" | "captured" | "failed" | "refunded" | "partially-refunded";
   refundedMinor: number;
+  /** Set at capture, when the capture is posted to the ledger. */
+  commissionBps?: number | null;
+  commissionMinor?: number | null;
   creatingUntil: Timestamp | null;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -101,6 +111,8 @@ export interface TripRefundDoc {
   providerPaymentId: string | null;
   providerRefundId: string | null;
   lastError: string | null;
+  /** False only for refunds of money that never entered the ledger (duplicate captures). */
+  ledgerPosted: boolean;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -111,6 +123,24 @@ function ownBooking(snap: FirebaseFirestore.DocumentSnapshot, uid: string): Trip
   if (!snap.exists || snap.data()!.customerUid !== uid) throw stranger();
   return snap.data() as TripBookingDoc;
 }
+
+/* ------------------------------------------------------------- commission */
+
+const validBps = (v: unknown): v is number => typeof v === "number" && Number.isSafeInteger(v) && v >= 0 && v <= 10_000;
+
+/** The org's approved commission (agreements.ts keeps at most one approved), or null. */
+async function approvedCommissionBps(tx: Transaction, orgId: string): Promise<number | null> {
+  const s = await tx.get(db().collection(C.commercialAgreements).where("orgId", "==", orgId).where("status", "==", "approved"));
+  const valid = s.docs
+    .map((d) => d.data())
+    .filter((a) => validBps(a.commissionBps))
+    .sort((a, b) => ((b.updatedAt as Timestamp)?.toMillis?.() ?? 0) - ((a.updatedAt as Timestamp)?.toMillis?.() ?? 0));
+  return valid.length ? (valid[0]!.commissionBps as number) : null;
+}
+
+const ledgerCtx = (p: TripPaymentDoc, refundId?: string): LedgerContext => ({
+  orgId: p.orgId, eventId: null, tripId: p.tripId, departureId: p.departureId, bookingId: p.bookingId, paymentId: p.id, refundId: refundId ?? null,
+});
 
 /* ------------------------------------------------------------ seat counters */
 
@@ -206,6 +236,14 @@ export async function reserveTripSeatsCommand(uid: string, data: unknown) {
     if (!tSnap.exists || tSnap.data()!.status !== "live") throw notFound("This trip isn't available any more.");
     if (!dSnap.exists || dSnap.data()!.tripId !== tripId) throw notFound("That departure isn't available any more.");
     const trip = tSnap.data()!;
+    const commissionBps = await approvedCommissionBps(tx, trip.orgId as string);
+    if (commissionBps === null) {
+      // No agreed commercial terms → no money may move (ADR-0005).
+      throw new DomainError("SESSION_NOT_BOOKABLE", "This trip isn't accepting payments right now.", {
+        nextStep: "Try again later.",
+        detail: { reason: "no-commission-terms" },
+      });
+    }
     const dep = dSnap.data()!;
     const c = contentOf(trip);
     const nowMs = now.toMillis();
@@ -265,6 +303,7 @@ export async function reserveTripSeatsCommand(uid: string, data: unknown) {
       paid: 0,
       openPaymentId: null,
       refund: null,
+      commissionBps,
       cancelledByOrganizer: false,
       people,
       emergencyName,
@@ -441,14 +480,31 @@ export type TripSettleOutcome =
 
 export interface TripSettleResult { outcome: TripSettleOutcome; bookingId: string; bookingStatus: TripBookingStatus; refundIds: string[] }
 
-function newRefund(id: string, p: TripPaymentDoc, amountMinor: number, reason: TripRefundDoc["reason"], providerPaymentId?: string): TripRefundDoc {
+function newRefund(
+  id: string, p: TripPaymentDoc, amountMinor: number, reason: TripRefundDoc["reason"], ledgerPosted: boolean, providerPaymentId?: string
+): TripRefundDoc {
   const now = serverNow();
   return {
     id, bookingId: p.bookingId, paymentId: p.id, orgId: p.orgId, tripId: p.tripId, customerUid: p.customerUid,
     amountMinor, currency: p.currency, status: "approved", reason,
-    providerPaymentId: providerPaymentId ?? p.providerPaymentId, providerRefundId: null, lastError: null,
+    providerPaymentId: providerPaymentId ?? p.providerPaymentId, providerRefundId: null, lastError: null, ledgerPosted,
     createdAt: now, updatedAt: now,
   };
+}
+
+/**
+ * Posts the ledger reversal of a refund of [amountMinor] against [p] (whose
+ * refundedMinor is [refundedBefore]), as commerce/refundCore.ts does. A
+ * payment captured before trips posted to the ledger has nothing to reverse.
+ */
+function postTripRefundLedger(tx: Transaction, refundId: string, p: TripPaymentDoc, refundedBefore: number, amountMinor: number): boolean {
+  if (typeof p.commissionMinor !== "number") return false;
+  const { commissionReversal } = refundSplit(p.amountMinor, p.commissionMinor, refundedBefore, amountMinor);
+  postLedger(tx, `tref_${refundId}`, "refund", ledgerCtx(p, refundId), refundLines(amountMinor, commissionReversal), {
+    txnGrossMinor: amountMinor,
+    txnCommissionMinor: commissionReversal,
+  });
+  return true;
 }
 
 /**
@@ -477,7 +533,8 @@ export async function settleTripCapture(input: TripCaptureInput): Promise<TripSe
     if (payment.status === "captured" || payment.status === "refunded" || payment.status === "partially-refunded") {
       if (payment.providerPaymentId === input.providerPaymentId) return { ...base, outcome: "already-settled", refundIds: [] };
       if (dupSnap.exists) return { ...base, outcome: "duplicate-capture", refundIds: [dupId] };
-      tx.create(tripRefundRef(dupId), newRefund(dupId, payment, input.amountMinor, "duplicate-capture", input.providerPaymentId));
+      // The second charge never entered the ledger, so its refund is ledger-neutral.
+      tx.create(tripRefundRef(dupId), newRefund(dupId, payment, input.amountMinor, "duplicate-capture", false, input.providerPaymentId));
       raiseRiskAlert(tx, `dup-capture_${input.providerPaymentId}`, {
         kind: "payment-duplicate-capture", severity: "medium", orgId: payment.orgId,
         summary: "A trip payment order was paid twice; the second payment is being refunded.",
@@ -503,9 +560,17 @@ export async function settleTripCapture(input: TripCaptureInput): Promise<TripSe
       return { ...base, outcome: "order-mismatch", refundIds: [] };
     }
 
+    // The booking's reservation-time snapshot is authoritative; the org's
+    // current agreement is only a fallback for bookings made before snapshots.
+    // Money has already moved, so a missing rate can't block the capture —
+    // but it is never silent.
+    const snapshotBps = validBps(b.commissionBps) ? b.commissionBps : await approvedCommissionBps(tx, payment.orgId);
+    const bps = snapshotBps ?? 0;
+    const commissionMinor = commissionFor(payment.amountMinor, bps);
     const captured: TripPaymentDoc = {
       ...payment, status: "captured", providerPaymentId: input.providerPaymentId,
-      providerOrderId: payment.providerOrderId ?? input.providerOrderId, creatingUntil: null, capturedAt: now, updatedAt: now,
+      providerOrderId: payment.providerOrderId ?? input.providerOrderId, commissionBps: bps, commissionMinor,
+      creatingUntil: null, capturedAt: now, updatedAt: now,
     };
     const rupees = payment.amountMinor / 100;
     const line: TripPaymentLine = {
@@ -533,6 +598,19 @@ export async function settleTripCapture(input: TripCaptureInput): Promise<TripSe
       outcome = "balance-paid";
     }
 
+    // Every valid capture enters the ledger; an orphaned one is reversed below.
+    if (snapshotBps === null) {
+      raiseRiskAlert(tx, `commission-missing_${payment.id}`, {
+        kind: "capture-without-commission-terms", severity: "high", orgId: payment.orgId,
+        summary: "A trip payment was captured with no agreed commission on the booking or organizer; it was recorded at 0% and needs an admin correction.",
+        detail: { tripPaymentId: payment.id, tripBookingId: b.id, tripId: payment.tripId, amountMinor: payment.amountMinor },
+      });
+    }
+    postLedger(tx, `tcap_${payment.id}`, "capture", ledgerCtx(payment), captureLines(payment.amountMinor, commissionMinor), {
+      txnGrossMinor: payment.amountMinor,
+      txnCommissionMinor: commissionMinor,
+    });
+
     if (outcome) {
       tx.set(tripPaymentRef(payment.id), captured);
       tx.update(bRef, {
@@ -545,6 +623,9 @@ export async function settleTripCapture(input: TripCaptureInput): Promise<TripSe
         ...(outcome === "confirmed" || outcome === "readmitted" ? { confirmedAt: now } : {}),
       });
       if (outcome !== "balance-paid") travellerDelta(tx, b, tvSnap.data(), 1);
+      // Seats were counted at reservation; touching the departure tells
+      // organizer screens watching it that its manifest changed.
+      if (outcome === "confirmed") tx.update(departureRef(b.departureId), { updatedAt: now });
       notify(tx, {
         recipientUid: payment.customerUid,
         kind: "trip-booking",
@@ -557,7 +638,7 @@ export async function settleTripCapture(input: TripCaptureInput): Promise<TripSe
       });
       writeAudit(tx, {
         action: `trips.${outcome}`, ...actor, resourceType: "tripBooking", resourceId: b.id, orgId: payment.orgId,
-        before: { status: b.status, paid: b.paid }, after: { status: "confirmed", paid: b.paid + rupees, tripPaymentId: payment.id },
+        before: { status: b.status, paid: b.paid }, after: { status: "confirmed", paid: b.paid + rupees, tripPaymentId: payment.id, commissionMinor },
       });
       return { outcome, bookingId: b.id, bookingStatus: "confirmed", refundIds: [] };
     }
@@ -566,7 +647,8 @@ export async function settleTripCapture(input: TripCaptureInput): Promise<TripSe
     // (cancelled, released with no room left, or already paid). Refund it all.
     const refundId = `orph_${payment.id}`;
     tx.set(tripPaymentRef(payment.id), { ...captured, refundedMinor: payment.amountMinor, status: "refunded" });
-    tx.create(tripRefundRef(refundId), newRefund(refundId, captured, payment.amountMinor, "payment-orphaned"));
+    postTripRefundLedger(tx, refundId, captured, 0, payment.amountMinor);
+    tx.create(tripRefundRef(refundId), newRefund(refundId, captured, payment.amountMinor, "payment-orphaned", true));
     tx.update(bRef, { openPaymentId: b.openPaymentId === payment.id ? null : b.openPaymentId, updatedAt: now });
     notify(tx, {
       recipientUid: payment.customerUid,
@@ -601,7 +683,9 @@ export async function markTripPaymentFailed(paymentId: string, reason: string): 
 
 /**
  * Allocates a refund of [amountMinor] over a booking's captured payments,
- * newest first, inside [tx]. Returns the refund documents created.
+ * newest first, inside [tx], posting each part's ledger reversal. From this
+ * commit the money is owed back and can never be settled out. Returns the
+ * refund documents created.
  */
 export function allocateRefunds(
   tx: Transaction,
@@ -622,7 +706,8 @@ export function allocateRefunds(
     const amount = Math.min(refundable, left);
     if (amount <= 0) continue;
     const id = `${tag}_${p.id}`.slice(0, 140);
-    tx.create(tripRefundRef(id), newRefund(id, p, amount, reason));
+    const ledgerPosted = postTripRefundLedger(tx, id, p, p.refundedMinor ?? 0, amount);
+    tx.create(tripRefundRef(id), newRefund(id, p, amount, reason, ledgerPosted));
     const refunded = (p.refundedMinor ?? 0) + amount;
     tx.update(tripPaymentRef(p.id), { refundedMinor: refunded, status: refunded >= p.amountMinor ? "refunded" : "partially-refunded", updatedAt: now });
     ids.push(id);
