@@ -95,6 +95,14 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Event-day state (teams, safety checks, incidents) for the organizer's
+    // team; written only by saveEventDay.
+    match /eventDays/{eventId} {
+      allow get: if isAdmin() || can(resource.data.orgId, 'events.operate', eventId)
+        || can(resource.data.orgId, 'attendees.view', eventId);
+      allow list, write: if false;
+    }
+
     // Support conversations: the person who opened one reads it; written
     // only by submitSupportRequest / addSupportMessage / respondSupportRequest.
     match /supportRequests/{id} {
