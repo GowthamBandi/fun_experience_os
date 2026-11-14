@@ -406,15 +406,19 @@ describe("waitlist", () => {
     const a = uniq("cust");
     await call(trips.joinTripWaitlist, { requestId: rid(), departureId: w.d1 }, phoneCtx(a));
     const before = await dep(w.d1);
-    await call(trips.cancelTripBooking, { requestId: rid(), bookingId }, phoneCtx(booker));
-    const after = await dep(w.d1);
     const run = (b: unknown, x: unknown) =>
       (trips.onTripDepartureChanged as unknown as { run: (c: unknown, ctx: unknown) => Promise<void> }).run(
         { before: { data: () => b }, after: { data: () => x } },
         { params: { departureId: w.d1 }, timestamp: new Date().toISOString() }
       );
-    await run(after, after); // no transition: ignored
+    // No transition: ignored. Checked before the cancellation, because the
+    // functions emulator also runs the real trigger on that write and may
+    // clear the entry first.
+    await run(before, before);
     expect(await entry(w.d1, a)).toBeDefined();
+    await call(trips.cancelTripBooking, { requestId: rid(), bookingId }, phoneCtx(booker));
+    const after = await dep(w.d1);
+    // Idempotent whether or not the emulator's trigger already ran.
     await run(before, after);
     expect(await entry(w.d1, a)).toBeUndefined();
     expect((await kinds(a)).map((x) => x.kind)).toContain("trip-waitlist");
