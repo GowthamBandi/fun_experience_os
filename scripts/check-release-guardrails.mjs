@@ -48,7 +48,10 @@ for (const f of tracked) {
   let text;
   try { text = readFileSync(f, "utf8"); } catch { continue; }
   if (text.length > 2_000_000) continue;
-  for (const [re, what] of SECRET_PATTERNS) if (re.test(text)) fail(f, `contains what looks like a ${what}`);
+  // Known non-secrets that merely have a key's shape (the emulator build's
+  // placeholder API key, documented in lib/src/config/environment.dart).
+  const scrubbed = text.replace(/AIza-demo-emulator-only-not-a-real-key0/g, "");
+  for (const [re, what] of SECRET_PATTERNS) if (re.test(scrubbed)) fail(f, `contains what looks like a ${what}`);
 }
 
 // 3. Firebase project aliases: demo-* only for development; staging and
