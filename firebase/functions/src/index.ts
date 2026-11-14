@@ -6,6 +6,7 @@ export * from "./identity";
 export * from "./catalog";
 export * from "./commerce";
 export * from "./trips";
+export * from "./support";
 export { runDataRetention, setLegalHold } from "./platform/retention";
 export { eventPage } from "./web/eventPage";
 

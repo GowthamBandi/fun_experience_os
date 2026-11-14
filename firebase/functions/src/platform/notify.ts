@@ -29,14 +29,18 @@ export type NotificationKind =
   /** Ops verified or rejected the organizer's payout account. */
   | "payout-account"
   /** Ops asked for (or rejected) a verification document. */
-  | "kyc-document";
+  | "kyc-document"
+  /** PULSE operations replied to (or resolved) a support request. */
+  | "support-reply";
 
 export type NotificationLinkType =
   | "event" | "booking" | "ticket" | "organizer" | "application" | "experience"
   /** A trip booking and a departure (customer), and an organizer's trip (host workspace). */
   | "trip-booking" | "trip-departure" | "host-trip"
   /** The organizer's payout account (host workspace → Account). */
-  | "payout-account";
+  | "payout-account"
+  /** A support conversation (You → Help & support → Your requests). */
+  | "support-request";
 export interface NotificationLink {
   type: NotificationLinkType;
   id: string;

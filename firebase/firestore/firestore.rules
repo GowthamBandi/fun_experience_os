@@ -95,6 +95,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Support conversations: the person who opened one reads it; written
+    // only by submitSupportRequest / addSupportMessage / respondSupportRequest.
+    match /supportRequests/{id} {
+      allow get, list: if isAdmin() || (user() && resource.data.uid == uid());
+      allow write: if false;
+    }
+
     // Payout account: masked projection + verification state. The organizer
     // owner reads their own; written only by setPayoutAccount/decidePayoutAccount.
     match /payoutAccounts/{orgId} {
