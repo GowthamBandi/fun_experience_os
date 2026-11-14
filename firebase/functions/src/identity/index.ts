@@ -2,6 +2,7 @@
 // in asia-south1 via platform/callable.ts.
 export {
   updateMyProfile,
+  deleteMyAccount,
   myAccess,
   submitOrganizerApplication,
   redeemOrganizerCode,

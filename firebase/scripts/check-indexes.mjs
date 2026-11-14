@@ -64,6 +64,12 @@ export const QUERIES = [
     "registerPushToken removes a re-registered device from other accounts: array-contains on the automatic single-field array index."),
   Q("B11", "backend", "events", ["orgId", "responsibility.primaryUid", "status(in)"], null, [], ["firebase/functions/src/identity/staff.ts", `"responsibility.primaryUid"`]),
   Q("B12", "backend", "memberships", ["uid"], null, [], ["firebase/functions/src/identity/profile.ts", `memberships).where("uid"`]),
+  // identity/deletion.ts: single equalities only; status is filtered in memory.
+  Q("BD01", "backend", "memberships", ["uid"], null, [], ["firebase/functions/src/identity/deletion.ts", `memberships).where("uid"`]),
+  Q("BD02", "backend", "bookings", ["customerUid"], null, [], ["firebase/functions/src/identity/deletion.ts", `bookings).where("customerUid"`]),
+  Q("BD03", "backend", "tripBookings", ["customerUid"], null, [], ["firebase/functions/src/identity/deletion.ts", `tripBookings).where("customerUid"`]),
+  Q("BD04", "backend", "userNotifications", ["recipientUid"], null, [], ["firebase/functions/src/identity/deletion.ts", `userNotifications).where("recipientUid"`]),
+  Q("BD05", "backend", "reviews", ["authorUid"], null, [], ["firebase/functions/src/identity/deletion.ts", `reviews).where("authorUid"`]),
   Q("B13", "backend", "staffInvites", ["phone", "status"], null, [], ["firebase/functions/src/identity/profile.ts", `staffInvites).where("phone"`]),
   Q("B14", "backend", "bookings", ["eventId", "status(in)"], null, [], ["firebase/functions/src/commerce/refunds.ts", `.where("status", "in", ["held", "confirmed"])`]),
   Q("B15", "backend", "payments", ["providerOrderId"], null, [], ["firebase/functions/src/commerce/payments.ts", `where("providerOrderId"`]),

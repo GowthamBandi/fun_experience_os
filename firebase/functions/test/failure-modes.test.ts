@@ -236,6 +236,7 @@ describe("F2 malformed payloads", () => {
     const r = () => rid("fz");
     const cases: Record<string, Case> = {
       myAccess: { fn: identity.myAccess, base: null, ctx: "phone" },
+      deleteMyAccount: { fn: identity.deleteMyAccount, base: null, ctx: "phone" },
       updateMyProfile: { fn: identity.updateMyProfile, base: { displayName: "Asha K", birthDate: "1995-05-20", gender: "woman", bio: "Hi" }, ctx: "phone" },
       submitOrganizerApplication: {
         fn: identity.submitOrganizerApplication,

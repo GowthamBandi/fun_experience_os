@@ -12,6 +12,7 @@ import {
   parseUpdateStaff,
 } from "./model";
 import { redeemOrganizerCode as redeemOrganizerCodeService, submitOrganizerApplication as submitOrganizerApplicationService } from "./organizer";
+import { deleteMyAccount as deleteMyAccountService } from "./deletion";
 import { myAccess as myAccessService, updateMyProfile as updateMyProfileService } from "./profile";
 import * as staff from "./staff";
 
@@ -19,6 +20,8 @@ import * as staff from "./staff";
 const codes = { secrets: [SECRET_NAMES.codePepper] };
 
 export const updateMyProfile = callable((data, context) => updateMyProfileService(parseUpdateProfile(data), requirePhoneUser(context)));
+
+export const deleteMyAccount = callable((_data, context) => deleteMyAccountService(requirePhoneUser(context)));
 
 export const myAccess = callable((_data, context) => myAccessService(requirePhoneUser(context)));
 

@@ -23,6 +23,7 @@
  * ADR-0005 (customer checks, free events confirmed with tickets at once).
  */
 
+import { aliasProblem } from "./alias";
 import { Transaction, Timestamp, type DocumentReference } from "firebase-admin/firestore";
 import {
   db,
@@ -503,10 +504,8 @@ function validate(cmd: ReserveSeatCommand): void {
   if (!cmd.eventId) {
     throw invalidInput("No event was selected.");
   }
-  const alias = (cmd.alias ?? "").trim();
-  if (alias.length < 2 || alias.length > 40) {
-    throw invalidInput("Enter a display name between 2 and 40 characters.");
-  }
+  const aliasError = aliasProblem(cmd.alias ?? "");
+  if (aliasError) throw invalidInput(aliasError);
   if (cmd.kind !== "sellable" && cmd.kind !== "complimentary") {
     throw invalidInput("That booking type isn't recognised.");
   }

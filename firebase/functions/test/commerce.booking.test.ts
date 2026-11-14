@@ -116,6 +116,15 @@ describe("reserveSeat — attacks on capacity", () => {
     expect(await callCode(commerce.reserveSeat, { requestId: rid(), eventId, spots: 1.5, alias: "Half" }, phoneCtx(uid))).toBe("INVALID_INPUT");
   });
 
+  test("the alias rule holds at the server, not only in the app", async () => {
+    const { eventId } = await world();
+    const uid = await newCustomer();
+    for (const alias of ["Ravi 98765 43210", "<b>Host</b>", "x".repeat(25), "A", "राहुल"]) {
+      expect(await callCode(commerce.reserveSeat, { requestId: rid(), eventId, spots: 1, alias }, phoneCtx(uid))).toBe("INVALID_INPUT");
+    }
+    expect((await eventState(eventId)).bookings).toHaveLength(0);
+  });
+
   test("double-tap: the same requestId fired 3× concurrently creates one booking", async () => {
     const { eventId } = await world({ capacity: 5 });
     const uid = await newCustomer();
