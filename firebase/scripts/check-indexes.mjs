@@ -111,6 +111,7 @@ export const QUERIES = [
   Q("S01", "script", "users", ["roleId"], null, [], ["firebase/scripts/bootstrap-platform-owner.mjs", `where("roleId"`]),
 
   // ------------------------------------------------------------ PULSE app
+  Q("P40", "pulse", "supportRequests", ["uid"], null, [["updatedAt", "desc"]], ["lib/src/data/repositories/support_repository.dart", `.collection('supportRequests')`]),
   Q("P01", "pulse", "events", ["status"], "startsAt", [["startsAt", "asc"]], ["lib/src/data/firebase/firebase_repositories.dart", `.orderBy('startsAt')`]),
   Q("P01c", "pulse", "events", ["orgId", "status"], "startsAt", [["startsAt", "asc"]], ["lib/src/data/firebase/firebase_repositories.dart", `.where('orgId', isEqualTo: hostId)`],
     "A host profile's upcoming events (fetchHostExperiences), served by events (orgId, status, startsAt)."),
