@@ -31,6 +31,9 @@ import { PAYOUT_CADENCES, decideCommercialAgreement as decideCommercialAgreement
 import { REFUND_ATTEMPT_WORST_MS, retryApprovedRefunds } from "./refundCore";
 import { sendEventReminders as sendEventRemindersSvc } from "./reminders";
 import { handleRazorpayWebhook } from "./webhook";
+import {
+  decidePayoutAccountCommand, parsePayoutInput, revealPayoutAccountQuery, setPayoutAccountCommand,
+} from "./payoutAccounts";
 import { isStaleEvent, runJob } from "../platform/jobs";
 import { logError, logInfo } from "../platform/log";
 
@@ -236,6 +239,43 @@ export const decideSettlement = callable(async (data, context) => {
     payoutReference: optStr(d.payoutReference, "payoutReference", 100),
   });
 });
+
+/* --------------------------------------------------------- payout accounts */
+
+const PAYOUT: SecretName[] = [SECRET_NAMES.payoutEncryptionKey];
+
+/** PULSE, organizer owner: where settlements are paid. Back to pending verification on every change. */
+export const setPayoutAccount = callable(async (data, context) => {
+  const uid = requirePhoneUser(context).uid;
+  await consumeRateLimit({
+    bucket: `payout-account-${uid}`,
+    limit: 5,
+    windowSeconds: 24 * 60 * 60,
+    message: "You've changed your payout account too many times today. Try again tomorrow.",
+  });
+  const d = obj(data);
+  return setPayoutAccountCommand(uid, { ...parsePayoutInput(d), requestId: requestId(d.requestId) });
+}, { secrets: bind(PAYOUT) });
+
+/** Console: verify or reject a pending payout account. */
+export const decidePayoutAccount = callable(async (data, context) => {
+  const admin = requireAdmin(context, "payouts.verify");
+  const d = obj(data);
+  return decidePayoutAccountCommand(admin, {
+    requestId: requestId(d.requestId),
+    orgId: docId(d.orgId, "orgId"),
+    expectedVersion: int(d.expectedVersion, "expectedVersion", 0, 1_000_000),
+    outcome: oneOf(d.outcome, "outcome", ["verified", "rejected"] as const),
+    note: optStr(d.note, "Note", 500) ?? "",
+  });
+});
+
+/** Console, platform owner: the full payout details (audited). */
+export const revealPayoutAccount = callable(async (data, context) => {
+  const admin = requireAdmin(context, "payouts.reveal");
+  const d = obj(data);
+  return revealPayoutAccountQuery(admin, { orgId: docId(d.orgId, "orgId"), reason: str(d.reason, "Reason", 5, 300) });
+}, { secrets: bind(PAYOUT) });
 
 /* ------------------------------------------------------------------ HTTP */
 

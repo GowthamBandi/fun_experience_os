@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { AlertTriangle, Check, Copy, Info, GitCompareArrows, KeyRound, Lock, RotateCw, UsersRound } from "lucide-react";
+import { AlertTriangle, Check, Copy, ExternalLink, FileText, Info, GitCompareArrows, KeyRound, Lock, RotateCw, UsersRound } from "lucide-react";
+import { useState } from "react";
 import { Badge, Button, Glyph, Skeleton, Tooltip, useToast, type BadgeTone } from "@/components/pulse";
 import { ExperiencePreview } from "./ExperiencePreview";
 import { KIND_LABEL, caseBadge, caseGlyph, caseTarget, collectionLabel, experienceDiff, type DiffRow } from "@/lib/approvals";
@@ -11,7 +12,7 @@ import { isOpenCase } from "@/lib/console/attention";
 import type { ConsoleError } from "@/lib/console/errors";
 import { canReissueOrganizerCode, caseTargetFields, formatDateTime, rawFields, text, type KeyField } from "@/lib/console/records";
 import { cn, maskPhone } from "@/lib/format";
-import type { LiveGovernanceRecord } from "@/lib/governance-api";
+import { kycDocumentUrl, type LiveGovernanceRecord } from "@/lib/governance-api";
 import { categoryEmoji } from "@/lib/overview";
 import { useLiveDocument } from "@/lib/use-governance";
 
@@ -153,6 +154,67 @@ function KycAnswers({ app }: { app: Raw }) {
   );
 }
 
+/** Same rule as the server (identity/kycDocuments.ts → requiredKycSlots). */
+const KYC_SLOTS: { key: string; label: string; required: (kind: string | null) => boolean }[] = [
+  { key: "id", label: "Government photo ID", required: () => true },
+  { key: "pan", label: "PAN", required: () => true },
+  { key: "gst", label: "GST registration", required: (kind) => kind === "business" },
+  { key: "venue", label: "Venue permission", required: () => false },
+];
+
+function KycDocuments({ applicantUid, kind }: { applicantUid: string; kind: string | null }) {
+  const live = useLiveDocument("kycDocuments", applicantUid);
+  const toast = useToast();
+  const [opening, setOpening] = useState<string | null>(null);
+  const docs = (live.data?.documents && typeof live.data.documents === "object" ? live.data.documents : {}) as Record<string, Raw>;
+  const missing = KYC_SLOTS.filter((s) => s.required(kind) && !docs[s.key]);
+  const open = async (path: string) => {
+    setOpening(path);
+    try {
+      window.open(await kycDocumentUrl(path), "_blank", "noopener,noreferrer");
+    } catch (e) {
+      toast.show({ tone: "err", title: "Couldn’t open the document", body: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setOpening(null);
+    }
+  };
+  return (
+    <Card
+      title="Verification documents"
+      icon={<FileText />}
+      trailing={live.loading ? null : missing.length ? <Badge tone="warn">{missing.length} missing</Badge> : <Badge tone="ok">Complete</Badge>}
+    >
+      {live.error ? <Notice tone="warn" title="Documents couldn’t be loaded">{live.error}</Notice> : null}
+      <ul className="flex flex-col gap-2">
+        {KYC_SLOTS.filter((s) => s.required(kind) || docs[s.key]).map((s) => {
+          const d = docs[s.key];
+          const path = d ? str(d.path) : null;
+          return (
+            <li key={s.key} className="flex flex-wrap items-center gap-3 rounded-control border border-line-soft px-3 py-2.5" data-testid={`kyc-doc-${s.key}`}>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[13.5px] font-semibold text-text">{s.label}{s.required(kind) ? "" : " (optional)"}</span>
+                <span className="block text-[12px] text-text-3">
+                  {d ? `${str(d.contentType) === "application/pdf" ? "PDF" : "Image"} · ${Math.max(1, Math.round(Number(d.size ?? 0) / 1024))} KB · ${formatDateTime(d.uploadedAt)}` : "Not uploaded"}
+                </span>
+              </span>
+              {path ? (
+                <Button variant="ghost" size="sm" icon={<ExternalLink />} disabled={opening === path} onClick={() => void open(path)}>
+                  Open
+                </Button>
+              ) : <Badge tone="warn">Missing</Badge>}
+            </li>
+          );
+        })}
+      </ul>
+      {missing.length ? (
+        <p className="mt-3 text-[12.5px] text-text-3">
+          Approval is blocked until {missing.map((m) => m.label).join(", ")} {missing.length === 1 ? "is" : "are"} uploaded. Request changes to ask the applicant.
+        </p>
+      ) : null}
+    </Card>
+  );
+}
+
 function ExperienceBody({ record, target }: { record: LiveGovernanceRecord; target: Raw }) {
   const previousId = str(record.raw.previousVersionId) ?? str(target.previousVersionId);
   const previous = useLiveDocument(previousId ? "experiences" : null, previousId);
@@ -226,7 +288,14 @@ export function CaseDetail({
     );
   } else if (live.error) body = <Notice tone="warn" title="The submitted record couldn’t be loaded">{live.error}</Notice>;
   else if (!live.data) body = <Notice tone="warn" title="Target not found">The target record was not found. Do not approve without reviewing it.</Notice>;
-  else if (isKyc && target.collection === "organizerApplications") body = <KycAnswers app={live.data} />;
+  else if (isKyc && target.collection === "organizerApplications") {
+    body = (
+      <>
+        <KycAnswers app={live.data} />
+        <KycDocuments applicantUid={target.id} kind={str(live.data.kind)} />
+      </>
+    );
+  }
   else if (kind === "experience-approval") body = <ExperienceBody record={record} target={live.data} />;
   else {
     const fields = caseTargetFields(kind, live.data);

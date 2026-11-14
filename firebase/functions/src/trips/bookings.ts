@@ -786,42 +786,69 @@ export async function cancelTripBookingCommand(uid: string, data: unknown) {
   const bookingId = docId(d.bookingId, "bookingId");
   const out = await runCommand("trips.booking-cancelled", uid, rid, async (tx, now) => {
     const b = ownBooking(await tx.get(tripBookingRef(bookingId)), uid);
-    if (b.status === "cancelled" || b.status === "expired") {
-      return { bookingId, status: b.status, refund: b.refund ?? 0, refundIds: [] as string[] };
-    }
-    const [dSnap, tSnap, tvSnap, paySnap] = await Promise.all([
-      tx.get(departureRef(b.departureId)),
-      tx.get(tripRef(b.tripId)),
-      tx.get(travellerRef(b.departureId, uid)),
-      tx.get(db().collection(T.tripPayments).where("bookingId", "==", bookingId)),
-    ]);
-    const nowMs = now.toMillis();
-    if (b.status === "confirmed" && b.departureStart.toMillis() <= nowMs) {
+    if (b.status === "confirmed" && b.departureStart.toMillis() <= now.toMillis()) {
       throw precondition("This trip has already started, so it can't be cancelled here.", "Talk to your trip captain.");
     }
-    let refund = 0;
-    let refundIds: string[] = [];
-    if (b.status === "confirmed" && b.paid > 0) {
-      const preset = tSnap.exists ? contentOf(tSnap.data()!).refund : "standard";
-      const pct = refundPercent(preset, daysUntil(b.departureStart.toMillis(), nowMs));
-      refund = Math.round((b.paid * pct) / 100);
-      if (refund > 0) {
-        refundIds = allocateRefunds(tx, paySnap.docs.map((x) => x.data() as TripPaymentDoc), refund * 100, "customer-cancellation", `cxl_${bookingId}`);
-      }
-    }
-    if (dSnap.exists) tx.update(departureRef(b.departureId), { ...release(dSnap.data()!, b.roomId, b.travellers), updatedAt: now });
-    if (b.status === "confirmed") travellerDelta(tx, b, tvSnap.data(), -1);
-    tx.update(tripBookingRef(bookingId), {
-      status: "cancelled", refund, holdExpiresAt: null, cancelledAt: now, cancelledBy: uid, updatedAt: now,
+    return cancelTripBookingInTx(tx, now, bookingId, b, {
+      actorUid: uid, actorRole: "customer", cancelledBy: uid, reason: null, requestId: rid, source: "pulse-app",
     });
-    writeAudit(tx, {
-      action: "trips.booking-cancelled", actorUid: uid, actorRole: "customer", resourceType: "tripBooking", resourceId: bookingId,
-      orgId: b.orgId, before: { status: b.status, paid: b.paid }, after: { status: "cancelled", refund }, requestId: rid,
-    });
-    return { bookingId, status: "cancelled", refund, refundIds };
   });
   if (!out.replayed) for (const id of out.refundIds) await executeTripRefund(id);
   return { bookingId: out.bookingId, status: out.status, refund: out.refund, replayed: out.replayed };
+}
+
+/**
+ * Cancels [b] inside [tx]: frees its seats, refunds what the trip's refund
+ * policy allows for how far out the departure is, and audits it. Shared by
+ * the customer's own cancellation and the unpaid-balance sweep. Returns the
+ * refund ids to execute after the commit.
+ */
+export async function cancelTripBookingInTx(
+  tx: Transaction,
+  now: Timestamp,
+  bookingId: string,
+  b: TripBookingDoc,
+  who: {
+    actorUid: string;
+    actorRole: string;
+    cancelledBy: string;
+    reason: string | null;
+    requestId: string | null;
+    source: "pulse-app" | "scheduler";
+  }
+): Promise<{ bookingId: string; status: string; refund: number; refundIds: string[] }> {
+  if (b.status === "cancelled" || b.status === "expired") {
+    return { bookingId, status: b.status, refund: b.refund ?? 0, refundIds: [] };
+  }
+  const [dSnap, tSnap, tvSnap, paySnap] = await Promise.all([
+    tx.get(departureRef(b.departureId)),
+    tx.get(tripRef(b.tripId)),
+    tx.get(travellerRef(b.departureId, b.customerUid)),
+    tx.get(db().collection(T.tripPayments).where("bookingId", "==", bookingId)),
+  ]);
+  const nowMs = now.toMillis();
+  let refund = 0;
+  let refundIds: string[] = [];
+  if (b.status === "confirmed" && b.paid > 0) {
+    const preset = tSnap.exists ? contentOf(tSnap.data()!).refund : "standard";
+    const pct = refundPercent(preset, daysUntil(b.departureStart.toMillis(), nowMs));
+    refund = Math.round((b.paid * pct) / 100);
+    if (refund > 0) {
+      refundIds = allocateRefunds(tx, paySnap.docs.map((x) => x.data() as TripPaymentDoc), refund * 100, "customer-cancellation", `cxl_${bookingId}`);
+    }
+  }
+  if (dSnap.exists) tx.update(departureRef(b.departureId), { ...release(dSnap.data()!, b.roomId, b.travellers), updatedAt: now });
+  if (b.status === "confirmed") travellerDelta(tx, b, tvSnap.data(), -1);
+  tx.update(tripBookingRef(bookingId), {
+    status: "cancelled", refund, holdExpiresAt: null, cancelledAt: now, cancelledBy: who.cancelledBy,
+    cancelReason: who.reason, updatedAt: now,
+  });
+  writeAudit(tx, {
+    action: "trips.booking-cancelled", actorUid: who.actorUid, actorRole: who.actorRole, resourceType: "tripBooking", resourceId: bookingId,
+    orgId: b.orgId, before: { status: b.status, paid: b.paid }, after: { status: "cancelled", refund },
+    reason: who.reason, requestId: who.requestId, source: who.source,
+  });
+  return { bookingId, status: "cancelled", refund, refundIds };
 }
 
 /* --------------------------------------------------------- hold sweeper */

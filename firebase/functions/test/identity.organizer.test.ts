@@ -1,3 +1,4 @@
+import { seedKycDocuments } from "./kyc-payout-fixtures";
 import { PERMISSIONS } from "../src/access/permissions";
 import { decideGovernanceCase, reissueOrganizerActivationCode } from "../src/governance/service";
 import { organizerCaseId } from "../src/governance/organizerOnboarding";
@@ -25,6 +26,7 @@ const application = (requestId: string, extra: Record<string, unknown> = {}) =>
 
 async function submitAndApprove(requestId = "apply-req-0001", decideId = "decide-req-0001") {
   await submitOrganizerApplication(application(requestId), applicant);
+  await seedKycDocuments(applicant.uid);
   const result = await decideGovernanceCase(
     { requestId: decideId, caseId: organizerCaseId(applicant.uid), expectedVersion: 0, outcome: "approved", note: "" },
     admin

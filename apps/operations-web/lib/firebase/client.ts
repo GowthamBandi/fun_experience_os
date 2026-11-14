@@ -34,7 +34,8 @@ import { getAuth, type Auth } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
 import { getFunctions, type Functions } from "firebase/functions";
 import { getFirebaseConfig } from "./config";
-import { connectFunctionsToEmulator, connectToEmulators } from "./emulator";
+import { connectFunctionsToEmulator, connectStorageToEmulator, connectToEmulators } from "./emulator";
+import { getStorage, type FirebaseStorage } from "firebase/storage";
 import { initializeFirebaseAppCheck } from "./app-check";
 
 export type DataMode = "prototype" | "firebase-emulator" | "firebase-live";
@@ -55,6 +56,8 @@ interface FirebaseClient {
   functions: Functions;
   /** Commerce/catalog callables (decideRefund, buildSettlement, decideSettlement, adminCancelEvent, moderateReview, setLegalHold, reviewTrip). */
   regionalFunctions: Functions;
+  /** KYC documents (kyc/{uid}/…): admins read them under storage.rules. */
+  storage: FirebaseStorage;
 }
 
 export const LEGACY_FUNCTIONS_REGION = "us-central1";
@@ -93,14 +96,16 @@ export function getFirebaseClient(): FirebaseClient {
   const firestore = getFirestore(app);
   const functions = getFunctions(app, LEGACY_FUNCTIONS_REGION);
   const regionalFunctions = getFunctions(app, COMMERCE_FUNCTIONS_REGION);
+  const storage = getStorage(app);
 
   if (mode === "firebase-emulator") {
     connectToEmulators(auth, firestore, functions, config.projectId);
     connectFunctionsToEmulator(regionalFunctions);
+    connectStorageToEmulator(storage);
   } else {
     initializeFirebaseAppCheck(app);
   }
 
-  _client = { app, auth, firestore, functions, regionalFunctions };
+  _client = { app, auth, firestore, functions, regionalFunctions, storage };
   return _client;
 }

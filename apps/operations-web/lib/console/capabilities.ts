@@ -34,10 +34,12 @@ export type Capability =
   /** List operator accounts (users collection). */
   | "access.read"
   /** setOperatorAccess. */
-  | "access.manage";
+  | "access.manage"
+  /** revealPayoutAccount: full organizer payout details (audited). */
+  | "payouts.reveal";
 
 const MATRIX: Record<ConsoleRole, readonly Capability[]> = {
-  "platform-owner": ["governance.read", "governance.decide", "settlements.read", "audit.read", "access.read", "access.manage"],
+  "platform-owner": ["governance.read", "governance.decide", "settlements.read", "audit.read", "access.read", "access.manage", "payouts.reveal"],
   "super-admin": ["governance.read", "governance.decide", "settlements.read", "audit.read", "access.read"],
   auditor: ["settlements.read", "audit.read"],
 };
@@ -69,6 +71,8 @@ export const CALLABLE_CAPABILITY = {
   setOperatorAccess: "access.manage",
   setLegalHold: "governance.decide",
   reviewTrip: "governance.decide",
+  decidePayoutAccount: "governance.decide",
+  revealPayoutAccount: "payouts.reveal",
 } as const satisfies Record<string, Capability>;
 
 export type ConsoleCallable = keyof typeof CALLABLE_CAPABILITY;

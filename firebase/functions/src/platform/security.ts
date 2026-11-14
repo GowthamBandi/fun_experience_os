@@ -16,6 +16,8 @@ export const SECRET_NAMES = {
   razorpayKeyId: "RAZORPAY_KEY_ID",
   razorpayKeySecret: "RAZORPAY_KEY_SECRET",
   razorpayWebhookSecret: "RAZORPAY_WEBHOOK_SECRET",
+  /** AES key material for organizer payout details (commerce/payoutAccounts.ts). */
+  payoutEncryptionKey: "PAYOUT_ENCRYPTION_KEY",
 } as const;
 
 export type SecretName = (typeof SECRET_NAMES)[keyof typeof SECRET_NAMES];

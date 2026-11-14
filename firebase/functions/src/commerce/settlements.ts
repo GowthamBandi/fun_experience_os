@@ -21,6 +21,7 @@ import { DomainError, notFound, precondition } from "../platform/errors";
 import { writeAudit } from "../platform/audit";
 import type { EventDoc } from "../bookings/reserveSeat";
 import { T } from "../trips/refs";
+import { requireVerifiedPayoutAccount } from "./payoutAccounts";
 import { C, CURRENCY, SETTLEMENT_DUAL_CONTROL_MINOR } from "./config";
 
 export type SettlementStatus = "accruing" | "pending-approval" | "approved" | "held" | "paid" | "empty";
@@ -256,6 +257,9 @@ export async function decideSettlement(
             nextStep: "Settlements above ₹50,000 need two different admins.",
           });
         }
+        // Money only goes to an account PULSE operations have verified.
+        const account = await requireVerifiedPayoutAccount(tx, s.orgId);
+        patch.paidTo = { method: account.method, masked: account.masked, holderName: account.holderName, accountVersion: account.version };
         next = "paid";
         patch.paidBy = admin.uid;
         patch.paidAt = now;

@@ -1,3 +1,4 @@
+import { missingKycDocuments } from "../identity/kycDocuments";
 import { FieldValue, type DocumentSnapshot, type Firestore, type Transaction } from "firebase-admin/firestore";
 import { COLLECTIONS, auditRef, db, receiptRef, serverNow } from "../platform/firestore";
 import { DomainError, invalidInput } from "../platform/errors";
@@ -175,6 +176,15 @@ export async function decideGovernanceCase(command: GovernanceDecisionCommand, a
         throw new DomainError("PRECONDITION", "The organizer application for this case is missing.", { nextStep: "Escalate to platform engineering." });
       }
       if (targetSnap.data()?.orgId) throw conflict("This applicant already has an organizer.");
+      if (command.outcome === "approved") {
+        const missing = await missingKycDocuments(transaction, targetId, String(targetSnap.data()?.kind ?? "individual"));
+        if (missing.length) {
+          throw new DomainError("PRECONDITION", `Verification documents missing: ${missing.join(", ")}.`, {
+            nextStep: "Request changes so the applicant uploads them, then approve.",
+            detail: { missing },
+          });
+        }
+      }
     }
 
     const decision = { outcome: command.outcome, note: command.note, actorUid: actor.uid, actorRoleId: actor.roleId, decidedAt: now };

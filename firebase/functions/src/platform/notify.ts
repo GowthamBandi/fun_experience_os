@@ -23,12 +23,20 @@ export type NotificationKind =
   | "trip-update"
   | "trip-cancelled"
   /** A seat opened on a sold-out departure the person was waiting for. */
-  | "trip-waitlist";
+  | "trip-waitlist"
+  /** A trip balance is due soon, due today, overdue, or the booking was cancelled for it. */
+  | "trip-balance"
+  /** Ops verified or rejected the organizer's payout account. */
+  | "payout-account"
+  /** Ops asked for (or rejected) a verification document. */
+  | "kyc-document";
 
 export type NotificationLinkType =
   | "event" | "booking" | "ticket" | "organizer" | "application" | "experience"
   /** A trip booking and a departure (customer), and an organizer's trip (host workspace). */
-  | "trip-booking" | "trip-departure" | "host-trip";
+  | "trip-booking" | "trip-departure" | "host-trip"
+  /** The organizer's payout account (host workspace → Account). */
+  | "payout-account";
 export interface NotificationLink {
   type: NotificationLinkType;
   id: string;

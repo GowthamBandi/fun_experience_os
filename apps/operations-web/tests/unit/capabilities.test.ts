@@ -54,12 +54,15 @@ describe("role → capability matrix", () => {
 describe("callable parity with the backend", () => {
   it("every requireAdmin callable is allowed for exactly platform-owner and super-admin", () => {
     for (const callable of Object.keys(CALLABLE_CAPABILITY) as ConsoleCallable[]) {
-      if (callable === "setOperatorAccess") continue;
+      if (callable === "setOperatorAccess" || callable === "revealPayoutAccount") continue;
       expect(rolesAllowedFor(callable)).toEqual(["platform-owner", "super-admin"]);
     }
   });
   it("setOperatorAccess is platform-owner only", () => {
     expect(rolesAllowedFor("setOperatorAccess")).toEqual(["platform-owner"]);
+  });
+  it("revealPayoutAccount is platform-owner only (the server checks roleId too)", () => {
+    expect(rolesAllowedFor("revealPayoutAccount")).toEqual(["platform-owner"]);
   });
 
   it.skipIf(!haveBackend)("ADMIN_ROLES in platform/auth.ts matches the console's decide roles", () => {

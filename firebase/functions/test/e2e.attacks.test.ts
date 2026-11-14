@@ -9,6 +9,7 @@
  *   org C: no commercial agreement; evC1 approved (unpublished)
  */
 
+import { seedPayoutForSettlement } from "./kyc-payout-fixtures";
 import { randomBytes } from "node:crypto";
 import { ticketSignature } from "../src/commerce/tickets";
 import { paymentSignature } from "../src/commerce/provider";
@@ -592,7 +593,9 @@ describe(`E2E attacks (run ${RUN})`, () => {
     expect(stl.grossMinor - stl.commissionMinor - stl.refundsMinor).toBe(stl.netMinor);
     expect(await callCode(commerce.decideSettlement, { requestId: rid("ds"), settlementId: built.settlementId, action: "approve", note: "self" }, B.owner.ctx)).toBe("NOT_PERMITTED");
     expect((await call(commerce.decideSettlement, { requestId: rid("ds"), settlementId: built.settlementId, action: "approve", note: "Reconciled" }, adminA())).status).toBe("approved");
+    await seedPayoutForSettlement(built.settlementId);
     expect((await call(commerce.decideSettlement, { requestId: rid("ds"), settlementId: built.settlementId, action: "mark-paid", note: "Paid", payoutReference: `UTR${RUN}B` }, adminA())).status).toBe("paid");
+    await seedPayoutForSettlement(built.settlementId);
     expect(await callCode(commerce.decideSettlement, { requestId: rid("ds"), settlementId: built.settlementId, action: "mark-paid", note: "Paid twice", payoutReference: `UTR${RUN}B2` }, adminB())).toBe("PRECONDITION");
     expect(await getDoc(`settlements/${built.settlementId}`)).toMatchObject({ status: "paid", approvedBy: stl.builtBy, paidBy: stl.builtBy, payoutReference: `UTR${RUN}B` });
   });

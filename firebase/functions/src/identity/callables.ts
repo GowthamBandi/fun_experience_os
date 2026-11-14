@@ -13,6 +13,7 @@ import {
 } from "./model";
 import { redeemOrganizerCode as redeemOrganizerCodeService, submitOrganizerApplication as submitOrganizerApplicationService } from "./organizer";
 import { deleteMyAccount as deleteMyAccountService } from "./deletion";
+import { attachKycDocument as attachKycDocumentService, parseAttachKyc } from "./kycDocuments";
 import { myAccess as myAccessService, updateMyProfile as updateMyProfileService } from "./profile";
 import * as staff from "./staff";
 
@@ -48,3 +49,6 @@ export const reissueStaffCode = callable(
   (data, context) => staff.reissueStaffCode(parseReissueStaffCode(data), requirePhoneUser(context)),
   codes
 );
+
+/** Records an uploaded verification document (kyc/{uid}/…) on the applicant's KYC file. */
+export const attachKycDocument = callable((data, context) => attachKycDocumentService(parseAttachKyc(data), requirePhoneUser(context)));

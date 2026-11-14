@@ -19,6 +19,7 @@ if (!process.env.FIRESTORE_EMULATOR_HOST) {
   throw new Error("FIRESTORE_EMULATOR_HOST is not set: run under `firebase emulators:exec`.");
 }
 
+import { seedKycForCase } from "./kyc-payout-fixtures";
 import { randomBytes, randomInt } from "node:crypto";
 import { db, Timestamp } from "../src/platform/firestore";
 import { decideCase, setMarketplaceEntityStatus } from "../src/governance/callables";
@@ -201,6 +202,7 @@ export async function caseVersion(caseId: string): Promise<number> {
 }
 
 export async function approveCase(caseId: string, ctx = adminA(), requestId = rid("dec")) {
+  await seedKycForCase(caseId);
   return call(decideCase, { requestId, caseId, expectedVersion: await caseVersion(caseId), outcome: "approved", note: "" }, ctx);
 }
 

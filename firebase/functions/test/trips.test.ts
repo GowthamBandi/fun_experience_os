@@ -15,6 +15,7 @@ import * as trips from "../src/trips";
 import { releaseExpiredTripHolds } from "../src/trips/bookings";
 import { notifyTripWaitlist, seatOpened } from "../src/trips/waitlist";
 import { quoteTrip, refundPercent } from "../src/trips/model";
+import { balanceStage, sweepTripBalances } from "../src/trips/balance";
 
 const DAY = 86_400_000;
 /** Commission on the trips' org (10%), from its approved commercial agreement. */
@@ -522,5 +523,95 @@ describe("ledger and settlement", () => {
     const claimed = after.filter((e) => e.settlementId === out.settlementId);
     expect(new Set(claimed.map((e) => e.departureId))).toEqual(new Set([w.d1, w.d2]));
     expect(after.filter((e) => e.departureId === add.departureId).every((e) => e.settlementId === null)).toBe(true);
+  });
+});
+
+describe("trip balance: reminders, then cancellation", () => {
+  const H = 3_600_000;
+  /** Moves a booking's departure so that its balance due date is [dueIn] ms from now. */
+  const dueIn = async (bookingId: string, ms: number) =>
+    db().doc(`tripBookings/${bookingId}`).update({ departureStart: Timestamp.fromMillis(Date.now() + 15 * DAY + ms) });
+  const balanceNotes = async (uid: string) =>
+    (await db().collection("userNotifications").where("recipientUid", "==", uid).get()).docs
+      .map((d) => d.data()).filter((n) => n.kind === "trip-balance");
+
+  test("stages: none → soon (3 days out) → today → overdue (24 h) → cancel (48 h)", () => {
+    const start = Date.now() + 40 * DAY;
+    const due = start - 15 * DAY;
+    expect(balanceStage(start, due - 4 * DAY)).toBe("none");
+    expect(balanceStage(start, due - 2 * DAY)).toBe("soon");
+    expect(balanceStage(start, due + H)).toBe("today");
+    expect(balanceStage(start, due + 30 * H)).toBe("overdue");
+    expect(balanceStage(start, due + 49 * H)).toBe("cancel");
+  });
+
+  test("each reminder goes out once; paying stops them", async () => {
+    const w = await liveTrip();
+    const cust = uniq("cust");
+    const r = await book(w, cust);
+    await dueIn(r.bookingId, 2 * DAY);
+    await sweepTripBalances();
+    await sweepTripBalances(); // overlapping / repeated runs
+    let notes = await balanceNotes(cust);
+    expect(notes).toHaveLength(1);
+    expect(notes[0]).toMatchObject({ title: "Your trip balance is due soon", link: { type: "trip-booking", id: r.bookingId } });
+
+    await dueIn(r.bookingId, -H);
+    await sweepTripBalances();
+    notes = await balanceNotes(cust);
+    expect(notes.map((n) => n.title)).toContain("Your trip balance is due today");
+    expect((await booking(r.bookingId)).balanceReminders).toEqual(["soon", "today"]);
+
+    await pay(cust, r.bookingId, trips.payTripBalance);
+    await dueIn(r.bookingId, -30 * H);
+    await sweepTripBalances();
+    expect(await balanceNotes(cust)).toHaveLength(2); // paid: no overdue warning
+  });
+
+  test("after the 48 h grace the booking is cancelled, seats freed and the policy refund paid", async () => {
+    const w = await liveTrip();
+    const cust = uniq("cust");
+    const r = await book(w, cust);
+    const seatsBefore = (await dep(w.d1)).seatsTaken;
+    await dueIn(r.bookingId, -30 * H);
+    await sweepTripBalances();
+    expect((await balanceNotes(cust)).map((n) => n.title)).toContain("Pay your balance to keep your seats");
+    expect((await booking(r.bookingId)).status).toBe("confirmed");
+
+    await dueIn(r.bookingId, -49 * H);
+    await sweepTripBalances();
+    const b = await booking(r.bookingId);
+    const daysOut = (b.departureStart.toMillis() - Date.now()) / DAY;
+    const expected = Math.round((4000 * refundPercent("standard", Math.floor(daysOut))) / 100);
+    expect(b).toMatchObject({ status: "cancelled", cancelledBy: "system:trip-balance", cancelReason: "Balance not paid by the due date", refund: expected });
+    expect((await dep(w.d1)).seatsTaken).toBe(seatsBefore - 2);
+    expect((await db().doc(`tripTravellers/${w.d1}__${cust}`).get()).exists).toBe(false);
+    expect((await balanceNotes(cust)).map((n) => n.title)).toContain("Trip booking cancelled");
+    const audit = await db().collection("auditEvents").where("resourceId", "==", r.bookingId).where("action", "==", "trips.booking-cancelled").get();
+    expect(audit.docs[0]!.data()).toMatchObject({ actorRole: "system", source: "scheduler" });
+    // Re-running is a no-op.
+    await sweepTripBalances();
+    expect((await booking(r.bookingId)).status).toBe("cancelled");
+  });
+
+  test("a balance payment being made right now is never cancelled under the customer", async () => {
+    const w = await liveTrip();
+    const cust = uniq("cust");
+    const r = await book(w, cust);
+    await call(trips.payTripBalance, { requestId: rid(), bookingId: r.bookingId }, phoneCtx(cust)); // order open, not paid yet
+    await dueIn(r.bookingId, -49 * H);
+    const out = await sweepTripBalances();
+    expect(out.skippedPaying).toBeGreaterThanOrEqual(1);
+    expect((await booking(r.bookingId)).status).toBe("confirmed");
+  });
+
+  test("bookings paid in full get no reminders", async () => {
+    const w = await liveTrip();
+    const cust = uniq("cust");
+    const r = await book(w, cust, { payInFull: true });
+    await dueIn(r.bookingId, -49 * H);
+    await sweepTripBalances();
+    expect(await balanceNotes(cust)).toHaveLength(0);
+    expect((await booking(r.bookingId)).status).toBe("confirmed");
   });
 });

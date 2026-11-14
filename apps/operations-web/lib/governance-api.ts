@@ -288,3 +288,29 @@ export interface ReviewTripResult {
 export async function reviewTrip(input: { requestId: string; hostTripId: string; expectedVersion: number; outcome: TripOutcome; note: string }) {
   return call<ReviewTripResult>(regional(), "reviewTrip", buildReviewTripPayload(input));
 }
+
+/* ------------------------------------------ payout accounts (asia-south1) */
+
+export async function decidePayoutAccount(input: { requestId: string; orgId: string; expectedVersion: number; outcome: "verified" | "rejected"; note: string }) {
+  return call<{ orgId: string; status: string }>(regional(), "decidePayoutAccount", input);
+}
+
+export interface RevealedPayoutAccount {
+  orgId: string;
+  method: "bank" | "upi";
+  holderName: string;
+  ifsc: string | null;
+  accountNumber: string | null;
+  upiId: string | null;
+}
+
+/** Platform owner only; every call is audited server-side. Never cache the result. */
+export async function revealPayoutAccount(input: { orgId: string; reason: string }) {
+  return call<RevealedPayoutAccount>(regional(), "revealPayoutAccount", input);
+}
+
+/** A short-lived download link for a KYC document (admins may read kyc/** under storage.rules). */
+export async function kycDocumentUrl(path: string): Promise<string> {
+  const { getDownloadURL, ref } = await import("firebase/storage");
+  return getDownloadURL(ref(getFirebaseClient().storage, path));
+}

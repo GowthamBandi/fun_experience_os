@@ -16,6 +16,7 @@
  *      same result with no second side effect
  */
 
+import { seedPayoutForSettlement } from "./kyc-payout-fixtures";
 import {
   adminCtx,
   book,
@@ -490,6 +491,7 @@ describe("I4–I6 ledger, settlement and money fields over a full journey", () =
     );
     await checkpoint("settlement built");
     await call(commerce.decideSettlement, { requestId: rid(), settlementId: built.settlementId, action: "approve", note: "Checked" }, adminCtx("admin-a"));
+    await seedPayoutForSettlement(built.settlementId);
     await call(
       commerce.decideSettlement,
       { requestId: rid(), settlementId: built.settlementId, action: "mark-paid", note: "Paid out", payoutReference: "UTR123456" },

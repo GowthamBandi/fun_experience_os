@@ -15,6 +15,7 @@ import type { Functions } from "firebase/functions";
 import { connectAuthEmulator } from "firebase/auth";
 import { connectFirestoreEmulator } from "firebase/firestore";
 import { connectFunctionsEmulator } from "firebase/functions";
+import { connectStorageEmulator, type FirebaseStorage } from "firebase/storage";
 
 const EMULATOR_AUTH_HOST = "127.0.0.1";
 const EMULATOR_AUTH_PORT = 9099;
@@ -72,4 +73,11 @@ export function connectToEmulators(
 /** Connects an additional (regional) Functions instance to the local emulator. */
 export function connectFunctionsToEmulator(functions: Functions): void {
   connectFunctionsEmulator(functions, EMULATOR_FUNCTIONS_HOST, EMULATOR_FUNCTIONS_PORT);
+}
+
+const EMULATOR_STORAGE_HOST = "127.0.0.1";
+const EMULATOR_STORAGE_PORT = 9199;
+
+export function connectStorageToEmulator(storage: FirebaseStorage): void {
+  connectStorageEmulator(storage, EMULATOR_STORAGE_HOST, EMULATOR_STORAGE_PORT);
 }

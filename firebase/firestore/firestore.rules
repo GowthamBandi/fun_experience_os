@@ -87,6 +87,28 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Verification documents on record for an applicant (written only by
+    // attachKycDocument after it checks the Storage object).
+    match /kycDocuments/{userId} {
+      allow get: if (user() && uid() == userId) || isAdmin();
+      allow list: if isAdmin();
+      allow write: if false;
+    }
+
+    // Payout account: masked projection + verification state. The organizer
+    // owner reads their own; written only by setPayoutAccount/decidePayoutAccount.
+    match /payoutAccounts/{orgId} {
+      allow get: if isAdmin() || (activeMember(orgId) && membership(orgId).role == 'owner');
+      allow list: if isAdmin();
+      allow write: if false;
+    }
+
+    // Encrypted full payout details. No client path at all, admins included:
+    // revealPayoutAccount (platform owner, audited) is the only reader.
+    match /payoutSecrets/{orgId} {
+      allow read, write: if false;
+    }
+
     // Public organizer projection (no commission, no KYC, no contact data).
     match /publicOrganizers/{orgId} {
       allow read: if user() || isAdmin();

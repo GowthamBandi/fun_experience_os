@@ -32,6 +32,7 @@ import { useTabParam } from "@/lib/use-search-param";
 import { useBoundedQuery, useOneShot } from "@/lib/use-query";
 import { categoryEmoji, countFull } from "@/lib/overview";
 import { EventsTab, ExperiencesTab, MoneyTab, TeamTab, TimelineTab, docRow } from "./OrganizerTabs";
+import { PayoutAccountCard } from "@/components/money/PayoutAccountCard";
 import { OrganizerActions } from "./OrganizerActions";
 
 type TabId = "events" | "experiences" | "money" | "team" | "timeline";
@@ -258,7 +259,12 @@ function View({ orgId, onRetry }: { orgId: string; onRetry: () => void }) {
       <div role="tabpanel" aria-label={tabs.find((t) => t.id === tab)?.label}>
         {tab === "events" ? <EventsTab q={events} /> : null}
         {tab === "experiences" ? <ExperiencesTab q={experiences} now={now} /> : null}
-        {tab === "money" ? <MoneyTab agreements={agreements} commercials={commercials} settlements={settlements} eventTitles={eventTitles} /> : null}
+        {tab === "money" ? (
+          <div className="flex flex-col gap-5">
+            <PayoutAccountCard orgId={orgId} />
+            <MoneyTab agreements={agreements} commercials={commercials} settlements={settlements} eventTitles={eventTitles} />
+          </div>
+        ) : null}
         {tab === "team" ? <TeamTab q={{ ...members, rows: memberRows }} names={names} /> : null}
         {tab === "timeline" ? (
           <TimelineTab

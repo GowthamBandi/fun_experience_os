@@ -10,6 +10,7 @@
  * Tests in this file run in order and share state (one marketplace story).
  */
 
+import { seedKycDocuments, seedPayoutForSettlement } from "./kyc-payout-fixtures";
 import { allows, type Membership } from "../src/access/permissions";
 import { ticketPayload, ticketSignature } from "../src/commerce/tickets";
 import { refundCancelledEvent } from "../src/commerce/refunds";
@@ -69,6 +70,7 @@ describe(`E2E journeys (run ${RUN})`, () => {
 
     // Admin approval returns the Organizer Code ONCE.
     const decideRid = rid("dec");
+    await seedKycDocuments(owner.uid); // approval needs the documents on record
     const decided = await call(decideCase, { requestId: decideRid, caseId: organizerCaseIdFor(owner.uid), expectedVersion: 0, outcome: "approved", note: "" }, adminA());
     expect(decided.organizerCode).toMatch(/^[23456789A-HJKMNP-Z]{10}$/);
     const code = String(decided.organizerCode);
@@ -356,8 +358,11 @@ describe(`E2E journeys (run ${RUN})`, () => {
     expect(stl.netMinor).toBeGreaterThan(5_000_000);
     expect(await callCode(commerce.decideSettlement, { requestId: rid("ds"), settlementId: built.settlementId, action: "approve", note: "owner approves" }, owner.ctx)).toBe("NOT_PERMITTED");
     expect((await call(commerce.decideSettlement, { requestId: rid("ds"), settlementId: built.settlementId, action: "approve", note: "Reconciled against ledger" }, adminA())).status).toBe("approved");
+    await seedPayoutForSettlement(built.settlementId);
     expect(await callCode(commerce.decideSettlement, { requestId: rid("ds"), settlementId: built.settlementId, action: "mark-paid", note: "paid", payoutReference: "UTR-A-0001" }, adminA())).toBe("NOT_PERMITTED");
+    await seedPayoutForSettlement(built.settlementId);
     expect(await callCode(commerce.decideSettlement, { requestId: rid("ds"), settlementId: built.settlementId, action: "mark-paid", note: "paid" }, adminB())).toBe("INVALID_INPUT");
+    await seedPayoutForSettlement(built.settlementId);
     const paid = await call(commerce.decideSettlement, { requestId: rid("ds"), settlementId: built.settlementId, action: "mark-paid", note: "Paid via NEFT", payoutReference: `UTR${RUN}0001` }, adminB());
     expect(paid.status).toBe("paid");
     expect(await getDoc(`settlements/${built.settlementId}`)).toMatchObject({ status: "paid", approvedBy: ADMIN_A, paidBy: ADMIN_B, payoutReference: `UTR${RUN}0001` });

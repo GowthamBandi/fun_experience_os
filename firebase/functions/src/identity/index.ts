@@ -5,6 +5,7 @@ export {
   deleteMyAccount,
   myAccess,
   submitOrganizerApplication,
+  attachKycDocument,
   redeemOrganizerCode,
   inviteStaff,
   listStaff,

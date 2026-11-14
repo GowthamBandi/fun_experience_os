@@ -186,3 +186,31 @@ test("a suspended account (disabled claim) loses even its own data", async () =>
   await assertFails(getDoc(doc(db, `memberships/${ORG}__${u.staff}`)));
   await assertFails(getDoc(doc(db, `events/draft-${ORG}`)));
 });
+
+describe("payout accounts and KYC documents (2026-11-14)", () => {
+  const admin = () => env.authenticatedContext("admin-x", { email: "a@ops.test", email_verified: true, roleId: "super-admin" }).firestore();
+
+  test("payoutAccounts: the owner and admins read it; staff, managers and customers don't; nobody writes", async () => {
+    await seed(`payoutAccounts/${ORG}`, { orgId: ORG, method: "bank", masked: "•••• 6789", status: "pending-verification", version: 0 });
+    await assertSucceeds(getDoc(doc(phoneUser(u.owner), `payoutAccounts/${ORG}`)));
+    await assertSucceeds(getDoc(doc(admin(), `payoutAccounts/${ORG}`)));
+    for (const who of [u.mgr, u.staff, u.cust]) await assertFails(getDoc(doc(phoneUser(who), `payoutAccounts/${ORG}`)));
+    await assertFails(setDoc(doc(phoneUser(u.owner), `payoutAccounts/${ORG}`), { status: "verified" }));
+    await assertFails(getDocs(collection(phoneUser(u.owner), "payoutAccounts")));
+  });
+
+  test("payoutSecrets: no client path at all, admins and owners included", async () => {
+    await seed(`payoutSecrets/${ORG}`, { orgId: ORG, iv: "x", tag: "y", data: "z" });
+    await assertFails(getDoc(doc(phoneUser(u.owner), `payoutSecrets/${ORG}`)));
+    await assertFails(getDoc(doc(admin(), `payoutSecrets/${ORG}`)));
+    await assertFails(setDoc(doc(phoneUser(u.owner), `payoutSecrets/${ORG}`), { data: "z" }));
+  });
+
+  test("kycDocuments: the applicant and admins read it; nobody else; nobody writes", async () => {
+    await seed(`kycDocuments/${u.cust}`, { uid: u.cust, documents: {} });
+    await assertSucceeds(getDoc(doc(phoneUser(u.cust), `kycDocuments/${u.cust}`)));
+    await assertSucceeds(getDoc(doc(admin(), `kycDocuments/${u.cust}`)));
+    await assertFails(getDoc(doc(phoneUser(u.other), `kycDocuments/${u.cust}`)));
+    await assertFails(setDoc(doc(phoneUser(u.cust), `kycDocuments/${u.cust}`), { documents: { id: { path: "x" } } }));
+  });
+});

@@ -3,6 +3,7 @@
  * need two admins above ₹50,000. Reminders are deduplicated.
  */
 
+import { seedPayoutForSettlement } from "./kyc-payout-fixtures";
 import {
   adminCtx,
   book,
@@ -158,19 +159,24 @@ describe("decideSettlement", () => {
     expect(built.netMinor).toBe(5_400_000);
     const id = built.settlementId!;
 
+    await seedPayoutForSettlement(id);
     expect(await callCode(commerce.decideSettlement, { requestId: rid(), settlementId: id, action: "mark-paid", note: "early", payoutReference: "UTR123" }, adminCtx("admin-a"))).toBe("PRECONDITION");
     await call(commerce.decideSettlement, { requestId: rid(), settlementId: id, action: "approve", note: "Checked" }, adminCtx("admin-a"));
+    await seedPayoutForSettlement(id);
     const same = await callErr(commerce.decideSettlement, { requestId: rid(), settlementId: id, action: "mark-paid", note: "paying", payoutReference: "UTR123456" }, adminCtx("admin-a"));
     expect(same.code).toBe("NOT_PERMITTED");
+    await seedPayoutForSettlement(id);
     expect(await callCode(commerce.decideSettlement, { requestId: rid(), settlementId: id, action: "mark-paid", note: "paying" }, adminCtx("admin-b"))).toBe("INVALID_INPUT");
 
     // hold / release-hold returns to the prior state
     await call(commerce.decideSettlement, { requestId: rid(), settlementId: id, action: "hold", note: "KYC query" }, adminCtx("admin-b"));
     expect((await getDoc<Settlement>(`settlements/${id}`))!.status).toBe("held");
+    await seedPayoutForSettlement(id);
     expect(await callCode(commerce.decideSettlement, { requestId: rid(), settlementId: id, action: "mark-paid", note: "while held", payoutReference: "UTR111" }, adminCtx("admin-b"))).toBe("PRECONDITION");
     await call(commerce.decideSettlement, { requestId: rid(), settlementId: id, action: "release-hold", note: "resolved" }, adminCtx("admin-b"));
     expect((await getDoc<Settlement>(`settlements/${id}`))!.status).toBe("approved");
 
+    await seedPayoutForSettlement(id);
     const paid = await call<{ status: string }>(commerce.decideSettlement, { requestId: rid(), settlementId: id, action: "mark-paid", note: "paid", payoutReference: "UTR998877" }, adminCtx("admin-b"));
     expect(paid.status).toBe("paid");
     const s = (await getDoc<Settlement>(`settlements/${id}`))!;
@@ -187,6 +193,7 @@ describe("decideSettlement", () => {
     await db().collection("events").doc(eventId).update({ status: "completed" });
     const built = await buildSettlement({ uid: "admin-a", roleId: "super-admin" }, { requestId: rid(), orgId, periodEnd: new Date() });
     await call(commerce.decideSettlement, { requestId: rid(), settlementId: built.settlementId, action: "approve", note: "all good" }, adminCtx("admin-a"));
+    await seedPayoutForSettlement(built.settlementId);
     const paid = await call<{ status: string }>(commerce.decideSettlement, { requestId: rid(), settlementId: built.settlementId, action: "mark-paid", note: "paid out", payoutReference: "UTR42" }, adminCtx("admin-a"));
     expect(paid.status).toBe("paid");
   });

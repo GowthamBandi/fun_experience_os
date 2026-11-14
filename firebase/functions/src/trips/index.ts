@@ -20,6 +20,7 @@ import {
   addTripDepartureCommand, cancelDepartureCommand, getTripManifestQuery, postDepartureUpdateCommand, setDepartureSeatsCommand,
   setSalesClosedCommand,
 } from "./operations";
+import { sweepTripBalances as sweepTripBalancesSvc } from "./balance";
 import { joinTripWaitlistCommand, leaveTripWaitlistCommand, notifyTripWaitlist, seatOpened } from "./waitlist";
 
 const RZP: SecretName[] = [SECRET_NAMES.razorpayKeyId, SECRET_NAMES.razorpayKeySecret];
@@ -196,4 +197,19 @@ export const releaseExpiredTripHolds = functions
   .timeZone("Asia/Kolkata")
   .onRun(async () => {
     await runJob("releaseExpiredTripHolds", { holds: () => releaseExpiredTripHoldsSvc() });
+  });
+
+/** Balance reminders and, after the grace period, cancellation of unpaid bookings (trips/balance.ts). */
+export const sweepTripBalances = functions
+  .region("asia-south1")
+  .runWith({ timeoutSeconds: 300, secrets: bind(RZP) })
+  .pubsub.schedule("every 60 minutes")
+  .timeZone("Asia/Kolkata")
+  .onRun(async () => {
+    await runJob("sweepTripBalances", {
+      balances: async () => {
+        const r = await sweepTripBalancesSvc();
+        return { scanned: r.scanned, reminded: r.reminded, cancelled: r.cancelled, skippedPaying: r.skippedPaying, truncated: r.truncated ? 1 : 0 };
+      },
+    });
   });
