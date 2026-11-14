@@ -314,3 +314,27 @@ export async function kycDocumentUrl(path: string): Promise<string> {
   const { getDownloadURL, ref } = await import("firebase/storage");
   return getDownloadURL(ref(getFirebaseClient().storage, path));
 }
+
+/* ------------------------------------------------ support (asia-south1) */
+
+export type SupportStatus = "open" | "waiting-on-customer" | "resolved";
+
+export async function respondSupportRequest(input: { requestId: string; id: string; message: string | null; status: SupportStatus }) {
+  return call<{ id: string; status: SupportStatus }>(regional(), "respondSupportRequest", input);
+}
+
+/** Live list of support requests, most recently active first (admins read all under firestore.rules). */
+export function subscribeSupportRequests(
+  observer: (rows: Array<{ id: string; raw: Record<string, unknown> }>, truncated: boolean) => void,
+  onError: (message: string) => void,
+  max = 300,
+) {
+  return onSnapshot(
+    query(collection(getFirebaseClient().firestore, "supportRequests"), orderBy("updatedAt", "desc"), limit(max + 1)),
+    (snap) => {
+      const rows = snap.docs.slice(0, max).map((d) => ({ id: d.id, raw: { ...d.data() } }));
+      observer(rows, snap.size > max);
+    },
+    (error) => onError(error.message),
+  );
+}

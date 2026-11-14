@@ -71,6 +71,7 @@ export const CALLABLE_CAPABILITY = {
   setOperatorAccess: "access.manage",
   setLegalHold: "governance.decide",
   reviewTrip: "governance.decide",
+  respondSupportRequest: "governance.decide",
   decidePayoutAccount: "governance.decide",
   revealPayoutAccount: "payouts.reveal",
 } as const satisfies Record<string, Capability>;
@@ -99,6 +100,7 @@ export const CONSOLE_ROUTES = [
   "/arenas",
   "/customers",
   "/risk",
+  "/support",
   "/reviews",
   "/revenue",
   "/refunds",
@@ -124,6 +126,7 @@ export const ROUTE_CAPABILITY: Record<string, Capability> = {
   "/events": "governance.read",
   "/customers": "governance.read",
   "/risk": "governance.read",
+  "/support": "governance.read",
   "/reviews": "governance.read",
   "/refunds": "governance.read",
   "/settlements": "settlements.read",
