@@ -95,6 +95,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Category cover images (set by PULSE operations; shown when an
+    // experience has no photo of its own). Readable by every signed-in user.
+    match /categoryCovers/{key} {
+      allow read: if user() || isAdmin();
+      allow write: if false;
+    }
+
     // Event-day state (teams, safety checks, incidents) for the organizer's
     // team; written only by saveEventDay.
     match /eventDays/{eventId} {

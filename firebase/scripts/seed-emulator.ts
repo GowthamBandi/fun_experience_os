@@ -60,6 +60,7 @@ if (GCLOUD_PROJECT !== PROJECT) {
 }
 process.env.GCLOUD_PROJECT = PROJECT;
 process.env.FIREBASE_AUTH_EMULATOR_HOST ??= "127.0.0.1:9099";
+process.env.FIREBASE_STORAGE_EMULATOR_HOST ??= "127.0.0.1:9199";
 const AUTH_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST;
 const FUNCTIONS_HOST = process.env.FUNCTIONS_EMULATOR_HOST ?? "127.0.0.1:5001";
 if (!LOCAL.test(AUTH_HOST) || !LOCAL.test(FUNCTIONS_HOST)) {
@@ -71,8 +72,9 @@ const require = createRequire(new URL("../functions/package.json", import.meta.u
 const { initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { getStorage } = require("firebase-admin/storage");
 
-initializeApp({ projectId: PROJECT });
+initializeApp({ projectId: PROJECT, storageBucket: `${PROJECT}.appspot.com` });
 const auth = getAuth();
 const db = getFirestore();
 
@@ -340,6 +342,19 @@ async function onboardOrganizers(admin: Session): Promise<Org[]> {
       count("organizer applications", "skipped");
     }
     if (!a.approve) continue;
+
+    // Approval needs the KYC documents on record (identity/kycDocuments.ts):
+    // upload a small placeholder PDF per required slot to the Storage
+    // emulator, then record it through the real callable.
+    const kyc = await get("kycDocuments", session.uid);
+    const slots = a.application.kind === "business" ? ["id", "pan", "gst"] : ["id", "pan"];
+    for (const slot of slots) {
+      if ((kyc?.documents as Json | undefined)?.[slot]) continue;
+      const path = `kyc/${session.uid}/${slot}-seed${slot}01.pdf`;
+      await getStorage().bucket().file(path).save(Buffer.from(`%PDF-1.4\n% PULSE emulator seed: ${slot}\n%%EOF\n`), { contentType: "application/pdf" });
+      await call("attachKycDocument", session, { requestId: `${RUN}-kyc-${slot}-${session.uid}`, slot, path });
+      count("KYC documents", "done");
+    }
 
     let code: string | null = null;
     if (app!.status === "submitted" || app!.status === "under-review") {

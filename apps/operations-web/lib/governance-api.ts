@@ -338,3 +338,19 @@ export function subscribeSupportRequests(
     (error) => onError(error.message),
   );
 }
+
+/* ------------------------------------------ category covers (asia-south1) */
+
+export async function setCategoryCover(input: { category: string; url: string; reason: string }) {
+  return call<{ category: string; url: string | null }>(regional(), "setCategoryCover", input);
+}
+
+/** Uploads a category cover to Storage (admins may write categoryMedia/) and returns its URL. */
+export async function uploadCategoryCover(category: string, file: File): Promise<string> {
+  const { getDownloadURL, ref, uploadBytes } = await import("firebase/storage");
+  const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+  const name = `${category}-${Math.random().toString(36).slice(2, 12)}.${ext}`;
+  const r = ref(getFirebaseClient().storage, `categoryMedia/${name}`);
+  await uploadBytes(r, file, { contentType: file.type });
+  return getDownloadURL(r);
+}

@@ -25,13 +25,22 @@ const FIREBASE_CONNECT = [
   "https://*.cloudfunctions.net",
   "https://*.run.app",
   "https://www.google.com/recaptcha/",
+  // Storage: KYC documents (open), category covers (upload + show).
+  "https://firebasestorage.googleapis.com",
 ];
+
+/** Images shown from Firebase Storage (category covers, KYC previews). */
+const STORAGE_IMG = ["https://firebasestorage.googleapis.com"];
 
 const RECAPTCHA_SCRIPT = ["https://www.google.com/recaptcha/", "https://www.gstatic.com/recaptcha/"];
 const RECAPTCHA_FRAME = ["https://www.google.com/recaptcha/", "https://recaptcha.google.com/recaptcha/"];
 
-// firebase.json emulator ports (auth 9099, firestore 8080, functions 5001).
-const EMULATOR_CONNECT = ["http://127.0.0.1:9099", "http://127.0.0.1:8080", "http://127.0.0.1:5001", "http://localhost:9099", "http://localhost:8080", "http://localhost:5001"];
+// firebase.json emulator ports (auth 9099, firestore 8080, functions 5001, storage 9199).
+const EMULATOR_CONNECT = [
+  "http://127.0.0.1:9099", "http://127.0.0.1:8080", "http://127.0.0.1:5001", "http://127.0.0.1:9199",
+  "http://localhost:9099", "http://localhost:8080", "http://localhost:5001", "http://localhost:9199",
+];
+const EMULATOR_IMG = ["http://127.0.0.1:9199", "http://localhost:9199"];
 
 function authDomainOrigin(authDomain) {
   const host = (authDomain ?? "").trim();
@@ -51,7 +60,7 @@ export function buildContentSecurityPolicy({ dataMode, authDomain, dev = false }
     "default-src": ["'self'"],
     "script-src": ["'self'", "'unsafe-inline'", ...(dev ? ["'unsafe-eval'"] : []), ...RECAPTCHA_SCRIPT],
     "style-src": ["'self'", "'unsafe-inline'"],
-    "img-src": ["'self'", "data:", "blob:", "https://www.gstatic.com"],
+    "img-src": ["'self'", "data:", "blob:", "https://www.gstatic.com", ...STORAGE_IMG, ...(emulator ? EMULATOR_IMG : [])],
     "font-src": ["'self'", "data:"],
     "connect-src": ["'self'", ...FIREBASE_CONNECT, ...(emulator ? EMULATOR_CONNECT : []), ...(dev ? ["ws:", "wss:"] : [])],
     "frame-src": ["'self'", ...RECAPTCHA_FRAME, "https://*.firebaseapp.com", "https://*.web.app", ...authDomainOrigin(authDomain)],

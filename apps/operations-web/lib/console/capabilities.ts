@@ -72,6 +72,7 @@ export const CALLABLE_CAPABILITY = {
   setLegalHold: "governance.decide",
   reviewTrip: "governance.decide",
   respondSupportRequest: "governance.decide",
+  setCategoryCover: "governance.decide",
   decidePayoutAccount: "governance.decide",
   revealPayoutAccount: "payouts.reveal",
 } as const satisfies Record<string, Capability>;
@@ -95,6 +96,7 @@ export const CONSOLE_ROUTES = [
   "/live",
   "/approvals",
   "/trips",
+  "/categories",
   "/partners",
   "/events",
   "/arenas",
@@ -121,6 +123,7 @@ export const ROUTE_CAPABILITY: Record<string, Capability> = {
   "/approvals": "governance.read",
   /** tripDrafts: admin list/get (firestore.rules). */
   "/trips": "governance.read",
+  "/categories": "governance.read",
   "/partners": "governance.read",
   "/arenas": "governance.read",
   "/events": "governance.read",

@@ -10,6 +10,7 @@ export {
   adminCancelEvent,
 } from "./events";
 export { submitReview, moderateReview } from "./reviews";
+export { setCategoryCover } from "./categoryCovers";
 
 import { callable } from "../platform/callable";
 import { requirePhoneUser } from "../platform/actors";

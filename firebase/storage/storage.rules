@@ -44,6 +44,14 @@ service firebase.storage {
       allow update: if false;
     }
 
+    // Category covers uploaded by PULSE operations in the super admin.
+    match /categoryMedia/{fileName} {
+      allow read: if signedIn() || isAdmin();
+      allow create: if isAdmin() && resource == null
+        && request.resource.size < 8 * 1024 * 1024 && isImage();
+      allow update, delete: if false;
+    }
+
     match /avatars/{userId}/{fileName} {
       allow read: if signedIn();
       allow create, update: if signedIn() && request.auth.uid == userId
