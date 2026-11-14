@@ -95,6 +95,8 @@ export const QUERIES = [
   Q("BT10", "backend", "tripTravellers", ["departureId"], null, [], ["firebase/functions/src/trips/operations.ts", `tripTravellers).where("departureId"`]),
   Q("BT11", "backend", "commercialAgreements", ["orgId", "status"], null, [], ["firebase/functions/src/trips/bookings.ts", `commercialAgreements).where("orgId"`]),
   Q("BT13", "backend", "tripBookings", ["status"], "departureStart", [["departureStart", "asc"]], ["firebase/functions/src/trips/balance.ts", `.where("departureStart", ">", Timestamp.fromMillis(nowMs))`]),
+  Q("BW01", "backend", "bookings", ["eventId", "customerUid", "status(in)"], null, [], ["firebase/functions/src/commerce/eventWaitlist.ts", `where("customerUid", "==", uid)`]),
+  Q("BW02", "backend", "eventWaitlist", ["eventId"], null, [], ["firebase/functions/src/commerce/eventWaitlist.ts", `EVENT_WAITLIST).where("eventId"`]),
   Q("BT12", "backend", "tripWaitlist", ["departureId"], null, [], ["firebase/functions/src/trips/waitlist.ts", `tripWaitlist).where("departureId"`]),
   // platform/retention.ts (scheduled clean-up). R01/R02 run on a collection
   // passed in as a variable, which the chain scanner can't resolve.
@@ -111,6 +113,7 @@ export const QUERIES = [
   Q("S01", "script", "users", ["roleId"], null, [], ["firebase/scripts/bootstrap-platform-owner.mjs", `where("roleId"`]),
 
   // ------------------------------------------------------------ PULSE app
+  Q("P41", "pulse", "eventWaitlist", ["uid"], null, [], ["lib/src/data/repositories/event_waitlist_repository.dart", `.collection('eventWaitlist')`]),
   Q("P40", "pulse", "supportRequests", ["uid"], null, [["updatedAt", "desc"]], ["lib/src/data/repositories/support_repository.dart", `.collection('supportRequests')`]),
   Q("P01", "pulse", "events", ["status"], "startsAt", [["startsAt", "asc"]], ["lib/src/data/firebase/firebase_repositories.dart", `.orderBy('startsAt')`]),
   Q("P01c", "pulse", "events", ["orgId", "status"], "startsAt", [["startsAt", "asc"]], ["lib/src/data/firebase/firebase_repositories.dart", `.where('orgId', isEqualTo: hostId)`],

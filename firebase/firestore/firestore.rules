@@ -103,6 +103,12 @@ service cloud.firestore {
       allow list, write: if false;
     }
 
+    // Waitlist for sold-out experiences: owner reads their own entry.
+    match /eventWaitlist/{id} {
+      allow get, list: if user() && resource.data.uid == uid();
+      allow write: if false;
+    }
+
     // Support conversations: the person who opened one reads it; written
     // only by submitSupportRequest / addSupportMessage / respondSupportRequest.
     match /supportRequests/{id} {

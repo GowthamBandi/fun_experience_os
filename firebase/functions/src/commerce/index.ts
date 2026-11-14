@@ -23,3 +23,4 @@ export {
   sendEventReminders,
   onEventCancelled,
 } from "./functions";
+export { joinEventWaitlist, leaveEventWaitlist, onEventSpotsChanged } from "./eventWaitlist";
