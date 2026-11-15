@@ -58,3 +58,5 @@ firebase/functions/lib/
 
 # Node modules
 node_modules/
+.emulator-data/
+.qa/

@@ -98,7 +98,8 @@ service cloud.firestore {
     // Category cover images (set by PULSE operations; shown when an
     // experience has no photo of its own). Readable by every signed-in user.
     match /categoryCovers/{key} {
-      allow read: if user() || isAdmin();
+      // Public catalog imagery: also needed on the sign-in screens.
+      allow read: if true;
       allow write: if false;
     }
 
