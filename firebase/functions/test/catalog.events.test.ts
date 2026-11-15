@@ -3,7 +3,7 @@ import {
   experienceInput, eventInput, phoneCtx, adminCtx, rid, isoIn, ALL_PERMS,
 } from "./catalog.fixtures";
 import {
-  saveExperience, submitExperience, saveEvent, submitEvent, publishEvent, setEventResponsibility, setEventPhase,
+  saveExperience, submitExperience, deleteExperienceDraft, saveEvent, submitEvent, publishEvent, setEventResponsibility, setEventPhase,
   cancelEvent, adminCancelEvent,
 } from "../src/catalog";
 import { applyApprovedRevision } from "../src/catalog/experiences";
@@ -81,6 +81,25 @@ describe("experiences", () => {
     for (const uid of [U.customer, U.viewer, U.revoked]) {
       expect(await codeOf(call(submitExperience, { requestId: rid(), orgId: ORG, experienceId: draft.experienceId }, phoneCtx(uid)))).toBe("NOT_PERMITTED");
     }
+  });
+
+  test("a never-submitted draft can be deleted; submitted, approved or scheduled ones can't", async () => {
+    const del = (experienceId: string, ctx = owner) => call(deleteExperienceDraft, { requestId: rid("del"), orgId: ORG, experienceId }, ctx);
+    const d = await call(saveExperience, experienceInput(), owner);
+    expect(await codeOf(del(d.experienceId, phoneCtx(U.viewer)))).toBe("NOT_PERMITTED");
+    expect(await del(d.experienceId)).toMatchObject({ deleted: true });
+    expect((await db().doc(`experiences/${d.experienceId}`).get()).exists).toBe(false);
+    const audits = await db().collection("auditEvents").where("action", "==", "catalog.experience-draft-deleted").get();
+    expect(audits.size).toBe(1);
+
+    const s = await call(saveExperience, experienceInput(), owner);
+    await call(submitExperience, { requestId: rid(), orgId: ORG, experienceId: s.experienceId }, owner);
+    expect(await codeOf(del(s.experienceId))).toBe("PRECONDITION");
+    expect(await codeOf(del(expId))).toBe("PRECONDITION"); // approved
+    // A draft that already has an event (status forced back for the test).
+    await draftEvent(expId);
+    await db().doc(`experiences/${expId}`).update({ status: "draft" });
+    expect(await codeOf(del(expId))).toBe("PRECONDITION");
   });
 
   test("non-phone (anonymous / email) sign-in is refused", async () => {

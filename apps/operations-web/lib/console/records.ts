@@ -237,6 +237,15 @@ function eligibilityText(source: Data): string {
  * approval: title, category, eligibility, price (₹ from priceMinor),
  * capacity, startsAt, venue and responsibility.primaryUid.
  */
+/** events.capacity: { maxPhysicalCapacity, minParticipants, … } (older docs: { min, max }). */
+export function capacityText(capacity: Data | null): string {
+  if (!capacity) return "—";
+  const max = typeof capacity.maxPhysicalCapacity === "number" ? capacity.maxPhysicalCapacity : capacity.max;
+  const min = typeof capacity.minParticipants === "number" ? capacity.minParticipants : capacity.min;
+  if (typeof max !== "number") return "—";
+  return typeof min === "number" ? `${max} spots · runs with ${min}+` : `${max} spots`;
+}
+
 export function caseTargetFields(kind: string, target: Data | null): KeyField[] {
   if (!target) return [];
   if (kind === "organizer-kyc") {
@@ -271,7 +280,7 @@ export function caseTargetFields(kind: string, target: Data | null): KeyField[] 
   return [
     ...common,
     { label: "Price", value: isMinorAmount(target.priceMinor) ? (target.priceMinor === 0 ? "Free" : formatMoney(target.priceMinor, target.currency)) : "—" },
-    { label: "Capacity", value: capacity ? `${typeof capacity.min === "number" ? `${capacity.min}–` : ""}${typeof capacity.max === "number" ? capacity.max : "?"} spots` : "—" },
+    { label: "Capacity", value: capacityText(capacity) },
     { label: "Starts", value: formatDateTime(target.startsAt) },
     { label: "Duration", value: typeof target.durationMinutes === "number" ? `${target.durationMinutes} min` : "—" },
     { label: "Venue", value: venue ? [text(venue, "name"), text(venue, "area"), text(venue, "city")].filter((v) => v !== "—").join(", ") || "—" : text(target, "location") },

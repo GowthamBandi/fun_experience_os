@@ -301,6 +301,49 @@ export async function submitExperienceCommand(uid: string, data: unknown) {
   }, { authorize: (tx) => requirePermission(uid, orgId, "experiences.submit", { tx }) });
 }
 
+// ------------------------------------------------------ deleteExperienceDraft
+
+/**
+ * Deletes a draft that PULSE never saw: status `draft`, never submitted (no
+ * governance case), not a revision of an approved experience and with no
+ * event. Anything that went to review stays for the record.
+ */
+export async function deleteExperienceDraftCommand(uid: string, data: unknown) {
+  const d = obj(data);
+  const rid = requestId(d.requestId);
+  const orgId = docId(d.orgId, "orgId");
+  const experienceId = docId(d.experienceId, "experienceId");
+
+  return runCommand("catalog.experience-draft-deleted", uid, rid, async (tx) => {
+    const m = await requirePermission(uid, orgId, "experiences.edit", { tx });
+    const ref = experienceRef(experienceId);
+    const snap = await tx.get(ref);
+    if (!snap.exists || snap.data()!.orgId !== orgId) throw notFoundHere("experience");
+    const cur = snap.data()!;
+    if (cur.status !== "draft" || cur.governanceCaseId || cur.submittedAt) {
+      throw precondition("Only drafts that were never sent for review can be deleted.", "Contact PULSE support to remove it.", { status: cur.status });
+    }
+    if (cur.previousVersionId) {
+      throw precondition("This is a change to an approved experience.", "Discard the changes instead.");
+    }
+    const events = await tx.get(db().collection(COLLECTIONS.events).where("experienceId", "==", experienceId).limit(1));
+    if (!events.empty) throw precondition("This experience already has an event.", "Contact PULSE support to remove it.");
+    tx.delete(ref);
+    writeAudit(tx, {
+      action: "catalog.experience-draft-deleted",
+      actorUid: uid,
+      actorRole: actorRole(m),
+      resourceType: "experience",
+      resourceId: experienceId,
+      orgId,
+      before: { status: cur.status, title: cur.title ?? null, category: cur.category ?? null },
+      after: null,
+      requestId: rid,
+    });
+    return { experienceId, deleted: true };
+  }, { authorize: (tx) => requirePermission(uid, orgId, "experiences.edit", { tx }) });
+}
+
 // ------------------------------------------------ revision approval (trigger)
 
 /**
@@ -360,6 +403,11 @@ export const saveExperience = callable(async (data, context) => {
   const uid = requirePhoneUser(context).uid;
   await consumeLimit("catalogSave", uid);
   return saveExperienceCommand(uid, data);
+});
+export const deleteExperienceDraft = callable(async (data, context) => {
+  const uid = requirePhoneUser(context).uid;
+  await consumeLimit("catalogSave", uid);
+  return deleteExperienceDraftCommand(uid, data);
 });
 export const submitExperience = callable(async (data, context) => {
   const uid = requirePhoneUser(context).uid;

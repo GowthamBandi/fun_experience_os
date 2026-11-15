@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { adaptRefund, adaptSettlement, canReissueOrganizerCode, caseTargetFields, displayStatus, refundStage } from "@/lib/console/records";
+import { adaptRefund, adaptSettlement, canReissueOrganizerCode, capacityText, caseTargetFields, displayStatus, refundStage } from "@/lib/console/records";
 import { buildAttentionQueue, formatCount, groupBySeverity, isPrivilegedAudit } from "@/lib/console/attention";
 
 describe("refund stages", () => {
@@ -58,7 +58,10 @@ describe("case target key fields", () => {
     expect(byLabel.Title).toBe("Sunset Trek");
     expect(byLabel.Price).toBe("₹1,499");
     expect(byLabel.Eligibility).toBe("Age 18+ · Women only");
-    expect(byLabel.Capacity).toBe("4–20 spots");
+    expect(byLabel.Capacity).toBe("20 spots · runs with 4+");
+    // The shape saveEvent writes (src/catalog/events.ts).
+    expect(capacityText({ maxPhysicalCapacity: 4, minParticipants: 2, targetParticipants: 4, blockedSlots: 0, compSlots: 0 })).toBe("4 spots · runs with 2+");
+    expect(capacityText(null)).toBe("—");
     expect(byLabel.Venue).toBe("Base Camp, Hills, Pune");
     expect(byLabel["Responsible (primaryUid)"]).toBe("uid_lead");
     expect(byLabel.Starts).not.toBe("—");

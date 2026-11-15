@@ -287,6 +287,8 @@ export interface PreviewModel {
   safety: { label: string; measures: string[] };
   cancellation: { label: string; rules: string[] };
   seed: number;
+  /** The organizer's first photo (the cover customers see), when there is one. */
+  coverUrl: string | null;
   host: string | null;
 }
 
@@ -322,6 +324,7 @@ export function toPreview(e: Raw): PreviewModel {
     safety: { label: (level && SAFETY[level]) || level || "—", measures: list(safety.measures) },
     cancellation: (cancellation && CANCELLATION[cancellation]) || { label: cancellation ?? "—", rules: [] },
     seed: typeof cover.seed === "number" ? cover.seed : 0,
+    coverUrl: Array.isArray(e.mediaUrls) && typeof e.mediaUrls[0] === "string" && /^https?:\/\//.test(e.mediaUrls[0]) ? e.mediaUrls[0] : null,
     host: str(e.organizerName),
   };
 }

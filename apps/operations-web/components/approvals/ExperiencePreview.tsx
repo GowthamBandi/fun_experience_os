@@ -23,108 +23,25 @@ import {
   UsersRound,
 } from "lucide-react";
 import { Badge, PhoneFrame, Tabs } from "@/components/pulse";
-import { artFor, artGradient, toPreview, type ArtPattern, type PreviewModel } from "@/lib/approvals";
+import { artFor, toPreview, type PreviewModel } from "@/lib/approvals";
+import { useLiveDocument } from "@/lib/use-governance";
 import { cn } from "@/lib/format";
 import { categoryEmoji } from "@/lib/overview";
 
-/** Deterministic 0..1 sequence so the art is stable for a cover seed. */
-function rng(seed: number) {
-  let s = (seed * 9301 + 49297) >>> 0;
-  return () => (s = (s * 1664525 + 1013904223) >>> 0) / 2 ** 32;
-}
-
-function Pattern({ pattern, seed }: { pattern: ArtPattern; seed: number }) {
-  const r = rng(seed);
-  const W = 340;
-  const H = 320;
-  const stroke = { fill: "none", stroke: "rgba(255,255,255,.18)", strokeWidth: 1.4 };
-  const fill = "rgba(255,255,255,.10)";
-  let body: ReactNode = null;
-  switch (pattern) {
-    case "court": {
-      const x = W * 0.08, y = H * 0.12, w = W * 0.84, h = H * 0.76;
-      body = (
-        <g {...stroke}>
-          <rect x={x} y={y} width={w} height={h} />
-          <line x1={W / 2} y1={y} x2={W / 2} y2={y + h} />
-          <circle cx={W / 2} cy={H / 2} r={Math.min(W, H) * 0.12} />
-          <rect x={x} y={H / 2 - h * 0.2} width={w * 0.14} height={h * 0.4} />
-          <rect x={x + w - w * 0.14} y={H / 2 - h * 0.2} width={w * 0.14} height={h * 0.4} />
-        </g>
-      );
-      break;
-    }
-    case "rings": {
-      const cx = W * (0.2 + r() * 0.2), cy = H * 0.75;
-      body = Array.from({ length: 9 }, (_, i) => (
-        <circle key={i} cx={cx} cy={cy} r={(i + 1) * Math.max(W, H) * 0.09} fill="none" stroke={`rgba(255,255,255,${0.22 - (i + 1) * 0.018})`} strokeWidth={1.4} />
-      ));
-      break;
-    }
-    case "contours":
-      body = Array.from({ length: 9 }, (_, i) => {
-        const base = H * (0.15 + i * 0.1);
-        const amp = 6 + r() * 10;
-        const phase = r() * Math.PI * 2;
-        const pts = Array.from({ length: 25 }, (_, k) => `${(W / 24) * k},${base + Math.sin(k / 3 + phase) * amp}`).join(" ");
-        return <polyline key={i} points={pts} {...stroke} />;
-      });
-      break;
-    case "film":
-      body = (
-        <g>
-          {[H * 0.06, H * 0.9].flatMap((y) =>
-            Array.from({ length: 11 }, (_, k) => <rect key={`${y}-${k}`} x={W * 0.02 + (W / 11) * k} y={y} width={W / 22} height={H * 0.05} rx={3} fill="rgba(255,255,255,.14)" />),
-          )}
-          <rect x={W * 0.12} y={H * 0.22} width={W * 0.76} height={H * 0.56} rx={10} {...stroke} />
-        </g>
-      );
-      break;
-    case "orbits":
-      body = Array.from({ length: 7 }, (_, i) => {
-        const radius = (0.08 + r() * 0.16) * Math.max(W, H);
-        return <circle key={i} cx={r() * W} cy={r() * H} r={radius} {...(i % 2 === 0 ? { fill } : stroke)} />;
-      });
-      break;
-    case "waves":
-      body = Array.from({ length: 6 }, (_, i) => {
-        const b = H * (0.35 + i * 0.11);
-        return <path key={i} d={`M0 ${b} Q ${W * 0.25} ${b - H * 0.08} ${W * 0.5} ${b} T ${W} ${b}`} {...stroke} />;
-      });
-      break;
-    case "dots": {
-      const dots: ReactNode[] = [];
-      for (let y = H * 0.08, j = 0; y < H; y += H / 10, j++) for (let x = W * 0.06, k = 0; x < W; x += W / 12, k++) dots.push(<circle key={`${j}-${k}`} cx={x} cy={y} r={1.5 + r() * 3} fill={fill} />);
-      body = dots;
-      break;
-    }
-    case "grid": {
-      const step = Math.max(W, H) / 12;
-      body = (
-        <g stroke="rgba(255,255,255,.18)" strokeWidth={0.8}>
-          {Array.from({ length: 13 }, (_, i) => <line key={`v${i}`} x1={i * step} y1={0} x2={i * step} y2={H} />)}
-          {Array.from({ length: 13 }, (_, i) => <line key={`h${i}`} x1={0} y1={i * step} x2={W} y2={i * step} />)}
-        </g>
-      );
-      break;
-    }
-  }
-  return (
-    <svg aria-hidden viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice" className="absolute inset-0 h-full w-full">
-      {body}
-    </svg>
-  );
-}
-
-/** The app's ExperienceArt: generated gradient + pattern + faint category glyph + bottom scrim. */
+/**
+ * The cover as the app shows it: the organizer's first photo, else the
+ * category cover set on the Categories page, else a plain gradient (the app
+ * ships no images of its own).
+ */
 function Art({ p, className, children }: { p: PreviewModel; className?: string; children?: ReactNode }) {
-  const art = artFor(p.category);
+  const categoryCover = useLiveDocument(p.coverUrl ? null : "categoryCovers", p.category);
+  const url = p.coverUrl ?? (typeof categoryCover.data?.url === "string" ? categoryCover.data.url : null);
   return (
-    <div className={cn("relative overflow-hidden", className)} style={{ background: artGradient(p.category, p.seed) }}>
-      <Pattern pattern={art.pattern} seed={p.seed} />
-      <span aria-hidden className="absolute right-[6%] top-[14%] select-none text-[120px] leading-none opacity-[.16] [filter:grayscale(1)_brightness(4)]">
-        {categoryEmoji(p.category)}
-      </span>
+    <div className={cn("relative overflow-hidden bg-[linear-gradient(160deg,#2a2540,#14121f)]", className)}>
+      {url ? (
+        // eslint-disable-next-line @next/next/no-img-element -- Storage URL, shown as uploaded
+        <img src={url} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      ) : null}
       <span aria-hidden className="absolute inset-0 bg-[linear-gradient(180deg,rgba(11,10,18,0)_35%,rgba(11,10,18,.9)_100%)]" />
       {children}
     </div>

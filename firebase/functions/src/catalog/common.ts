@@ -53,6 +53,14 @@ export async function runCommand<T extends Json>(
 export const iso = (t: unknown): string | null =>
   t instanceof Timestamp ? t.toDate().toISOString() : null;
 
+/** "Wed, 18 Nov, 7:00 AM IST" for people reading a case (never raw UTC). */
+export const istLabel = (t: unknown): string =>
+  t instanceof Timestamp
+    ? new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" })
+        .format(t.toDate())
+        .replace(/\b(am|pm)\b/g, (m) => m.toUpperCase()) + " IST"
+    : "an unset date";
+
 export function parseInstant(value: unknown, name: string): Timestamp {
   if (typeof value !== "string" || value.length > 40) throw new DomainError("INVALID_INPUT", `${name} is required.`);
   // ISO-8601 with an explicit offset or Z; a local time without zone is ambiguous.

@@ -182,6 +182,8 @@ function Queue() {
     const outcome: CaseOutcome | null = k === "a" ? "approved" : k === "c" ? "information-requested" : k === "r" ? "rejected" : null;
     if (outcome && permitted && selected && isOpenCase(selected.raw)) {
       e.preventDefault();
+      // The detail disables Approve while a host's documents are missing.
+      if (outcome === "approved" && document.querySelector<HTMLButtonElement>("[data-testid=approve-button]")?.disabled) return;
       openDecision(outcome);
     }
   };

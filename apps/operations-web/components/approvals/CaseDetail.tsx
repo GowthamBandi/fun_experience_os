@@ -277,6 +277,13 @@ export function CaseDetail({
   const decision = raw.decision && typeof raw.decision === "object" ? (raw.decision as Raw) : null;
   const previousDecision = raw.previousDecision && typeof raw.previousDecision === "object" ? (raw.previousDecision as Raw) : null;
   const isKyc = kind === "organizer-kyc";
+  // Approving a host needs the required documents (the server refuses too).
+  const kycDocs = useLiveDocument(isKyc && target.collection === "organizerApplications" ? "kycDocuments" : null, target.id);
+  const kycOnFile = (kycDocs.data?.documents && typeof kycDocs.data.documents === "object" ? kycDocs.data.documents : {}) as Record<string, Raw>;
+  const kycMissing = isKyc && live.data
+    ? KYC_SLOTS.filter((s) => s.required(str(live.data!.kind)) && !kycOnFile[s.key])
+    : [];
+  const approveBlocked = isKyc && (kycDocs.loading || kycMissing.length > 0);
 
   let body: ReactNode;
   if (!target.collection || !target.id) body = null;
@@ -400,7 +407,14 @@ export function CaseDetail({
               <Button variant="ghost" onClick={() => onAction("information-requested")} aria-keyshortcuts="C">
                 Request changes <Key className="border-line text-text-2">C</Key>
               </Button>
-              <Button variant="volt" onClick={() => onAction("approved")} aria-keyshortcuts="A">
+              <Button
+                variant="volt"
+                onClick={() => onAction("approved")}
+                aria-keyshortcuts="A"
+                disabled={approveBlocked}
+                title={approveBlocked && kycMissing.length ? `Waiting for: ${kycMissing.map((m) => m.label).join(", ")}` : undefined}
+                data-testid="approve-button"
+              >
                 {isKyc ? "Approve host" : "Approve"} <Key className="border-[rgba(20,22,11,0.35)] bg-[rgba(20,22,11,0.1)] text-on-volt">A</Key>
               </Button>
             </>

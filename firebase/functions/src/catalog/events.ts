@@ -39,7 +39,7 @@ import { requirePermission, actorRole } from "../access/permissions";
 import { EMPTY_OCCUPANCY, type OccupancyCounters } from "../domain/capacity";
 import { experienceRisk, type ExperienceContent } from "./experiences";
 import {
-  assertResponsibility, eventRef, experienceRef, iso, notFoundHere, num, organizerName, organizerRef,
+  assertResponsibility, eventRef, experienceRef, iso, istLabel, notFoundHere, num, organizerName, organizerRef,
   parseInstant, runCommand, uidList, type Json,
 } from "./common";
 
@@ -353,7 +353,7 @@ export async function submitEventCommand(uid: string, data: unknown) {
       projectedGmvMinor: (ev.priceMinor as number) * sellable,
       currency: ev.currency,
       displayValue: `${sellable} places`,
-      summary: `${ev.activity} on ${iso(ev.startsAt)}`,
+      summary: `${ev.activity} on ${istLabel(ev.startsAt)}`,
       submittedBy: uid,
       createdAt: now,
       updatedAt: now,

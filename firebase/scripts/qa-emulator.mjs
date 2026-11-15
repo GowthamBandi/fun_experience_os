@@ -54,8 +54,8 @@ const rid = (p) => `${p}-${Date.now().toString(36)}-${Math.random().toString(36)
 
 async function draftFree(phone = "+919000000001") {
   const s = await session(phone);
-  const m = await db.collection("memberships").where("uid", "==", s.uid).where("role", "==", "owner").limit(1).get();
-  const orgId = m.docs[0].data().orgId;
+  const m = await db.collection("memberships").where("uid", "==", s.uid).get();
+  const orgId = m.docs.map((d) => d.data()).find((d) => d.role === "owner").orgId;
   const exp = await call("saveExperience", s, {
     requestId: rid("qa-exp"), orgId,
     title: "Free Sunday Nets", tagline: "", category: "sports", activity: "Cricket nets", format: "Solo spot",
