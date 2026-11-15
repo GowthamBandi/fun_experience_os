@@ -84,6 +84,7 @@ export const COLLECTIONS = {
   /** Canonical marketplace model (ADR-0003). */
   publicProfiles: "publicProfiles",
   customerSafety: "customerSafety",
+  userBlocks: "userBlocks",
   organizerApplications: "organizerApplications",
   organizerActivations: "organizerActivations",
   memberships: "memberships",

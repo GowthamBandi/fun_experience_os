@@ -85,3 +85,23 @@ describe("support requests", () => {
     void Timestamp;
   });
 });
+
+describe("blocking an organizer", () => {
+  const block = (uid: string, orgId: string, blocked: boolean) =>
+    call<{ orgId: string; blocked: boolean }>(support.setOrganizerBlock, { orgId, blocked }, phoneCtx(uid));
+
+  test("block, block again (no duplicate), unblock; unknown organizers are refused", async () => {
+    const uid = uniq("cust");
+    const orgId = uniq("org");
+    await db().doc(`organizers/${orgId}`).set({ status: "active", displayName: "Loud Club" });
+    expect(await block(uid, orgId, true)).toEqual({ orgId, blocked: true });
+    await block(uid, orgId, true);
+    expect((await db().doc(`userBlocks/${uid}`).get()).data()).toMatchObject({ uid, orgIds: [orgId] });
+    await block(uid, orgId, false);
+    expect((await db().doc(`userBlocks/${uid}`).get()).data()!.orgIds).toEqual([]);
+    expect(await callCode(support.setOrganizerBlock, { orgId: uniq("missing"), blocked: true }, phoneCtx(uid))).toBe("NOT_FOUND");
+    expect(await callCode(support.setOrganizerBlock, { orgId, blocked: "yes" }, phoneCtx(uid))).toBe("INVALID_INPUT");
+    const audits = await db().collection("auditEvents").where("resourceId", "==", orgId).get();
+    expect(audits.docs.map((d) => d.data().action).sort()).toEqual(["trust.organizer-blocked", "trust.organizer-blocked", "trust.organizer-unblocked"]);
+  });
+});

@@ -125,6 +125,12 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Organizers a person blocked: only they read it; written by setOrganizerBlock.
+    match /userBlocks/{ownerUid} {
+      allow get: if user() && ownerUid == uid();
+      allow list, write: if false;
+    }
+
     // Support conversations: the person who opened one reads it; written
     // only by submitSupportRequest / addSupportMessage / respondSupportRequest.
     match /supportRequests/{id} {

@@ -70,6 +70,7 @@ export async function deleteMyAccount(actor: PhoneActor) {
     firestore.collection(COLLECTIONS.users).doc(actor.uid),
     firestore.collection(COLLECTIONS.publicProfiles).doc(actor.uid),
     firestore.collection(COLLECTIONS.customerSafety).doc(actor.uid),
+    firestore.collection(COLLECTIONS.userBlocks).doc(actor.uid),
     ...inbox.docs.map((d) => d.ref),
   ];
   const application = await firestore.collection(COLLECTIONS.organizerApplications).doc(actor.uid).get();

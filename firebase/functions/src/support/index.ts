@@ -3,6 +3,8 @@
 import { callable, docId, obj, oneOf, optStr, requestId } from "../platform/callable";
 import { requirePhoneUser } from "../platform/actors";
 import { requireAdmin } from "../platform/auth";
+import { bool } from "../catalog/common";
+import { setOrganizerBlock as setOrganizerBlockSvc } from "./blocks";
 import {
   SUPPORT_STATUSES, addSupportMessage as addSupportMessageSvc, parseSubmitSupport, respondSupportRequest as respondSvc,
   submitSupportRequest as submitSvc,
@@ -19,6 +21,13 @@ export const addSupportMessage = callable(async (data, context) => {
   const uid = requirePhoneUser(context).uid;
   const d = obj(data);
   return addSupportMessageSvc(uid, { id: docId(d.id, "id"), message: typeof d.message === "string" ? d.message : "" });
+});
+
+/** PULSE: block or unblock an organizer for yourself (support/blocks.ts). */
+export const setOrganizerBlock = callable(async (data, context) => {
+  const uid = requirePhoneUser(context).uid;
+  const d = obj(data);
+  return setOrganizerBlockSvc(uid, docId(d.orgId, "orgId"), bool(d.blocked, "blocked"));
 });
 
 /** Console: reply and/or change status. */

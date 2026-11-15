@@ -239,6 +239,14 @@ describe("event-day, waitlist, support and agreements (2026-11-14)", () => {
     await assertFails(getDoc(doc(phoneUser(u.other), `eventWaitlist/ev1__${u.cust}`)));
   });
 
+  test("userBlocks: only the person reads their own list; nobody writes it", async () => {
+    await seed(`userBlocks/${u.cust}`, { uid: u.cust, orgIds: [ORG] });
+    await assertSucceeds(getDoc(doc(phoneUser(u.cust), `userBlocks/${u.cust}`)));
+    await assertFails(getDoc(doc(phoneUser(u.other), `userBlocks/${u.cust}`)));
+    await assertFails(getDoc(doc(phoneUser(u.owner), `userBlocks/${u.cust}`)));
+    await assertFails(setDoc(doc(phoneUser(u.cust), `userBlocks/${u.cust}`), { orgIds: [] }));
+  });
+
   test("eventDays: the event team reads it; customers don't; nobody writes", async () => {
     await seed(`eventDays/ev-${ORG}`, { orgId: ORG, eventId: `ev-${ORG}`, teams: {} });
     await assertSucceeds(getDoc(doc(phoneUser(u.owner), `eventDays/ev-${ORG}`)));
