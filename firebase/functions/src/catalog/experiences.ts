@@ -26,6 +26,7 @@ import { COLLECTIONS, db, serverNow, type Timestamp } from "../platform/firestor
 import { writeAudit } from "../platform/audit";
 import { requirePermission, actorRole } from "../access/permissions";
 import { CATEGORY_KEYS, GENDER_RULES, categoryRisk, validateCategoryConfig, type GenderRule } from "./categories";
+import { parseAgreementVersion, requireAgreement } from "./agreement";
 import { bool, experienceRef, notFoundHere, organizerName, organizerRef, runCommand, type Json } from "./common";
 
 export const CANCELLATION_POLICIES = ["flexible", "moderate", "strict"] as const;
@@ -248,9 +249,11 @@ export async function submitExperienceCommand(uid: string, data: unknown) {
   const rid = requestId(d.requestId);
   const orgId = docId(d.orgId, "orgId");
   const experienceId = docId(d.experienceId, "experienceId");
+  const agreementVersion = parseAgreementVersion(d.agreementVersion);
 
   return runCommand("catalog.experience-submitted", uid, rid, async (tx, now) => {
     const m = await requirePermission(uid, orgId, "experiences.submit", { tx });
+    const agreement = requireAgreement(agreementVersion, uid, now);
     const ref = experienceRef(experienceId);
     const snap = await tx.get(ref);
     if (!snap.exists || snap.data()!.orgId !== orgId) throw notFoundHere("experience");
@@ -285,7 +288,7 @@ export async function submitExperienceCommand(uid: string, data: unknown) {
       createdAt: now,
       updatedAt: now,
     });
-    tx.update(ref, { status: "submitted", submittedAt: now, governanceCaseId: caseRef.id, version: (cur.version ?? 0) + 1, updatedAt: now, updatedBy: uid });
+    tx.update(ref, { status: "submitted", submittedAt: now, governanceCaseId: caseRef.id, organizerAgreement: agreement, version: (cur.version ?? 0) + 1, updatedAt: now, updatedBy: uid });
     writeAudit(tx, {
       action: "catalog.experience-submitted",
       actorUid: uid,
@@ -294,7 +297,7 @@ export async function submitExperienceCommand(uid: string, data: unknown) {
       resourceId: experienceId,
       orgId,
       before: { status: cur.status },
-      after: { status: "submitted", governanceCaseId: caseRef.id, risk },
+      after: { status: "submitted", governanceCaseId: caseRef.id, risk, agreementVersion: agreement.version },
       requestId: rid,
     });
     return { experienceId, status: "submitted", caseId: caseRef.id };

@@ -79,7 +79,7 @@ describe("experiences", () => {
     }
     const draft = await call(saveExperience, experienceInput(), owner);
     for (const uid of [U.customer, U.viewer, U.revoked]) {
-      expect(await codeOf(call(submitExperience, { requestId: rid(), orgId: ORG, experienceId: draft.experienceId }, phoneCtx(uid)))).toBe("NOT_PERMITTED");
+      expect(await codeOf(call(submitExperience, { agreementVersion: "ORG-EVENT-1.0", requestId: rid(), orgId: ORG, experienceId: draft.experienceId }, phoneCtx(uid)))).toBe("NOT_PERMITTED");
     }
   });
 
@@ -93,13 +93,29 @@ describe("experiences", () => {
     expect(audits.size).toBe(1);
 
     const s = await call(saveExperience, experienceInput(), owner);
-    await call(submitExperience, { requestId: rid(), orgId: ORG, experienceId: s.experienceId }, owner);
+    await call(submitExperience, { agreementVersion: "ORG-EVENT-1.0", requestId: rid(), orgId: ORG, experienceId: s.experienceId }, owner);
     expect(await codeOf(del(s.experienceId))).toBe("PRECONDITION");
     expect(await codeOf(del(expId))).toBe("PRECONDITION"); // approved
     // A draft that already has an event (status forced back for the test).
     await draftEvent(expId);
     await db().doc(`experiences/${expId}`).update({ status: "draft" });
     expect(await codeOf(del(expId))).toBe("PRECONDITION");
+  });
+
+  test("submitting needs the current Organizer Event Agreement; acceptance is recorded", async () => {
+    const d = await call(saveExperience, experienceInput(), owner);
+    const sub = (agreementVersion?: string) =>
+      call(submitExperience, { requestId: rid(), orgId: ORG, experienceId: d.experienceId, ...(agreementVersion ? { agreementVersion } : {}) }, owner);
+    expect(await codeOf(sub())).toBe("INVALID_INPUT");
+    expect(await messageOf(sub("ORG-EVENT-0.9"))).toMatch(/Organizer Event Agreement/);
+    await sub("ORG-EVENT-1.0");
+    const doc = (await db().doc(`experiences/${d.experienceId}`).get()).data()!;
+    expect(doc.organizerAgreement).toMatchObject({ version: "ORG-EVENT-1.0", acceptedBy: U.owner });
+    // Events need it too.
+    const evId = await draftEvent(expId);
+    expect(await codeOf(call(submitEvent, { agreementVersion: "ORG-EVENT-0.1", requestId: rid(), orgId: ORG, eventId: evId }, owner))).toBe("PRECONDITION");
+    await call(submitEvent, { agreementVersion: "ORG-EVENT-1.0", requestId: rid(), orgId: ORG, eventId: evId }, owner);
+    expect((await db().doc(`events/${evId}`).get()).data()!.organizerAgreement.version).toBe("ORG-EVENT-1.0");
   });
 
   test("non-phone (anonymous / email) sign-in is refused", async () => {
@@ -109,7 +125,7 @@ describe("experiences", () => {
 
   test("submit creates an experience-approval governance case with derived risk", async () => {
     const d = await call(saveExperience, experienceInput({ category: "trips", idRequired: true, config: { pickupPoint: "Ameerpet metro", overnight: true } }), owner);
-    const s = await call(submitExperience, { requestId: rid(), orgId: ORG, experienceId: d.experienceId }, phoneCtx(U.manager));
+    const s = await call(submitExperience, { agreementVersion: "ORG-EVENT-1.0", requestId: rid(), orgId: ORG, experienceId: d.experienceId }, phoneCtx(U.manager));
     expect(s.status).toBe("submitted");
     const c = (await db().doc(`governanceCases/${s.caseId}`).get()).data()!;
     expect(c).toMatchObject({
@@ -119,7 +135,7 @@ describe("experiences", () => {
     // submitted is locked
     expect(await codeOf(call(saveExperience, experienceInput({ experienceId: d.experienceId }), owner))).toBe("PRECONDITION");
     const low = await call(saveExperience, experienceInput({ safety: { level: "low", measures: [] } }), owner);
-    const s2 = await call(submitExperience, { requestId: rid(), orgId: ORG, experienceId: low.experienceId }, owner);
+    const s2 = await call(submitExperience, { agreementVersion: "ORG-EVENT-1.0", requestId: rid(), orgId: ORG, experienceId: low.experienceId }, owner);
     expect((await db().doc(`governanceCases/${s2.caseId}`).get()).data()!.risk).toBe("low");
   });
 
@@ -134,7 +150,7 @@ describe("experiences", () => {
     const r2 = await call(saveExperience, experienceInput({ experienceId: expId, title: "Sunday Football v3" }), owner);
     expect(r2.experienceId).toBe(r.experienceId);
     // submitting then approving (as governance would) merges into the original id
-    await call(submitExperience, { requestId: rid(), orgId: ORG, experienceId: r.experienceId }, owner);
+    await call(submitExperience, { agreementVersion: "ORG-EVENT-1.0", requestId: rid(), orgId: ORG, experienceId: r.experienceId }, owner);
     expect(await codeOf(call(saveExperience, experienceInput({ experienceId: expId }), owner))).toBe("PRECONDITION");
     await db().doc(`experiences/${r.experienceId}`).update({ status: "approved" });
     // Where the Functions emulator runs (CI), onExperienceRevisionApproved may
@@ -151,7 +167,7 @@ describe("experiences", () => {
     "approving a revision merges content but never re-approves a %s original",
     async (governance) => {
       const r = await call(saveExperience, experienceInput({ experienceId: expId, title: "Sunday Football v2" }), owner);
-      await call(submitExperience, { requestId: rid(), orgId: ORG, experienceId: r.experienceId }, owner);
+      await call(submitExperience, { agreementVersion: "ORG-EVENT-1.0", requestId: rid(), orgId: ORG, experienceId: r.experienceId }, owner);
       // An operator took the original down while the revision was in review.
       await db().doc(`experiences/${expId}`).update({ status: governance });
       await db().doc(`experiences/${r.experienceId}`).update({ status: "approved" });
@@ -257,8 +273,8 @@ describe("events", () => {
     expect(await codeOf(call(saveEvent, eventInput(expId, { eventId: b }), phoneCtx(U.leadA)))).toBe("NOT_PERMITTED");
     expect(await codeOf(call(saveEvent, eventInput(expId), phoneCtx(U.leadA)))).toBe("NOT_PERMITTED"); // can't create new
     expect(await codeOf(call(saveEvent, eventInput(expId, { eventId: eventA, priceMinor: 100 }), phoneCtx(U.leadA)))).toBe("RESOLVED");
-    expect(await codeOf(call(submitEvent, { requestId: rid(), orgId: ORG, eventId: b }, phoneCtx(U.leadA)))).toBe("NOT_PERMITTED");
-    expect(await codeOf(call(submitEvent, { requestId: rid(), orgId: ORG, eventId: eventA }, phoneCtx(U.leadA)))).toBe("RESOLVED");
+    expect(await codeOf(call(submitEvent, { agreementVersion: "ORG-EVENT-1.0", requestId: rid(), orgId: ORG, eventId: b }, phoneCtx(U.leadA)))).toBe("NOT_PERMITTED");
+    expect(await codeOf(call(submitEvent, { agreementVersion: "ORG-EVENT-1.0", requestId: rid(), orgId: ORG, eventId: eventA }, phoneCtx(U.leadA)))).toBe("RESOLVED");
     // cross-org: an owner of another org can't touch this org's event even naming their own org
     await seedOrg(OTHER_ORG, U.otherOwner);
     expect(await codeOf(call(saveEvent, eventInput(expId, { orgId: OTHER_ORG, eventId: b }), phoneCtx(U.otherOwner)))).toBe("NOT_FOUND");
@@ -266,11 +282,11 @@ describe("events", () => {
 
   test("submitEvent creates an event-approval case; submitted is locked", async () => {
     const id = await draftEvent(expId);
-    const s = await call(submitEvent, { requestId: rid(), orgId: ORG, eventId: id }, owner);
+    const s = await call(submitEvent, { agreementVersion: "ORG-EVENT-1.0", requestId: rid(), orgId: ORG, eventId: id }, owner);
     const c = (await db().doc(`governanceCases/${s.caseId}`).get()).data()!;
     expect(c).toMatchObject({ kind: "event-approval", targetId: id, targetCollection: "events", orgId: ORG, status: "pending", version: 0, subject: "Sunday 5-a-side Football", projectedGmvMinor: 49_900 * 20 });
     expect(await codeOf(call(saveEvent, eventInput(expId, { eventId: id }), owner))).toBe("PRECONDITION");
-    expect(await codeOf(call(submitEvent, { requestId: rid(), orgId: ORG, eventId: id }, owner))).toBe("PRECONDITION");
+    expect(await codeOf(call(submitEvent, { agreementVersion: "ORG-EVENT-1.0", requestId: rid(), orgId: ORG, eventId: id }, owner))).toBe("PRECONDITION");
   });
 
   test("publish happy path snapshots commissionBps and agreement id", async () => {
@@ -464,7 +480,7 @@ describe("events", () => {
 
   test("cancelling a submitted event also closes its pending governance case", async () => {
     const id = await draftEvent(expId);
-    const s = await call(submitEvent, { requestId: rid(), orgId: ORG, eventId: id }, owner);
+    const s = await call(submitEvent, { agreementVersion: "ORG-EVENT-1.0", requestId: rid(), orgId: ORG, eventId: id }, owner);
     await call(cancelEvent, { requestId: rid(), orgId: ORG, eventId: id, reason: "Changed our plans entirely" }, owner);
     expect((await db().doc(`governanceCases/${s.caseId}`).get()).data()!.status).toBe("cancelled");
   });

@@ -38,6 +38,7 @@ import { writeAudit } from "../platform/audit";
 import { requirePermission, actorRole } from "../access/permissions";
 import { EMPTY_OCCUPANCY, type OccupancyCounters } from "../domain/capacity";
 import { experienceRisk, type ExperienceContent } from "./experiences";
+import { parseAgreementVersion, requireAgreement } from "./agreement";
 import {
   assertResponsibility, eventRef, experienceRef, iso, istLabel, notFoundHere, num, organizerName, organizerRef,
   parseInstant, runCommand, uidList, type Json,
@@ -315,8 +316,10 @@ export async function submitEventCommand(uid: string, data: unknown) {
   const rid = requestId(d.requestId);
   const orgId = docId(d.orgId, "orgId");
   const eventId = docId(d.eventId, "eventId");
+  const agreementVersion = parseAgreementVersion(d.agreementVersion);
   return runCommand("catalog.event-submitted", uid, rid, async (tx, now) => {
     const m = await requirePermission(uid, orgId, "events.submit", { tx, eventId });
+    const agreement = requireAgreement(agreementVersion, uid, now);
     const { ref, ev } = await loadEvent(tx, orgId, eventId);
     if (ev.status !== "draft" && ev.status !== "changes-requested") {
       throw precondition("Only draft events can be sent for review.", undefined, { status: ev.status });
@@ -358,10 +361,10 @@ export async function submitEventCommand(uid: string, data: unknown) {
       createdAt: now,
       updatedAt: now,
     });
-    tx.update(ref, { status: "submitted", submittedAt: now, governanceCaseId: caseRef.id, version: ((ev.version as number) ?? 0) + 1, updatedAt: now, updatedBy: uid });
+    tx.update(ref, { status: "submitted", submittedAt: now, governanceCaseId: caseRef.id, organizerAgreement: agreement, version: ((ev.version as number) ?? 0) + 1, updatedAt: now, updatedBy: uid });
     writeAudit(tx, {
       action: "catalog.event-submitted", actorUid: uid, actorRole: actorRole(m), resourceType: "event", resourceId: eventId, orgId,
-      before: { status: ev.status }, after: { status: "submitted", governanceCaseId: caseRef.id, risk }, requestId: rid,
+      before: { status: ev.status }, after: { status: "submitted", governanceCaseId: caseRef.id, risk, agreementVersion: agreement.version }, requestId: rid,
     });
     return { eventId, status: "submitted", caseId: caseRef.id };
   }, { authorize: (tx) => requirePermission(uid, orgId, "events.submit", { tx, eventId }) });

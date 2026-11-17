@@ -262,7 +262,7 @@ export function experienceInput(orgId: string, over: Record<string, unknown> = {
 
 export async function approvedExperience(owner: Person, orgId: string, over: Record<string, unknown> = {}) {
   const saved = await call(catalog.saveExperience, experienceInput(orgId, over), owner.ctx);
-  const submitted = await call(catalog.submitExperience, { requestId: rid("sx"), orgId, experienceId: saved.experienceId }, owner.ctx);
+  const submitted = await call(catalog.submitExperience, { agreementVersion: "ORG-EVENT-1.0", requestId: rid("sx"), orgId, experienceId: saved.experienceId }, owner.ctx);
   await approveCase(String(submitted.caseId));
   return String(saved.experienceId);
 }
@@ -290,7 +290,7 @@ export function eventInput(orgId: string, experienceId: string, primaryUid: stri
 export async function publishedEvent(owner: Person, orgId: string, experienceId: string, over: Record<string, unknown> = {}) {
   const saved = await call(catalog.saveEvent, eventInput(orgId, experienceId, owner.uid, over), owner.ctx);
   const eventId = String(saved.eventId);
-  const sub = await call(catalog.submitEvent, { requestId: rid("se"), orgId, eventId }, owner.ctx);
+  const sub = await call(catalog.submitEvent, { agreementVersion: "ORG-EVENT-1.0", requestId: rid("se"), orgId, eventId }, owner.ctx);
   await approveCase(String(sub.caseId));
   await call(catalog.publishEvent, { requestId: rid("pe"), orgId, eventId }, owner.ctx);
   return eventId;

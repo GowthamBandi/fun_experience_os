@@ -87,7 +87,7 @@ async function liveTrip(over: Record<string, unknown> = {}, commissionBps: numbe
   await seedOrg(orgId, owner, { [`${owner}-lead`]: ["events.operate"] }, commissionBps);
   const hostTripId = uniq("ht");
   await call(trips.saveTripDraft, { requestId: rid(), orgId, hostTripId, draft: draft(hostTripId, over) }, phoneCtx(owner));
-  await call(trips.submitTrip, { requestId: rid(), orgId, hostTripId }, phoneCtx(owner));
+  await call(trips.submitTrip, { agreementVersion: "ORG-EVENT-1.0", requestId: rid(), orgId, hostTripId }, phoneCtx(owner));
   const v = (await db().doc(`tripDrafts/${hostTripId}`).get()).data()!.version;
   const r = await call<{ tripId: string; status: string }>(trips.reviewTrip, { requestId: rid(), hostTripId, expectedVersion: v, outcome: "approved", note: "" }, adminCtx("ops-1"));
   expect(r.status).toBe("live");
@@ -143,7 +143,7 @@ describe("organizer drafts and review", () => {
     await seedOrg(orgId, owner);
     const hostTripId = uniq("ht");
     await call(trips.saveTripDraft, { requestId: rid(), orgId, hostTripId, draft: { title: "Half" } }, phoneCtx(owner));
-    const e = await callErr(trips.submitTrip, { requestId: rid(), orgId, hostTripId }, phoneCtx(owner));
+    const e = await callErr(trips.submitTrip, { agreementVersion: "ORG-EVENT-1.0", requestId: rid(), orgId, hostTripId }, phoneCtx(owner));
     expect(e.code).toBe("PRECONDITION");
     expect(e.message).toMatch(/Basics/);
   });
@@ -163,7 +163,7 @@ describe("organizer drafts and review", () => {
     await seedOrg(orgId, owner);
     const hostTripId = uniq("ht");
     await call(trips.saveTripDraft, { requestId: rid(), orgId, hostTripId, draft: draft(hostTripId) }, phoneCtx(owner));
-    await call(trips.submitTrip, { requestId: rid(), orgId, hostTripId }, phoneCtx(owner));
+    await call(trips.submitTrip, { agreementVersion: "ORG-EVENT-1.0", requestId: rid(), orgId, hostTripId }, phoneCtx(owner));
     const v = (await db().doc(`tripDrafts/${hostTripId}`).get()).data()!.version;
     expect(await callCode(trips.reviewTrip, { requestId: rid(), hostTripId, expectedVersion: v, outcome: "changes-requested", note: "no" }, adminCtx("ops-1"))).toBe("INVALID_INPUT");
     expect(await callCode(trips.reviewTrip, { requestId: rid(), hostTripId, expectedVersion: v - 1, outcome: "rejected", note: "Permits are missing here." }, adminCtx("ops-1"))).toBe("CONFLICT");
@@ -172,7 +172,7 @@ describe("organizer drafts and review", () => {
     expect((await db().doc(`tripDrafts/${hostTripId}`).get()).data()).toMatchObject({ status: "changes-requested", reviewerNote: "Add the exact pickup landmark." });
     // Editable again, and resubmittable.
     await call(trips.saveTripDraft, { requestId: rid(), orgId, hostTripId, draft: draft(hostTripId, { tagline: "Fixed" }) }, phoneCtx(owner));
-    expect((await call(trips.submitTrip, { requestId: rid(), orgId, hostTripId }, phoneCtx(owner))).status).toBe("in-review");
+    expect((await call(trips.submitTrip, { agreementVersion: "ORG-EVENT-1.0", requestId: rid(), orgId, hostTripId }, phoneCtx(owner))).status).toBe("in-review");
   });
 
   test("a live trip's revision keeps seat counters and the old version on sale until approved", async () => {
@@ -181,7 +181,7 @@ describe("organizer drafts and review", () => {
     await book(w, cust);
     await call(trips.saveTripDraft, { requestId: rid(), orgId: w.orgId, hostTripId: w.hostTripId, draft: draft(w.hostTripId, { title: "Coorg coffee trails v2" }), forLive: true }, phoneCtx(w.owner));
     expect((await db().doc(`trips/${w.tripId}`).get()).data()!.title).toBe("Coorg coffee trails");
-    await call(trips.submitTrip, { requestId: rid(), orgId: w.orgId, hostTripId: w.hostTripId }, phoneCtx(w.owner));
+    await call(trips.submitTrip, { agreementVersion: "ORG-EVENT-1.0", requestId: rid(), orgId: w.orgId, hostTripId: w.hostTripId }, phoneCtx(w.owner));
     const v = (await db().doc(`tripDrafts/${w.hostTripId}`).get()).data()!.version;
     await call(trips.reviewTrip, { requestId: rid(), hostTripId: w.hostTripId, expectedVersion: v, outcome: "approved", note: "" }, adminCtx("ops-1"));
     expect((await db().doc(`trips/${w.tripId}`).get()).data()!.title).toBe("Coorg coffee trails v2");

@@ -10,6 +10,7 @@
  * with bookings is never deleted.
  */
 
+import { parseAgreementVersion, requireAgreement } from "../catalog/agreement";
 import { DomainError, invalidInput, precondition } from "../platform/errors";
 import { db, Timestamp } from "../platform/firestore";
 import { writeAudit } from "../platform/audit";
@@ -152,8 +153,10 @@ export async function submitTripCommand(uid: string, data: unknown) {
   const rid = requestId(d.requestId);
   const orgId = docId(d.orgId, "orgId");
   const hostTripId = docId(d.hostTripId, "hostTripId");
+  const agreementVersion = parseAgreementVersion(d.agreementVersion);
   return runCommand("trips.submitted", uid, rid, async (tx, now) => {
     const m = await requirePermission(uid, orgId, "experiences.submit", { tx });
+    const agreement = requireAgreement(agreementVersion, uid, now);
     const ref = draftRef(hostTripId);
     const snap = await tx.get(ref);
     if (!snap.exists || snap.data()!.orgId !== orgId) throw notFoundHere("trip");
@@ -176,6 +179,7 @@ export async function submitTripCommand(uid: string, data: unknown) {
       status: "in-review",
       submittedAt: now,
       submittedBy: uid,
+      organizerAgreement: agreement,
       reviewerNote: null,
       organizerName: organizerName(org.data()),
       version,
@@ -184,7 +188,7 @@ export async function submitTripCommand(uid: string, data: unknown) {
     });
     writeAudit(tx, {
       action: "trips.submitted", actorUid: uid, actorRole: actorRole(m), resourceType: "tripDraft",
-      resourceId: hostTripId, orgId, before: { status: cur.status }, after: { status: "in-review", revisionOf: cur.tripId ?? null },
+      resourceId: hostTripId, orgId, before: { status: cur.status }, after: { status: "in-review", revisionOf: cur.tripId ?? null, agreementVersion: agreement.version },
       requestId: rid,
     });
     return { hostTripId, status: "in-review", version };

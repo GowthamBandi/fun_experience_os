@@ -304,7 +304,7 @@ describe("new rate limits", () => {
       codes.push(await callCode(fn, { requestId: rid(), orgId: "org-nope", eventId: "event-nope", experienceId: "exp-nope" }, ctx));
     }
     expect(codes).not.toContain("RATE_LIMITED");
-    expect(await callCode(catalog.submitEvent, { requestId: rid(), orgId: "org-nope", eventId: "event-nope" }, ctx)).toBe("RATE_LIMITED");
+    expect(await callCode(catalog.submitEvent, { agreementVersion: "ORG-EVENT-1.0", requestId: rid(), orgId: "org-nope", eventId: "event-nope" }, ctx)).toBe("RATE_LIMITED");
   });
 
   test("updateMyProfile and push-token registration are limited per uid", async () => {

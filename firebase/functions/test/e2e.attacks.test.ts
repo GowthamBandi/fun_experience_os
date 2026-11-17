@@ -44,7 +44,7 @@ const ALL_PERMS = [
 
 async function approvedUnpublishedEvent(owner: Person, orgId: string, experienceId: string) {
   const saved = await call(catalog.saveEvent, eventInput(orgId, experienceId, owner.uid), owner.ctx);
-  const sub = await call(catalog.submitEvent, { requestId: rid("se"), orgId, eventId: saved.eventId }, owner.ctx);
+  const sub = await call(catalog.submitEvent, { agreementVersion: "ORG-EVENT-1.0", requestId: rid("se"), orgId, eventId: saved.eventId }, owner.ctx);
   await approveCase(String(sub.caseId));
   return String(saved.eventId);
 }
@@ -97,9 +97,9 @@ describe(`E2E attacks (run ${RUN})`, () => {
     const [payload] = await ticketPayloads(W.bookingA.ticketIds);
     const cases: Array<[string, unknown, Record<string, unknown>, string]> = [
       ["saveExperience", catalog.saveExperience, { requestId: r("x"), orgId: A.orgId, experienceId: A.experienceId, title: "Hijacked", tagline: "", category: "sports", activity: "Football", description: "Twenty characters minimum description.", highlights: [], format: "5-a-side", genderRule: "open", ageMin: 18, idRequired: false, rules: [], bring: [], safety: { level: "low", measures: [] }, cancellationPolicy: "flexible" }, "NOT_PERMITTED"],
-      ["submitExperience", catalog.submitExperience, { requestId: r("x"), orgId: A.orgId, experienceId: A.experienceId }, "NOT_PERMITTED"],
+      ["submitExperience", catalog.submitExperience, { agreementVersion: "ORG-EVENT-1.0", requestId: r("x"), orgId: A.orgId, experienceId: A.experienceId }, "NOT_PERMITTED"],
       ["saveEvent", catalog.saveEvent, { ...eventInput(A.orgId, A.experienceId, cust.uid, { eventId: A.evA1, priceMinor: 1 }), requestId: r("x") }, "NOT_PERMITTED"],
-      ["submitEvent", catalog.submitEvent, { requestId: r("x"), orgId: A.orgId, eventId: A.evA1 }, "NOT_PERMITTED"],
+      ["submitEvent", catalog.submitEvent, { agreementVersion: "ORG-EVENT-1.0", requestId: r("x"), orgId: A.orgId, eventId: A.evA1 }, "NOT_PERMITTED"],
       ["publishEvent", catalog.publishEvent, { requestId: r("x"), orgId: A.orgId, eventId: A.evA1 }, "NOT_PERMITTED"],
       ["setEventPhase", catalog.setEventPhase, { requestId: r("x"), orgId: A.orgId, eventId: A.evA1, phase: "booking-closed" }, "NOT_PERMITTED"],
       ["setEventResponsibility", catalog.setEventResponsibility, { requestId: r("x"), orgId: A.orgId, eventId: A.evA1, primaryUid: cust.uid }, "NOT_PERMITTED"],
@@ -153,7 +153,7 @@ describe(`E2E attacks (run ${RUN})`, () => {
       editBEventViaA: await callCode(catalog.saveEvent, eventInput(A.orgId, A.experienceId, A.owner.uid, { eventId: B.evB1 }), own),
       scheduleOnBExperience: await callCode(catalog.saveEvent, eventInput(A.orgId, B.experienceId, A.owner.uid), own),
       editBExperienceViaA: await callCode(catalog.saveExperience, { requestId: rid("x"), orgId: A.orgId, experienceId: B.experienceId, title: "Stolen", category: "sports", activity: "Football", description: "Twenty characters minimum description.", format: "5v5", genderRule: "open", ageMin: 18, idRequired: false, safety: { level: "low", measures: [] }, cancellationPolicy: "strict" }, own),
-      submitBExperienceViaA: await callCode(catalog.submitExperience, { requestId: rid("x"), orgId: A.orgId, experienceId: B.experienceId }, own),
+      submitBExperienceViaA: await callCode(catalog.submitExperience, { agreementVersion: "ORG-EVENT-1.0", requestId: rid("x"), orgId: A.orgId, experienceId: B.experienceId }, own),
       publishInB: await callCode(catalog.publishEvent, { requestId: rid("x"), orgId: B.orgId, eventId: B.evB2 }, own),
       publishBViaA: await callCode(catalog.publishEvent, { requestId: rid("x"), orgId: A.orgId, eventId: B.evB2 }, own),
       cancelInB: await callCode(catalog.cancelEvent, { requestId: rid("x"), orgId: B.orgId, eventId: B.evB1, reason: "sabotage the competitor" }, own),
@@ -504,7 +504,7 @@ describe(`E2E attacks (run ${RUN})`, () => {
     // Draft and submitted events.
     const draft = await call(catalog.saveEvent, eventInput(A.orgId, A.experienceId, A.owner.uid), A.owner.ctx);
     const pubDraft = await callCode(catalog.publishEvent, { requestId: rid("pe"), orgId: A.orgId, eventId: draft.eventId }, A.owner.ctx);
-    const sub = await call(catalog.submitEvent, { requestId: rid("se"), orgId: A.orgId, eventId: draft.eventId }, A.owner.ctx);
+    const sub = await call(catalog.submitEvent, { agreementVersion: "ORG-EVENT-1.0", requestId: rid("se"), orgId: A.orgId, eventId: draft.eventId }, A.owner.ctx);
     const pubSubmitted = await callCode(catalog.publishEvent, { requestId: rid("pe"), orgId: A.orgId, eventId: draft.eventId }, A.owner.ctx);
     // Rejected by governance.
     await call(decideCase, { requestId: rid("dec"), caseId: sub.caseId, expectedVersion: 0, outcome: "rejected", note: "Venue permit missing for this date." }, adminA());

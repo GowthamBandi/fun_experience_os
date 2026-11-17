@@ -114,7 +114,7 @@ describe(`E2E journeys (run ${RUN})`, () => {
     expect(await getDoc(`experiences/${experienceId}`)).toMatchObject({ status: "draft", config: { teamSize: 5, skillLevel: "all-levels" } });
     // Scheduling against an unapproved experience is refused.
     expect(await callCode(catalog.saveEvent, eventInput(orgId, experienceId, owner.uid), owner.ctx)).toBe("PRECONDITION");
-    const sx = await call(catalog.submitExperience, { requestId: rid("sx"), orgId, experienceId }, owner.ctx);
+    const sx = await call(catalog.submitExperience, { agreementVersion: "ORG-EVENT-1.0", requestId: rid("sx"), orgId, experienceId }, owner.ctx);
     expect(await getDoc(`governanceCases/${sx.caseId}`)).toMatchObject({ kind: "experience-approval", targetId: experienceId });
     await approveCase(String(sx.caseId));
     expect(await getDoc(`experiences/${experienceId}`)).toMatchObject({ status: "approved" });
@@ -125,7 +125,7 @@ describe(`E2E journeys (run ${RUN})`, () => {
     S.eventA = eventA;
     expect(await getDoc(`events/${eventA}`)).toMatchObject({ status: "draft", responsibility: { primaryUid: owner.uid } });
     expect(await callCode(catalog.publishEvent, { requestId: rid("pe"), orgId, eventId: eventA }, owner.ctx)).toBe("PRECONDITION");
-    const se = await call(catalog.submitEvent, { requestId: rid("se"), orgId, eventId: eventA }, owner.ctx);
+    const se = await call(catalog.submitEvent, { agreementVersion: "ORG-EVENT-1.0", requestId: rid("se"), orgId, eventId: eventA }, owner.ctx);
     expect(await callCode(catalog.publishEvent, { requestId: rid("pe"), orgId, eventId: eventA }, owner.ctx)).toBe("PRECONDITION");
     await approveCase(String(se.caseId));
     expect(await getDoc(`events/${eventA}`)).toMatchObject({ status: "approved" });
@@ -141,7 +141,7 @@ describe(`E2E journeys (run ${RUN})`, () => {
     // Event B of the same org (used by the staff-scope and cancellation journeys).
     const evB = await call(catalog.saveEvent, eventInput(orgId, experienceId, owner.uid, { priceMinor: PRICE_B, startsAt: new Date(Date.now() + 12 * 24 * H).toISOString() }), owner.ctx);
     S.eventB = String(evB.eventId);
-    const seB = await call(catalog.submitEvent, { requestId: rid("se"), orgId, eventId: S.eventB }, owner.ctx);
+    const seB = await call(catalog.submitEvent, { agreementVersion: "ORG-EVENT-1.0", requestId: rid("se"), orgId, eventId: S.eventB }, owner.ctx);
     await approveCase(String(seB.caseId), adminB());
     await call(catalog.publishEvent, { requestId: rid("pe"), orgId, eventId: S.eventB }, owner.ctx);
 

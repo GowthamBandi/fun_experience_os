@@ -84,9 +84,9 @@ describe("F1 revoked staff", () => {
       return call(fn, payload, S.ctx);
     };
     const draft = await run("saveExperience", catalog.saveExperience, experienceInput(orgId));
-    await run("submitExperience", catalog.submitExperience, { requestId: rid("sx"), orgId, experienceId: draft.experienceId });
+    await run("submitExperience", catalog.submitExperience, { agreementVersion: "ORG-EVENT-1.0", requestId: rid("sx"), orgId, experienceId: draft.experienceId });
     const ev3 = await run("saveEvent", catalog.saveEvent, eventInput(orgId, experienceId, owner.uid));
-    const sub = await run("submitEvent", catalog.submitEvent, { requestId: rid("se"), orgId, eventId: ev3.eventId });
+    const sub = await run("submitEvent", catalog.submitEvent, { agreementVersion: "ORG-EVENT-1.0", requestId: rid("se"), orgId, eventId: ev3.eventId });
     await approveCase(String(sub.caseId));
     await run("publishEvent", catalog.publishEvent, { requestId: rid("pe"), orgId, eventId: ev3.eventId });
     await run("setEventResponsibility", catalog.setEventResponsibility, { requestId: rid("sr"), orgId, eventId: e2, primaryUid: owner.uid, staffUids: [] });
@@ -108,7 +108,7 @@ describe("F1 revoked staff", () => {
     const d2 = await call(catalog.saveExperience, experienceInput(orgId), owner.ctx);
     const ev4 = await call(catalog.saveEvent, eventInput(orgId, experienceId, owner.uid), owner.ctx);
     const ev5 = await call(catalog.saveEvent, eventInput(orgId, experienceId, owner.uid), owner.ctx);
-    const sub5 = await call(catalog.submitEvent, { requestId: rid("se"), orgId, eventId: ev5.eventId }, owner.ctx);
+    const sub5 = await call(catalog.submitEvent, { agreementVersion: "ORG-EVENT-1.0", requestId: rid("se"), orgId, eventId: ev5.eventId }, owner.ctx);
     await approveCase(String(sub5.caseId));
 
     // ---- revoke S.
@@ -116,9 +116,9 @@ describe("F1 revoked staff", () => {
 
     const fresh: Record<string, [unknown, Json]> = {
       saveExperience: [catalog.saveExperience, experienceInput(orgId)],
-      submitExperience: [catalog.submitExperience, { requestId: rid("sx"), orgId, experienceId: d2.experienceId }],
+      submitExperience: [catalog.submitExperience, { agreementVersion: "ORG-EVENT-1.0", requestId: rid("sx"), orgId, experienceId: d2.experienceId }],
       saveEvent: [catalog.saveEvent, eventInput(orgId, experienceId, owner.uid)],
-      submitEvent: [catalog.submitEvent, { requestId: rid("se"), orgId, eventId: ev4.eventId }],
+      submitEvent: [catalog.submitEvent, { agreementVersion: "ORG-EVENT-1.0", requestId: rid("se"), orgId, eventId: ev4.eventId }],
       publishEvent: [catalog.publishEvent, { requestId: rid("pe"), orgId, eventId: ev5.eventId }],
       setEventResponsibility: [catalog.setEventResponsibility, { requestId: rid("sr"), orgId, eventId: e1, primaryUid: owner.uid, staffUids: [] }],
       setEventPhase: [catalog.setEventPhase, { requestId: rid("ph"), orgId, eventId: e1, phase: "booking-closed" }],
@@ -253,9 +253,9 @@ describe("F2 malformed payloads", () => {
       registerPushToken: { fn: registerPushToken, base: { token: "t".repeat(40), platform: "android" }, ctx: "phone" },
       reissueOrganizerCode: { fn: reissueOrganizerCode, base: { requestId: r(), applicantUid: UID, reason: "Lost the code on the way" }, ctx: "admin" },
       saveExperience: { fn: catalog.saveExperience, base: experienceInput(ORG), ctx: "phone" },
-      submitExperience: { fn: catalog.submitExperience, base: { requestId: r(), orgId: ORG, experienceId: "exp-fuzz-0001" }, ctx: "phone" },
+      submitExperience: { fn: catalog.submitExperience, base: { agreementVersion: "ORG-EVENT-1.0", requestId: r(), orgId: ORG, experienceId: "exp-fuzz-0001" }, ctx: "phone" },
       saveEvent: { fn: catalog.saveEvent, base: eventInput(ORG, "exp-fuzz-0001", UID), ctx: "phone" },
-      submitEvent: { fn: catalog.submitEvent, base: { requestId: r(), orgId: ORG, eventId: EVT }, ctx: "phone" },
+      submitEvent: { fn: catalog.submitEvent, base: { agreementVersion: "ORG-EVENT-1.0", requestId: r(), orgId: ORG, eventId: EVT }, ctx: "phone" },
       publishEvent: { fn: catalog.publishEvent, base: { requestId: r(), orgId: ORG, eventId: EVT }, ctx: "phone" },
       setEventResponsibility: { fn: catalog.setEventResponsibility, base: { requestId: r(), orgId: ORG, eventId: EVT, primaryUid: UID, staffUids: [] }, ctx: "phone" },
       setEventPhase: { fn: catalog.setEventPhase, base: { requestId: r(), orgId: ORG, eventId: EVT, phase: "live" }, ctx: "phone" },
@@ -285,7 +285,7 @@ describe("F2 malformed payloads", () => {
       },
       saveTripDraft: { fn: trips.saveTripDraft, base: { requestId: r(), orgId: ORG, hostTripId: "ht-fuzz-0001", draft: { title: "Coorg trails", days: [] } }, ctx: "phone" },
       deleteTripDraft: { fn: trips.deleteTripDraft, base: { requestId: r(), orgId: ORG, hostTripId: "ht-fuzz-0001" }, ctx: "phone" },
-      submitTrip: { fn: trips.submitTrip, base: { requestId: r(), orgId: ORG, hostTripId: "ht-fuzz-0001" }, ctx: "phone" },
+      submitTrip: { fn: trips.submitTrip, base: { agreementVersion: "ORG-EVENT-1.0", requestId: r(), orgId: ORG, hostTripId: "ht-fuzz-0001" }, ctx: "phone" },
       withdrawTrip: { fn: trips.withdrawTrip, base: { requestId: r(), orgId: ORG, hostTripId: "ht-fuzz-0001" }, ctx: "phone" },
       reviewTrip: { fn: trips.reviewTrip, base: { requestId: r(), hostTripId: "ht-fuzz-0001", expectedVersion: 1, outcome: "approved", note: "" }, ctx: "admin" },
       reserveTripSeats: {
