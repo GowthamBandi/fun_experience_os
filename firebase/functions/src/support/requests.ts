@@ -13,7 +13,7 @@
 
 import { FieldValue } from "firebase-admin/firestore";
 import { writeAudit } from "../platform/audit";
-import { db, serverNow, type Timestamp } from "../platform/firestore";
+import { db, serverNow, Timestamp } from "../platform/firestore";
 import { DomainError, notFound, precondition } from "../platform/errors";
 import { notify } from "../platform/notify";
 import { consumeRateLimit } from "../platform/rateLimit";
@@ -51,6 +51,8 @@ export interface SupportMessage {
   at: Timestamp;
   /** Ops uid for "pulse" messages (never shown to the customer). */
   by?: string;
+  /** The automatic acknowledgement sent on arrival. */
+  auto?: boolean;
 }
 
 export interface SupportRequestDoc {
@@ -66,8 +68,21 @@ export interface SupportRequestDoc {
   priority: "normal" | "high";
   messages: SupportMessage[];
   lastFrom: "customer" | "pulse";
+  /** Consumer Protection (E-Commerce) Rules 2020: acknowledged within 48 h
+   *  (automatically, on arrival) and resolved within one month. */
+  acknowledgedAt: Timestamp;
+  resolveBy: Timestamp;
   createdAt: Timestamp;
   updatedAt: Timestamp;
+}
+
+/** Resolve within one month of the complaint. */
+export const RESOLVE_WITHIN_DAYS = 30;
+
+export function acknowledgement(ref: string, kind: SupportKind): string {
+  return kind === "report"
+    ? `We've received your report (reference ${ref}). PULSE's trust & safety team reviews it and replies within 48 hours; we resolve every complaint within one month. If anyone is in danger, call 112.`
+    : `We've received your message (reference ${ref}). We reply within 48 hours and resolve every request within one month.`;
 }
 
 const MAX_MESSAGES = 60;
@@ -159,8 +174,13 @@ export async function submitSupportRequest(uid: string, input: SubmitSupportInpu
       context: input.context,
       status: "open",
       priority: high ? "high" : "normal",
-      messages: [{ from: "customer", body: input.message, at: now }],
+      messages: [
+        { from: "customer", body: input.message, at: now },
+        { from: "pulse", body: acknowledgement(`SR-${ref.id.slice(0, 6).toUpperCase()}`, input.kind), at: now, auto: true },
+      ],
       lastFrom: "customer",
+      acknowledgedAt: now,
+      resolveBy: Timestamp.fromMillis(now.toMillis() + RESOLVE_WITHIN_DAYS * 24 * 3600 * 1000),
       createdAt: now,
       updatedAt: now,
     };

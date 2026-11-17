@@ -5,6 +5,7 @@
  */
 import { call, callCode, callErr, phoneCtx, adminCtx, uniq, rid, db, Timestamp } from "./commerce-helpers";
 import * as support from "../src/support";
+import { setAppConfig } from "../src/platform/appConfig";
 
 const submit = (uid: string, over: Record<string, unknown> = {}) =>
   call<{ id: string; status: string; replayed: boolean }>(support.submitSupportRequest, {
@@ -21,9 +22,16 @@ describe("support requests", () => {
     expect(r).toMatchObject({ status: "open", replayed: false });
     const again = await submit(uid, { requestId });
     expect(again).toMatchObject({ id: r.id, replayed: true });
+    const d = await doc(r.id);
+    const days = (d.resolveBy.toMillis() - d.createdAt.toMillis()) / 86_400_000;
+    expect(days).toBe(30);
+    expect(d.acknowledgedAt.toMillis()).toBe(d.createdAt.toMillis());
     expect(await doc(r.id)).toMatchObject({
       uid, audience: "customer", kind: "help", topic: "booking", status: "open", priority: "normal", lastFrom: "customer",
-      messages: [expect.objectContaining({ from: "customer", body: "My pass doesn't show the venue map." })],
+      messages: [
+        expect.objectContaining({ from: "customer", body: "My pass doesn't show the venue map." }),
+        expect.objectContaining({ from: "pulse", auto: true, body: expect.stringMatching(/within 48 hours/) }),
+      ],
     });
   });
 
@@ -66,7 +74,7 @@ describe("support requests", () => {
     await call(support.respondSupportRequest, { requestId: rid(), id: r.id, message: "Pull down on the pass to refresh it.", status: "waiting-on-customer" }, adminCtx("admin-a"));
     let d = await doc(r.id);
     expect(d).toMatchObject({ status: "waiting-on-customer", lastFrom: "pulse" });
-    expect(d.messages).toHaveLength(2);
+    expect(d.messages).toHaveLength(3);
     const notes = (await db().collection("userNotifications").where("recipientUid", "==", uid).get()).docs.map((x) => x.data());
     expect(notes.find((n) => n.kind === "support-reply")).toMatchObject({ link: { type: "support-request", id: r.id } });
 
@@ -103,5 +111,17 @@ describe("blocking an organizer", () => {
     expect(await callCode(support.setOrganizerBlock, { orgId, blocked: "yes" }, phoneCtx(uid))).toBe("INVALID_INPUT");
     const audits = await db().collection("auditEvents").where("resourceId", "==", orgId).get();
     expect(audits.docs.map((d) => d.data().action).sort()).toEqual(["trust.organizer-blocked", "trust.organizer-blocked", "trust.organizer-unblocked"]);
+  });
+});
+
+describe("app config (min build, maintenance)", () => {
+  test("admins set it with a reason and it's audited; others can't", async () => {
+    expect(await callCode(setAppConfig, { minBuild: 5, maintenance: false, reason: "Force update" }, phoneCtx(uniq("cust")))).toBe("NOT_PERMITTED");
+    expect(await callCode(setAppConfig, { minBuild: -1, reason: "Bad" }, adminCtx("admin-a"))).toBe("INVALID_INPUT");
+    const r = await call(setAppConfig, { minBuild: 7, maintenance: true, maintenanceMessage: "Back at 6 pm.", reason: "DB upgrade" }, adminCtx("admin-a"));
+    expect(r).toEqual({ minBuild: 7, maintenance: true, maintenanceMessage: "Back at 6 pm." });
+    expect((await db().doc("appConfig/mobile").get()).data()).toMatchObject({ minBuild: 7, maintenance: true });
+    const audits = await db().collection("auditEvents").where("action", "==", "platform.app-config-set").get();
+    expect(audits.size).toBeGreaterThan(0);
   });
 });

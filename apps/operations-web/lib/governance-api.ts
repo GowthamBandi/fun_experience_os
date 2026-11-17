@@ -354,3 +354,12 @@ export async function uploadCategoryCover(category: string, file: File): Promise
   await uploadBytes(r, file, { contentType: file.type });
   return getDownloadURL(r);
 }
+
+/* ----------------------------------------------- app switches (asia-south1) */
+
+export interface AppConfig { minBuild: number; maintenance: boolean; maintenanceMessage: string | null }
+
+/** Forced-update floor and maintenance screen for the mobile app (platform/appConfig.ts). */
+export async function setAppConfig(input: AppConfig & { reason: string }) {
+  return call<AppConfig>(regional(), "setAppConfig", input);
+}

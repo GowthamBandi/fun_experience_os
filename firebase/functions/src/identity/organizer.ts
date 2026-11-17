@@ -213,6 +213,8 @@ export async function redeemOrganizerCode(command: { code: string }, actor: Phon
           categories: Array.isArray(org.categories) ? org.categories : [],
           about: String(org.about ?? ""),
           hostingSince: org.createdAt ?? now,
+          legalName: typeof org.legalName === "string" ? org.legalName : null,
+          kind: typeof org.kind === "string" ? org.kind : null,
         })
       );
     }

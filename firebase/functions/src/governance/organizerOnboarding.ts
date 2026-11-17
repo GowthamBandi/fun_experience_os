@@ -53,6 +53,9 @@ export function publicOrganizerDoc(org: {
   categories: string[];
   about: string;
   hostingSince: Timestamp;
+  /** Seller details customers must see (Consumer Protection (E-Commerce) Rules 2020). */
+  legalName?: string | null;
+  kind?: string | null;
 }) {
   return {
     orgId: org.orgId,
@@ -61,6 +64,10 @@ export function publicOrganizerDoc(org: {
     city: org.city,
     categories: org.categories,
     about: org.about,
+    // A business's registered name is public seller information; an
+    // individual's legal name is personal data and stays private.
+    ...(org.kind === "business" && org.legalName ? { legalName: org.legalName } : {}),
+    kind: org.kind ?? null,
     verified: true,
     hostingSince: org.hostingSince,
     monogram: monogram(org.name),

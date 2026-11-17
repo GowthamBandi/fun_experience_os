@@ -94,7 +94,13 @@ describe("organizer application → approval → code redemption", () => {
     expect(org).toMatchObject({ status: "active", ownerUid: applicant.uid, name: "Sunrise Treks", city: "Hyderabad", version: 0 });
     const pub = (await f.doc(`publicOrganizers/${approved.orgId}`).get()).data()!;
     expect(pub).toMatchObject({ name: "Sunrise Treks", city: "Hyderabad", verified: true, monogram: "ST", categories: ["trekking", "outdoors"] });
-    for (const k of ["commissionBps", "legalName", "ownerUid", "contactEmail", "phone", "kyc"]) expect(pub).not.toHaveProperty(k);
+    for (const k of ["commissionBps", "ownerUid", "contactEmail", "phone", "kyc"]) expect(pub).not.toHaveProperty(k);
+    // A business's registered name is public seller information (E-Commerce Rules 2020).
+    expect(pub).toMatchObject({ legalName: "Sunrise Treks Private Limited", kind: "business" });
+    // An individual's legal name is personal data: never public.
+    const { publicOrganizerDoc } = await import("../src/governance/organizerOnboarding");
+    const indiv = publicOrganizerDoc({ orgId: "o", name: "Ravi Runs", handle: "h", city: "Pune", categories: [], about: "", hostingSince: pub.hostingSince, legalName: "Ravi Kumar", kind: "individual" });
+    expect(indiv).not.toHaveProperty("legalName");
     const act = (await f.doc(`organizerActivations/${applicant.uid}`).get()).data()!;
     expect(act).toMatchObject({ orgId: approved.orgId, status: "issued", attempts: 0 });
     expect(act.codeHash).toMatch(/^[0-9a-f]{64}$/);

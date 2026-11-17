@@ -128,7 +128,7 @@ function onboardApprovedOrganizer(
   });
   transaction.set(
     firestore.collection("publicOrganizers").doc(orgId),
-    publicOrganizerDoc({ orgId, name, handle, city, categories, about, hostingSince: now })
+    publicOrganizerDoc({ orgId, name, handle, city, categories, about, hostingSince: now, legalName: app.legalName ?? null, kind: app.kind ?? null })
   );
   const { code, codeHash, expiresAt } = newOrganizerCode();
   transaction.set(firestore.collection(COLLECTIONS.organizerActivations).doc(ctx.applicantUid), {

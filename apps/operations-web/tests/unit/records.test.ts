@@ -129,3 +129,16 @@ describe("commission format", () => {
     expect(commissionLabel(1250)).toBe("12.5%");
   });
 });
+
+import { isOverdue } from "@/lib/console/support";
+
+describe("support SLA", () => {
+  it("unresolved past the resolve-by date is overdue", () => {
+    const past = { toMillis: () => Date.now() - 1000 };
+    const future = { toMillis: () => Date.now() + 86_400_000 };
+    expect(isOverdue({ status: "open", resolveBy: past })).toBe(true);
+    expect(isOverdue({ status: "resolved", resolveBy: past })).toBe(false);
+    expect(isOverdue({ status: "open", resolveBy: future })).toBe(false);
+    expect(isOverdue({ status: "open", resolveBy: undefined })).toBe(false);
+  });
+});

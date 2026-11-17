@@ -239,6 +239,13 @@ describe("event-day, waitlist, support and agreements (2026-11-14)", () => {
     await assertFails(getDoc(doc(phoneUser(u.other), `eventWaitlist/ev1__${u.cust}`)));
   });
 
+  test("appConfig: anyone reads it (even signed out); nobody writes it", async () => {
+    await seed("appConfig/mobile", { minBuild: 3, maintenance: false });
+    await assertSucceeds(getDoc(doc(env.unauthenticatedContext().firestore(), "appConfig/mobile")));
+    await assertFails(setDoc(doc(phoneUser(u.cust), "appConfig/mobile"), { minBuild: 0 }));
+    await assertFails(setDoc(doc(admin(), "appConfig/mobile"), { minBuild: 0 }));
+  });
+
   test("userBlocks: only the person reads their own list; nobody writes it", async () => {
     await seed(`userBlocks/${u.cust}`, { uid: u.cust, orgIds: [ORG] });
     await assertSucceeds(getDoc(doc(phoneUser(u.cust), `userBlocks/${u.cust}`)));

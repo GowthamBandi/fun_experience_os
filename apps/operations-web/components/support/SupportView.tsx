@@ -8,11 +8,12 @@ import { useAdminSession } from "@/lib/firebase/auth";
 import { can } from "@/lib/console/capabilities";
 import { newRequestId } from "@/lib/console/actions";
 import { formatDateTime } from "@/lib/console/records";
+import { isOverdue } from "@/lib/console/support";
 import { cn } from "@/lib/format";
 import { respondSupportRequest, subscribeSupportRequests, type SupportStatus } from "@/lib/governance-api";
 
 type Raw = Record<string, unknown>;
-interface Message { from: "customer" | "pulse"; body: string; at: unknown }
+interface Message { from: "customer" | "pulse"; body: string; at: unknown; auto?: boolean }
 interface Row {
   id: string;
   uid: string;
@@ -26,7 +27,11 @@ interface Row {
   context: { type: string; id: string | null };
   messages: Message[];
   updatedAt: unknown;
+  /** Resolve-by date (one month from arrival, E-Commerce Rules 2020). */
+  resolveBy: unknown;
 }
+
+
 
 const STATUS: Record<SupportStatus, { label: string; tone: BadgeTone }> = {
   open: { label: "Needs reply", tone: "warn" },
@@ -57,6 +62,7 @@ function toRow(id: string, r: Raw): Row {
     context: { type: String(c.type ?? "none"), id: typeof c.id === "string" ? c.id : null },
     messages: Array.isArray(r.messages) ? (r.messages as Message[]) : [],
     updatedAt: r.updatedAt,
+    resolveBy: r.resolveBy,
   };
 }
 
@@ -96,7 +102,8 @@ export function SupportView() {
 
   const shown = useMemo(() => {
     const list = (rows ?? []).filter((r) => filter === "all" || r.status === filter);
-    return [...list].sort((a, b) => (a.priority === b.priority ? 0 : a.priority === "high" ? -1 : 1));
+    const rank = (r: Row) => (isOverdue(r) ? 0 : r.priority === "high" ? 1 : 2);
+    return [...list].sort((a, b) => rank(a) - rank(b));
   }, [rows, filter]);
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: rows?.length ?? 0 };
@@ -164,6 +171,7 @@ export function SupportView() {
                           {r.kind === "report" ? <Flag aria-hidden className="h-4 w-4 text-err" /> : <LifeBuoy aria-hidden className="h-4 w-4 text-text-3" />}
                           <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-text">{r.subject}</span>
                           {r.priority === "high" ? <Badge tone="err">High</Badge> : null}
+                          {isOverdue(r) ? <Badge tone="err">Overdue</Badge> : null}
                           <Badge tone={STATUS[r.status].tone}>{STATUS[r.status].label}</Badge>
                         </span>
                         <span className="truncate text-[12.5px] text-text-2">{last?.body ?? ""}</span>
@@ -190,6 +198,8 @@ export function SupportView() {
                 <p className="mt-1 text-[12.5px] text-text-3">
                   {current.kind === "report" ? "Problem report" : "Help request"} · {current.audience === "organizer" ? `Organizer ${current.orgId ?? ""}` : "Customer"} · user {current.uid}
                   {current.context.type !== "none" ? ` · ${current.context.type} ${current.context.id}` : ""}
+                  {current.resolveBy ? ` · resolve by ${formatDateTime(current.resolveBy)}` : ""}
+                  {isOverdue(current) ? " · OVERDUE" : ""}
                 </p>
                 <ol className="mt-4 flex flex-1 flex-col gap-2.5">
                   {current.messages.map((m, i) => (
@@ -201,7 +211,7 @@ export function SupportView() {
                       )}
                     >
                       <p className="whitespace-pre-wrap">{m.body}</p>
-                      <p className="mt-1 text-[11px] text-text-3">{m.from === "pulse" ? "PULSE" : "Them"} · {formatDateTime(m.at)}</p>
+                      <p className="mt-1 text-[11px] text-text-3">{m.from === "pulse" ? (m.auto ? "PULSE · automatic acknowledgement" : "PULSE") : "Them"} · {formatDateTime(m.at)}</p>
                     </li>
                   ))}
                 </ol>
