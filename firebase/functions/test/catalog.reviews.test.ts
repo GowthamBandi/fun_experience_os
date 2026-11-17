@@ -41,6 +41,10 @@ test("a checked-in participant reviews; aggregates updated; author name from pub
   const a = await agg();
   expect(a.org).toMatchObject({ ratingCount: 1, ratingSum: 5, ratingAverage: 5 });
   expect(a.exp).toMatchObject({ ratingCount: 1, ratingSum: 5 });
+  // The public copy: alias, rating, comment, date — no account id.
+  const pub = (await db().doc(`publicReviews/${EV}__${U.customer}`).get()).data()!;
+  expect(pub).toMatchObject({ orgId: ORG, experienceId: EXP, authorName: "Asha", rating: 5 });
+  expect(pub).not.toHaveProperty("authorUid");
 });
 
 test("duplicate review replaces the first (count stays 1, sum adjusts, version increments)", async () => {
@@ -117,6 +121,7 @@ test("admin hide/publish adjusts aggregates, is audited; non-admins refused", as
   expect(await codeOf(mod("hidden", { auth: { uid: "x", token: { email_verified: true, roleId: "auditor" } } }))).toBe("NOT_PERMITTED");
   expect(await codeOf(mod("deleted"))).toBe("INVALID_INPUT");
   await mod("hidden");
+  expect((await db().doc(`publicReviews/${id}`).get()).exists).toBe(false);
   let a = await agg();
   expect(a.org).toMatchObject({ ratingCount: 1, ratingSum: 3, ratingAverage: 3 });
   expect(a.exp).toMatchObject({ ratingCount: 1, ratingSum: 3 });

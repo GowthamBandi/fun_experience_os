@@ -89,3 +89,22 @@ describe("event day on the server", () => {
     expect(await callCode(catalog.saveEventDay, { requestId: rid(), orgId: w.orgId, eventId: w.eventId, op: "safety", check: "exits", done: true }, phoneCtx(w.staff))).toBe("PRECONDITION");
   });
 });
+
+describe("organizer messages to attendees", () => {
+  const send = (uid: string, w: { orgId: string; eventId: string }, text: string) =>
+    call<{ messageId: string; recipients: number }>(catalog.messageEventAttendees, { requestId: rid(), orgId: w.orgId, eventId: w.eventId, text }, phoneCtx(uid));
+
+  test("everyone booked is notified; viewers can't send; 5 a day; short text refused", async () => {
+    const w = await world();
+    expect(await callCode(catalog.messageEventAttendees, { requestId: rid(), orgId: w.orgId, eventId: w.eventId, text: "Bring whites please" }, phoneCtx(w.viewer))).toBe("NOT_PERMITTED");
+    expect(await callCode(catalog.messageEventAttendees, { requestId: rid(), orgId: w.orgId, eventId: w.eventId, text: "hi" }, phoneCtx(w.staff))).toBe("INVALID_INPUT");
+    const r = await send(w.staff, w, "Court 3 tonight, not court 1. Bring whites.");
+    expect(r.recipients).toBe(4);
+    for (const p of w.people) {
+      const notes = await db().collection("userNotifications").where("recipientUid", "==", p.uid).get();
+      expect(notes.docs.map((n) => n.data().body).join(" ")).toContain("Court 3 tonight");
+    }
+    for (let i = 0; i < 4; i++) await send(w.owner, w, `Update number ${i + 2} for tonight`);
+    expect(await callCode(catalog.messageEventAttendees, { requestId: rid(), orgId: w.orgId, eventId: w.eventId, text: "Sixth message today" }, phoneCtx(w.owner))).toBe("PRECONDITION");
+  });
+});

@@ -18,7 +18,7 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { docId, int, obj, oneOf, requestId } from "../platform/callable";
 import { DomainError, precondition } from "../platform/errors";
-import { COLLECTIONS, db } from "../platform/firestore";
+import { COLLECTIONS, db, Timestamp } from "../platform/firestore";
 import { writeAudit } from "../platform/audit";
 import { notify } from "../platform/notify";
 import { requirePermission, actorRole } from "../access/permissions";
@@ -166,5 +166,67 @@ export async function saveEventDayCommand(uid: string, data: unknown) {
       requestId: rid,
     });
     return { eventId, op: op.op, revealed: revealTargets.length };
+  }, { authorize: (tx) => requirePermission(uid, orgId, "events.operate", { tx, eventId }) });
+}
+
+// -------------------------------------------------------- messageAttendees
+
+/** At most this many organizer messages per event per day. */
+export const MESSAGES_PER_EVENT_PER_DAY = 5;
+/** One transaction writes every notification; bigger events go through support. */
+const MAX_MESSAGE_RECIPIENTS = 400;
+
+/**
+ * The organizer messages everyone booked on an event (venue change, "bring
+ * whites"). Each confirmed booking's customer gets an in-app notification and
+ * push. Kept in eventMessages/{id} for the record; audited.
+ */
+export async function messageEventAttendeesCommand(uid: string, data: unknown) {
+  const d = obj(data);
+  const rid = requestId(d.requestId);
+  const orgId = docId(d.orgId, "orgId");
+  const eventId = docId(d.eventId, "eventId");
+  const text = typeof d.text === "string" ? d.text.trim() : "";
+  if (text.length < 5 || text.length > 1000) throw new DomainError("INVALID_INPUT", "Write a message of 5 to 1,000 characters.");
+  return runCommand("catalog.event-message", uid, rid, async (tx, now) => {
+    const m = await requirePermission(uid, orgId, "events.operate", { tx, eventId });
+    const evSnap = await tx.get(db().collection(COLLECTIONS.events).doc(eventId));
+    const ev = evSnap.data();
+    if (!ev || ev.orgId !== orgId) throw notFoundHere("event");
+    if (!["published", "booking-closed", "live"].includes(String(ev.status))) {
+      throw precondition("You can message people once the event is on sale, until it ends.");
+    }
+    const dayAgo = Timestamp.fromMillis(now.toMillis() - 24 * 3600 * 1000);
+    const recent = await tx.get(db().collection("eventMessages").where("eventId", "==", eventId).where("createdAt", ">", dayAgo));
+    if (recent.size >= MESSAGES_PER_EVENT_PER_DAY) {
+      throw precondition(`You can send ${MESSAGES_PER_EVENT_PER_DAY} messages per event per day.`, "Put everything into one message.");
+    }
+    const bookings = await tx.get(db().collection(COLLECTIONS.bookings).where("eventId", "==", eventId));
+    const recipients = [...new Set(bookings.docs
+      .map((b) => b.data())
+      .filter((b) => b.status === "confirmed" && typeof b.customerUid === "string")
+      .map((b) => b.customerUid as string))];
+    if (recipients.length > MAX_MESSAGE_RECIPIENTS) {
+      throw precondition("This event is too large to message from the app.", "Contact PULSE support to send it.");
+    }
+    const ref = db().collection("eventMessages").doc();
+    tx.create(ref, { eventId, orgId, text, recipients: recipients.length, createdAt: now, createdBy: uid });
+    const title = `Message from ${String(ev.organizerName ?? "your host")}`;
+    const bookingOf = new Map(bookings.docs.map((b) => [b.data().customerUid as string, b.id]));
+    for (const r of recipients) {
+      notify(tx, {
+        recipientUid: r,
+        kind: "event-changed",
+        title,
+        body: `${String(ev.title ?? "Your experience")}: ${text}`.slice(0, 240),
+        dedupeKey: `${ref.id}-${r}`,
+        link: { type: "booking", id: bookingOf.get(r)! },
+      });
+    }
+    writeAudit(tx, {
+      action: "catalog.event-message", actorUid: uid, actorRole: actorRole(m), resourceType: "event", resourceId: eventId,
+      orgId, after: { messageId: ref.id, recipients: recipients.length }, requestId: rid,
+    });
+    return { messageId: ref.id, recipients: recipients.length };
   }, { authorize: (tx) => requirePermission(uid, orgId, "events.operate", { tx, eventId }) });
 }

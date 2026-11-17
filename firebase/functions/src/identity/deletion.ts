@@ -62,9 +62,10 @@ export async function deleteMyAccount(actor: PhoneActor) {
     }
   }
 
-  const [inbox, reviews] = await Promise.all([
+  const [inbox, reviews, follows] = await Promise.all([
     firestore.collection(COLLECTIONS.userNotifications).where("recipientUid", "==", actor.uid).get(),
     firestore.collection(COLLECTIONS.reviews).where("authorUid", "==", actor.uid).get(),
+    firestore.collection("follows").where("uid", "==", actor.uid).get(),
   ]);
   const refs = [
     firestore.collection(COLLECTIONS.users).doc(actor.uid),
@@ -72,6 +73,7 @@ export async function deleteMyAccount(actor: PhoneActor) {
     firestore.collection(COLLECTIONS.customerSafety).doc(actor.uid),
     firestore.collection(COLLECTIONS.userBlocks).doc(actor.uid),
     ...inbox.docs.map((d) => d.ref),
+    ...follows.docs.map((d) => d.ref),
   ];
   const application = await firestore.collection(COLLECTIONS.organizerApplications).doc(actor.uid).get();
   if (application.exists && application.data()?.status !== "approved") refs.push(application.ref);

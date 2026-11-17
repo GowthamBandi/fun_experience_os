@@ -11,15 +11,23 @@ export {
 } from "./events";
 export { submitReview, moderateReview } from "./reviews";
 export { setCategoryCover } from "./categoryCovers";
+export { setFollow, onEventPublishedNotifyFollowers } from "./follows";
 
 import { callable } from "../platform/callable";
 import { requirePhoneUser } from "../platform/actors";
 import { consumeLimit } from "../platform/rateLimit";
-import { saveEventDayCommand } from "./eventDay";
+import { messageEventAttendeesCommand, saveEventDayCommand } from "./eventDay";
 
 /** Event-day teams, safety checks, incidents and wrap-up (catalog/eventDay.ts). */
 export const saveEventDay = callable(async (data, context) => {
   const uid = requirePhoneUser(context).uid;
   await consumeLimit("catalogOps", uid);
   return saveEventDayCommand(uid, data);
+});
+
+/** The organizer messages everyone booked on an event (catalog/eventDay.ts). */
+export const messageEventAttendees = callable(async (data, context) => {
+  const uid = requirePhoneUser(context).uid;
+  await consumeLimit("catalogOps", uid);
+  return messageEventAttendeesCommand(uid, data);
 });

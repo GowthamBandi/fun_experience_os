@@ -363,3 +363,8 @@ export interface AppConfig { minBuild: number; maintenance: boolean; maintenance
 export async function setAppConfig(input: AppConfig & { reason: string }) {
   return call<AppConfig>(regional(), "setAppConfig", input);
 }
+
+/** One push to everyone or one city (platform/broadcast.ts). At most 3 a day. */
+export async function sendBroadcast(input: { audience: "all" | "city"; city?: string; title: string; body: string; reason: string }) {
+  return call<{ id: string; topic: string; status: string }>(regional(), "sendBroadcast", input);
+}

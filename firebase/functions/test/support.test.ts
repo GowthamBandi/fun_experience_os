@@ -6,6 +6,7 @@
 import { call, callCode, callErr, phoneCtx, adminCtx, uniq, rid, db, Timestamp } from "./commerce-helpers";
 import * as support from "../src/support";
 import { setAppConfig } from "../src/platform/appConfig";
+import { sendBroadcast } from "../src/platform/broadcast";
 
 const submit = (uid: string, over: Record<string, unknown> = {}) =>
   call<{ id: string; status: string; replayed: boolean }>(support.submitSupportRequest, {
@@ -123,5 +124,18 @@ describe("app config (min build, maintenance)", () => {
     expect((await db().doc("appConfig/mobile").get()).data()).toMatchObject({ minBuild: 7, maintenance: true });
     const audits = await db().collection("auditEvents").where("action", "==", "platform.app-config-set").get();
     expect(audits.size).toBeGreaterThan(0);
+  });
+});
+
+describe("console broadcast", () => {
+  test("admins only; city needs a key; 3 a day; recorded and audited (no real push in the emulator)", async () => {
+    await Promise.all((await db().collection("broadcasts").get()).docs.map((d) => d.ref.delete()));
+    expect(await callCode(sendBroadcast, { audience: "all", title: "Hello", body: "New things this weekend", reason: "Launch" }, phoneCtx(uniq("c")))).toBe("NOT_PERMITTED");
+    expect(await callCode(sendBroadcast, { audience: "city", city: "", title: "Hello", body: "New things this weekend", reason: "Launch" }, adminCtx("admin-a"))).toBe("INVALID_INPUT");
+    const r = await call<{ topic: string; status: string }>(sendBroadcast, { audience: "city", city: "Bengaluru", title: "Weekend in Bengaluru", body: "12 new experiences this weekend", reason: "Weekly push" }, adminCtx("admin-a"));
+    expect(r).toMatchObject({ topic: "city_bengaluru", status: "skipped-emulator" });
+    await call(sendBroadcast, { audience: "all", title: "Hello", body: "New things this weekend", reason: "Two" }, adminCtx("admin-a"));
+    await call(sendBroadcast, { audience: "all", title: "Hello", body: "New things this weekend", reason: "Three" }, adminCtx("admin-a"));
+    expect(await callCode(sendBroadcast, { audience: "all", title: "Hello", body: "One too many today", reason: "Four" }, adminCtx("admin-a"))).toBe("PRECONDITION");
   });
 });

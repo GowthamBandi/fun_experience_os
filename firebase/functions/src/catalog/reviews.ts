@@ -147,6 +147,12 @@ export async function submitReviewCommand(uid: string, data: unknown) {
       updatedAt: now,
       moderation: prev?.moderation ?? null,
     });
+    if (status === "published") {
+      tx.set(publicReviewRef(ref.id), {
+        orgId, experienceId: ev.experienceId, eventId, authorName, rating, comment,
+        createdAt: prev?.createdAt ?? now, updatedAt: now,
+      });
+    }
     writeAudit(tx, {
       action: prev ? "catalog.review-edited" : "catalog.review-submitted",
       actorUid: uid, actorRole: "customer", resourceType: "review", resourceId: ref.id, orgId,
@@ -155,6 +161,12 @@ export async function submitReviewCommand(uid: string, data: unknown) {
     });
     return { reviewId: ref.id, status, version };
   });
+}
+
+/** publicReviews/{id}: what anyone may read about a published review (alias,
+ *  rating, comment, date) — never the author's account. Removed when hidden. */
+function publicReviewRef(id: string) {
+  return db().collection("publicReviews").doc(id);
 }
 
 // ---------------------------------------------------------- moderateReview
@@ -183,6 +195,13 @@ export async function moderateReviewCommand(admin: { uid: string; roleId: string
         moderation: { by: admin.uid, reason, at: now },
         updatedAt: now,
       });
+      if (status === "hidden") tx.delete(publicReviewRef(id));
+      else {
+        tx.set(publicReviewRef(id), {
+          orgId: r.orgId, experienceId: r.experienceId, eventId: r.eventId, authorName: r.authorName,
+          rating: r.rating, comment: r.comment, createdAt: r.createdAt, updatedAt: now,
+        });
+      }
     }
     writeAudit(tx, {
       action: "catalog.review-moderated", actorUid: admin.uid, actorRole: `platform:${admin.roleId}`,

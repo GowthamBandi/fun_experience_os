@@ -31,7 +31,9 @@ export type NotificationKind =
   /** Ops asked for (or rejected) a verification document. */
   | "kyc-document"
   /** PULSE operations replied to (or resolved) a support request. */
-  | "support-reply";
+  | "support-reply"
+  /** An organizer the person follows published a new event. */
+  | "followed-new-event";
 
 export type NotificationLinkType =
   | "event" | "booking" | "ticket" | "organizer" | "application" | "experience"

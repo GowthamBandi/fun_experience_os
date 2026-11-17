@@ -11,6 +11,7 @@ import { useNow } from "@/lib/hooks";
 import { useGovernanceCollection } from "@/lib/use-governance";
 import { JsonBlock, SummaryPill } from "./ControlBits";
 import { AppSwitchesCard } from "./AppSwitchesCard";
+import { BroadcastCard } from "./BroadcastCard";
 
 /**
  * Scheduled-job summaries (jobRuns: one document per job per IST day, written by platform/jobs.ts).
@@ -35,7 +36,10 @@ export function SystemHealthView() {
         subtitle="Daily summaries of the scheduled jobs: seat-hold release and refund retries (every 5 min), event reminders (every 15 min) and data retention (daily). A job whose last run failed is flagged; open it to read the errors."
       />
 
-      <AppSwitchesCard />
+      <div className="grid gap-6 xl:grid-cols-2">
+        <AppSwitchesCard />
+        <BroadcastCard />
+      </div>
 
       {ready && cards.length > 0 ? (
         <ul aria-label="Job summary" className="flex flex-wrap gap-2 text-[12px]">

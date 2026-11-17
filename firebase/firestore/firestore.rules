@@ -132,6 +132,12 @@ service cloud.firestore {
       allow list, write: if false;
     }
 
+    // Organizers a person follows: they read their own; written by setFollow.
+    match /follows/{id} {
+      allow get, list: if user() && resource.data.uid == uid();
+      allow write: if false;
+    }
+
     // Organizers a person blocked: only they read it; written by setOrganizerBlock.
     match /userBlocks/{ownerUid} {
       allow get: if user() && ownerUid == uid();
@@ -323,6 +329,12 @@ service cloud.firestore {
     // not public: participants stay anonymous. Clients show only the rating
     // aggregates on experiences / publicOrganizers; any future public review
     // list must come from a server-built projection without uids.
+    // Published reviews, public: alias, rating, comment, date (no account).
+    match /publicReviews/{reviewId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     match /reviews/{reviewId} {
       allow read: if isAdmin()
         || (user() && resource.data.authorUid == uid());
