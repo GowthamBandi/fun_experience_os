@@ -239,6 +239,22 @@ describe("event-day, waitlist, support and agreements (2026-11-14)", () => {
     await assertFails(getDoc(doc(phoneUser(u.other), `eventWaitlist/ev1__${u.cust}`)));
   });
 
+  test("console reads: messages, broadcasts, follower and block counts are admin-only (messages also the organizer team)", async () => {
+    await seed(`eventMessages/m1`, { orgId: ORG, eventId: "ev1", text: "Court 3" });
+    await seed(`broadcasts/b1`, { audience: "all", title: "Hi" });
+    await seed(`follows/${ORG}__${u.cust}`, { orgId: ORG, uid: u.cust });
+    await seed(`userBlocks/${u.other}`, { uid: u.other, orgIds: [ORG] });
+    await assertSucceeds(getDocs(query(collection(admin(), "eventMessages"), where("eventId", "==", "ev1"))));
+    await assertSucceeds(getDoc(doc(phoneUser(u.owner), "eventMessages/m1")));
+    await assertFails(getDoc(doc(phoneUser(u.cust), "eventMessages/m1")));
+    await assertSucceeds(getDoc(doc(admin(), "broadcasts/b1")));
+    await assertFails(getDoc(doc(phoneUser(u.owner), "broadcasts/b1")));
+    await assertSucceeds(getDocs(query(collection(admin(), "follows"), where("orgId", "==", ORG))));
+    await assertFails(getDocs(query(collection(phoneUser(u.owner), "follows"), where("orgId", "==", ORG))));
+    await assertSucceeds(getDocs(query(collection(admin(), "userBlocks"), where("orgIds", "array-contains", ORG))));
+    await assertFails(getDocs(query(collection(phoneUser(u.owner), "userBlocks"), where("orgIds", "array-contains", ORG))));
+  });
+
   test("appConfig: anyone reads it (even signed out); nobody writes it", async () => {
     await seed("appConfig/mobile", { minBuild: 3, maintenance: false });
     await assertSucceeds(getDoc(doc(env.unauthenticatedContext().firestore(), "appConfig/mobile")));

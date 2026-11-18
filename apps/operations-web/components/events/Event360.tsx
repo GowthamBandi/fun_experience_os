@@ -24,9 +24,10 @@ import { useBoundedQuery, useOneShot } from "@/lib/use-query";
 import { EventStatusBadge, priceLabel } from "./cells";
 import { EventActions } from "./EventActions";
 import { BookingsTab, ReviewsTab } from "./EventTabs";
+import { SafetyTab } from "./SafetyTab";
 
-type TabId = "bookings" | "reviews" | "timeline";
-const TAB_IDS: TabId[] = ["bookings", "reviews", "timeline"];
+type TabId = "bookings" | "reviews" | "safety" | "timeline";
+const TAB_IDS: TabId[] = ["bookings", "reviews", "safety", "timeline"];
 const AUDIT_MAX = 100;
 
 /** A stable art seed from the id, so each event keeps its own gradient. */
@@ -129,6 +130,7 @@ function View({ eventId, onRetry }: { eventId: string; onRetry: () => void }) {
   const tabs: TabItem[] = [
     { id: "bookings", label: "Bookings", count: bookings.loading || bookings.error ? undefined : bookings.rows.length },
     { id: "reviews", label: "Reviews", count: reviews.loading || reviews.error ? undefined : reviews.rows.length },
+    { id: "safety", label: "Safety & messages" },
     { id: "timeline", label: "Timeline" },
   ];
 
@@ -268,6 +270,7 @@ function View({ eventId, onRetry }: { eventId: string; onRetry: () => void }) {
       <div role="tabpanel" aria-label={tabs.find((t) => t.id === tab)?.label}>
         {tab === "bookings" ? <BookingsTab q={bookings} eventId={eventId} highlight={highlight} highlighted={linked} now={now} /> : null}
         {tab === "reviews" ? <ReviewsTab q={reviews} now={now} /> : null}
+        {tab === "safety" ? <SafetyTab eventId={eventId} event={ev.data} /> : null}
         {tab === "timeline" ? (
           <TimelineTab
             items={timeline}

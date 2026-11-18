@@ -95,7 +95,7 @@ function Risk() {
             ) : null}
           </>
         }
-        subtitle="Payment mismatches, failed refunds and retention conflicts the server flagged. Investigate, then resolve, keep open or block the organizer behind it."
+        subtitle="Safety reports from people, event-day incidents logged by organizers, payment mismatches, failed refunds and retention conflicts. Investigate, then resolve, keep open or block the organizer behind it."
       />
 
       {ready && alerts.length > 0 ? (

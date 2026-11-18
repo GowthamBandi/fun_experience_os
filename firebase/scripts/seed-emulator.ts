@@ -408,7 +408,7 @@ async function ensureExperiences(org: Org, admin: Session): Promise<Record<strin
     ids[key] = experienceId;
     let doc = await get("experiences", experienceId);
     if (doc!.status === "draft" || doc!.status === "changes-requested") {
-      await call("submitExperience", org.owner, { requestId: `${RUN}-expsub-${experienceId}`, orgId: org.orgId, experienceId });
+      await call("submitExperience", org.owner, { agreementVersion: "ORG-EVENT-1.0", requestId: `${RUN}-expsub-${experienceId}`, orgId: org.orgId, experienceId });
       doc = await get("experiences", experienceId);
     }
     if (doc!.status === "submitted") {
@@ -443,7 +443,7 @@ async function ensureEvents(org: Org, admin: Session, experienceIds: Record<stri
     const eventId = saved.eventId as string;
     let ev = await get("events", eventId);
     if (ev!.status === "draft" || ev!.status === "changes-requested") {
-      await call("submitEvent", org.owner, { requestId: `${RUN}-evsub-${eventId}`, orgId: org.orgId, eventId });
+      await call("submitEvent", org.owner, { agreementVersion: "ORG-EVENT-1.0", requestId: `${RUN}-evsub-${eventId}`, orgId: org.orgId, eventId });
       ev = await get("events", eventId);
     }
     if (ev!.status === "submitted") {

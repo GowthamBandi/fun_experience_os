@@ -1,5 +1,6 @@
 "use client";
 
+import { TrustStats } from "./TrustStats";
 import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -253,6 +254,8 @@ function View({ orgId, onRetry }: { orgId: string; onRetry: () => void }) {
         />
         <Stat label="Refunds" value={inrMinor(refunds.value)} hint="All time · refunded to customers" loading={refunds.loading} error={refunds.error} onRetry={refunds.retry} />
       </section>
+
+      <TrustStats orgId={orgId} />
 
       <Tabs tabs={tabs} value={tab} onChange={setTab} label="Organizer sections" className="self-start" />
 

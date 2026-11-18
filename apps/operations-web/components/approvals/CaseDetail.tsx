@@ -308,6 +308,21 @@ export function CaseDetail({
     const fields = caseTargetFields(kind, live.data);
     body = <Card title={`Submitted ${collectionLabel(target.collection).toLowerCase()}`}><Fields fields={fields.length ? fields : rawFields(live.data)} /></Card>;
   }
+  // Every experience, event and trip is submitted under the Organizer Event
+  // Agreement (backend catalog/agreement.ts): show what was accepted.
+  if (body && live.data && ["experience-approval", "event-approval", "trip-review"].includes(kind)) {
+    const ag = live.data.organizerAgreement && typeof live.data.organizerAgreement === "object" ? (live.data.organizerAgreement as Raw) : null;
+    body = (
+      <>
+        {body}
+        <Notice tone={ag ? "info" : "warn"} title={ag ? `Organizer Event Agreement ${String(ag.version)} accepted` : "No Organizer Event Agreement on record"}>
+          {ag
+            ? `Accepted ${formatDateTime(ag.acceptedAt)} by ${String(ag.acceptedBy ?? "the organizer")}: the organizer takes full responsibility for running it safely and lawfully.`
+            : "Submitted before agreements were required. Ask the organizer to resubmit from the latest app."}
+        </Notice>
+      </>
+    );
+  }
 
   return (
     <div className="flex min-w-0 flex-col gap-5 pb-4">

@@ -132,16 +132,32 @@ service cloud.firestore {
       allow list, write: if false;
     }
 
+    // Organizer messages to attendees (messageEventAttendees): the organizer's
+    // team and admins read them; written only by the function.
+    match /eventMessages/{id} {
+      allow get, list: if isAdmin() || activeMember(resource.data.orgId);
+      allow write: if false;
+    }
+
+    // Console broadcasts (sendBroadcast): admins only.
+    match /broadcasts/{id} {
+      allow get, list: if isAdmin();
+      allow write: if false;
+    }
+
     // Organizers a person follows: they read their own; written by setFollow.
     match /follows/{id} {
-      allow get, list: if user() && resource.data.uid == uid();
+      // Admins count an organizer's followers in the console.
+      allow get, list: if isAdmin() || (user() && resource.data.uid == uid());
       allow write: if false;
     }
 
     // Organizers a person blocked: only they read it; written by setOrganizerBlock.
     match /userBlocks/{ownerUid} {
       allow get: if user() && ownerUid == uid();
-      allow list, write: if false;
+      // Admins count how many people blocked an organizer (a trust signal).
+      allow list: if isAdmin();
+      allow write: if false;
     }
 
     // Support conversations: the person who opened one reads it; written

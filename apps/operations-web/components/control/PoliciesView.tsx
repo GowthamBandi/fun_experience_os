@@ -9,6 +9,7 @@ import { sortPolicies, toPolicyCard, type PolicyCard } from "@/lib/control";
 import { cn } from "@/lib/format";
 import { useGovernanceCollection } from "@/lib/use-governance";
 import { JsonBlock, SummaryPill } from "./ControlBits";
+import { LEGAL_SITE, POLICIES_IN_FORCE } from "@/lib/console/policies-in-force";
 
 /** Versioned rules used by automated checks and human approvals. Read-only: policies are shipped with a release. */
 export function PoliciesView() {
@@ -26,6 +27,33 @@ export function PoliciesView() {
         }
         subtitle="The versioned rules behind automated checks and human approval decisions across the marketplace. They are read-only here; a change ships with a release and is recorded as a new version."
       />
+
+      <section aria-label="In this release" className="flex flex-col gap-3">
+        <h2 className="font-display text-[16px] font-bold text-text">In this release</h2>
+        <ul className="grid gap-3 md:grid-cols-2" data-testid="policies-in-force">
+          {POLICIES_IN_FORCE.map((p) => (
+            <li key={p.id}>
+              <Card className="flex h-full flex-col gap-2 p-4">
+                <div className="flex items-center gap-2">
+                  <ScrollText aria-hidden className="h-4 w-4 text-text-3" />
+                  <span className="mr-auto font-semibold text-text">{p.title}</span>
+                  <Badge tone={p.version === "In app" ? "info" : "ok"}>{p.version}</Badge>
+                </div>
+                <p className="text-[13px] text-text-2">{p.summary}</p>
+                <p className="text-[12px] text-text-3">
+                  {p.audience}
+                  {p.path ? (
+                    <>
+                      {" · "}
+                      <a className="underline" href={`${LEGAL_SITE}${p.path}`} target="_blank" rel="noopener noreferrer">Public page</a>
+                    </>
+                  ) : null}
+                </p>
+              </Card>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       {ready && cards.length > 0 ? (
         <ul aria-label="Policy summary" className="flex flex-wrap gap-2 text-[12px]">
@@ -54,7 +82,7 @@ export function PoliciesView() {
         </div>
       ) : cards.length === 0 ? (
         <Card>
-          <Empty emoji="📘" title="No policy versions yet" body="Policy versions appear here once a release publishes them." />
+          <Empty emoji="📘" title="No recorded policy changes" body="The versions in this release are listed above. Later versions published by a release are recorded here." />
         </Card>
       ) : (
         <ul className="grid gap-4 md:grid-cols-2" aria-label="Policy versions">

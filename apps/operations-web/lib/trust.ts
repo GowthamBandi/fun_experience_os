@@ -29,6 +29,15 @@ const sentence = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /* -------------------------------------------------------------------- risk */
 
+/** Plain names for the alert kinds the server raises. */
+export const RISK_KIND_TITLE: Record<string, string> = {
+  "event-incident": "Event-day incident",
+  "user-report": "Safety report from a person",
+  "payment-mismatch": "Payment amount mismatch",
+  "refund-failed": "Refund failed",
+  "retention-conflict": "Data retention conflict",
+};
+
 export type RiskSeverity = "critical" | "high" | "medium" | "low";
 
 export interface RiskAlert {
@@ -58,7 +67,7 @@ export function toRiskAlert(id: string, d: Raw): RiskAlert {
   return {
     id,
     kind,
-    title: kind ? sentence(words(kind)) : "Risk alert",
+    title: kind ? (RISK_KIND_TITLE[kind] ?? sentence(words(kind))) : "Risk alert",
     severity: sev === "critical" || sev === "high" || sev === "medium" || sev === "low" ? sev : null,
     status: str(d.status),
     open: isOpenRisk(d),
