@@ -1,3 +1,5 @@
+> **New here (person or Claude account)? Read [HANDOFF.md](HANDOFF.md) first.**
+
 # Experience OS: backend and Operations Console
 
 Experience OS is a **governed experience marketplace**:
