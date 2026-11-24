@@ -51,7 +51,8 @@ export const DAY_MS = 86_400_000;
 
 export interface RoomOption { id: string; label: string; occupancy: number; price: number; beds: number | null }
 export interface AddOn { id: string; title: string; description: string; price: number; icon: string }
-export interface Point { id: string; name: string; landmark: string; time: string }
+/** A pickup / drop point. `lat`/`lng`: the exact spot the organizer pinned (optional). */
+export interface Point { id: string; name: string; landmark: string; time: string; lat?: number; lng?: number }
 export interface DraftDeparture { id: string; start: string; end: string; seatsTotal: number; priceDelta: number; longWeekend: string | null }
 
 export interface TripDraftWire {
@@ -178,13 +179,31 @@ function instant(v: unknown, name: string): string {
   return new Date(ms).toISOString();
 }
 
+function coordinate(v: unknown, name: string, limit: number): number | undefined {
+  if (v === undefined || v === null) return undefined;
+  if (typeof v !== "number" || !Number.isFinite(v) || Math.abs(v) > limit) {
+    throw invalidInput(`${name} must be a number between -${limit} and ${limit}.`);
+  }
+  return v;
+}
+
 function point(x: Json, i: number, what: string): Point {
-  return {
+  const p: Point = {
     id: localId(x.id, `${what} #${i + 1}`),
     name: text(x.name, `${what} name`, 80),
     landmark: text(x.landmark, `${what} landmark`, 160),
     time: text(x.time, `${what} time`, 40),
   };
+  const lat = coordinate(x.lat, `${what} #${i + 1} latitude`, 90);
+  const lng = coordinate(x.lng, `${what} #${i + 1} longitude`, 180);
+  if ((lat === undefined) !== (lng === undefined)) {
+    throw invalidInput(`${what} #${i + 1}: give both latitude and longitude, or neither.`);
+  }
+  if (lat !== undefined && lng !== undefined) {
+    p.lat = lat;
+    p.lng = lng;
+  }
+  return p;
 }
 
 /** Parses and bounds a draft map. Throws INVALID_INPUT on any malformed field. */

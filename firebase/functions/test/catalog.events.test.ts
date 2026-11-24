@@ -404,6 +404,11 @@ describe("events", () => {
     expect(await codeOf(call(saveEvent, { ...same, requestId: rid(), venue: { ...base.venue, lat: 17.43, lng: 78.41 } }, owner))).toBe("RESOLVED");
     expect((await db().doc(`events/${id}`).get()).data()!.venue).toMatchObject({ lat: 17.43, lng: 78.41, cityKey: "hyderabad" });
     expect(await messageOf(call(saveEvent, { ...same, requestId: rid(), venue: { ...base.venue, lat: 12.97, lng: 77.59 } }, owner))).toMatch(/already booked/);
+    // the organizer's exact pin near the guess (~300 m) is enrichment and is recorded as pinned;
+    // moving that pin ~100 m later is a venue change.
+    expect(await codeOf(call(saveEvent, { ...same, requestId: rid(), venue: { ...base.venue, lat: 17.4327, lng: 78.4100, pinned: true } }, owner))).toBe("RESOLVED");
+    expect((await db().doc(`events/${id}`).get()).data()!.venue).toMatchObject({ lat: 17.4327, lng: 78.41, pinned: true });
+    expect(await messageOf(call(saveEvent, { ...same, requestId: rid(), venue: { ...base.venue, lat: 17.4336, lng: 78.41, pinned: true } }, owner))).toMatch(/already booked/);
     // capacity change: allowed, but not below seats taken
     expect(await codeOf(call(saveEvent, { ...same, requestId: rid(), capacity: { max: 30, min: 6 } }, owner))).toBe("RESOLVED");
     expect((await db().doc(`events/${id}`).get()).data()).toMatchObject({ status: "published", capacity: { maxPhysicalCapacity: 30 } });

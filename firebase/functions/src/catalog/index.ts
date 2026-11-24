@@ -12,6 +12,7 @@ export {
 export { submitReview, moderateReview } from "./reviews";
 export { setCategoryCover } from "./categoryCovers";
 export { setFollow, onEventPublishedNotifyFollowers } from "./follows";
+export { resolveMapsLink } from "./mapLinks";
 
 import { callable } from "../platform/callable";
 import { requirePhoneUser } from "../platform/actors";

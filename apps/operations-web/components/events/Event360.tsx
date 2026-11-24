@@ -13,6 +13,7 @@ import { formatDateTime, toDate } from "@/lib/console/records";
 import { eventRange, eventTab, str, isOffLifecycle, occupancyOf, ratio, startsRel, toBooking, toReview } from "@/lib/events";
 import { countEventTickets, eventAuditQuery, eventBookingsQuery, eventReviewsQuery } from "@/lib/events-firestore";
 import { useAdminSession } from "@/lib/firebase/auth";
+import { mapsUrl, spotOf } from "@/lib/maps";
 import { inrMinor } from "@/lib/format";
 import { useNow } from "@/lib/hooks";
 import { entityVersion, orgTimeline, toOrgEvent } from "@/lib/organizers";
@@ -120,6 +121,7 @@ function View({ eventId, onRetry }: { eventId: string; onRetry: () => void }) {
   const accent = artFor(row.category).color;
   const venue = d.venue && typeof d.venue === "object" ? (d.venue as Record<string, unknown>) : {};
   const where = [str(venue.name), str(venue.area), str(venue.city)].filter(Boolean).join(" · ") || str(d.location);
+  const spot = spotOf(venue);
   const duration = typeof d.durationMinutes === "number" && d.durationMinutes > 0 ? d.durationMinutes : null;
   const phase = now ? eventTab(row, now) : null;
   const cancelled = row.status === "cancelled";
@@ -187,6 +189,18 @@ function View({ eventId, onRetry }: { eventId: string; onRetry: () => void }) {
                 <li className="inline-flex items-center gap-1.5">
                   <MapPin aria-hidden className="h-3.5 w-3.5 text-text-3" />
                   {where ?? "—"}
+                  {spot ? (
+                    <a
+                      href={mapsUrl(spot)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="focus-ring rounded-[6px] font-semibold text-text underline-offset-2 hover:underline"
+                    >
+                      {spot.pinned ? "Exact pin ↗" : "Address guess ↗"}
+                    </a>
+                  ) : (
+                    <span className="text-text-3">(no map spot)</span>
+                  )}
                 </li>
                 <li className="inline-flex items-center gap-1.5">
                   <CalendarDays aria-hidden className="h-3.5 w-3.5 text-text-3" />

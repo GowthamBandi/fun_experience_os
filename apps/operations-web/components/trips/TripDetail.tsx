@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { Badge, CopyIdPill } from "@/components/pulse";
+import { mapsUrl } from "@/lib/maps";
 import { Field, Fields, Note, OrgLink, SectionTitle, When } from "@/components/money/MoneyBits";
 import { cn } from "@/lib/format";
 import {
@@ -145,6 +146,18 @@ function Points({ title, points, note }: { title: string; points: TripPoint[]; n
               <span className="num mr-1.5 text-text-3">{p.time ?? "—"}</span>
               <span className="font-semibold text-text">{p.name}</span>
               {p.landmark ? <span className="block text-[12px] text-text-2">{p.landmark}</span> : null}
+              {p.spot ? (
+                <a
+                  href={mapsUrl(p.spot)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="focus-ring block w-fit rounded-[6px] text-[12px] font-semibold text-text underline-offset-2 hover:underline"
+                >
+                  Exact pin ↗
+                </a>
+              ) : (
+                <span className="block text-[12px] text-text-3">No exact pin</span>
+              )}
             </li>
           ))}
         </ul>

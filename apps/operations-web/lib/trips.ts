@@ -10,6 +10,7 @@ import type { BadgeTone } from "@/components/pulse/Badge";
 import { TRIP_NOTE_MAX, TRIP_NOTE_MIN, decisionKey, type TripOutcome } from "./console/actions";
 import { toDate } from "./console/records";
 import { inr, relTime } from "./format";
+import { spotOf, type Spot } from "./maps";
 
 type Raw = Record<string, unknown>;
 
@@ -133,7 +134,7 @@ export interface TripDay {
 }
 export interface TripStay { name: string; type: string | null; location: string | null; nights: number | null; note: string | null }
 export interface TripVehicle { type: string; leg: string | null; model: string | null; seats: number | null; ac: boolean | null; features: string[] }
-export interface TripPoint { id: string; name: string; landmark: string | null; time: string | null }
+export interface TripPoint { id: string; name: string; landmark: string | null; time: string | null; spot: Spot | null }
 export interface TripGoodie { title: string; moment: string | null; detail: string | null }
 export interface TripDeparture { id: string; start: string | null; end: string | null; seatsTotal: number | null; priceDelta: number | null; longWeekend: string | null }
 export interface TripRoom { id: string; label: string; occupancy: number | null; price: number | null; beds: string | null }
@@ -197,7 +198,14 @@ const textOrNumber = (v: unknown): string | null => str(v) ?? (num(v) !== null ?
 const id = (r: Raw, i: number, prefix: string) => str(r.id) ?? `${prefix}-${i}`;
 
 const points = (v: unknown, prefix: string): TripPoint[] =>
-  objects(v).map((p, i) => ({ id: id(p, i, prefix), name: str(p.name) ?? "—", landmark: str(p.landmark), time: str(p.time) }));
+  objects(v).map((p, i) => ({
+    id: id(p, i, prefix),
+    name: str(p.name) ?? "—",
+    landmark: str(p.landmark),
+    time: str(p.time),
+    // Trip points carry only organizer pins (never address guesses).
+    spot: spotOf({ ...p, pinned: true }),
+  }));
 
 /** The organizer's draft as a tolerant view model: missing or malformed fields read as empty, never throw. */
 export function parseDraft(value: unknown): TripDraft {

@@ -60,7 +60,9 @@ export interface EventInput {
   experienceId: string;
   arenaId: string | null;
   /** cityKey: normalised city, what the PULSE app's "my city" query matches. */
-  venue: { name: string; area: string; city: string; cityKey: string; address: string; lat?: number; lng?: number };
+  /** `pinned`: lat/lng is the exact spot the organizer pinned (a Google Maps link or their phone's
+   *  location), not the app's guess from the address. */
+  venue: { name: string; area: string; city: string; cityKey: string; address: string; lat?: number; lng?: number; pinned?: boolean };
   startsAt: Timestamp;
   durationMinutes: number;
   capacity: { max: number; min: number; blocked: number };
@@ -85,6 +87,7 @@ export function parseEventInput(d: Json, nowMs: number): EventInput {
   if ((venue.lat === undefined) !== (venue.lng === undefined)) {
     throw new DomainError("INVALID_INPUT", "Provide both latitude and longitude, or neither.");
   }
+  if (v.pinned === true && venue.lat !== undefined) venue.pinned = true;
   const startsAt = parseInstant(d.startsAt, "Start time");
   if (startsAt.toMillis() < nowMs + MIN_LEAD_MS) {
     throw new DomainError("INVALID_INPUT", "Events must start at least 2 hours from now.");
@@ -149,13 +152,18 @@ function materialChanges(ev: Json, input: EventInput): string[] {
   if (ev.durationMinutes !== input.durationMinutes) out.push("duration");
   if ((ev.arenaId ?? null) !== input.arenaId) out.push("arena");
   if (ev.priceMinor !== input.priceMinor || ev.currency !== input.currency) out.push("price");
-  const moved = ["lat", "lng"].some((k) => {
-    // Adding coordinates to a venue that had none (the app geocodes the
-    // address) is enrichment, not a change people booked against.
-    const was = venue[k] ?? null;
-    const now = input.venue[k as "lat" | "lng"] ?? null;
-    return was !== null && now !== null && was !== now;
-  });
+  // Adding coordinates to a venue that had none is enrichment, not a change
+  // people booked against; so is pinning the exact spot near the app's guess
+  // from the address (guesses are off by up to a km or two). Moving an exact
+  // pin more than ~50 m, or pinning far from the guess, is a venue change.
+  const wasLat = typeof venue.lat === "number" ? venue.lat : null;
+  const wasLng = typeof venue.lng === "number" ? venue.lng : null;
+  const moved =
+    wasLat !== null &&
+    wasLng !== null &&
+    input.venue.lat !== undefined &&
+    input.venue.lng !== undefined &&
+    metresBetween(wasLat, wasLng, input.venue.lat, input.venue.lng) > (venue.pinned === true ? 50 : 2000);
   if (moved || (["name", "area", "city", "address"] as const).some((k) => (venue[k] ?? null) !== (input.venue[k] ?? null))) {
     out.push("venue");
   }
@@ -588,3 +596,11 @@ export const adminCancelEvent = callable(async (data, context) =>
   adminCancelEventCommand(requireAdmin(context, "cancel events"), data)
 );
 
+
+/** Great-circle distance in metres. */
+export function metresBetween(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const r = (d: number) => (d * Math.PI) / 180;
+  const a =
+    Math.sin(r(lat2 - lat1) / 2) ** 2 + Math.cos(r(lat1)) * Math.cos(r(lat2)) * Math.sin(r(lng2 - lng1) / 2) ** 2;
+  return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
