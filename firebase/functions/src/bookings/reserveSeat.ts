@@ -53,6 +53,7 @@ import { checkEligibility, type Eligibility } from "../commerce/policy";
 import { resolveCancellation, type CancellationRules } from "../commerce/cancellation";
 import { bookingReference, issueTickets } from "../commerce/tickets";
 import { bookingLockId, C, HOLD_MINUTES } from "../commerce/config";
+import { eventWaitlistRef } from "../commerce/eventWaitlist";
 
 /** Event lifecycle states that may accept a new reservation (ADR-0003). */
 const BOOKABLE_STATUSES = new Set(["published"]);
@@ -479,6 +480,10 @@ export async function reserveSeat(cmd: ReserveSeatCommand): Promise<ReserveSeatR
       tx.set(bookingDocRef, booking);
 
       tx.update(eventRef, { ...projection, updatedAt: now });
+
+      // They got in: off this event's waitlist now, not at the next opening
+      // (a missing entry is fine — deleting it is a no-op).
+      if (customerUid) tx.delete(eventWaitlistRef(cmd.eventId, customerUid));
 
       if (lockRef) {
         tx.set(lockRef, {

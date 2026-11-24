@@ -33,7 +33,7 @@ import {
   BALANCE_DUE_DAYS, DAY_MS, DIETS, MAX_TRAVELLERS_PER_BOOKING, TRAVELLER_GENDERS,
   contentOf, daysUntil, depositPerPerson, quoteTrip, refundPercent, tripReference, type TripQuote,
 } from "./model";
-import { T, departureRef, travellerRef, tripBookingRef, tripPaymentRef, tripRefundRef, tripRef } from "./refs";
+import { T, departureRef, travellerRef, tripBookingRef, tripPaymentRef, tripRefundRef, tripRef, waitlistRef } from "./refs";
 
 export type TripBookingStatus = "held" | "confirmed" | "expired" | "cancelled";
 
@@ -374,6 +374,8 @@ export async function reserveTripSeatsCommand(uid: string, data: unknown) {
     }
     tx.create(ref, booking);
     tx.update(departureRef(departureId), { ...take(seats, roomId, travellers), updatedAt: now });
+    // They got in: off this date's waitlist now, not at the next opening.
+    tx.delete(waitlistRef(departureId, uid));
     writeAudit(tx, {
       action: "trips.seats-reserved", actorUid: uid, actorRole: "customer", resourceType: "tripBooking", resourceId: ref.id,
       orgId: booking.orgId, after: { tripId, departureId, travellers, roomId, totalRupees: quote.total, dueNowRupees: quote.dueNow },

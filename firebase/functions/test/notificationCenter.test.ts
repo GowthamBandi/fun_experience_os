@@ -389,7 +389,10 @@ describe("sendNotification", () => {
     expect(inbox.docs.map((d) => d.get("recipientUid")).sort()).toEqual([a.uid, b.uid].sort());
     expect(inbox.docs[0]!.data()).toMatchObject({
       kind: "admin-message", title: "Weekend picks", imageUrl: "https://img.pulse.test/w.jpg", style: "rich",
-      link: { type: "event", id: "evt-0001" }, url: null, read: false, push: { status: "pending" },
+      link: { type: "event", id: "evt-0001" }, url: null, read: false,
+      // Written as "pending"; the emulator's push trigger may already have
+      // run and found no device for these test people.
+      push: { status: expect.stringMatching(/^(pending|no-device)$/) },
     });
     expect(inbox.docs[0]!.id).toBe(`admin-message:${r.id}:${inbox.docs[0]!.get("recipientUid")}`);
     const n = (await db().doc(`adminNotifications/${r.id}`).get()).data()!;

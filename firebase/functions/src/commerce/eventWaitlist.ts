@@ -26,7 +26,9 @@ export const EVENT_WAITLIST = "eventWaitlist";
 /** One alert per person per this window, so a spot that flickers open and
  *  shut (a hold expiring and being re-taken) doesn't spam them. */
 export const WAITLIST_ALERT_COOLDOWN_MS = 10 * 60_000;
-const ref = (eventId: string, uid: string) => db().collection(EVENT_WAITLIST).doc(`${eventId}__${uid}`);
+/** One person's place on one event's waitlist. */
+export const eventWaitlistRef = (eventId: string, uid: string) => db().collection(EVENT_WAITLIST).doc(`${eventId}__${uid}`);
+const ref = eventWaitlistRef;
 
 /** Spots a published, not-yet-started event can still sell. */
 export function eventOpenSpots(ev: Json | undefined, nowMs = Date.now()): number {

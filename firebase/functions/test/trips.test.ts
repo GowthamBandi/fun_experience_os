@@ -451,6 +451,16 @@ describe("waitlist", () => {
     expect(await seatAlerts(a)).toHaveLength(2);
   });
 
+  test("booking takes them off the date's waitlist at once, not at the next opening", async () => {
+    const { w, booker, bookingId } = await soldOut();
+    const a = uniq("cust");
+    await call(trips.joinTripWaitlist, { requestId: rid(), departureId: w.d1 }, phoneCtx(a));
+    expect(await entry(w.d1, a)).toBeDefined();
+    await call(trips.cancelTripBooking, { requestId: rid(), bookingId }, phoneCtx(booker));
+    await call(trips.reserveTripSeats, reserveInput(w, { travellers: 1, people: people(1) }), phoneCtx(a));
+    expect(await entry(w.d1, a)).toBeUndefined();
+  });
+
   test("a cancelled departure clears its waitlist without a seat alert", async () => {
     const { w } = await soldOut();
     const a = uniq("cust");

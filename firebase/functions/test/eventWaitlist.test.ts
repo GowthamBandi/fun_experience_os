@@ -1,7 +1,7 @@
 /**
  * Waitlist for sold-out experiences (commerce/eventWaitlist.ts).
  */
-import { call, callCode, phoneCtx, uniq, rid, db, Timestamp } from "./commerce-helpers";
+import { call, callCode, phoneCtx, uniq, rid, db, Timestamp, world, newCustomer, reserve } from "./commerce-helpers";
 import * as commerce from "../src/commerce";
 import { eventOpenSpots, eventSpotOpened, notifyEventWaitlist } from "../src/commerce/eventWaitlist";
 
@@ -72,6 +72,18 @@ describe("event waitlist", () => {
     expect(await callCode(commerce.joinEventWaitlist, { requestId: rid(), eventId: full }, phoneCtx(booked))).toBe("PRECONDITION");
     const draft = await event(4, { status: "draft" });
     expect(await callCode(commerce.joinEventWaitlist, { requestId: rid(), eventId: draft }, phoneCtx(uniq("c")))).toBe("NOT_FOUND");
+  });
+
+  test("booking takes them off the waitlist at once, not at the next opening", async () => {
+    const { eventId } = await world({ capacity: 1, priceMinor: 0 });
+    await reserve(await newCustomer(), eventId);
+    const a = await newCustomer();
+    await call(commerce.joinEventWaitlist, { requestId: rid(), eventId }, phoneCtx(a));
+    expect((await db().doc(`eventWaitlist/${eventId}__${a}`).get()).exists).toBe(true);
+    // The organizer adds a spot and a takes it.
+    await db().doc(`events/${eventId}`).update({ "capacity.maxPhysicalCapacity": 2, "capacity.targetParticipants": 2 });
+    expect((await reserve(a, eventId)).status).toBe("confirmed");
+    expect((await db().doc(`eventWaitlist/${eventId}__${a}`).get()).exists).toBe(false);
   });
 
   test("a cancelled event clears its waitlist without an alert", async () => {
