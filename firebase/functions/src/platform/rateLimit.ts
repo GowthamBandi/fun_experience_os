@@ -60,6 +60,8 @@ export const LIMITS = {
   catalogSubmit: { limit: 30, windowSeconds: 60 * 60 },
   /** publishEvent / setEventPhase / setEventResponsibility. */
   catalogOps: { limit: 60, windowSeconds: 10 * 60 },
+  /** setTripBoarding: one call per traveller at the bus door, sized for a full coach plus corrections. */
+  tripBoarding: { limit: 300, windowSeconds: 10 * 60 },
   /** cancelEvent: fans out refunds to every booking. */
   eventCancel: { limit: 10, windowSeconds: 60 * 60 },
   /** reissueStaffCode: mints a new access code each time. */

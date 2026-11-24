@@ -18,7 +18,7 @@ import {
 } from "./bookings";
 import {
   addTripDepartureCommand, cancelDepartureCommand, getTripManifestQuery, postDepartureUpdateCommand, setDepartureSeatsCommand,
-  setSalesClosedCommand,
+  setSalesClosedCommand, setTripBoardingCommand,
 } from "./operations";
 import { sweepTripBalances as sweepTripBalancesSvc } from "./balance";
 import { joinTripWaitlistCommand, leaveTripWaitlistCommand, notifyTripWaitlist, seatOpened } from "./waitlist";
@@ -89,6 +89,13 @@ export const postDepartureUpdate = callable(async (data, context) => {
 export const getTripManifest = callable(async (data, context) => {
   const uid = requirePhoneUser(context).uid;
   return getTripManifestQuery(uid, data);
+});
+
+/** Marks a confirmed traveller as boarded (or not): what unlocks their trip review (`tickets.scan`). */
+export const setTripBoarding = callable(async (data, context) => {
+  const uid = requirePhoneUser(context).uid;
+  await consumeLimit("tripBoarding", uid);
+  return setTripBoardingCommand(uid, data);
 });
 
 /* ----------------------------------------------------------------- console */

@@ -10,6 +10,8 @@
  * reviews (catalog/reviews.ts): `{eventId}__{uid}` with eventId, experienceId, orgId,
  * authorUid, authorName (display name or "PULSE member"), rating 1–5, comment, status
  * "published" | "hidden", version, createdAt, updatedAt, moderation { by, reason, at } | null.
+ * Trip reviews (submitTripReview) share the collection: `{departureId}__{uid}` with
+ * kind "trip", tripId, departureId, title (the trip's) and no eventId / experienceId.
  * There is no report or flag field, so the feed has no "Flagged" filter.
  */
 
@@ -257,8 +259,14 @@ export interface ModReview {
   comment: string | null;
   author: string | null;
   status: string | null;
+  /** "trip" for trip reviews; everything else (incl. no kind) is an event review. */
+  kind: "event" | "trip";
   eventId: string | null;
   experienceId: string | null;
+  tripId: string | null;
+  departureId: string | null;
+  /** Stored title (trip reviews); event titles are looked up by eventId. */
+  title: string | null;
   orgId: string | null;
   /** updatedAt (falls back to createdAt): sort key only; moderation moves it. */
   at: Date | null;
@@ -278,8 +286,12 @@ export function toModReview(id: string, d: Raw): ModReview {
     comment: str(d.comment),
     author: str(d.authorName),
     status: str(d.status),
+    kind: d.kind === "trip" ? "trip" : "event",
     eventId: str(d.eventId),
     experienceId: str(d.experienceId),
+    tripId: str(d.tripId),
+    departureId: str(d.departureId),
+    title: str(d.title),
     orgId: str(d.orgId),
     at: toDate(d.updatedAt) ?? toDate(d.createdAt),
     postedAt: toDate(d.createdAt),
@@ -315,8 +327,8 @@ export function filterReviews(reviews: ModReview[], filter: ReviewFilter, search
   return reviews.filter((r) => {
     if (filter !== "all" && r.status !== filter) return false;
     if (!q) return true;
-    const title = r.eventId ? titles[r.eventId] : null;
-    return [r.comment, r.author, r.eventId, r.orgId, r.id, title].some((v) => v && v.toLowerCase().includes(q));
+    const title = r.eventId ? titles[r.eventId] : r.title;
+    return [r.comment, r.author, r.eventId, r.tripId, r.orgId, r.id, title, r.kind === "trip" ? "trip" : null].some((v) => v && v.toLowerCase().includes(q));
   });
 }
 
@@ -345,6 +357,6 @@ export interface ModerationAction {
 /** moderateReview targets; the current status is not offered (the server would only re-audit it). */
 export function moderationAction(status: string | null): ModerationAction {
   return status === "hidden"
-    ? { status: "published", label: "Publish", consequence: "Makes the review visible again and restores it to the organizer's and experience's rating aggregates.", tone: "volt" }
-    : { status: "hidden", label: "Hide", consequence: "Removes the review from PULSE and from the organizer's and experience's rating aggregates.", tone: "danger" };
+    ? { status: "published", label: "Publish", consequence: "Makes the review visible again and restores it to the organizer's and the experience's or trip's rating aggregates.", tone: "volt" }
+    : { status: "hidden", label: "Hide", consequence: "Removes the review from PULSE and from the organizer's and the experience's or trip's rating aggregates.", tone: "danger" };
 }

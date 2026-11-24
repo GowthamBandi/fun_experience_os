@@ -69,6 +69,9 @@ export interface TripBookingDoc {
   emergencyPhone: string;
   alias: string;
   checked: string[];
+  /** Set by the organizer at boarding (setTripBoarding); what unlocks a trip review. */
+  boardedAt?: Timestamp | null;
+  boardedBy?: string | null;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

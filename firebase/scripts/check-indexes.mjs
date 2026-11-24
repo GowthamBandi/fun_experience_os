@@ -98,6 +98,13 @@ export const QUERIES = [
   Q("BW01", "backend", "bookings", ["eventId", "customerUid", "status(in)"], null, [], ["firebase/functions/src/commerce/eventWaitlist.ts", `where("customerUid", "==", uid)`]),
   Q("BW02", "backend", "eventWaitlist", ["eventId"], null, [], ["firebase/functions/src/commerce/eventWaitlist.ts", `EVENT_WAITLIST).where("eventId"`]),
   Q("BT12", "backend", "tripWaitlist", ["departureId"], null, [], ["firebase/functions/src/trips/waitlist.ts", `tripWaitlist).where("departureId"`]),
+  // catalog/history.ts getOrganizerHistory (organizer profile: past events and trips with reviews).
+  Q("BH01", "backend", "events", ["orgId"], "startsAt", [["startsAt", "desc"]], ["firebase/functions/src/catalog/history.ts", `.where("startsAt", "<=", Timestamp.fromMillis(now))`],
+    "Past events of one organizer, newest start first; endsAt/status filtered in memory."),
+  Q("BH02", "backend", "tripDepartures", ["orgId"], null, [], ["firebase/functions/src/catalog/history.ts", `tripDepartures).where("orgId"`],
+    "One organizer's departures (limit 500); end/cancelled/seatsTaken filtered in memory (automatic single-field index)."),
+  Q("BH03", "backend", "publicReviews", ["orgId"], null, [["createdAt", "desc"]], ["firebase/functions/src/catalog/history.ts", `collection("publicReviews").where("orgId"`],
+    "Newest 500 published reviews of one organizer, grouped by event / departure in memory."),
   // platform/retention.ts (scheduled clean-up). R01/R02 run on a collection
   // passed in as a variable, which the chain scanner can't resolve.
   Q("R01", "backend", "staffInvites", ["status"], "expiresAt", [], ["firebase/functions/src/platform/retention.ts", `.where("expiresAt", "<", opts.cutoff)`]),

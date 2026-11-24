@@ -49,7 +49,10 @@ This is the canonical callable API used by PULSE (Flutter) and the Operations Co
 | `cancelEvent` | `events.cancel` (scope) or admin | `{ requestId, orgId, eventId, reason }` | `cancelled`; queues full refunds for every confirmed booking (commerce) and notifies attendees |
 | `submitReview` | ticket holder | `{ requestId, eventId, rating: 1..5, comment? }` | Only if the caller holds a **used** ticket (checked in) for the event, the event is `completed` or has ended, and within 30 days. One review per person per event (`reviews/{eventId}__{uid}`); editing within the window replaces it. Rate limited |
 | `adminCancelEvent` (admin) | admin claims | `{ requestId, eventId, reason }` | Emergency intervention: `cancelled` + full refunds (commerce trigger), audited |
-| `moderateReview` (admin) | admin claims | `{ requestId, reviewId, status: "published"\|"hidden", reason }` | Audited |
+| `setTripBoarding` (trips) | `tickets.scan` | `{ requestId, orgId, departureId, bookingId, boarded: boolean }` | Confirmed booking on that departure; departure not cancelled; from 24 h before the start to 30 days after the end. Sets `boardedAt` / `boardedBy` (null when unmarked); `getTripManifest` entries carry `boarded`. Audited. Returns `{ bookingId, boarded }` |
+| `submitTripReview` | boarded traveller | `{ requestId, bookingId, rating: 1..5, comment? }` | Own `confirmed` trip booking with `boardedAt` set (setTripBoarding), departure ended and not cancelled, within 30 days, not an organizer team member. `reviews/{departureId}__{uid}` (`kind: "trip"`); counts in `publicOrganizers/{orgId}` and `trips/{tripId}` ratings; public copy in `publicReviews`. Same comment rules and rate limit as `submitReview`. Returns `{ reviewId, status, version }` |
+| `getOrganizerHistory` | signed in | `{ orgId }` | `{ orgId, items: [{ kind: "event"\|"trip", id, experienceId, tripId, title, category, place, startsAt, endsAt, ratingCount, ratingAverage, reviews: [{ authorName, rating, comment, createdAt }] }], ratingCount, ratingAverage }`: past events that ran and past departures with travellers, newest first (max 30, 3 reviews each) |
+| `moderateReview` (admin) | admin claims | `{ requestId, reviewId, status: "published"\|"hidden", reason }` | Event or trip review (`kind: "trip"`). Audited |
 
 ## Commerce (`src/commerce`)
 

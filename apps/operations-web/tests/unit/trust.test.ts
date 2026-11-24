@@ -131,6 +131,13 @@ describe("reviews", () => {
     expect(r2.postedAt).toBeNull();
     expect(r1.postedAt?.toISOString()).toBe("2026-10-08T10:00:00.000Z");
   });
+  it("reads the submitTripReview shape (kind trip, stored title) and finds it by trip title", () => {
+    const t = toModReview("dep1__u4", { kind: "trip", tripId: "t-1", departureId: "dep1", orgId: "o1", title: "Coorg coffee trails", authorName: "Ravi", rating: 4, status: "published", version: 1, createdAt: ts("2026-10-10T10:00:00Z") });
+    expect(t).toMatchObject({ kind: "trip", tripId: "t-1", departureId: "dep1", title: "Coorg coffee trails", eventId: null, experienceId: null, rating: 4 });
+    expect(r1.kind).toBe("event");
+    expect(filterReviews([r1, t], "all", "coorg").map((r) => r.id)).toEqual(["dep1__u4"]);
+    expect(filterReviews([r1, t], "all", "trip").map((r) => r.id)).toEqual(["dep1__u4"]);
+  });
   it("sorts newest first and counts by status", () => {
     expect(sortReviews([r3, r1, r2]).map((r) => r.id)).toEqual(["e1__u2", "e1__u1", "e2__u3"]);
     expect(reviewCounts([r1, r2, r3])).toEqual({ all: 3, published: 2, hidden: 1 });

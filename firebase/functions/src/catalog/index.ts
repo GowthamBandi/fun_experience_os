@@ -9,7 +9,8 @@ export {
   cancelEvent,
   adminCancelEvent,
 } from "./events";
-export { submitReview, moderateReview } from "./reviews";
+export { submitReview, submitTripReview, moderateReview } from "./reviews";
+export { getOrganizerHistory } from "./history";
 export { setCategoryCover } from "./categoryCovers";
 export { setFollow, onEventPublishedNotifyFollowers } from "./follows";
 export { resolveMapsLink } from "./mapLinks";

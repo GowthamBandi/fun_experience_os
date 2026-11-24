@@ -27,7 +27,7 @@ import { CountChips, ReadOnly, SearchField } from "./TrustBits";
 const TITLE_MAX = 40;
 
 const FILTER_EMPTY: Record<ReviewFilter, { emoji: string; title: string; body: string }> = {
-  all: { emoji: "💬", title: "No reviews yet", body: "Reviews appear after attendees who checked in rate an event that has ended." },
+  all: { emoji: "💬", title: "No reviews yet", body: "Reviews appear after attendees who checked in rate an event (or boarded travellers rate a trip) that has ended." },
   published: { emoji: "💬", title: "Nothing published", body: "No review is visible on PULSE right now." },
   hidden: { emoji: "🙈", title: "Nothing hidden", body: "All clear: no review has been hidden." },
 };
@@ -68,7 +68,7 @@ export function ReviewsFeed() {
             ) : null}
           </>
         }
-        subtitle="Verified-attendee reviews of organizer events. Hide reviews that break policy (abuse, personal data, off-topic) or restore them. Rating aggregates update server-side; every decision is audited."
+        subtitle="Verified-attendee reviews of organizer events and trips. Hide reviews that break policy (abuse, personal data, off-topic) or restore them. Rating aggregates update server-side; every decision is audited."
       />
 
       {ready && reviews.length > 0 ? (
@@ -85,7 +85,7 @@ export function ReviewsFeed() {
 
       <div className="flex flex-wrap items-center gap-3">
         <CountChips label="Filter by status" filters={REVIEW_FILTERS} value={filter} counts={counts} ready={ready} onChange={setFilter} />
-        <SearchField value={search} onChange={setSearch} label="Search reviews" placeholder="Search text, author, event…" />
+        <SearchField value={search} onChange={setSearch} label="Search reviews" placeholder="Search text, author, event, trip…" />
       </div>
 
       {loading ? (
@@ -155,7 +155,17 @@ function ReviewCard({ review: r, titles, orgNames, now, permitted, onModerate }:
           from <b className="font-semibold text-text-2">{r.author ?? "—"}</b>
         </span>
         <span className="min-w-0 truncate">
-          on <EventLink id={r.eventId} titles={titles} />
+          on{" "}
+          {r.kind === "trip" ? (
+            <>
+              <Badge tone="muted">Trip</Badge>{" "}
+              <Link href="/trips" className="focus-ring rounded-[6px] font-semibold text-text underline-offset-2 hover:underline">
+                {r.title ?? <span className="font-mono text-[12px] text-text-2">{r.tripId ?? r.departureId ?? "—"}</span>}
+              </Link>
+            </>
+          ) : (
+            <EventLink id={r.eventId} titles={titles} />
+          )}
         </span>
         {r.orgId && org ? (
           <span className="min-w-0 truncate">

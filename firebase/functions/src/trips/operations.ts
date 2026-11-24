@@ -7,7 +7,7 @@
  * `events.publish` to add dates, `events.cancel` to call one off and
  * `attendees.view` for the manifest (traveller names, ages and emergency
  * contacts — never exposed to co-travellers, who only ever read their own
- * booking).
+ * booking) and `tickets.scan` to mark travellers as boarded.
  */
 
 import { precondition } from "../platform/errors";
@@ -19,7 +19,7 @@ import { docId, int, obj, requestId, str } from "../platform/callable";
 import { bool, notFoundHere, runCommand, type Json } from "../catalog/common";
 import { DAY_MS, contentOf, parseTripDraft } from "./model";
 import { allocateRefunds, executeTripRefund, type TripBookingDoc, type TripPaymentDoc } from "./bookings";
-import { T, departureRef, draftRef, tripRef } from "./refs";
+import { T, departureRef, draftRef, tripBookingRef, tripRef } from "./refs";
 import type { Transaction } from "firebase-admin/firestore";
 
 async function departureFor(tx: Transaction, orgId: string, departureId: string) {
@@ -239,6 +239,45 @@ export function postDepartureUpdateCommand(uid: string, data: unknown) {
   });
 }
 
+// ------------------------------------------------------------ setTripBoarding
+
+/** Boarding can be marked from a day before the start until reviews close. */
+export const BOARDING_OPENS_MS = DAY_MS;
+export const BOARDING_CLOSES_MS = 30 * DAY_MS;
+
+/**
+ * The organizer's team marks a confirmed booking as boarded (or undoes it).
+ * `boardedAt` is the attendance record a trip review needs (catalog/reviews.ts
+ * submitTripReview), the trip twin of a scanned event ticket.
+ */
+export function setTripBoardingCommand(uid: string, data: unknown) {
+  return opCommand("trips.boarding-set", "tickets.scan")(uid, data, (d) => ({
+    departureId: docId(d.departureId, "departureId"),
+    bookingId: docId(d.bookingId, "bookingId"),
+    boarded: bool(d.boarded, "boarded"),
+  }), async (tx, now, { a: { departureId, bookingId, boarded }, orgId, rid, role }) => {
+    const dep = await departureFor(tx, orgId, departureId);
+    const bSnap = await tx.get(tripBookingRef(bookingId));
+    const b = bSnap.exists ? (bSnap.data() as TripBookingDoc) : null;
+    if (!b || b.orgId !== orgId || b.departureId !== departureId) throw notFoundHere("booking");
+    if (b.status !== "confirmed") throw precondition("Only confirmed bookings can be marked as boarded.");
+    if (dep.cancelled === true) throw precondition("This departure was cancelled.");
+    const startMs = (dep.start as Timestamp).toMillis();
+    const endMs = (dep.end as Timestamp).toMillis();
+    if (now.toMillis() < startMs - BOARDING_OPENS_MS) throw precondition("Boarding opens 24 hours before the departure.");
+    if (now.toMillis() > endMs + BOARDING_CLOSES_MS) throw precondition("Boarding can't be changed more than 30 days after the trip.");
+    const was = b.boardedAt != null;
+    if (was !== boarded) {
+      tx.update(bSnap.ref, { boardedAt: boarded ? now : null, boardedBy: boarded ? uid : null, updatedAt: now });
+    }
+    writeAudit(tx, {
+      action: "trips.boarding-set", actorUid: uid, actorRole: role, resourceType: "tripBooking", resourceId: bookingId,
+      orgId, before: { boarded: was }, after: { boarded, departureId }, requestId: rid,
+    });
+    return { bookingId, boarded };
+  });
+}
+
 // ------------------------------------------------------------ getTripManifest
 
 export async function getTripManifestQuery(uid: string, data: unknown) {
@@ -267,6 +306,7 @@ export async function getTripManifestQuery(uid: string, data: unknown) {
       people: b.people,
       emergencyName: b.emergencyName,
       emergencyPhone: b.emergencyPhone,
+      boarded: b.boardedAt != null,
       bookedAt: iso(b.createdAt),
     }));
   return { departureId, tripId: dep.data()!.tripId, entries };

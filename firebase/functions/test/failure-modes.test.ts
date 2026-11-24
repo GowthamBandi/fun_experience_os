@@ -210,6 +210,7 @@ const LENIENT: Record<string, string[]> = {
   revokeStaff: ["uid", "inviteId"],
   reissueOrganizerCode: ["reason"],
   submitReview: ["comment"],
+  submitTripReview: ["comment"],
   reserveSeat: ["spots"],
   decideSettlement: ["payoutReference"],
   decideCase: ["note"],
@@ -263,6 +264,8 @@ describe("F2 malformed payloads", () => {
       adminCancelEvent: { fn: catalog.adminCancelEvent, base: { requestId: r(), eventId: EVT, reason: "Venue flooded badly" }, ctx: "admin" },
       submitReview: { fn: catalog.submitReview, base: { requestId: r(), eventId: EVT, rating: 5, comment: "Great fun" }, ctx: "phone" },
       moderateReview: { fn: catalog.moderateReview, base: { requestId: r(), reviewId: `${EVT}__${UID}`, status: "hidden", reason: "Spam here" }, ctx: "admin" },
+      submitTripReview: { fn: catalog.submitTripReview, base: { requestId: r(), bookingId: "tb-fuzz-0001", rating: 5, comment: "Great trip" }, ctx: "phone" },
+      getOrganizerHistory: { fn: catalog.getOrganizerHistory, base: { orgId: ORG }, ctx: "phone" },
       reserveSeat: { fn: commerce.reserveSeat, base: { requestId: r(), eventId: EVT, spots: 1, alias: "Asha" }, ctx: "phone" },
       createPaymentOrder: { fn: commerce.createPaymentOrder, base: { requestId: r(), bookingId: "bkg-fuzz-0001" }, ctx: "phone" },
       confirmPayment: { fn: commerce.confirmPayment, base: { paymentId: "pay-fuzz-0001", providerPaymentId: "pay_abc123", providerSignature: "a".repeat(64) }, ctx: "phone" },
@@ -310,6 +313,7 @@ describe("F2 malformed payloads", () => {
       cancelDeparture: { fn: trips.cancelDeparture, base: { requestId: r(), orgId: ORG, departureId: "dep-fuzz-0001", reason: "Landslide on the road" }, ctx: "phone" },
       postDepartureUpdate: { fn: trips.postDepartureUpdate, base: { requestId: r(), orgId: ORG, departureId: "dep-fuzz-0001", text: "Pickup moved to Gate 3", important: false }, ctx: "phone" },
       getTripManifest: { fn: trips.getTripManifest, base: { orgId: ORG, departureId: "dep-fuzz-0001" }, ctx: "phone" },
+      setTripBoarding: { fn: trips.setTripBoarding, base: { requestId: r(), orgId: ORG, departureId: "dep-fuzz-0001", bookingId: "tb-fuzz-0001", boarded: true }, ctx: "phone" },
       setOperatorAccess: { fn: setOperatorAccess, base: { uid: opTarget, roleId: "auditor", status: "active", reason: "Needs audit access now" }, ctx: "owner" },
     };
 
