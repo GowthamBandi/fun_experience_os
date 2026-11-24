@@ -157,7 +157,10 @@ export function SupportView() {
             ) : (
               <ul className="flex flex-col">
                 {shown.map((r) => {
-                  const last = r.messages[r.messages.length - 1];
+                  // Preview the latest real message: the automatic acknowledgement
+                  // says nothing about what the person needs.
+                  const real = r.messages.filter((m) => !m.auto);
+                  const last = real[real.length - 1] ?? r.messages[r.messages.length - 1];
                   return (
                     <li key={r.id}>
                       <button
