@@ -41,7 +41,7 @@ cd apps/operations-web && npx tsc --noEmit -p . && npx vitest run
 # index inventory
 node firebase/scripts/check-indexes.mjs
 ```
-Current: backend 414/415 (`I1 occupancy` is a known random-sequence flake), rules 72/72, console 370/370.
+Current (24 Nov): backend 520/520 (`I1 occupancy` is a known random-sequence flake), rules 80/80, console 441/441.
 If the default emulator ports are busy, run tests with a spare config (e.g. Firestore on 8181) via
 `--config`.
 
@@ -77,6 +77,13 @@ Deploy rules of thumb:
 - Service cities `platform/serviceCities.ts` (`appConfig/cities`, `setServiceCities`, console System
   page "Service cities" card): the app's city pickers list only active cities; `submitEvent`,
   live-edit `saveEvent` and `submitTrip` refuse other cities. No document → every city allowed.
+- Notification center + account controls (24 Nov, spec `docs/NOTIFICATION_CENTER_CONTRACT.md`):
+  announcements `platform/announcements.ts`, audiences `platform/audience.ts`, sends + templates
+  `platform/adminNotifications.ts`, pause/block `platform/accountControls.ts` (enforcement in
+  `platform/accountStatus.ts`, the `callable()` wrapper and `requireCustomerAction()`), jobs
+  `platform/notificationJobs.ts` (`runNotificationJobs` 5 min, `expireAccountStatuses` daily).
+  Console: Notifications area (`/notifications/*`), Account card on Customer 360, organizer status
+  message in the pause/block sheet. Not deployed.
 - Console pages: Command Center, Live, Approvals, Trips, Categories (cover images), Organizers
   (360 with money, team, trust stats), Experiences & Events (360 with Safety & messages tab),
   Customers, Risk, Support, Reviews, Revenue, Refunds, Settlements, Commercials, Audit, Policies,

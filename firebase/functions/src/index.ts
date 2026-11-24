@@ -12,6 +12,12 @@ export { eventPage } from "./web/eventPage";
 export { setAppConfig } from "./platform/appConfig";
 export { setServiceCities } from "./platform/serviceCities";
 export { sendBroadcast } from "./platform/broadcast";
+export {
+  saveAnnouncement, setAnnouncementStatus, previewAudience, getAnnouncementStats, getMyAnnouncements, recordAnnouncementEvent,
+} from "./platform/announcements";
+export { sendNotification, cancelScheduledNotification, saveTemplate, deleteTemplate } from "./platform/adminNotifications";
+export { setAccountStatus, searchAccounts } from "./platform/accountControls";
+export { runNotificationJobs, expireAccountStatuses } from "./platform/notificationJobs";
 
 /** Region of checkHealth: us-central1, where the console and runbook expect it (API_CONTRACT). */
 const HEALTH_REGION = "us-central1";

@@ -3,7 +3,7 @@
 
 import * as functions from "firebase-functions/v1";
 import { callable, docId, obj, requestId, str } from "../platform/callable";
-import { requirePhoneUser } from "../platform/actors";
+import { requireCustomerAction, requirePhoneUser } from "../platform/actors";
 import { requireAdmin } from "../platform/auth";
 import { consumeLimit, consumeRateLimit } from "../platform/rateLimit";
 import { DomainError } from "../platform/errors";
@@ -105,7 +105,7 @@ export const reviewTrip = callable(async (data, context) => reviewTripCommand(re
 /* ---------------------------------------------------------------- customer */
 
 export const reserveTripSeats = callable(async (data, context) => {
-  const uid = requirePhoneUser(context).uid;
+  const uid = (await requireCustomerAction(context)).uid;
   await consumeRateLimit({ bucket: `tripreserve_${uid}`, ...RATE_LIMITS.reserve, message: "Too many booking attempts. Please wait a few minutes." });
   return reserveTripSeatsCommand(uid, data);
 });
@@ -118,7 +118,7 @@ function bookingIdOf(data: unknown) {
 
 export const createTripPaymentOrder = callable(
   async (data, context) => {
-    const uid = requirePhoneUser(context).uid;
+    const uid = (await requireCustomerAction(context)).uid;
     const bookingId = bookingIdOf(data);
     await consumeRateLimit({ bucket: `trippayorder_${uid}`, ...RATE_LIMITS.paymentOrder });
     return createTripOrder(uid, bookingId, "initial");
@@ -161,7 +161,7 @@ export const cancelTripBooking = callable(
 );
 
 export const joinTripWaitlist = callable(async (data, context) => {
-  const uid = requirePhoneUser(context).uid;
+  const uid = (await requireCustomerAction(context)).uid;
   await consumeRateLimit({ bucket: `tripwait_${uid}`, ...RATE_LIMITS.reserve, message: "Too many waitlist requests. Please wait a few minutes." });
   return joinTripWaitlistCommand(uid, data);
 });

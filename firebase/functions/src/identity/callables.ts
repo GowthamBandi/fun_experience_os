@@ -1,4 +1,4 @@
-import { requirePhoneUser } from "../platform/actors";
+import { requireCustomerAction, requirePhoneUser } from "../platform/actors";
 import { callable } from "../platform/callable";
 import { SECRET_NAMES } from "../platform/security";
 import {
@@ -26,9 +26,10 @@ export const deleteMyAccount = callable((_data, context) => deleteMyAccountServi
 
 export const myAccess = callable((_data, context) => myAccessService(requirePhoneUser(context)));
 
-export const submitOrganizerApplication = callable((data, context) =>
-  submitOrganizerApplicationService(parseOrganizerApplication(data), requirePhoneUser(context))
-);
+export const submitOrganizerApplication = callable(async (data, context) => {
+  const actor = await requireCustomerAction(context);
+  return submitOrganizerApplicationService(parseOrganizerApplication(data), actor);
+});
 
 export const redeemOrganizerCode = callable(
   (data, context) => redeemOrganizerCodeService(parseCode(data), requirePhoneUser(context)),

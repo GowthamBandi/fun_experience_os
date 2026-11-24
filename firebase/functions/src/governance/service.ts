@@ -300,12 +300,45 @@ export async function changeMarketplaceEntityStatus(command: EntityStatusCommand
     if (currentVersion !== command.expectedVersion) throw conflict("Someone else changed this record while you were reviewing it.", { currentVersion });
     const nextVersion = currentVersion + 1;
     const now = serverNow();
-    transaction.update(ref, { status: command.status, statusReason: command.reason, version: nextVersion, updatedAt: now, updatedBy: actor.uid });
+    // Organizations (contract §3): the team is told, and the public projection shows the status.
+    const orgMessage = command.messageToOrganizer ?? null;
+    const orgStatus = command.entityType === "organizer" && ["active", "paused", "blocked"].includes(command.status);
+    const publicRef = firestore.collection("publicOrganizers").doc(command.entityId);
+    const [publicSnap, members] = orgStatus
+      ? await Promise.all([transaction.get(publicRef), transaction.get(firestore.collection(COLLECTIONS.memberships).where("orgId", "==", command.entityId))])
+      : [null, null];
+    transaction.update(ref, {
+      status: command.status, statusReason: command.reason, version: nextVersion, updatedAt: now, updatedBy: actor.uid,
+      ...(orgStatus ? { statusMessage: orgMessage } : {}),
+    });
+    if (orgStatus) {
+      if (publicSnap?.exists) transaction.update(publicRef, { status: command.status, statusMessage: orgMessage, updatedAt: now });
+      const name = String(current.name ?? current.displayName ?? "Your organization");
+      const copy = {
+        paused: { title: `${name} is paused by PULSE`, body: "New listings and dates can't be submitted while it's paused." },
+        blocked: { title: `${name} is blocked by PULSE`, body: "Hosting is blocked. Contact PULSE support for details." },
+        active: { title: `${name} is active again`, body: "You can host and submit new listings again." },
+      }[command.status as "active" | "paused" | "blocked"];
+      const changed = current.status !== command.status || !!orgMessage;
+      for (const m of changed ? members!.docs : []) {
+        if (m.get("status") !== "active" || typeof m.get("uid") !== "string") continue;
+        notify(transaction, {
+          recipientUid: m.get("uid") as string,
+          kind: "organization-status",
+          title: copy.title,
+          body: orgMessage ?? copy.body,
+          dedupeKey: `${command.entityId}:v${nextVersion}`,
+          link: { type: "organizer", id: command.entityId },
+        });
+      }
+    }
     const result = { entityType: command.entityType, entityId: command.entityId, status: command.status, version: nextVersion, replayed: false };
     audit(transaction, {
       action: "governance.entity-status-changed", actorUid: actor.uid, actorRoleId: actor.roleId,
       resourceType: command.entityType, resourceId: command.entityId,
-      before: { status: current.status, version: currentVersion }, after: { status: command.status, version: nextVersion }, reason: command.reason,
+      before: { status: current.status, version: currentVersion },
+      after: { status: command.status, version: nextVersion, ...(orgStatus ? { messageToOrganizer: orgMessage } : {}) },
+      reason: command.reason,
     });
     transaction.create(receiptRef(command.requestId), { action: "governance.entity-status-changed", actorUid: actor.uid, result, createdAt: now });
     return result;

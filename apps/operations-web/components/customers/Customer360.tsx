@@ -36,6 +36,8 @@ import { countFull } from "@/lib/overview";
 import { useLiveDocument } from "@/lib/use-governance";
 import { useMetric } from "@/lib/use-metric";
 import { useTabParam } from "@/lib/use-search-param";
+import { useAdminSession } from "@/lib/firebase/auth";
+import { AccountControls, AccountStatusBadge } from "./AccountControls";
 import { useBoundedQuery, useOneShot } from "@/lib/use-query";
 import {
   CustomerBookingsTab,
@@ -119,6 +121,7 @@ function Fact({ label, value }: { label: string; value: string }) {
 function View({ uid, onRetry }: { uid: string; onRetry: () => void }) {
   const [tab, setTab] = useTabParam(TAB_IDS, "bookings");
   const now = useNow(60_000);
+  const { consoleRole } = useAdminSession();
 
   const user = useLiveDocument("users", uid);
   const profile = useLiveDocument("publicProfiles", uid);
@@ -219,7 +222,9 @@ function View({ uid, onRetry }: { uid: string; onRetry: () => void }) {
               <div className="overline font-semibold">{c.operator ? "Console operator account" : "Customer"}</div>
               <h1 className="mt-1 break-words font-display text-[34px] font-bold leading-[1.05] tracking-[-0.03em] text-text sm:text-[40px]">{name}</h1>
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                {status ? (
+                {!c.operator ? (
+                  <AccountStatusBadge uid={uid} />
+                ) : status ? (
                   <Badge tone={status.tone} className="text-[12px]">
                     <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-current" />
                     {status.label}
@@ -273,6 +278,8 @@ function View({ uid, onRetry }: { uid: string; onRetry: () => void }) {
           </dl>
         </div>
       </Card>
+
+      {!c.operator ? <AccountControls uid={uid} name={name} role={consoleRole} /> : null}
 
       <section aria-label="Key numbers" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label="Bookings" value={countFull(bookingCount.value)} hint="All time · every status" loading={bookingCount.loading} error={bookingCount.error} onRetry={bookingCount.retry} />

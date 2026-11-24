@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Sheet, useToast } from "@/components/pulse";
 import { PhraseBox } from "@/components/governance/PhraseBox";
-import { RequestIdBook, decisionKey, isConfirmed, type EntityStatus, type EntityType } from "@/lib/console/actions";
+import { Field, TextArea } from "@/components/notifications/FormBits";
+import { ORGANIZER_MESSAGE_MAX, RequestIdBook, decisionKey, isConfirmed, type EntityStatus, type EntityType } from "@/lib/console/actions";
 import { rethrowForSheet } from "@/lib/console/errors";
 import { setEntityStatus } from "@/lib/governance-api";
 import { entityVersion, type StatusAction } from "@/lib/organizers";
@@ -31,6 +32,7 @@ export function StatusSheet({
   noun,
   name,
   getVersion,
+  currentMessage,
   onChanged,
   onClose,
 }: {
@@ -42,13 +44,21 @@ export function StatusSheet({
   noun: string;
   name: string;
   getVersion: () => unknown;
+  /** Organizers: the message they currently see (prefilled when the status stays the same). */
+  currentMessage?: string | null;
   onChanged: () => void;
   onClose: () => void;
 }) {
   const toast = useToast();
   const [typed, setTyped] = useState("");
+  const [message, setMessage] = useState("");
   const book = useRef(new RequestIdBook(entityType));
-  useEffect(() => setTyped(""), [action]);
+  const asksMessage = entityType === "organizer" && !!action && (action.status === "active" || action.status === "paused" || action.status === "blocked");
+  useEffect(() => {
+    setTyped("");
+    setMessage("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [action]);
 
   const confirm = async (reason: string) => {
     if (!action) return;
@@ -57,12 +67,13 @@ export function StatusSheet({
     const version = entityVersion(getVersion());
     try {
       const result = await setEntityStatus({
-        requestId: book.current.idFor(decisionKey(entityType, entityId, action.status, version)),
+        requestId: book.current.idFor(decisionKey(entityType, entityId, action.status, version, asksMessage ? message.trim() : "")),
         entityType,
         entityId,
         expectedVersion: version,
         status: action.status,
         reason,
+        ...(asksMessage && message.trim() ? { messageToOrganizer: message.trim() } : {}),
       });
       book.current.reset();
       onChanged();
@@ -86,7 +97,32 @@ export function StatusSheet({
       requireReason
       minReason={10}
       reasonLabel="Reason (kept in the audit trail)"
-      extra={action?.phrase ? <PhraseBox phrase={action.phrase} consequence={action.consequence} value={typed} onChange={setTyped} /> : undefined}
+      extra={
+        action?.phrase || asksMessage ? (
+          <div className="flex flex-col gap-4">
+            {action?.phrase ? <PhraseBox phrase={action.phrase} consequence={action.consequence} value={typed} onChange={setTyped} /> : null}
+            {asksMessage ? (
+              <Field
+                label="Message to the organizer (optional)"
+                count={message.trim().length}
+                max={ORGANIZER_MESSAGE_MAX}
+                hint={`Sent to the owner and every active member as an inbox message, and shown in their host workspace${currentMessage ? `. Now: “${currentMessage}”` : ""}.`}
+              >
+                {({ id, describedBy }) => (
+                  <TextArea
+                    id={id}
+                    aria-describedby={describedBy}
+                    rows={3}
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    placeholder={action?.status === "active" ? "e.g. Thanks for sending the documents — you can publish again." : "e.g. We're re-checking your KYC documents. Upload a clear PAN photo from Account."}
+                  />
+                )}
+              </Field>
+            ) : null}
+          </div>
+        ) : undefined
+      }
       onConfirm={confirm}
       onClose={onClose}
     />

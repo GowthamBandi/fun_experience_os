@@ -123,6 +123,7 @@ export function OrganizerActions({
         noun="organizer"
         name={name}
         getVersion={() => live.current.version}
+        currentMessage={typeof org.statusMessage === "string" && org.statusMessage.trim() ? org.statusMessage : null}
         onChanged={onChanged}
         onClose={() => setOpen(null)}
       />

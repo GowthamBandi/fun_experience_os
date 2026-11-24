@@ -107,7 +107,13 @@ export function buildDecideCasePayload(input: { requestId: string; caseId: strin
 export type EntityType = "organizer" | "arena" | "event" | "risk-alert";
 export type EntityStatus = "active" | "paused" | "blocked" | "under-review" | "resolved";
 
-export function buildEntityStatusPayload(input: { requestId: string; entityType: EntityType; entityId: string; expectedVersion: number; status: EntityStatus; reason: string }) {
+/** Most a message to the organizer can be (setMarketplaceEntityStatus `messageToOrganizer`, contract §5). */
+export const ORGANIZER_MESSAGE_MAX = 500;
+
+export function buildEntityStatusPayload(input: { requestId: string; entityType: EntityType; entityId: string; expectedVersion: number; status: EntityStatus; reason: string; messageToOrganizer?: string }) {
+  const message = (input.messageToOrganizer ?? "").trim();
+  if (message && input.entityType !== "organizer") throw new CommandValidationError("A message can only be sent to an organizer.");
+  if (message.length > ORGANIZER_MESSAGE_MAX) throw new CommandValidationError(`The message to the organizer must be at most ${ORGANIZER_MESSAGE_MAX} characters.`);
   return {
     requestId: requireRequestId(input.requestId),
     entityType: input.entityType,
@@ -115,6 +121,7 @@ export function buildEntityStatusPayload(input: { requestId: string; entityType:
     expectedVersion: version(input.expectedVersion),
     status: input.status,
     reason: reason(input.reason, 10, 2000),
+    ...(message ? { messageToOrganizer: message } : {}),
   };
 }
 

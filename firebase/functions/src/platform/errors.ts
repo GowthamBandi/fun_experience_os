@@ -21,6 +21,10 @@ export type DomainErrorCode =
   | "NOT_FOUND"
   | "NOT_ELIGIBLE"
   | "PRECONDITION"
+  /** setAccountStatus "paused": customer actions refused (platform/accountStatus.ts). */
+  | "ACCOUNT_PAUSED"
+  /** setAccountStatus "blocked": every callable refused. */
+  | "ACCOUNT_BLOCKED"
   | "INTERNAL";
 
 /** How a DomainError maps onto a callable-function error code. */
@@ -39,6 +43,8 @@ const HTTPS_CODE: Record<DomainErrorCode, string> = {
   NOT_FOUND: "not-found",
   NOT_ELIGIBLE: "failed-precondition",
   PRECONDITION: "failed-precondition",
+  ACCOUNT_PAUSED: "permission-denied",
+  ACCOUNT_BLOCKED: "permission-denied",
   INTERNAL: "internal",
 };
 

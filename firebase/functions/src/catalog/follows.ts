@@ -5,7 +5,7 @@
  */
 import * as functions from "firebase-functions/v1";
 import { callable, docId, obj } from "../platform/callable";
-import { requirePhoneUser } from "../platform/actors";
+import { requireCustomerAction, requirePhoneUser } from "../platform/actors";
 import { consumeLimit } from "../platform/rateLimit";
 import { DomainError } from "../platform/errors";
 import { COLLECTIONS, db, serverNow } from "../platform/firestore";
@@ -31,7 +31,9 @@ export async function setFollowCommand(uid: string, data: unknown) {
 }
 
 export const setFollow = callable(async (data, context) => {
-  const uid = requirePhoneUser(context).uid;
+  // Following is a customer action (refused while paused); unfollowing always works.
+  const follow = !!data && typeof data === "object" && (data as Record<string, unknown>).follow === true;
+  const uid = follow ? (await requireCustomerAction(context)).uid : requirePhoneUser(context).uid;
   await consumeLimit("catalogOps", uid);
   return setFollowCommand(uid, data);
 });

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, Hash, Info, Phone, Search, Ticket, X } from "lucide-react";
+import { ArrowUpRight, Hash, Info, Phone, Search, Ticket, UserRound, X } from "lucide-react";
 import { Avatar, Badge, Card, Empty, ErrorState, PageHeader, Skeleton } from "@/components/pulse";
 import { PageContainer } from "@/components/shell/PageContainer";
 import { customerLookup, customerName, newestCustomers, newestShort, toCustomer, type CustomerLookup, type CustomerRow } from "@/lib/customers";
@@ -12,6 +12,9 @@ import { useNow } from "@/lib/hooks";
 import { countFull } from "@/lib/overview";
 import { useMetric } from "@/lib/use-metric";
 import { readErrorMessage, useBoundedQuery, useOneShot } from "@/lib/use-query";
+import { ACCOUNT_BADGE } from "@/lib/accounts";
+import { searchAccounts } from "@/lib/notifications-api";
+import type { AccountHit } from "@/lib/notifications";
 
 const NEWEST = 20;
 /** Operators share users with customers; read a few extra so 20 customers remain after dropping them. */
@@ -80,7 +83,7 @@ export function CustomerSearch() {
             ) : null}
           </>
         }
-        subtitle="Find anyone on PULSE by phone, customer ID or booking reference, then open their 360: bookings, money, reviews and holds."
+        subtitle="Find anyone on PULSE by name, phone, customer ID or booking reference, then open their 360: bookings, money, reviews, holds and account controls."
       />
 
       <Card as="section" aria-label="Find a customer" className="overflow-hidden p-5 sm:p-6">
@@ -96,13 +99,13 @@ export function CustomerSearch() {
         >
           <label className="field flex h-16 items-center gap-3 rounded-[20px] px-5">
             <Search aria-hidden className="h-5 w-5 shrink-0 text-primary" />
-            <span className="sr-only">Phone number, customer ID or booking reference</span>
+            <span className="sr-only">Name, phone number, customer ID or booking reference</span>
             <input
               ref={inputRef}
               type="search"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="98765 43210, a customer ID or PLS-…"
+              placeholder="A name, 98765 43210, a customer ID or PLS-…"
               autoComplete="off"
               spellCheck={false}
               autoFocus
@@ -138,6 +141,9 @@ export function CustomerSearch() {
           </label>
           <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-text-3">
             <span className="inline-flex items-center gap-1.5">
+              <UserRound aria-hidden className="h-3.5 w-3.5" /> Display name
+            </span>
+            <span className="inline-flex items-center gap-1.5">
               <Phone aria-hidden className="h-3.5 w-3.5" /> Any phone format: +91, 0 or spaces
             </span>
             <span className="inline-flex items-center gap-1.5">
@@ -152,15 +158,7 @@ export function CustomerSearch() {
         {searching ? (
           <div className="relative mt-5 border-t border-line-soft pt-5" aria-live="polite">
             {lookup.kind === "unsupported" ? (
-              <div role="status" className="flex items-start gap-3 rounded-control border border-dashed border-[rgba(99,190,255,0.35)] bg-[rgba(99,190,255,0.06)] px-4 py-3.5">
-                <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-info" />
-                <div>
-                  <div className="font-display text-[15px] font-bold text-text">Search by phone or ID</div>
-                  <p className="mt-0.5 text-[13px] leading-5 text-text-2">
-                    PULSE accounts don&apos;t store a name (it lives on the public profile), so names can&apos;t be searched here. Try a phone number, a customer ID or a booking reference.
-                  </p>
-                </div>
-              </div>
+              <NameSearch q={input} />
             ) : state.status === "loading" || state.status === "idle" ? (
               <div aria-busy="true" className="flex flex-col gap-3">
                 <ResultSkeleton />
@@ -192,6 +190,76 @@ export function CustomerSearch() {
 
       <NewestCustomers />
     </PageContainer>
+  );
+}
+
+/** Free text: display-name prefix search through searchAccounts (the server reads public profiles). */
+function NameSearch({ q }: { q: string }) {
+  const term = q.trim();
+  const [state, setState] = useState<{ status: "loading" | "done" | "error"; rows: AccountHit[]; message?: string }>({ status: "loading", rows: [] });
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    if (term.length < 2) {
+      setState({ status: "done", rows: [] });
+      return;
+    }
+    let live = true;
+    setState((s) => ({ status: "loading", rows: s.rows }));
+    const t = window.setTimeout(() => {
+      searchAccounts(term).then(
+        (rows) => live && setState({ status: "done", rows }),
+        (err) => live && setState({ status: "error", rows: [], message: readErrorMessage(err) }),
+      );
+    }, DEBOUNCE_MS);
+    return () => {
+      live = false;
+      window.clearTimeout(t);
+    };
+  }, [term, attempt]);
+  if (state.status === "error") return <ErrorState message={state.message ?? "Search failed."} onRetry={() => setAttempt((n) => n + 1)} className="py-6" />;
+  if (state.status === "loading" && state.rows.length === 0) {
+    return (
+      <div aria-busy="true" className="flex flex-col gap-3">
+        <ResultSkeleton />
+        <span className="sr-only" role="status">
+          Searching names…
+        </span>
+      </div>
+    );
+  }
+  if (state.rows.length === 0) return <Empty emoji="🫥" title="No one by that name" body="Names match from the start of the display name. Try a phone number or an ID." className="py-8" />;
+  return (
+    <ul className="flex flex-col gap-3" aria-label="People matching the name">
+      {state.rows.map((a) => {
+        const name = a.displayName ?? "PULSE member";
+        return (
+          <li key={a.uid}>
+            <Link
+              href={`/customers/${encodeURIComponent(a.uid)}`}
+              className="focus-ring group flex items-center gap-4 rounded-control border border-[rgba(142,114,255,0.35)] bg-[rgba(142,114,255,0.08)] p-4 transition-[transform,background-color] duration-200 ease-[cubic-bezier(.2,.8,.2,1)] hover:bg-[rgba(142,114,255,0.14)] motion-safe:hover:-translate-y-0.5"
+            >
+              <Avatar name={name} size={48} />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="truncate font-display text-[17px] font-bold text-text">{name}</span>
+                  <Badge tone={a.role === "organizer" ? "violet" : "muted"}>{a.role === "organizer" ? "Organizer" : "Customer"}</Badge>
+                  {a.accountStatus !== "active" ? <Badge tone={ACCOUNT_BADGE[a.accountStatus].tone}>{ACCOUNT_BADGE[a.accountStatus].label}</Badge> : null}
+                </div>
+                <div className="mt-0.5 flex flex-wrap gap-x-3 text-[12.5px] text-text-2">
+                  {a.phoneMasked ? <span className="font-mono">{a.phoneMasked}</span> : null}
+                  {a.orgs.length ? <span className="text-text-3">{a.orgs.map((o) => o.name).join(", ")}</span> : null}
+                  <span className="font-mono text-text-3">{a.uid}</span>
+                </div>
+              </div>
+              <span className="inline-flex shrink-0 items-center gap-1 text-[13px] font-semibold text-primary">
+                Open 360
+                <ArrowUpRight aria-hidden className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              </span>
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

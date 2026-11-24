@@ -30,6 +30,8 @@ export interface EntityStatusCommand {
   expectedVersion: number;
   status: "active" | "paused" | "blocked" | "under-review" | "resolved";
   reason: string;
+  /** Organizers only: the text the organizer's team reads (inbox + publicOrganizers.statusMessage). */
+  messageToOrganizer?: string | null;
 }
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9_-]{7,127}$/;
@@ -84,6 +86,10 @@ export function parseEntityStatusCommand(value: unknown): EntityStatusCommand {
     expectedVersion: version(data.expectedVersion),
     status: status as EntityStatusCommand["status"],
     reason: text(data.reason, "reason", 10, 2000),
+    messageToOrganizer:
+      data.messageToOrganizer === undefined || data.messageToOrganizer === null || data.messageToOrganizer === ""
+        ? null
+        : text(data.messageToOrganizer, "messageToOrganizer", 0, 500) || null,
   };
 }
 

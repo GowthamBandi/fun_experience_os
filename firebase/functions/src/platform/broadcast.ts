@@ -19,6 +19,23 @@ const CITY_RE = /^[a-z0-9-]{2,60}$/;
  *  "Navi Mumbai" → "city_navi-mumbai"). */
 export const cityTopic = (name: string) => `city_${cityKey(name).replace(/ /g, "-")}`;
 
+/** Broad pushes (this callable + limited notification-center sends) in the last 24 hours. */
+export async function broadcastsInLastDay(): Promise<number> {
+  const now = serverNow();
+  const recent = await db().collection("broadcasts").where("createdAt", ">", Timestamp.fromMillis(now.toMillis() - 86_400_000)).count().get();
+  return recent.data().count;
+}
+
+/** Refuses a broad push once BROADCASTS_PER_DAY have gone out in 24 hours (shared quota, contract §2). */
+export async function assertBroadcastQuota(message?: string): Promise<void> {
+  if ((await broadcastsInLastDay()) >= BROADCASTS_PER_DAY) {
+    throw new DomainError("PRECONDITION", message ?? `At most ${BROADCASTS_PER_DAY} broadcasts a day, so people don't mute PULSE.`, {
+      nextStep: "Target specific people or organizations, or wait until tomorrow.",
+      facts: { dailyLimit: BROADCASTS_PER_DAY },
+    });
+  }
+}
+
 export const sendBroadcast = callable(async (data, context) => {
   const admin = requireAdmin(context, "broadcast");
   const d = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
@@ -29,10 +46,7 @@ export const sendBroadcast = callable(async (data, context) => {
   const body = str(d.body, "Message", 5, 240);
   const reason = str(d.reason, "Reason", 3, 200);
   const now = serverNow();
-  const recent = await db().collection("broadcasts").where("createdAt", ">", Timestamp.fromMillis(now.toMillis() - 86_400_000)).get();
-  if (recent.size >= BROADCASTS_PER_DAY) {
-    throw new DomainError("PRECONDITION", `At most ${BROADCASTS_PER_DAY} broadcasts a day, so people don't mute PULSE.`);
-  }
+  await assertBroadcastQuota();
   const topic = audience === "all" ? "all" : `city_${city}`;
   let status = "sent";
   if (isEmulator()) status = "skipped-emulator"; // no FCM backend here

@@ -14,7 +14,7 @@
 
 import * as functions from "firebase-functions/v1";
 import { callable, docId, obj, requestId } from "../platform/callable";
-import { requirePhoneUser } from "../platform/actors";
+import { requireCustomerAction, requirePhoneUser } from "../platform/actors";
 import { DomainError, precondition } from "../platform/errors";
 import { db, Timestamp } from "../platform/firestore";
 import { notify } from "../platform/notify";
@@ -131,7 +131,7 @@ export async function notifyEventWaitlist(eventId: string, nowMs = Date.now()): 
   return { notified, cleared };
 }
 
-export const joinEventWaitlist = callable(async (data, context) => joinEventWaitlistCommand(requirePhoneUser(context).uid, data));
+export const joinEventWaitlist = callable(async (data, context) => joinEventWaitlistCommand((await requireCustomerAction(context)).uid, data));
 export const leaveEventWaitlist = callable(async (data, context) => leaveEventWaitlistCommand(requirePhoneUser(context).uid, data));
 
 /** Fires when an event changes: alerts the waitlist when spots open, clears it when the event is gone. */

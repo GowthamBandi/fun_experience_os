@@ -98,6 +98,8 @@ export function pushData(notificationId: string, data: Record<string, unknown>):
     out.linkType = link.type;
     out.linkId = link.id;
   }
+  // Console admin messages may open a web page instead (contract §2).
+  if (typeof data.url === "string" && data.url) out.url = data.url;
   return out;
 }
 
@@ -126,6 +128,10 @@ export async function setNotificationPrefs(uid: string, data: unknown) {
 
 export async function deliverNotification(notificationId: string, data: Record<string, unknown>) {
   const ref = db().collection("userNotifications").doc(notificationId);
+  // An item whose push already went another way (a console send to the `all`
+  // topic writes push.status "topic") must not be pushed again per device.
+  const preset = (data.push as { status?: unknown } | undefined)?.status;
+  if (typeof preset === "string" && preset !== "pending") return preset;
   const recipient = String(data.recipientUid ?? "");
   const user = recipient ? await db().collection("users").doc(recipient).get() : null;
   const channel = channelOf(String(data.kind ?? ""));
@@ -148,7 +154,12 @@ export async function deliverNotification(notificationId: string, data: Record<s
   try {
     res = await getMessaging(app()).sendEachForMulticast({
       tokens,
-      notification: { title: String(data.title ?? ""), body: String(data.body ?? "") },
+      notification: {
+        title: String(data.title ?? ""),
+        body: String(data.body ?? ""),
+        // Rich admin messages carry an https image (contract §2).
+        ...(data.style === "rich" && typeof data.imageUrl === "string" && data.imageUrl.startsWith("https://") ? { imageUrl: data.imageUrl } : {}),
+      },
       data: pushData(notificationId, data),
     });
   } catch (e) {

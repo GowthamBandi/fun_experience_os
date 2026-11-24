@@ -9,6 +9,7 @@ import {
   Lock,
   KeyRound,
   LifeBuoy,
+  Megaphone,
   Shapes,
   Radio,
   ScrollText,
@@ -23,7 +24,7 @@ import {
 } from "lucide-react";
 import { canViewRoute, type ConsoleRole } from "@/lib/console/capabilities";
 
-export type NavGroup = "Overview" | "Marketplace" | "Trust" | "Money" | "Control";
+export type NavGroup = "Overview" | "Marketplace" | "Trust" | "Engage" | "Money" | "Control";
 
 export interface NavItem {
   href: string;
@@ -47,6 +48,7 @@ export const NAV: NavItem[] = [
   { href: "/risk", label: "Risk", group: "Trust", icon: ShieldAlert, keywords: "fraud disputes chargebacks alerts holds", badge: "risk" },
   { href: "/support", label: "Support", group: "Trust", icon: LifeBuoy, keywords: "support help requests reports complaints customers organizers reply" },
   { href: "/reviews", label: "Reviews", group: "Trust", icon: Star, keywords: "reviews ratings moderation hide publish" },
+  { href: "/notifications", label: "Notifications", group: "Engage", icon: Megaphone, keywords: "notifications announcements popup banner push broadcast message inbox audience templates in-app campaign" },
   { href: "/revenue", label: "Revenue", group: "Money", icon: TrendingUp, keywords: "revenue gross bookings commission earnings" },
   { href: "/refunds", label: "Refunds", group: "Money", icon: Undo2, keywords: "refunds cancellations exceptions approvals", badge: "refunds" },
   { href: "/settlements", label: "Settlements", group: "Money", icon: Wallet, keywords: "settlements payouts releases holds reconciliation" },

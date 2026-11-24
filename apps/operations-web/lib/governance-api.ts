@@ -201,7 +201,7 @@ export async function decideCase(input: { requestId?: string; caseId: string; ex
   return call<DecideCaseResult>(legacy(), "decideCase", payload);
 }
 
-export async function setEntityStatus(input: { requestId?: string; entityType: EntityType; entityId: string; expectedVersion: number; status: EntityStatus; reason: string }) {
+export async function setEntityStatus(input: { requestId?: string; entityType: EntityType; entityId: string; expectedVersion: number; status: EntityStatus; reason: string; messageToOrganizer?: string }) {
   const payload = buildEntityStatusPayload({ ...input, requestId: input.requestId ?? newRequestId("status") });
   return call<{ entityId: string; status: EntityStatus; version: number; replayed?: boolean }>(legacy(), "setMarketplaceEntityStatus", payload);
 }

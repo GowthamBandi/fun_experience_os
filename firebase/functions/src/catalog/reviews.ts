@@ -19,7 +19,7 @@
 
 import type { Transaction, DocumentReference } from "firebase-admin/firestore";
 import { assertWellFormed, callable, docId, int, obj, oneOf, requestId, str } from "../platform/callable";
-import { requirePhoneUser } from "../platform/actors";
+import { requireCustomerAction } from "../platform/actors";
 import { requireAdmin } from "../platform/auth";
 import { DomainError, precondition } from "../platform/errors";
 import { COLLECTIONS, db, type Timestamp } from "../platform/firestore";
@@ -350,8 +350,8 @@ export async function moderateReviewCommand(admin: { uid: string; roleId: string
   });
 }
 
-export const submitReview = callable(async (data, context) => submitReviewCommand(requirePhoneUser(context).uid, data));
-export const submitTripReview = callable(async (data, context) => submitTripReviewCommand(requirePhoneUser(context).uid, data));
+export const submitReview = callable(async (data, context) => submitReviewCommand((await requireCustomerAction(context)).uid, data));
+export const submitTripReview = callable(async (data, context) => submitTripReviewCommand((await requireCustomerAction(context)).uid, data));
 export const moderateReview = callable(async (data, context) =>
   moderateReviewCommand(requireAdmin(context, "moderate reviews"), data)
 );

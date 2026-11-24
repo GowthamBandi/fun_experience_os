@@ -8,6 +8,9 @@
  *                               ADMIN_ROLES = platform-owner, super-admin
  *   - setOperatorAccess         firebase/functions/src/auth/operatorAccess.ts
  *                               platform-owner only
+ *   - requireCapability()       firebase/functions/src/platform/auth.ts
+ *                               ADMIN_CAPABILITIES: announcements.manage, accounts.moderate
+ *                               (platform-owner, super-admin)
  *   - Firestore rules           isAdmin(): platform-owner, super-admin
  *                               isAuditor(): auditEvents, settlements, ledgerEntries (read only)
  *
@@ -36,11 +39,15 @@ export type Capability =
   /** setOperatorAccess. */
   | "access.manage"
   /** revealPayoutAccount: full organizer payout details (audited). */
-  | "payouts.reveal";
+  | "payouts.reveal"
+  /** Notification center: announcements, notifications, templates, audience previews (docs/NOTIFICATION_CENTER_CONTRACT.md). */
+  | "announcements.manage"
+  /** setAccountStatus: pause / block / re-activate a PULSE person. */
+  | "accounts.moderate";
 
 const MATRIX: Record<ConsoleRole, readonly Capability[]> = {
-  "platform-owner": ["governance.read", "governance.decide", "settlements.read", "audit.read", "access.read", "access.manage", "payouts.reveal"],
-  "super-admin": ["governance.read", "governance.decide", "settlements.read", "audit.read", "access.read"],
+  "platform-owner": ["governance.read", "governance.decide", "settlements.read", "audit.read", "access.read", "access.manage", "payouts.reveal", "announcements.manage", "accounts.moderate"],
+  "super-admin": ["governance.read", "governance.decide", "settlements.read", "audit.read", "access.read", "announcements.manage", "accounts.moderate"],
   auditor: ["settlements.read", "audit.read"],
 };
 
@@ -75,6 +82,16 @@ export const CALLABLE_CAPABILITY = {
   setCategoryCover: "governance.decide",
   decidePayoutAccount: "governance.decide",
   revealPayoutAccount: "payouts.reveal",
+  saveAnnouncement: "announcements.manage",
+  setAnnouncementStatus: "announcements.manage",
+  previewAudience: "announcements.manage",
+  getAnnouncementStats: "announcements.manage",
+  sendNotification: "announcements.manage",
+  cancelScheduledNotification: "announcements.manage",
+  saveTemplate: "announcements.manage",
+  deleteTemplate: "announcements.manage",
+  searchAccounts: "announcements.manage",
+  setAccountStatus: "accounts.moderate",
 } as const satisfies Record<string, Capability>;
 
 export type ConsoleCallable = keyof typeof CALLABLE_CAPABILITY;
@@ -103,6 +120,7 @@ export const CONSOLE_ROUTES = [
   "/risk",
   "/support",
   "/reviews",
+  "/notifications",
   "/revenue",
   "/refunds",
   "/settlements",
@@ -129,6 +147,8 @@ export const ROUTE_CAPABILITY: Record<string, Capability> = {
   "/risk": "governance.read",
   "/support": "governance.read",
   "/reviews": "governance.read",
+  /** announcements / adminNotifications / notificationTemplates: admin reads (firestore.rules). */
+  "/notifications": "announcements.manage",
   "/refunds": "governance.read",
   "/settlements": "settlements.read",
   "/commercials": "governance.read",

@@ -134,6 +134,7 @@ function View({ orgId, onRetry }: { orgId: string; onRetry: () => void }) {
   const accent = artFor(card.categories[0] ?? null).color;
   const suspended = card.status === "paused" || card.status === "blocked";
   const statusReason = typeof org.data.statusReason === "string" && org.data.statusReason.trim() ? org.data.statusReason : null;
+  const statusMessage = typeof org.data.statusMessage === "string" && org.data.statusMessage.trim() ? org.data.statusMessage : null;
 
   const ratingHint = reviews.truncated ? `newest ${reviews.rows.length} reviews` : rating.count ? `from ${rating.count} ${rating.count === 1 ? "review" : "reviews"}` : "No reviews yet";
   const tabs: TabItem[] = [
@@ -236,6 +237,7 @@ function View({ orgId, onRetry }: { orgId: string; onRetry: () => void }) {
             <span>
               <b className="font-semibold text-text">{card.status === "paused" ? "Paused" : "Blocked"}.</b> They can&apos;t publish or sell until reactivated.
               {statusReason ? <> Reason: “{statusReason}”</> : null}
+              {statusMessage ? <span className="mt-1 block text-text-2">Message to the organizer: “{statusMessage}”</span> : <span className="mt-1 block text-text-3">No message was sent to the organizer.</span>}
             </span>
           </div>
         ) : null}

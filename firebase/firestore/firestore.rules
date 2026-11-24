@@ -20,7 +20,10 @@ service cloud.firestore {
     function uid() { return request.auth.uid; }
     // Claims may be absent on real tokens (phone auth has no custom claims),
     // so every claim read uses a default. A missing claim must never error.
-    function notDisabled() { return request.auth.token.get('disabled', false) != true; }
+    // `acct == "blocked"`: setAccountStatus blocked the person (NOTIFICATION_CENTER_CONTRACT §3).
+    function notDisabled() {
+      return request.auth.token.get('disabled', false) != true && request.auth.token.get('acct', '') != 'blocked';
+    }
     function user() { return signedIn() && notDisabled(); }
 
     // Operations Console operators (email + custom claim; ADR-0004).
@@ -136,6 +139,38 @@ service cloud.firestore {
     // team and admins read them; written only by the function.
     match /eventMessages/{id} {
       allow get, list: if isAdmin() || activeMember(resource.data.orgId);
+      allow write: if false;
+    }
+
+    // ------------------------------------------- notification center (contract)
+    // Account status (setAccountStatus): the person reads their own status,
+    // message and end date — even while blocked, so the app can explain it.
+    // The reason and history live in accountStatusPrivate (admins only).
+    match /accountStatus/{userId} {
+      allow get: if (signedIn() && uid() == userId) || isAdmin();
+      allow list: if isAdmin();
+      allow write: if false;
+    }
+    match /accountStatusPrivate/{userId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    // Announcements, sends and templates: written only by their callables;
+    // the app gets its announcements from getMyAnnouncements, never a read.
+    match /announcements/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /announcementReceipts/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /adminNotifications/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /notificationTemplates/{id} {
+      allow read: if isAdmin();
       allow write: if false;
     }
 

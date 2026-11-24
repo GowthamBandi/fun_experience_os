@@ -1,5 +1,6 @@
 import type { CallableContext } from "firebase-functions/v1/https";
 import { DomainError, notAuthenticated } from "./errors";
+import { assertCustomerActionAllowed, blockedError } from "./accountStatus";
 
 /**
  * A signed-in PULSE person (customer, organizer or staff — one identity).
@@ -22,6 +23,9 @@ export function requireUser(context: CallableContext): UserActor {
       nextStep: "Contact PULSE support if you think this is a mistake.",
     });
   }
+  // setAccountStatus "blocked" (platform/accountStatus.ts); the status doc is
+  // checked by the callable() wrapper for tokens minted before the block.
+  if (token.acct === "blocked") throw blockedError();
   const phone = typeof token.phone_number === "string" ? token.phone_number : null;
   const role = typeof token.roleId === "string" ? token.roleId : null;
   return { uid: context.auth.uid, phone, platformRole: role };
@@ -36,4 +40,16 @@ export function requirePhoneUser(context: CallableContext): UserActor & { phone:
     });
   }
   return actor as UserActor & { phone: string };
+}
+
+/**
+ * A customer action (book, pay for a new booking, join a waitlist, review,
+ * follow, apply to host): a verified phone user whose account isn't paused or
+ * blocked (platform/accountStatus.ts, contract §3). The ONE gate every such
+ * callable uses; support, reading and organizer work don't go through it.
+ */
+export async function requireCustomerAction(context: CallableContext): Promise<UserActor & { phone: string }> {
+  const actor = requirePhoneUser(context);
+  await assertCustomerActionAllowed(actor.uid);
+  return actor;
 }

@@ -33,7 +33,13 @@ export type NotificationKind =
   /** PULSE operations replied to (or resolved) a support request. */
   | "support-reply"
   /** An organizer the person follows published a new event. */
-  | "followed-new-event";
+  | "followed-new-event"
+  /** A message from PULSE sent from the console notification center (sendNotification). */
+  | "admin-message"
+  /** PULSE paused or re-activated the person's account (setAccountStatus). */
+  | "account-status"
+  /** PULSE paused, blocked or re-activated an organization the person belongs to. */
+  | "organization-status";
 
 export type NotificationLinkType =
   | "event" | "booking" | "ticket" | "organizer" | "application" | "experience"
@@ -42,11 +48,19 @@ export type NotificationLinkType =
   /** The organizer's payout account (host workspace → Account). */
   | "payout-account"
   /** A support conversation (You → Help & support → Your requests). */
-  | "support-request";
+  | "support-request"
+  /** The person's own account status (You → account status); id = their uid. */
+  | "account";
 export interface NotificationLink {
   type: NotificationLinkType;
   id: string;
 }
+
+/** Every link type at run time (console CTAs / admin messages are validated against it). */
+export const NOTIFICATION_LINK_TYPES = [
+  "event", "booking", "ticket", "organizer", "application", "experience",
+  "trip-booking", "trip-departure", "host-trip", "payout-account", "support-request", "account",
+] as const satisfies readonly NotificationLinkType[];
 
 /**
  * Queues an in-app notification (and, when a push provider is configured, a

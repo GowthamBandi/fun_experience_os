@@ -210,3 +210,34 @@ describe("⌘K entity search by role", () => {
     expect(canViewRoute("auditor", "/events/ev_1")).toBe(false);
   });
 });
+
+describe("notification center and account controls", () => {
+  it("announcements.manage and accounts.moderate belong to platform owners and super admins only", () => {
+    for (const capability of ["announcements.manage", "accounts.moderate"] as const) {
+      expect(can("platform-owner", capability)).toBe(true);
+      expect(can("super-admin", capability)).toBe(true);
+      expect(can("auditor", capability)).toBe(false);
+      expect(can(null, capability)).toBe(false);
+    }
+  });
+  it("every notification-center callable maps to its capability", () => {
+    for (const name of ["saveAnnouncement", "setAnnouncementStatus", "previewAudience", "getAnnouncementStats", "sendNotification", "cancelScheduledNotification", "saveTemplate", "deleteTemplate", "searchAccounts"] as const) {
+      expect(CALLABLE_CAPABILITY[name]).toBe("announcements.manage");
+    }
+    expect(CALLABLE_CAPABILITY.setAccountStatus).toBe("accounts.moderate");
+    expect(rolesAllowedFor("setAccountStatus")).toEqual(["platform-owner", "super-admin"]);
+  });
+  it("/notifications and its sub-routes need announcements.manage; auditors can't open them", () => {
+    for (const path of ["/notifications", "/notifications/announcements", "/notifications/announcements/new", "/notifications/announcements/a1/edit", "/notifications/send", "/notifications/templates"]) {
+      expect(canViewRoute("super-admin", path)).toBe(true);
+      expect(canViewRoute("platform-owner", path)).toBe(true);
+      expect(canViewRoute("auditor", path)).toBe(false);
+    }
+    expect(NAV.find((n) => n.href === "/notifications")?.group).toBe("Engage");
+  });
+  it.skipIf(!haveBackend || !read("firebase/functions/src/platform/auth.ts").includes("ADMIN_CAPABILITIES"))("the backend grants the same two capabilities", () => {
+    const source = read("firebase/functions/src/platform/auth.ts");
+    expect(source).toContain("announcements.manage");
+    expect(source).toContain("accounts.moderate");
+  });
+});

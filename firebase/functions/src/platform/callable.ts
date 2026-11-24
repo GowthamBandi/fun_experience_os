@@ -3,6 +3,7 @@ import type { CallableContext } from "firebase-functions/v1/https";
 import { DomainError } from "./errors";
 import { correlationIdOf, logCallableFailure, safeRequestId } from "./log";
 import { isEmulator, type SecretName } from "./security";
+import { assertAccountUsable } from "./accountStatus";
 
 /** Maps any thrown value onto a safe HttpsError (no internals leak). */
 export function toHttpsError(error: unknown): functions.https.HttpsError {
@@ -35,14 +36,22 @@ const functionName = () => process.env.FUNCTION_TARGET ?? process.env.K_SERVICE 
  */
 export function callable<T>(
   handler: (data: unknown, context: CallableContext) => Promise<T>,
-  opts: { secrets?: SecretName[]; region?: string } = {}
+  opts: { secrets?: SecretName[]; region?: string; timeoutSeconds?: number; memory?: "256MB" | "512MB" | "1GB" } = {}
 ) {
   const emulator = isEmulator();
   return functions
     .region(opts.region ?? "asia-south1")
-    .runWith({ enforceAppCheck: !emulator, secrets: emulator ? [] : (opts.secrets ?? []) })
+    .runWith({
+      enforceAppCheck: !emulator,
+      secrets: emulator ? [] : (opts.secrets ?? []),
+      ...(opts.timeoutSeconds ? { timeoutSeconds: opts.timeoutSeconds } : {}),
+      ...(opts.memory ? { memory: opts.memory } : {}),
+    })
     .https.onCall(async (data, context) => {
       try {
+        // A blocked account is refused by every callable (contract §3):
+        // the `acct` claim plus the accountStatus document.
+        if (context?.auth?.uid) await assertAccountUsable(context.auth.uid, context.auth.token as Record<string, unknown>);
         return await handler(data, context);
       } catch (error) {
         if (!(error instanceof functions.https.HttpsError)) {

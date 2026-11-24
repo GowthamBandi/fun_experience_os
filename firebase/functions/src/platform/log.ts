@@ -113,6 +113,8 @@ export function safeRequestId(data: unknown): string | null {
 /** DomainError codes that are security signals, not ordinary user mistakes. */
 const SECURITY_EVENT: Partial<Record<DomainErrorCode, string>> = {
   NOT_PERMITTED: "security.permission-denied",
+  ACCOUNT_PAUSED: "security.account-paused",
+  ACCOUNT_BLOCKED: "security.account-blocked",
   NOT_AUTHENTICATED: "security.unauthenticated",
   RATE_LIMITED: "security.rate-limited",
   SOLD_OUT: "booking.capacity-exhausted",

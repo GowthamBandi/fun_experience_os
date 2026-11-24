@@ -5,7 +5,7 @@
 
 import * as functions from "firebase-functions/v1";
 import { callable, compositeId, docId, int, obj, oneOf, requestId, str, optStr } from "../platform/callable";
-import { requirePhoneUser, requireUser } from "../platform/actors";
+import { requireCustomerAction, requirePhoneUser, requireUser } from "../platform/actors";
 import { requireAdmin } from "../platform/auth";
 import { consumeRateLimit } from "../platform/rateLimit";
 import { DomainError } from "../platform/errors";
@@ -46,7 +46,7 @@ const bind = (s: SecretName[]) => (isEmulator() ? [] : s);
 
 export const reserveSeat = callable(
   async (data, context) => {
-    const actor = requirePhoneUser(context);
+    const actor = await requireCustomerAction(context);
     const d = obj(data);
     const rid = requestId(d.requestId);
     const eventId = docId(d.eventId, "eventId");
@@ -82,7 +82,7 @@ export const reserveSeat = callable(
 
 export const createPaymentOrder = callable(
   async (data, context) => {
-    const actor = requirePhoneUser(context);
+    const actor = await requireCustomerAction(context);
     const d = obj(data);
     requestId(d.requestId);
     const bookingId = docId(d.bookingId, "bookingId");

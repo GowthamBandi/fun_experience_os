@@ -955,6 +955,29 @@ export async function releaseExpiredTripHolds(limit = 200): Promise<{ released: 
   return { released, refundsRetried: stuck.size };
 }
 
+/**
+ * Releases one unpaid hold right away (setAccountStatus "blocked": the
+ * person's holds are released, confirmed bookings stay). Same effect as the
+ * sweeper's expiry; false when it is no longer held.
+ */
+export async function releaseHeldTripBooking(bookingId: string, actorUid: string): Promise<boolean> {
+  const ref = tripBookingRef(bookingId);
+  return db().runTransaction(async (tx) => {
+    const s = await tx.get(ref);
+    const b = s.data() as TripBookingDoc | undefined;
+    if (!b || b.status !== "held") return false;
+    const dSnap = await tx.get(departureRef(b.departureId));
+    const t = serverNow();
+    if (dSnap.exists) tx.update(departureRef(b.departureId), { ...release(dSnap.data()!, b.roomId, b.travellers), updatedAt: t });
+    tx.update(ref, { status: "expired", expiredAt: t, holdExpiresAt: t, updatedAt: t });
+    writeAudit(tx, {
+      action: "trips.hold-released", actorUid, actorRole: "system", resourceType: "tripBooking", resourceId: bookingId, orgId: b.orgId,
+      before: { status: "held" }, after: { status: "expired", travellers: b.travellers }, reason: "Account blocked by PULSE.", source: "system",
+    });
+    return true;
+  });
+}
+
 /** Resolves the trip payment a provider entity belongs to (notes, else order id). */
 export async function resolveTripPaymentId(entity: { notes?: unknown; order_id?: unknown }): Promise<string | null> {
   const notes = (entity.notes && typeof entity.notes === "object" ? entity.notes : {}) as Record<string, unknown>;
