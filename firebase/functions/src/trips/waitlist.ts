@@ -4,14 +4,18 @@
  * (`tripWaitlist/{departureId}__{uid}`), written only here; the owner reads
  * their own to show "On waitlist".
  *
- * The alert is one-shot and first-come: when a departure goes from not
- * bookable to bookable (a cancellation, an expired hold, extra seats, sales
- * reopened), everyone waiting gets a notification and their entry is
- * removed. Booking is still the normal race; the waitlist holds no seat.
+ * Alerts until they get in: when a departure goes from not bookable to
+ * bookable (a cancellation, an expired hold, extra seats, sales reopened),
+ * everyone still waiting is notified and STAYS on the list, so someone who
+ * loses the race hears about the next seat too (at most one alert per
+ * WAITLIST_ALERT_COOLDOWN_MS). The entry goes when they book, leave, or the
+ * date is cancelled or closes. Booking is still the normal race; the
+ * waitlist holds no seat.
  */
 
 import { precondition } from "../platform/errors";
-import { db, type Timestamp } from "../platform/firestore";
+import { db, Timestamp } from "../platform/firestore";
+import { WAITLIST_ALERT_COOLDOWN_MS } from "../commerce/eventWaitlist";
 import { docId, obj, requestId } from "../platform/callable";
 import { notify } from "../platform/notify";
 import { notFoundHere, runCommand, type Json } from "../catalog/common";
@@ -72,41 +76,54 @@ export async function leaveTripWaitlistCommand(uid: string, data: unknown) {
 // ------------------------------------------------------- notifyTripWaitlist
 
 /**
- * Alerts everyone waiting on [departureId] if it can be booked now, and
- * removes their entries. A cancelled departure just clears its waitlist.
- * Safe to re-run: notified entries are gone and notifications dedupe on the
- * entry's creation time.
+ * If [departureId] can be booked now: alerts everyone still waiting (they
+ * stay on the list) and drops anyone who has since booked. A cancelled or
+ * closed departure just clears its waitlist. Safe to re-run: someone alerted
+ * in the last WAITLIST_ALERT_COOLDOWN_MS is skipped, and each alert dedupes
+ * on the person's alert number.
  */
-export async function notifyTripWaitlist(departureId: string): Promise<{ notified: number; cleared: number }> {
+export async function notifyTripWaitlist(departureId: string, nowMs = Date.now()): Promise<{ notified: number; cleared: number }> {
   const dSnap = await departureRef(departureId).get();
   const dep = dSnap.data();
   const waiting = await db().collection(T.tripWaitlist).where("departureId", "==", departureId).limit(500).get();
   if (waiting.empty) return { notified: 0, cleared: 0 };
   const tSnap = dep ? await tripRef(dep.tripId as string).get() : null;
   const trip = tSnap?.exists ? tSnap.data()! : null;
-  const gone = !dep || dep.cancelled === true || !trip || trip.status !== "live" || cutoffPassed(dep, trip, Date.now());
+  const gone = !dep || dep.cancelled === true || !trip || trip.status !== "live" || cutoffPassed(dep, trip, nowMs);
   if (!gone && openSeats(dep) === 0) return { notified: 0, cleared: 0 };
   const title = (trip?.title as string | undefined) ?? "your trip";
   const date = dep ? (dep.start as Timestamp).toDate().toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" }) : "";
+  const left = openSeats(dep);
   let notified = 0;
+  let cleared = 0;
   for (let i = 0; i < waiting.docs.length; i += 200) {
+    const page = waiting.docs.slice(i, i + 200);
+    // People who got a seat since joining: they're done waiting.
+    const travellers = gone ? [] : await Promise.all(page.map((w) => travellerRef(departureId, String(w.data().uid)).get()));
     const batch = db().batch();
-    for (const w of waiting.docs.slice(i, i + 200)) {
-      if (!gone) {
-        const left = openSeats(dep);
-        notify(batch, {
-          recipientUid: w.data().uid as string,
-          kind: "trip-waitlist",
-          title: `A seat opened on ${title}`,
-          body: `${date}: ${left} ${left === 1 ? "seat is" : "seats are"} free again. Book soon — it’s first come, first served.`,
-          dedupeKey: `${departureId}:${(w.data().createdAt as Timestamp | undefined)?.toMillis() ?? 0}`,
-          link: { type: "trip-departure", id: departureId },
-        });
-        notified++;
+    page.forEach((w, k) => {
+      const e = w.data();
+      const uid = String(e.uid);
+      if (gone || (((travellers[k]?.data()?.bookings as number) ?? 0) > 0)) {
+        batch.delete(w.ref);
+        cleared++;
+        return;
       }
-      batch.delete(w.ref);
-    }
+      const last = (e.lastAlertedAt as Timestamp | undefined)?.toMillis() ?? 0;
+      if (last > 0 && nowMs - last < WAITLIST_ALERT_COOLDOWN_MS) return;
+      const alerts = ((e.alerts as number) ?? 0) + 1;
+      notify(batch, {
+        recipientUid: uid,
+        kind: "trip-waitlist",
+        title: `A seat opened on ${title}`,
+        body: `${date}: ${left} ${left === 1 ? "seat is" : "seats are"} free again. Book soon — it’s first come, first served. You’ll stay on the waitlist until you get in.`,
+        dedupeKey: `${departureId}:${uid}:${alerts}`,
+        link: { type: "trip-departure", id: departureId },
+      });
+      batch.update(w.ref, { alerts, lastAlertedAt: Timestamp.fromMillis(nowMs) });
+      notified++;
+    });
     await batch.commit();
   }
-  return { notified, cleared: waiting.size };
+  return { notified, cleared };
 }

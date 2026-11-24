@@ -3,23 +3,29 @@
  * waitlist (trips/waitlist.ts): `eventWaitlist/{eventId}__{uid}`, written
  * only here, owner-readable to show "On the waitlist".
  *
- * One-shot and first-come: when a published event goes from no spots to
- * spots (a cancellation, an expired hold, more capacity), everyone waiting
- * is notified and their entry is removed. Booking stays the normal race;
- * the waitlist holds no spot. A cancelled or started event clears it.
+ * Alerts until they get in: when a published event goes from no spots to
+ * spots (a cancellation, an expired hold, more capacity), everyone still
+ * waiting is notified and STAYS on the list, so someone who loses the race
+ * for that spot hears about the next one too (at most one alert per
+ * WAITLIST_ALERT_COOLDOWN_MS). Their entry goes when they book, leave the
+ * list, or the event is cancelled or starts. Booking stays the normal race;
+ * the waitlist holds no spot.
  */
 
 import * as functions from "firebase-functions/v1";
 import { callable, docId, obj, requestId } from "../platform/callable";
 import { requirePhoneUser } from "../platform/actors";
 import { DomainError, precondition } from "../platform/errors";
-import { db, type Timestamp } from "../platform/firestore";
+import { db, Timestamp } from "../platform/firestore";
 import { notify } from "../platform/notify";
 import { logInfo } from "../platform/log";
 import { notFoundHere, runCommand, type Json } from "../catalog/common";
 import { EMPTY_OCCUPANCY, deriveCapacityLedger, type CapacityConfig, type OccupancyCounters } from "../domain/capacity";
 
 export const EVENT_WAITLIST = "eventWaitlist";
+/** One alert per person per this window, so a spot that flickers open and
+ *  shut (a hold expiring and being re-taken) doesn't spam them. */
+export const WAITLIST_ALERT_COOLDOWN_MS = 10 * 60_000;
 const ref = (eventId: string, uid: string) => db().collection(EVENT_WAITLIST).doc(`${eventId}__${uid}`);
 
 /** Spots a published, not-yet-started event can still sell. */
@@ -72,37 +78,57 @@ export async function leaveEventWaitlistCommand(uid: string, data: unknown) {
   return { eventId, waitlisted: false };
 }
 
-/** Notifies (and clears) everyone waiting when spots are open; clears it when the event is gone. */
-export async function notifyEventWaitlist(eventId: string): Promise<{ notified: number; cleared: number }> {
+/**
+ * When spots are open: alerts everyone still waiting (they stay on the list)
+ * and drops anyone who has since booked. When the event is gone: clears it.
+ * Safe to re-run: someone alerted in the last WAITLIST_ALERT_COOLDOWN_MS is
+ * skipped, and each alert dedupes on the person's alert number.
+ */
+export async function notifyEventWaitlist(eventId: string, nowMs = Date.now()): Promise<{ notified: number; cleared: number }> {
   const evSnap = await db().collection("events").doc(eventId).get();
   const ev = evSnap.data();
   const waiting = await db().collection(EVENT_WAITLIST).where("eventId", "==", eventId).limit(500).get();
   if (waiting.empty) return { notified: 0, cleared: 0 };
   const startsMs = (ev?.startsAt as Timestamp | undefined)?.toMillis() ?? 0;
-  const gone = !ev || ["cancelled", "completed", "live"].includes(String(ev.status)) || startsMs <= Date.now();
-  const open = eventOpenSpots(ev);
+  const gone = !ev || ["cancelled", "completed", "live"].includes(String(ev.status)) || startsMs <= nowMs;
+  const open = eventOpenSpots(ev, nowMs);
   if (!gone && open === 0) return { notified: 0, cleared: 0 };
+  // People who got in since joining: they're done waiting.
+  const booked = new Set<string>();
+  if (!gone) {
+    const b = await db().collection("bookings").where("eventId", "==", eventId).where("status", "in", ["held", "confirmed"]).limit(1000).get();
+    for (const d of b.docs) booked.add(String(d.data().customerUid));
+  }
   const title = String(ev?.title ?? "an experience you wanted");
   let notified = 0;
+  let cleared = 0;
   for (let i = 0; i < waiting.docs.length; i += 200) {
     const batch = db().batch();
     for (const w of waiting.docs.slice(i, i + 200)) {
-      if (!gone) {
-        notify(batch, {
-          recipientUid: String(w.data().uid),
-          kind: "event-changed",
-          title: `A spot opened on ${title}`,
-          body: `${open} ${open === 1 ? "spot is" : "spots are"} free again. Book soon — it’s first come, first served.`,
-          dedupeKey: `wl-${eventId}:${(w.data().createdAt as Timestamp | undefined)?.toMillis() ?? 0}`,
-          link: { type: "event", id: eventId },
-        });
-        notified++;
+      const e = w.data();
+      const uid = String(e.uid);
+      if (gone || booked.has(uid)) {
+        batch.delete(w.ref);
+        cleared++;
+        continue;
       }
-      batch.delete(w.ref);
+      const last = (e.lastAlertedAt as Timestamp | undefined)?.toMillis() ?? 0;
+      if (last > 0 && nowMs - last < WAITLIST_ALERT_COOLDOWN_MS) continue;
+      const alerts = ((e.alerts as number) ?? 0) + 1;
+      notify(batch, {
+        recipientUid: uid,
+        kind: "event-changed",
+        title: `A spot opened on ${title}`,
+        body: `${open} ${open === 1 ? "spot is" : "spots are"} free again. Book soon — it’s first come, first served. You’ll stay on the waitlist until you get in.`,
+        dedupeKey: `wl-${eventId}:${uid}:${alerts}`,
+        link: { type: "event", id: eventId },
+      });
+      batch.update(w.ref, { alerts, lastAlertedAt: Timestamp.fromMillis(nowMs) });
+      notified++;
     }
     await batch.commit();
   }
-  return { notified, cleared: waiting.size };
+  return { notified, cleared };
 }
 
 export const joinEventWaitlist = callable(async (data, context) => joinEventWaitlistCommand(requirePhoneUser(context).uid, data));
@@ -120,5 +146,5 @@ export const onEventSpotsChanged = functions
     if (!eventSpotOpened(before, after) && !gone) return;
     const eventId = context.params.eventId as string;
     const out = await notifyEventWaitlist(eventId);
-    if (out.cleared > 0) logInfo({ event: "job.completed", job: "onEventSpotsChanged", eventId, ...out });
+    if (out.notified > 0 || out.cleared > 0) logInfo({ event: "job.completed", job: "onEventSpotsChanged", eventId, ...out });
   });

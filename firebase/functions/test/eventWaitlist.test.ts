@@ -25,7 +25,7 @@ describe("event waitlist", () => {
     expect(eventOpenSpots({ ...ev, status: "cancelled", occupancy: occ(0) })).toBe(0);
   });
 
-  test("join only when sold out and not booked; leave; a spot opening notifies once and clears", async () => {
+  test("join only when sold out and not booked; leave; an opening alerts, they stay on until they book, and hear about the next one", async () => {
     const id = await event(4);
     const a = uniq("cust");
     const b = uniq("cust");
@@ -37,12 +37,30 @@ describe("event waitlist", () => {
 
     // Still full: nothing happens.
     expect(await notifyEventWaitlist(id)).toEqual({ notified: 0, cleared: 0 });
+    const spotAlerts = async (uid: string) =>
+      (await db().collection("userNotifications").where("recipientUid", "==", uid).get()).docs
+        .map((d) => d.data())
+        .filter((n) => n.title === "A spot opened on Pickleball Night");
     await db().doc(`events/${id}`).update({ occupancy: occ(3) });
-    const out = await notifyEventWaitlist(id);
-    expect(out.cleared).toBeGreaterThanOrEqual(1);
-    const notes = (await db().collection("userNotifications").where("recipientUid", "==", a).get()).docs.map((d) => d.data());
-    expect(notes.find((n) => n.title === "A spot opened on Pickleball Night")).toMatchObject({ link: { type: "event", id } });
+    // The emulator's real trigger may already have sent it: exactly one either way.
+    await notifyEventWaitlist(id);
+    expect(await spotAlerts(a)).toHaveLength(1);
+    expect((await spotAlerts(a))[0]).toMatchObject({ link: { type: "event", id } });
+    expect((await spotAlerts(a))[0].body).toMatch(/stay on the waitlist until you get in/);
+    expect((await db().doc(`eventWaitlist/${id}__${a}`).get()).data()).toMatchObject({ alerts: 1 });
+    // Inside the cooldown: nobody is told twice.
+    expect(await notifyEventWaitlist(id)).toEqual({ notified: 0, cleared: 0 });
+
+    // a lost that spot; another opens later: a hears again.
+    const later = Date.now() + 11 * 60_000;
+    expect(await notifyEventWaitlist(id, later)).toEqual({ notified: 1, cleared: 0 });
+    expect(await spotAlerts(a)).toHaveLength(2);
+
+    // a books: the next run drops them without another alert.
+    await db().doc(`bookings/${uniq("bk")}`).set({ eventId: id, customerUid: a, status: "confirmed" });
+    expect(await notifyEventWaitlist(id, later + 11 * 60_000)).toEqual({ notified: 0, cleared: 1 });
     expect((await db().doc(`eventWaitlist/${id}__${a}`).get()).exists).toBe(false);
+    expect(await spotAlerts(a)).toHaveLength(2);
   });
 
   test("refused when spots are open, when already booked, or when the event isn't on sale", async () => {

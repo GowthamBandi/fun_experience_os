@@ -413,7 +413,7 @@ describe("waitlist", () => {
     expect(await callCode(trips.joinTripWaitlist, { requestId: rid() }, phoneCtx(uniq("cust")))).toBe("INVALID_INPUT");
   });
 
-  test("a freed seat notifies everyone waiting once and clears the list", async () => {
+  test("a freed seat alerts everyone waiting; they stay on until they book, and hear about the next seat too", async () => {
     const { w, booker, bookingId } = await soldOut();
     const a = uniq("cust");
     const b = uniq("cust");
@@ -422,14 +422,33 @@ describe("waitlist", () => {
     // Still sold out: nothing happens.
     expect(await notifyTripWaitlist(w.d1)).toEqual({ notified: 0, cleared: 0 });
     await call(trips.cancelTripBooking, { requestId: rid(), bookingId }, phoneCtx(booker));
-    expect(await notifyTripWaitlist(w.d1)).toEqual({ notified: 2, cleared: 2 });
-    const n = (await kinds(a)).find((x) => x.kind === "trip-waitlist")!;
+    // The emulator's real trigger may already have sent the first alert: either
+    // way each person has exactly one, and both are still waiting.
+    await notifyTripWaitlist(w.d1);
+    const seatAlerts = async (uid: string) => (await kinds(uid)).filter((x) => x.kind === "trip-waitlist");
+    const n = (await seatAlerts(a))[0];
     expect(n).toMatchObject({ title: "A seat opened on Coorg coffee trails", link: { type: "trip-departure", id: w.d1 } });
     expect(n.body).toMatch(/4 seats are free again/);
-    expect((await kinds(b)).map((x) => x.kind)).toContain("trip-waitlist");
-    expect(await entry(w.d1, a)).toBeUndefined();
-    // A re-run finds nobody left to tell.
+    expect(n.body).toMatch(/stay on the waitlist until you get in/);
+    expect(await seatAlerts(a)).toHaveLength(1);
+    expect(await seatAlerts(b)).toHaveLength(1);
+    expect(await entry(w.d1, a)).toMatchObject({ alerts: 1 });
+    expect(await entry(w.d1, b)).toMatchObject({ alerts: 1 });
+    // A re-run inside the cooldown tells nobody twice.
     expect(await notifyTripWaitlist(w.d1)).toEqual({ notified: 0, cleared: 0 });
+
+    // b got a seat; a lost the race. The next opening (after the cooldown)
+    // alerts a again and drops b, who no longer needs the list.
+    await db().doc(`tripTravellers/${w.d1}__${b}`).set({ departureId: w.d1, uid: b, bookings: 1 });
+    const later = Date.now() + 11 * 60_000;
+    expect(await notifyTripWaitlist(w.d1, later)).toEqual({ notified: 1, cleared: 1 });
+    expect(await seatAlerts(a)).toHaveLength(2);
+    expect(await entry(w.d1, a)).toMatchObject({ alerts: 2 });
+    expect(await entry(w.d1, b)).toBeUndefined();
+    // Leaving stops the alerts.
+    await call(trips.leaveTripWaitlist, { departureId: w.d1 }, phoneCtx(a));
+    expect(await notifyTripWaitlist(w.d1, later + 11 * 60_000)).toEqual({ notified: 0, cleared: 0 });
+    expect(await seatAlerts(a)).toHaveLength(2);
   });
 
   test("a cancelled departure clears its waitlist without a seat alert", async () => {
@@ -466,10 +485,11 @@ describe("waitlist", () => {
     expect(await entry(w.d1, a)).toBeDefined();
     await call(trips.cancelTripBooking, { requestId: rid(), bookingId }, phoneCtx(booker));
     const after = await dep(w.d1);
-    // Idempotent whether or not the emulator's trigger already ran.
+    // Idempotent whether or not the emulator's trigger already ran: one
+    // alert, and a stays on the list until they book.
     await run(before, after);
-    expect(await entry(w.d1, a)).toBeUndefined();
-    expect((await kinds(a)).map((x) => x.kind)).toContain("trip-waitlist");
+    expect(await entry(w.d1, a)).toMatchObject({ alerts: 1 });
+    expect((await kinds(a)).filter((x) => x.kind === "trip-waitlist")).toHaveLength(1);
   });
 });
 
