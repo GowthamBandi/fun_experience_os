@@ -244,8 +244,12 @@ export async function reserveSeat(cmd: ReserveSeatCommand): Promise<ReserveSeatR
       if (!BOOKABLE_STATUSES.has(event.status)) {
         throw new DomainError(
           "SESSION_NOT_BOOKABLE",
-          bookableRefusal(event.status),
-          { nextStep: "Choose a different session.", detail: { status: event.status } }
+          customerUid ? customerBookableRefusal(event.status) : bookableRefusal(event.status),
+          {
+            nextStep: customerUid ? "Pick another experience, or check back later." : "Choose a different session.",
+            detail: { status: event.status },
+            facts: { status: event.status },
+          }
         );
       }
 
@@ -297,10 +301,19 @@ export async function reserveSeat(cmd: ReserveSeatCommand): Promise<ReserveSeatR
         }
         eligibilitySnapshot = verdict.snapshot;
         if (isLiveBooking(priorBooking, now.toMillis())) {
-          throw new DomainError("CONFLICT", "You already have a booking for this event.", {
-            nextStep: "Open My bookings to see it.",
-            detail: { bookingId: priorBookingRef?.id },
-          });
+          // `existing` tells the app whether to resume payment (a live hold,
+          // e.g. an earlier attempt whose answer was lost) or open the pass.
+          throw new DomainError(
+            "CONFLICT",
+            priorBooking!.status === "held"
+              ? "You're already holding a spot for this event."
+              : "You already have a booking for this event.",
+            {
+              nextStep: priorBooking!.status === "held" ? "Finish paying for it from Plans." : "Open Plans to see your pass.",
+              detail: { bookingId: priorBookingRef?.id },
+              facts: { existing: priorBooking!.status },
+            }
+          );
         }
       }
 
@@ -366,6 +379,13 @@ export async function reserveSeat(cmd: ReserveSeatCommand): Promise<ReserveSeatR
         if (reclaimed.length) admission = admitSeats(deriveCapacityLedger(event.capacity, occupancy), cmd.kind, spots);
       }
       if (!admission.admitted) {
+        if (customerUid) {
+          const ledger = deriveCapacityLedger(event.capacity, occupancy);
+          throw customerSoldOut(
+            Math.max(0, Math.min(ledger.remainingSellableCapacity, ledger.remainingPhysicalCapacity)),
+            spots
+          );
+        }
         throw admission.reason === "sold-out"
           ? soldOut(admission.message)
           : venueFull(admission.message);
@@ -512,6 +532,47 @@ function validate(cmd: ReserveSeatCommand): void {
   const spots = cmd.spots ?? 1;
   if (!Number.isSafeInteger(spots) || spots < 1 || spots > MAX_SPOTS_PER_BOOKING) {
     throw invalidInput(`You can book 1 to ${MAX_SPOTS_PER_BOOKING} spots at a time.`);
+  }
+}
+
+/**
+ * The customer's answer when the spots they asked for aren't there: plain and
+ * specific, with `facts.spotsLeft` / `facts.requested` so the app can offer
+ * the right next step — the waitlist when none are left, or "book the N
+ * that are left" when some are.
+ */
+export function customerSoldOut(spotsLeft: number, requested: number): DomainError {
+  const facts = { spotsLeft, requested };
+  if (spotsLeft <= 0) {
+    return soldOut("Someone just took the last spot.", {
+      nextStep: "Join the waitlist and we'll tell you the moment one opens.",
+      facts,
+    });
+  }
+  const left = spotsLeft === 1 ? "Only 1 spot is left" : `Only ${spotsLeft} spots are left`;
+  return soldOut(`${left}, so we couldn't hold ${requested}.`, {
+    nextStep: spotsLeft === 1 ? "You can still book the last one." : `You can still book the ${spotsLeft} that are left.`,
+    facts,
+  });
+}
+
+/** Lifecycle refusals in the customer's words ("event", not "session"). */
+export function customerBookableRefusal(status: string): string {
+  switch (status) {
+    case "cancelled":
+      return "This event was cancelled, so it can't take bookings.";
+    case "completed":
+    case "live":
+      return "This event has already started, so it can't take bookings.";
+    case "booking-closed":
+      return "Bookings have closed for this event.";
+    case "draft":
+    case "submitted":
+    case "approved":
+    case "changes-requested":
+      return "The organizer is updating this event, so it isn't taking bookings right now.";
+    default:
+      return "This event isn't taking bookings right now.";
   }
 }
 

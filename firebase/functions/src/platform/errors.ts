@@ -50,11 +50,22 @@ export class DomainError extends Error {
   readonly nextStep?: string;
   /** Structured detail for logs and tests. Never rendered verbatim. */
   readonly detail?: Record<string, unknown>;
+  /**
+   * Small, non-sensitive facts the client may act on (e.g. `spotsLeft`, so
+   * the app can offer "book the 2 that are left"). Sent as `details.facts`.
+   * Numbers, short strings and booleans only — never ids of other people.
+   */
+  readonly facts?: Record<string, number | string | boolean>;
 
   constructor(
     code: DomainErrorCode,
     operatorMessage: string,
-    opts: { nextStep?: string; detail?: Record<string, unknown>; cause?: unknown } = {}
+    opts: {
+      nextStep?: string;
+      detail?: Record<string, unknown>;
+      facts?: Record<string, number | string | boolean>;
+      cause?: unknown;
+    } = {}
   ) {
     super(`${code}: ${operatorMessage}`);
     this.name = "DomainError";
@@ -62,6 +73,7 @@ export class DomainError extends Error {
     this.operatorMessage = operatorMessage;
     this.nextStep = opts.nextStep;
     this.detail = opts.detail;
+    this.facts = opts.facts;
     if (opts.cause) (this as { cause?: unknown }).cause = opts.cause;
   }
 
@@ -75,13 +87,18 @@ export class DomainError extends Error {
       code: this.code,
       message: this.operatorMessage,
       nextStep: this.nextStep,
+      ...(this.facts ? { facts: this.facts } : {}),
     };
   }
 }
 
-export const soldOut = (message: string) =>
+export const soldOut = (
+  message: string,
+  opts: { nextStep?: string; facts?: Record<string, number | string | boolean> } = {}
+) =>
   new DomainError("SOLD_OUT", message, {
-    nextStep: "You can add this person to the waiting list instead.",
+    nextStep: opts.nextStep ?? "You can add this person to the waiting list instead.",
+    facts: opts.facts,
   });
 
 export const venueFull = (message: string) =>

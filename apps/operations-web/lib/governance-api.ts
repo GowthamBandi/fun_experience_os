@@ -364,6 +364,13 @@ export async function setAppConfig(input: AppConfig & { reason: string }) {
   return call<AppConfig>(regional(), "setAppConfig", input);
 }
 
+export interface ServiceCity { key: string; name: string; state: string; active: boolean; lat?: number; lng?: number }
+
+/** The cities PULSE serves (platform/serviceCities.ts): the app's pickers and the server's venue check. */
+export async function setServiceCities(input: { cities: Array<{ name: string; state: string; active: boolean; lat?: number; lng?: number }>; reason: string }) {
+  return call<{ cities: ServiceCity[] }>(regional(), "setServiceCities", input);
+}
+
 /** One push to everyone or one city (platform/broadcast.ts). At most 3 a day. */
 export async function sendBroadcast(input: { audience: "all" | "city"; city?: string; title: string; body: string; reason: string }) {
   return call<{ id: string; topic: string; status: string }>(regional(), "sendBroadcast", input);

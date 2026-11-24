@@ -161,24 +161,65 @@ function take(dep: Json, roomId: string, n: number): Counters {
   return { seatsTaken: ((dep.seatsTaken as number) ?? 0) + n, roomTaken };
 }
 
-/** Why [n] more travellers can't be seated in [roomId], or null when they can. */
-function capacityProblem(dep: Json, room: { id: string; label: string; beds: number | null }, n: number): DomainError | null {
-  const seatsLeft = ((dep.seatsTotal as number) ?? 0) - ((dep.seatsTaken as number) ?? 0);
+/**
+ * Why [n] more travellers can't be seated in [roomId], or null when they can.
+ * Plain words plus `facts` (`seatsLeft`, `bedsLeft`, `requested`) so the app
+ * can offer the waitlist when the date is full, or the number that still fits.
+ */
+export function capacityProblem(dep: Json, room: { id: string; label: string; beds: number | null }, n: number): DomainError | null {
+  const seatsLeft = Math.max(0, ((dep.seatsTotal as number) ?? 0) - ((dep.seatsTaken as number) ?? 0));
   if (seatsLeft < n) {
-    return soldOut(seatsLeft <= 0
-      ? "That departure just sold out. Join the waitlist or pick another date."
-      : `Only ${seatsLeft} ${seatsLeft === 1 ? "seat is" : "seats are"} left on that date.`);
+    return soldOut(
+      seatsLeft <= 0
+        ? "Someone just took the last seat on this date."
+        : `Only ${seatsLeft} ${seatsLeft === 1 ? "seat is" : "seats are"} left on this date, so we couldn't hold ${n}.`,
+      {
+        nextStep: seatsLeft <= 0
+          ? "Join the waitlist and we'll tell you the moment one opens, or pick another date."
+          : `You can book ${seatsLeft === 1 ? "the last one" : `the ${seatsLeft} that are left`}, or pick another date.`,
+        facts: { seatsLeft, requested: n },
+      }
+    );
   }
   if (room.beds !== null) {
     const taken = ((dep.roomTaken as Record<string, number>) ?? {})[room.id] ?? 0;
     const beds = Math.max(0, Math.min(room.beds - taken, seatsLeft));
     if (beds < n) {
-      return soldOut(beds === 0
-        ? `${room.label} just filled up. Pick another room option.`
-        : `Only ${beds} ${room.label.toLowerCase()} ${beds === 1 ? "bed is" : "beds are"} left.`);
+      return soldOut(
+        beds === 0
+          ? `${room.label} just filled up on this date.`
+          : `Only ${beds} ${room.label.toLowerCase()} ${beds === 1 ? "bed is" : "beds are"} left, so we couldn't hold ${n}.`,
+        {
+          nextStep: "Pick another room option — the seat price stays the same apart from the room difference.",
+          facts: { seatsLeft, bedsLeft: beds, requested: n, roomId: room.id },
+        }
+      );
     }
   }
   return null;
+}
+
+/** Lapsed holds of other customers reclaimed inline when a date looks full (bounded, like events). */
+export const TRIP_LAPSED_SCAN_LIMIT = 200;
+
+/**
+ * A departure looks full but some of its seats sit in holds that lapsed and
+ * that the sweeper (every 5 minutes) hasn't released yet. Reads them inside
+ * [tx] (so a concurrent sweep or payment on the same booking conflicts and
+ * retries) and returns the counters with every lapsed hold released, plus
+ * the bookings to expire. Only called on the short path.
+ */
+async function reclaimLapsedTripHolds(tx: Transaction, departureId: string, dep: Json, nowMs: number) {
+  const snap = await tx.get(db().collection(T.tripBookings).where("departureId", "==", departureId).limit(TRIP_LAPSED_SCAN_LIMIT));
+  let counters: Json = { ...dep };
+  const lapsed: TripBookingDoc[] = [];
+  for (const d of snap.docs) {
+    const b = d.data() as TripBookingDoc;
+    if (b.status !== "held" || !b.holdExpiresAt || b.holdExpiresAt.toMillis() > nowMs) continue;
+    counters = { ...counters, ...release(counters, b.roomId, b.travellers) };
+    lapsed.push(b);
+  }
+  return { counters, lapsed };
 }
 
 /** Keeps `tripTravellers/{departureId}__{uid}` (read access to updates) in step. */
@@ -271,8 +312,15 @@ export async function reserveTripSeatsCommand(uid: string, data: unknown) {
     if (dropId !== null && !c.drops.some((p) => p.id === dropId)) throw new DomainError("INVALID_INPUT", "Pick a drop point.");
     const known = new Set(c.addOns.map((a) => a.id));
     if (addOnIds.some((a) => !known.has(a))) throw new DomainError("INVALID_INPUT", "One of the add-ons isn't offered any more.");
-    const problem = capacityProblem(dep, room, travellers);
-    if (problem) throw problem;
+    let seats: Json = dep;
+    let lapsed: TripBookingDoc[] = [];
+    if (capacityProblem(dep, room, travellers)) {
+      const r = await reclaimLapsedTripHolds(tx, departureId, dep, nowMs);
+      seats = r.counters;
+      lapsed = r.lapsed;
+      const problem = capacityProblem(seats, room, travellers);
+      if (problem) throw problem;
+    }
 
     // The balance is due 15 days out, so later bookings pay in full.
     const payInFull = payInFullAsked || daysUntil(startMs, nowMs) <= BALANCE_DUE_DAYS;
@@ -316,8 +364,16 @@ export async function reserveTripSeatsCommand(uid: string, data: unknown) {
       createdAt: now,
       updatedAt: now,
     };
+    for (const l of lapsed) {
+      tx.update(tripBookingRef(l.id), { status: "expired", expiredAt: now, updatedAt: now });
+      writeAudit(tx, {
+        action: "trips.hold-expired", actorUid: "system", actorRole: "system", resourceType: "tripBooking", resourceId: l.id,
+        orgId: l.orgId, before: { status: "held" }, after: { status: "expired", travellers: l.travellers, reclaimedBy: ref.id },
+        reason: "Lapsed hold reclaimed inline by a new reservation.", source: "system",
+      });
+    }
     tx.create(ref, booking);
-    tx.update(departureRef(departureId), { ...take(dep, roomId, travellers), updatedAt: now });
+    tx.update(departureRef(departureId), { ...take(seats, roomId, travellers), updatedAt: now });
     writeAudit(tx, {
       action: "trips.seats-reserved", actorUid: uid, actorRole: "customer", resourceType: "tripBooking", resourceId: ref.id,
       orgId: booking.orgId, after: { tripId, departureId, travellers, roomId, totalRupees: quote.total, dueNowRupees: quote.dueNow },
@@ -359,8 +415,16 @@ export async function createTripOrder(uid: string, bookingId: string, purpose: "
     let amount: number;
     if (purpose === "initial") {
       if (b.status === "confirmed") throw precondition("This booking is already paid.", "Open Your trips to see it.");
+      if (b.status === "cancelled") {
+        throw b.cancelledByOrganizer
+          ? new DomainError("PRECONDITION", "The organizer cancelled this departure, so there's nothing to pay. You haven't been charged.", { nextStep: "Pick another date.", facts: { reason: "departure-cancelled" } })
+          : new DomainError("PRECONDITION", "These seats were released, so there's nothing to pay. You haven't been charged.", { nextStep: "Start a new booking if seats are still available.", facts: { reason: "released" } });
+      }
       if (b.status !== "held" || !b.holdExpiresAt || b.holdExpiresAt.toMillis() <= now.toMillis()) {
-        throw precondition("Your hold on these seats has expired.", "Start a new booking if seats are still available.");
+        throw new DomainError("PRECONDITION", "Your hold on these seats ran out, so they went back on sale. You haven't been charged.", {
+          nextStep: "Start a new booking if seats are still available.",
+          facts: { reason: "hold-expired" },
+        });
       }
       amount = b.quote.dueNow;
     } else {
@@ -586,13 +650,24 @@ export async function settleTripCapture(input: TripCaptureInput): Promise<TripSe
     if (payment.kind === "initial") {
       if (b.status === "held") {
         outcome = "confirmed";
-      } else if (b.status === "expired") {
-        // Late capture: seats were released by the sweeper. Re-admit when the
-        // departure is still on and has room; otherwise refund in full.
+      } else if (b.status === "expired" || (b.status === "cancelled" && !b.cancelledByOrganizer && b.paid === 0)) {
+        // Late capture: the seats were released (by the sweeper, an inline
+        // reclaim, or the customer letting the hold go). Re-admit when the
+        // departure is still on and has room, and the customer hasn't booked
+        // this date again meanwhile (that would charge them twice for one
+        // trip); otherwise refund in full.
         const open = dep.cancelled !== true && (dep.start as Timestamp).toMillis() > now.toMillis();
-        const tSnap = await tx.get(tripRef(b.tripId));
+        const [tSnap, mine] = await Promise.all([
+          tx.get(tripRef(b.tripId)),
+          tx.get(db().collection(T.tripBookings).where("customerUid", "==", b.customerUid).limit(200)),
+        ]);
+        const rebooked = mine.docs.some((d) => {
+          const o = d.data() as TripBookingDoc;
+          return o.id !== b.id && o.departureId === b.departureId &&
+            (o.status === "confirmed" || (o.status === "held" && !!o.holdExpiresAt && o.holdExpiresAt.toMillis() > now.toMillis()));
+        });
         const room = tSnap.exists ? contentOf(tSnap.data()!).rooms.find((r) => r.id === b.roomId) : undefined;
-        if (open && room && !capacityProblem(dep, room, b.travellers)) {
+        if (open && !rebooked && room && !capacityProblem(dep, room, b.travellers)) {
           tx.update(departureRef(b.departureId), { ...take(dep, b.roomId, b.travellers), updatedAt: now });
           outcome = "readmitted";
         }

@@ -13,6 +13,7 @@ import { notify } from "../platform/notify";
 import {
   EMPTY_OCCUPANCY,
   admitSeats,
+  applyHoldReleased,
   applySeatConfirmed,
   applySeatsConfirmedDirect,
   deriveCapacityLedger,
@@ -48,15 +49,17 @@ export async function createPaymentOrder(uid: string, bookingId: string): Promis
   // Step 1 — claim (or reuse) the booking's single open payment.
   const claim = await db().runTransaction(async (tx) => {
     const booking = assertOwner(await getBooking(bookingId, tx), uid);
-    const existing = booking.paymentId ? await getPayment(booking.paymentId, tx) : null;
+    const [existing, eventSnap] = await Promise.all([
+      booking.paymentId ? getPayment(booking.paymentId, tx) : Promise.resolve(null),
+      tx.get(sessionRef(booking.eventId)),
+    ]);
     const now = serverNow();
 
     if (booking.status === "confirmed") {
       throw precondition("This booking is already paid.", "Open My bookings to see your tickets.");
     }
-    if (booking.status !== "held" || !booking.holdExpiresAt || booking.holdExpiresAt.toMillis() <= now.toMillis()) {
-      throw precondition("Your hold on these spots has expired.", "Start a new booking if spots are still available.");
-    }
+    const refusal = unpayableHold(booking, eventSnap.data() as EventDoc | undefined, now.toMillis());
+    if (refusal) throw refusal;
     if (!(booking.amountMinor > 0)) throw precondition("This booking doesn't need a payment.");
 
     if (existing && existing.status === "created" && existing.providerOrderId) {
@@ -135,6 +138,30 @@ export async function createPaymentOrder(uid: string, bookingId: string): Promis
     return next;
   });
   return orderResult(recorded, provider.keyId());
+}
+
+/**
+ * Why a held booking can't be paid for right now, in the customer's words,
+ * or null when it can. `facts.reason` lets the app pick the right screen.
+ * Checked before money moves, so nobody is charged for a hold that is gone
+ * or an event that was called off (the capture path still refunds anything
+ * that slips through: settleCapturedPayment).
+ */
+export function unpayableHold(booking: BookingDoc, event: EventDoc | undefined, nowMs: number): DomainError | null {
+  const refuse = (reason: string, message: string, nextStep: string) =>
+    new DomainError("PRECONDITION", message, { nextStep, facts: { reason } });
+  if (booking.status === "cancelled") {
+    return (booking as { cancelReason?: string }).cancelReason === "event-cancelled"
+      ? refuse("event-cancelled", "This event was cancelled, so there's nothing to pay. You haven't been charged.", "Pick another experience.")
+      : refuse("released", "These spots were released, so there's nothing to pay. You haven't been charged.", "Start a new booking if spots are still available.");
+  }
+  if (booking.status !== "held" || !booking.holdExpiresAt || booking.holdExpiresAt.toMillis() <= nowMs) {
+    return refuse("hold-expired", "Your hold on these spots ran out, so they went back on sale. You haven't been charged.", "Start a new booking if spots are still available.");
+  }
+  if (!event || event.status === "cancelled") {
+    return refuse("event-cancelled", "This event was cancelled, so there's nothing to pay. You haven't been charged.", "Pick another experience.");
+  }
+  return null;
 }
 
 function orderResult(p: PaymentDoc, keyId: string): PaymentOrderResult {
@@ -347,11 +374,22 @@ export async function settleCapturedPayment(input: CaptureInput): Promise<Settle
     let occupancy: OccupancyCounters = { ...EMPTY_OCCUPANCY, ...(event.occupancy ?? {}) };
     let outcome: SettleOutcome | null = null;
 
-    if (booking.status === "held") {
+    // A hold the customer let go of (the app releases it when its timer runs
+    // out or they leave checkout) is treated exactly like one the sweeper
+    // expired: a payment that still lands is honoured if there's room.
+    const releasedHold =
+      booking.status === "cancelled" && (booking as { cancelReason?: string }).cancelReason === "hold-released";
+    if (booking.status === "held" && event.status === "cancelled") {
+      // The event was called off while this customer was paying, before the
+      // cancellation fan-out reached the hold: never confirm (and notify "You're
+      // in!") for an event that won't happen. Falls through to the refund.
+      occupancy = applyHoldReleased(occupancy, booking.spots);
+      outcome = null;
+    } else if (booking.status === "held") {
       // The hold still owns its seats (even if it lapsed and wasn't swept yet).
       occupancy = applySeatConfirmed(occupancy, booking.spots);
       outcome = "confirmed";
-    } else if (booking.status === "expired") {
+    } else if (booking.status === "expired" || releasedHold) {
       // Late capture: re-admit only if the customer has no other live booking,
       // the event can still be attended, and capacity allows.
       const otherLive = lockBooking && isLiveBooking(lockBooking, now.toMillis());
@@ -425,11 +463,16 @@ export async function settleCapturedPayment(input: CaptureInput): Promise<Settle
     tx.set(paymentRef(payment.id), captured);
     approveRefundInTx(tx, refund, { ...captured, refundedMinor: 0 }, { create: true, decidedBy: "system" });
     tx.update(bRef, { status: "payment-orphaned", paymentId: payment.id, updatedAt: now });
+    const calledOff = event.status === "cancelled";
+    // A still-held booking owned seats on the counters: give them back.
+    if (booking.status === "held") tx.update(eRef, { ...occupancyProjection(event.capacity, occupancy), updatedAt: now });
     notify(tx, {
       recipientUid: payment.customerUid,
       kind: "refund-update",
       title: "Payment refunded",
-      body: "Your payment arrived after your spots were released, and the event had no room left. We're refunding it in full.",
+      body: calledOff
+        ? `${event.title ?? "This event"} was cancelled while you were paying. We're refunding your payment in full.`
+        : "Your payment arrived after your spots were released, and the event had no room left. We're refunding it in full.",
       dedupeKey: refundId,
       link: { type: "booking", id: booking.id },
     });

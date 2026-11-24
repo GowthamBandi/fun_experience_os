@@ -14,6 +14,7 @@ import { parseAgreementVersion, requireAgreement } from "../catalog/agreement";
 import { DomainError, invalidInput, precondition } from "../platform/errors";
 import { db, Timestamp } from "../platform/firestore";
 import { writeAudit } from "../platform/audit";
+import { assertServedCity } from "../platform/serviceCities";
 import { notify } from "../platform/notify";
 import { actorRole, requirePermission } from "../access/permissions";
 import type { VerifiedActor } from "../platform/auth";
@@ -167,6 +168,7 @@ export async function submitTripCommand(uid: string, data: unknown) {
       throw precondition("Your organizer account must be active to submit trips.", "Contact PULSE support.");
     }
     const draft = parseTripDraft(cur.draft);
+    if (draft.startCity.trim().length >= 2) await assertServedCity(tx, draft.startCity);
     let live = new Set<string>();
     if (cur.tripId) {
       const deps = await tx.get(db().collection(T.tripDepartures).where("tripId", "==", cur.tripId));

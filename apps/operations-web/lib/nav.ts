@@ -54,7 +54,7 @@ export const NAV: NavItem[] = [
   { href: "/audit", label: "Audit", group: "Control", icon: ScrollText, keywords: "audit decisions history access evidence" },
   { href: "/policies", label: "Policies", group: "Control", icon: FileText, keywords: "rules policies standards governance" },
   { href: "/legal-holds", label: "Legal holds", group: "Control", icon: Lock, keywords: "legal hold retention deletion compliance dpdp evidence" },
-  { href: "/system", label: "System health", group: "Control", icon: Activity, keywords: "jobs scheduler health retention sweeper reminders failures" },
+  { href: "/system", label: "System health", group: "Control", icon: Activity, keywords: "jobs scheduler health retention sweeper reminders failures app switches service cities broadcast" },
   { href: "/operators", label: "Operator access", group: "Control", icon: KeyRound, keywords: "operators access roles super admin auditor suspend disable" },
 ];
 

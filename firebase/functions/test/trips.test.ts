@@ -189,6 +189,53 @@ describe("organizer drafts and review", () => {
   });
 });
 
+describe("service cities", () => {
+  afterEach(async () => {
+    await db().doc("appConfig/cities").delete();
+  });
+
+  test("a trip must start in a city PULSE serves (no list yet → any city); live revisions too", async () => {
+    const orgId = uniq("org-trip");
+    const owner = uniq("owner");
+    await seedOrg(orgId, owner);
+    const submit = (hostTripId: string) =>
+      callErr(trips.submitTrip, { agreementVersion: "ORG-EVENT-1.0", requestId: rid(), orgId, hostTripId }, phoneCtx(owner));
+    const save = (hostTripId: string, over: Record<string, unknown> = {}, forLive = false) =>
+      call(trips.saveTripDraft, { requestId: rid(), orgId, hostTripId, draft: draft(hostTripId, over), forLive }, phoneCtx(owner));
+
+    await db().doc("appConfig/cities").delete();
+    const free = uniq("ht");
+    await save(free, { startCity: "Pune" });
+    expect((await call(trips.submitTrip, { agreementVersion: "ORG-EVENT-1.0", requestId: rid(), orgId, hostTripId: free }, phoneCtx(owner))).status).toBe("in-review");
+
+    await db().doc("appConfig/cities").set({
+      cities: [
+        { key: "bengaluru", name: "Bengaluru", state: "Karnataka", active: true },
+        { key: "hyderabad", name: "Hyderabad", state: "Telangana", active: false },
+      ],
+    });
+    const pune = uniq("ht");
+    await save(pune, { startCity: "Pune" }); // drafts always save
+    const e = await submit(pune);
+    expect(e).toMatchObject({ code: "PRECONDITION", message: "PULSE isn't available in Pune yet. Choose one of the cities PULSE serves." });
+    const hyd = uniq("ht");
+    await save(hyd, { startCity: "Hyderabad" });
+    expect((await submit(hyd)).message).toMatch(/isn't available in Hyderabad yet/);
+    const blr = uniq("ht");
+    await save(blr, { startCity: "Bangalore" });
+    expect((await call(trips.submitTrip, { agreementVersion: "ORG-EVENT-1.0", requestId: rid(), orgId, hostTripId: blr }, phoneCtx(owner))).status).toBe("in-review");
+  });
+
+  test("a live trip's revision can't move its start to an unserved city; the live version stays on sale", async () => {
+    const w = await liveTrip();
+    await db().doc("appConfig/cities").set({ cities: [{ key: "bengaluru", name: "Bengaluru", state: "Karnataka", active: true }] });
+    await call(trips.saveTripDraft, { requestId: rid(), orgId: w.orgId, hostTripId: w.hostTripId, draft: draft(w.hostTripId, { startCity: "Chennai" }), forLive: true }, phoneCtx(w.owner));
+    const e = await callErr(trips.submitTrip, { agreementVersion: "ORG-EVENT-1.0", requestId: rid(), orgId: w.orgId, hostTripId: w.hostTripId }, phoneCtx(w.owner));
+    expect(e.message).toMatch(/isn't available in Chennai yet/);
+    expect((await db().doc(`trips/${w.tripId}`).get()).data()!.status).toBe("live");
+  });
+});
+
 describe("booking", () => {
   test("reserve → pay deposit → confirmed; balance → paid in full", async () => {
     const w = await liveTrip();

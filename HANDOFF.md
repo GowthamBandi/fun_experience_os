@@ -74,6 +74,9 @@ Deploy rules of thumb:
 - Payout accounts (encrypted) + KYC documents: `commerce/payoutAccounts.ts`, `identity/kycDocuments.ts`.
 - App switches `platform/appConfig.ts` (min build, maintenance) and broadcasts
   `platform/broadcast.ts` (FCM topics `all` / `city_<key>`, 3/day) — both on the console System page.
+- Service cities `platform/serviceCities.ts` (`appConfig/cities`, `setServiceCities`, console System
+  page "Service cities" card): the app's city pickers list only active cities; `submitEvent`,
+  live-edit `saveEvent` and `submitTrip` refuse other cities. No document → every city allowed.
 - Console pages: Command Center, Live, Approvals, Trips, Categories (cover images), Organizers
   (360 with money, team, trust stats), Experiences & Events (360 with Safety & messages tab),
   Customers, Risk, Support, Reviews, Revenue, Refunds, Settlements, Commercials, Audit, Policies,

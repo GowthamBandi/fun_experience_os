@@ -12,7 +12,7 @@
 import * as functions from "firebase-functions/v1";
 import { callable, docId, obj, requestId } from "../platform/callable";
 import { requirePhoneUser } from "../platform/actors";
-import { precondition } from "../platform/errors";
+import { DomainError, precondition } from "../platform/errors";
 import { db, type Timestamp } from "../platform/firestore";
 import { notify } from "../platform/notify";
 import { logInfo } from "../platform/log";
@@ -51,7 +51,15 @@ export async function joinEventWaitlistCommand(uid: string, data: unknown) {
       db().collection("bookings").where("eventId", "==", eventId).where("customerUid", "==", uid).where("status", "in", ["held", "confirmed"]).limit(1)
     );
     if (!mine.empty) throw precondition("You’re already booked on this experience.");
-    if (eventOpenSpots(ev, now.toMillis()) > 0) throw precondition("Spots are open.", "Book it instead.");
+    // A spot opened between the sold-out screen and this tap: say so, so the
+    // app can send them to book it rather than show an error.
+    const open = eventOpenSpots(ev, now.toMillis());
+    if (open > 0) {
+      throw new DomainError("PRECONDITION", `Good news — ${open === 1 ? "a spot just opened" : `${open} spots just opened`}. Book it now, before someone else does.`, {
+        nextStep: "Book it instead.",
+        facts: { reason: "spots-open", spotsLeft: open },
+      });
+    }
     const w = await tx.get(ref(eventId, uid));
     if (!w.exists) tx.create(ref(eventId, uid), { eventId, orgId: ev.orgId ?? null, uid, createdAt: now });
     return { eventId, waitlisted: true };

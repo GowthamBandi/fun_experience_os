@@ -28,6 +28,7 @@
 
 import type { Transaction } from "firebase-admin/firestore";
 import { cityKey } from "./cityKey";
+import { assertServedCity } from "../platform/serviceCities";
 import { callable, docId, int, obj, oneOf, requestId, str } from "../platform/callable";
 import { requirePhoneUser } from "../platform/actors";
 import { requireAdmin } from "../platform/auth";
@@ -250,6 +251,12 @@ export async function saveEventCommand(uid: string, data: unknown) {
       }
     }
 
+    // A live (approved / on sale) event going back for review must be in a
+    // city PULSE serves: refuse before un-publishing it, never strand it.
+    if (current && nextStatus === "draft" && !["draft", "changes-requested"].includes(String(current.status))) {
+      await assertServedCity(tx, input.venue.city);
+    }
+
     const x = current && current.experienceId === input.experienceId && nextStatus !== "draft"
       ? ((await tx.get(experienceRef(input.experienceId))).data() as Json)
       : await loadApprovedExperience(tx, orgId, input.experienceId);
@@ -336,6 +343,7 @@ export async function submitEventCommand(uid: string, data: unknown) {
     if (!orgSnap.exists || orgSnap.data()!.status !== "active") {
       throw precondition("Your organizer account must be active to submit events.", "Contact PULSE support.");
     }
+    await assertServedCity(tx, String((ev.venue as Json | undefined)?.city ?? ""));
     const x = await loadApprovedExperience(tx, orgId, ev.experienceId);
     if ((ev.startsAt as Timestamp).toMillis() < now.toMillis() + MIN_LEAD_MS) {
       throw precondition("This event starts too soon to be reviewed.", "Move the start time at least 2 hours ahead.");

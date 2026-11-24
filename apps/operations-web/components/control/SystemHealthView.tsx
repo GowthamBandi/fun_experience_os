@@ -12,6 +12,7 @@ import { useGovernanceCollection } from "@/lib/use-governance";
 import { JsonBlock, SummaryPill } from "./ControlBits";
 import { AppSwitchesCard } from "./AppSwitchesCard";
 import { BroadcastCard } from "./BroadcastCard";
+import { ServiceCitiesCard } from "./ServiceCitiesCard";
 
 /**
  * Scheduled-job summaries (jobRuns: one document per job per IST day, written by platform/jobs.ts).
@@ -38,6 +39,7 @@ export function SystemHealthView() {
 
       <div className="grid gap-6 xl:grid-cols-2">
         <AppSwitchesCard />
+        <ServiceCitiesCard />
         <BroadcastCard />
       </div>
 

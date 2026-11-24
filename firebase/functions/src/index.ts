@@ -10,6 +10,7 @@ export * from "./support";
 export { runDataRetention, setLegalHold } from "./platform/retention";
 export { eventPage } from "./web/eventPage";
 export { setAppConfig } from "./platform/appConfig";
+export { setServiceCities } from "./platform/serviceCities";
 export { sendBroadcast } from "./platform/broadcast";
 
 /** Region of checkHealth: us-central1, where the console and runbook expect it (API_CONTRACT). */

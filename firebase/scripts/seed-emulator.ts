@@ -649,6 +649,30 @@ async function summary() {
   console.log(`\n${TAG} Console: admin@pulse.test / PulseAdmin#2026 (platform owner), ops@pulse.test / PulseOps#2026 (super-admin)`);
 }
 
+// --------------------------------------------------------- service cities
+
+/**
+ * The cities PULSE serves (appConfig/cities via setServiceCities): the app's
+ * city pickers list the active ones and the server refuses event venues and
+ * trip starts elsewhere. Pune (one seeded organizer) is listed but switched
+ * off, so the console shows both states. Left alone when already set.
+ */
+async function ensureServiceCities(admin: Session) {
+  if ((await db.doc("appConfig/cities").get()).exists) {
+    count("service cities", "skipped");
+    return;
+  }
+  await call("setServiceCities", admin, {
+    reason: "Seed: launch cities",
+    cities: [
+      { name: "Hyderabad", state: "Telangana", active: true, lat: 17.385, lng: 78.4867 },
+      { name: "Bengaluru", state: "Karnataka", active: true, lat: 12.9716, lng: 77.5946 },
+      { name: "Pune", state: "Maharashtra", active: false, lat: 18.5204, lng: 73.8567 },
+    ],
+  });
+  count("service cities", "done");
+}
+
 // ------------------------------------------------------------------ main
 
 async function main() {
@@ -657,27 +681,30 @@ async function main() {
   }).catch(() => null);
   if (!health?.ok) throw new Error(`the Functions emulator is not answering at ${FUNCTIONS_HOST}; start the emulators first`);
 
-  log("1/7 operators");
+  log("1/8 operators");
   const { admin, ops } = await ensureOperators();
-  log("2/7 organizer applications, KYC and activation");
+  log("2/8 organizer applications, KYC and activation");
   const orgs = await onboardOrganizers(admin);
-  log("3/7 commercial terms, experiences and events");
+  log("3/8 commercial terms, experiences and events");
   const events: SeededEvent[] = [];
   for (const org of orgs) {
     await ensureAgreement(org, admin, ops);
     const experienceIds = await ensureExperiences(org, admin);
     events.push(...(await ensureEvents(org, admin, experienceIds)));
   }
-  log("4/7 customers, bookings and payments");
+  log("4/8 customers, bookings and payments");
   const customers = await ensureCustomers();
   await ensureBookings(customers, events);
-  log("5/7 live event and door check-in");
+  log("5/8 live event and door check-in");
   const live = await goLiveAndCheckIn(events);
-  log("6/7 refund request and reviews");
+  log("6/8 refund request and reviews");
   await ensureRefundRequest(events);
   await maybeReviews(live, customers);
-  log("7/7 settlement");
+  log("7/8 settlement");
   await ensureSettlement(orgs[0]!, admin);
+  // Last, so the seeded Pune organizer's events above still go through review.
+  log("8/8 service cities");
+  await ensureServiceCities(admin);
   await summary();
 }
 

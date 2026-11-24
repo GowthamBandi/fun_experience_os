@@ -260,6 +260,12 @@ describe("event-day, waitlist, support and agreements (2026-11-14)", () => {
     await assertSucceeds(getDoc(doc(env.unauthenticatedContext().firestore(), "appConfig/mobile")));
     await assertFails(setDoc(doc(phoneUser(u.cust), "appConfig/mobile"), { minBuild: 0 }));
     await assertFails(setDoc(doc(admin(), "appConfig/mobile"), { minBuild: 0 }));
+    // Service cities (setServiceCities) ride on the same rule.
+    await seed("appConfig/cities", { cities: [{ key: "hyderabad", name: "Hyderabad", state: "Telangana", active: true }] });
+    await assertSucceeds(getDoc(doc(env.unauthenticatedContext().firestore(), "appConfig/cities")));
+    await assertFails(setDoc(doc(phoneUser(u.owner), "appConfig/cities"), { cities: [] }));
+    await assertFails(setDoc(doc(admin(), "appConfig/cities"), { cities: [] }));
+    await assertFails(getDocs(collection(env.unauthenticatedContext().firestore(), "appConfig")));
   });
 
   test("userBlocks: only the person reads their own list; nobody writes it", async () => {
