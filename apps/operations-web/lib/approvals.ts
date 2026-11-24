@@ -3,6 +3,7 @@
  */
 
 import type { BadgeTone } from "@/components/pulse/Badge";
+import { cancellationView, hasCancellation, type CancellationFlag } from "./cancellation";
 import { decisionKey } from "./console/actions";
 import { isOpenCase } from "./console/attention";
 import { toDate } from "./console/records";
@@ -258,18 +259,6 @@ const FORMAT: Record<string, { label: string; body: string }> = {
 
 const SAFETY: Record<string, string> = { low: "Low intensity", medium: "Moderate activity", moderate: "Moderate activity", high: "High activity" };
 
-const CANCELLATION: Record<string, { label: string; rules: string[] }> = {
-  flexible: {
-    label: "Flexible",
-    rules: ["Full refund if you cancel 24 hours or more before the start.", "50% refund if you cancel within 24 hours.", "No refund after the experience starts."],
-  },
-  moderate: {
-    label: "Moderate",
-    rules: ["Full refund if you cancel 3 days or more before the start.", "50% refund between 3 days and 24 hours before.", "No refund within 24 hours of the start."],
-  },
-  strict: { label: "Strict", rules: ["Full refund if you cancel 7 days or more before the start.", "No refund within 7 days of the start."] },
-};
-
 export interface PreviewModel {
   title: string;
   tagline: string | null;
@@ -285,7 +274,8 @@ export interface PreviewModel {
   format: { label: string; body: string };
   idRequired: boolean;
   safety: { label: string; measures: string[] };
-  cancellation: { label: string; rules: string[] };
+  /** The organizer's cancellation rules in plain words (lib/cancellation.ts), with what the reviewer should look at twice. */
+  cancellation: { label: string; rules: string[]; flags: CancellationFlag[] };
   seed: number;
   /** The organizer's first photo (the cover customers see), when there is one. */
   coverUrl: string | null;
@@ -300,7 +290,7 @@ export function toPreview(e: Raw): PreviewModel {
   const cover = e.coverStyle && typeof e.coverStyle === "object" ? (e.coverStyle as Raw) : {};
   const gender = str(e.genderRule);
   const format = str(e.format);
-  const cancellation = str(e.cancellationPolicy);
+  const cancellation = cancellationView(e);
   const level = str(safety.level);
   return {
     title: str(e.title) ?? "—",
@@ -322,7 +312,7 @@ export function toPreview(e: Raw): PreviewModel {
     format: format ? FORMAT[format] ?? FORMAT.group : { label: "—", body: "" },
     idRequired: e.idRequired === true,
     safety: { label: (level && SAFETY[level]) || level || "—", measures: list(safety.measures) },
-    cancellation: (cancellation && CANCELLATION[cancellation]) || { label: cancellation ?? "—", rules: [] },
+    cancellation: { label: cancellation.label, rules: cancellation.lines, flags: cancellation.flags },
     seed: typeof cover.seed === "number" ? cover.seed : 0,
     coverUrl: Array.isArray(e.mediaUrls) && typeof e.mediaUrls[0] === "string" && /^https?:\/\//.test(e.mediaUrls[0]) ? e.mediaUrls[0] : null,
     host: str(e.organizerName),
@@ -346,7 +336,6 @@ const DIFF_FIELDS: Array<[string, string]> = [
   ["rules", "Rules"],
   ["bring", "Things to bring"],
   ["safety", "Safety"],
-  ["cancellationPolicy", "Cancellation policy"],
   ["config", "Category settings"],
   ["coverStyle", "Cover art"],
   ["mediaPaths", "Photos"],
@@ -375,12 +364,25 @@ export interface DiffRow {
   after: string;
 }
 
+/** "Moderate · Full refund if you cancel 3+ days before. …" (an old one-word policy reads as its rules). */
+function cancellationText(doc: Raw): string {
+  if (!hasCancellation(doc)) return "—";
+  const v = cancellationView(doc);
+  return `${v.label} · ${v.summary}`;
+}
+
 export function experienceDiff(before: Raw, after: Raw): DiffRow[] {
   const rows: DiffRow[] = [];
   for (const [field, label] of DIFF_FIELDS) {
     const b = show(before[field]);
     const a = show(after[field]);
     if (b !== a) rows.push({ field, label, before: b, after: a });
+    // Cancellation rules sit after Safety, compared as customers read them.
+    if (field === "safety") {
+      const cb = cancellationText(before);
+      const ca = cancellationText(after);
+      if (cb !== ca) rows.push({ field: "cancellation", label: "Cancellation", before: cb, after: ca });
+    }
   }
   return rows;
 }

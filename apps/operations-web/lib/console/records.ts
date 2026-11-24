@@ -4,6 +4,7 @@
  */
 
 import { commissionLabel, formatMoney, isMinorAmount, needsRefundDualControl } from "./money";
+import { cancellationView, hasCancellation } from "../cancellation";
 
 export type DisplayStatus = "Approved" | "Pending" | "Paused" | "Blocked" | "Under review" | "On hold" | "Hidden";
 
@@ -272,7 +273,7 @@ export function caseTargetFields(kind: string, target: Data | null): KeyField[] 
     return [
       ...common,
       { label: "Format", value: text(target, "format") },
-      { label: "Cancellation policy", value: text(target, "cancellationPolicy") },
+      { label: "Cancellation", value: cancellationField(target) },
       { label: "Safety level", value: target.safety && typeof target.safety === "object" ? text(target.safety as Data, "level") : "—" },
       { label: "Status", value: text(target, "status") },
     ];
@@ -285,8 +286,16 @@ export function caseTargetFields(kind: string, target: Data | null): KeyField[] 
     { label: "Duration", value: typeof target.durationMinutes === "number" ? `${target.durationMinutes} min` : "—" },
     { label: "Venue", value: venue ? [text(venue, "name"), text(venue, "area"), text(venue, "city")].filter((v) => v !== "—").join(", ") || "—" : text(target, "location") },
     { label: "Responsible (primaryUid)", value: responsibility ? text(responsibility, "primaryUid") : "— missing: cannot be published" },
+    ...(kind === "event-approval" ? [{ label: "Cancellation", value: cancellationField(target) }] : []),
     { label: "Status", value: text(target, "status") },
   ];
+}
+
+/** "Custom · Full refund if you cancel 48+ hours before. …" — the organizer's rules as customers read them. */
+export function cancellationField(target: Data): string {
+  if (!hasCancellation(target)) return "—";
+  const v = cancellationView(target);
+  return `${v.label} · ${v.summary}`;
 }
 
 /* ----------------------------------------------------------------- audit */

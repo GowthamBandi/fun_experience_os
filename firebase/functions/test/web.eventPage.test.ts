@@ -34,6 +34,32 @@ describe("eventIdFromPath", () => {
   );
 });
 
+describe("cancellation rules in plain words", () => {
+  const policy = (e: Record<string, unknown>, x: Record<string, unknown> | null = exp) => {
+    const v = buildView(ID, { ...event, ...e }, x, org, NOW);
+    return v.kind === "unavailable" ? null : v.policy;
+  };
+  it("an old event's one-word preset reads as its rules", () => {
+    expect(policy({ cancellationPolicy: "moderate" })).toBe(
+      "Full refund if you cancel 3+ days before. 50% back from 3 days to 24 hours. No refund in the last 24 hours. If the organizer cancels, you get a full refund.",
+    );
+  });
+  it("the organizer's own rules, with a cut-off", () => {
+    const cancellation = { allowed: true, cutoffHours: 24, tiers: [{ hoursBefore: 48, refundPercent: 100 }, { hoursBefore: 24, refundPercent: 50 }], preset: "custom" };
+    expect(policy({ cancellation, cancellationPolicy: "custom" })).toBe(
+      "Full refund if you cancel 48+ hours before. 50% back from 48 to 24 hours. No cancelling in the last 24 hours. If the organizer cancels, you get a full refund.",
+    );
+  });
+  it("No cancellations, escaped on the page", () => {
+    const v = buildView(ID, { ...event, cancellation: { allowed: false, cutoffHours: 0, tiers: [], preset: "none" }, cancellationPolicy: "none" }, exp, org, NOW);
+    expect(renderEventPage(v, site).html).toContain("No cancellations. Once booked, a spot can&#39;t be cancelled. If the organizer cancels, you get a full refund.");
+  });
+  it("falls back to the experience's rules, then strict", () => {
+    expect(policy({ cancellationPolicy: undefined }, { cancellationPolicy: "flexible" })).toMatch(/^Full refund if you cancel 24\+ hours before\./);
+    expect(policy({ cancellationPolicy: undefined }, null)).toMatch(/^Full refund if you cancel 7\+ days before\. No refund in the last 7 days\./);
+  });
+});
+
 describe("renderEventPage", () => {
   const view = buildView(ID, event, exp, org, NOW);
   const { status, html } = renderEventPage(view, site);
@@ -49,7 +75,7 @@ describe("renderEventPage", () => {
 
   it("shows the public facts and never the street address", () => {
     expect(html).toContain("Dice Cafe");
-    expect(html).toContain("Flexible — full refund up to 24 hours before");
+    expect(html).toContain("Full refund if you cancel 24+ hours before. 50% back in the last 24 hours. If the organizer cancels, you get a full refund.");
     expect(html).not.toContain("Road 36");
     expect(html).not.toContain("Plot 7");
     expect(html).not.toContain("17.43");

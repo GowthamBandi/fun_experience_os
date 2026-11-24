@@ -38,7 +38,8 @@ import { COLLECTIONS, db, Timestamp } from "../platform/firestore";
 import { writeAudit } from "../platform/audit";
 import { requirePermission, actorRole } from "../access/permissions";
 import { EMPTY_OCCUPANCY, type OccupancyCounters } from "../domain/capacity";
-import { experienceRisk, type ExperienceContent } from "./experiences";
+import { cancellationReview, experienceRisk, storedCancellation, type ExperienceContent } from "./experiences";
+import { resolveCancellation } from "../commerce/cancellation";
 import { parseAgreementVersion, requireAgreement } from "./agreement";
 import {
   assertResponsibility, eventRef, experienceRef, iso, istLabel, notFoundHere, num, organizerName, organizerRef,
@@ -264,6 +265,9 @@ export async function saveEventCommand(uid: string, data: unknown) {
     await assertResponsibility(tx, orgId, eventId, input.primaryUid, input.staffUids);
 
     const endsAt = Timestamp.fromMillis(input.startsAt.toMillis() + input.durationMinutes * 60_000);
+    // The experience's cancellation rules, copied onto the event (an old
+    // one-word preset becomes its rules); bookings freeze them at reservation.
+    const cancellation = resolveCancellation(x).rules;
     const doc: Json = {
       orgId,
       experienceId: input.experienceId,
@@ -289,7 +293,8 @@ export async function saveEventCommand(uid: string, data: unknown) {
       priceMinor: input.priceMinor,
       currency: input.currency,
       eligibility: { ageMin: x.ageMin, ageMax: x.ageMax ?? null, genderRule: x.genderRule },
-      cancellationPolicy: x.cancellationPolicy,
+      cancellationPolicy: cancellation.preset,
+      cancellation,
       responsibility: { primaryUid: input.primaryUid, staffUids: input.staffUids },
       updatedAt: now,
       updatedBy: uid,
@@ -345,6 +350,10 @@ export async function submitEventCommand(uid: string, data: unknown) {
     }
     await assertServedCity(tx, String((ev.venue as Json | undefined)?.city ?? ""));
     const x = await loadApprovedExperience(tx, orgId, ev.experienceId);
+    // What the reviewer approves is the experience's current rules: re-checked
+    // and copied again (the experience may have had a revision approved since
+    // this draft was saved).
+    const cancellation = storedCancellation(x);
     if ((ev.startsAt as Timestamp).toMillis() < now.toMillis() + MIN_LEAD_MS) {
       throw precondition("This event starts too soon to be reviewed.", "Move the start time at least 2 hours ahead.");
     }
@@ -373,11 +382,16 @@ export async function submitEventCommand(uid: string, data: unknown) {
       currency: ev.currency,
       displayValue: `${sellable} places`,
       summary: `${ev.activity} on ${istLabel(ev.startsAt)}`,
+      ...cancellationReview(cancellation),
       submittedBy: uid,
       createdAt: now,
       updatedAt: now,
     });
-    tx.update(ref, { status: "submitted", submittedAt: now, governanceCaseId: caseRef.id, organizerAgreement: agreement, version: ((ev.version as number) ?? 0) + 1, updatedAt: now, updatedBy: uid });
+    tx.update(ref, {
+      status: "submitted", submittedAt: now, governanceCaseId: caseRef.id, organizerAgreement: agreement,
+      cancellation, cancellationPolicy: cancellation.preset,
+      version: ((ev.version as number) ?? 0) + 1, updatedAt: now, updatedBy: uid,
+    });
     writeAudit(tx, {
       action: "catalog.event-submitted", actorUid: uid, actorRole: actorRole(m), resourceType: "event", resourceId: eventId, orgId,
       before: { status: ev.status }, after: { status: "submitted", governanceCaseId: caseRef.id, risk, agreementVersion: agreement.version }, requestId: rid,

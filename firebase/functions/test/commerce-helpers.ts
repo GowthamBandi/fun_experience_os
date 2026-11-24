@@ -85,7 +85,9 @@ export interface EventSeed {
   commissionBps?: number;
   startsInHours?: number;
   status?: string;
-  policy?: "flexible" | "moderate" | "strict";
+  policy?: "flexible" | "moderate" | "strict" | "none" | "custom";
+  /** Organizer-set rules (commerce/cancellation.ts); omitted = an old event with only the one-word policy. */
+  cancellation?: object;
   eligibility?: { ageMin: number; ageMax: number | null; genderRule: string };
 }
 
@@ -113,6 +115,7 @@ export async function seedEvent(s: EventSeed): Promise<string> {
     currency: "INR",
     eligibility: s.eligibility ?? { ageMin: 18, ageMax: null, genderRule: "open" },
     cancellationPolicy: s.policy ?? "flexible",
+    ...(s.cancellation ? { cancellation: s.cancellation } : {}),
     responsibility: { primaryUid: "lead-1", staffUids: [] },
     version: 1,
   });

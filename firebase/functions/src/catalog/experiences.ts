@@ -27,18 +27,79 @@ import { writeAudit } from "../platform/audit";
 import { requirePermission, actorRole } from "../access/permissions";
 import { CATEGORY_KEYS, GENDER_RULES, categoryRisk, validateCategoryConfig, type GenderRule } from "./categories";
 import { parseAgreementVersion, requireAgreement } from "./agreement";
+import { syncEventCancellation } from "./cancellationSync";
 import { bool, experienceRef, notFoundHere, organizerName, organizerRef, runCommand, type Json } from "./common";
+import {
+  CANCELLATION_PRESET_NAMES, cancellationFlags, cancellationSummary, isPresetName, parseCancellationRules, presetRules,
+  type CancellationPreset, type CancellationRules,
+} from "../commerce/cancellation";
 
-export const CANCELLATION_POLICIES = ["flexible", "moderate", "strict"] as const;
+/** The old one-word presets an app may still send as `cancellationPolicy` (read as their rules). */
+export const CANCELLATION_POLICIES = CANCELLATION_PRESET_NAMES;
 export const SAFETY_LEVELS = ["low", "medium", "high"] as const;
 export const EXPERIENCE_POLICY_VERSION = "EXPERIENCE-1.0";
 
 /** Fields that make up an experience's content (copied when a revision is approved). */
 export const EXPERIENCE_CONTENT_FIELDS = [
   "title", "tagline", "category", "activity", "description", "highlights", "format", "genderRule",
-  "ageMin", "ageMax", "idRequired", "rules", "bring", "safety", "cancellationPolicy", "config",
+  "ageMin", "ageMax", "idRequired", "rules", "bring", "safety", "cancellationPolicy", "cancellation", "config",
   "coverStyle", "mediaPaths", "mediaUrls",
 ] as const;
+
+/**
+ * The organizer's cancellation rules from a save: the `cancellation` object
+ * (docs/CANCELLATION_POLICY_CONTRACT.md) when sent, else an older app's
+ * one-word `cancellationPolicy` read as that preset.
+ */
+export function parseCancellationInput(d: Json): CancellationRules {
+  if (d.cancellation !== undefined && d.cancellation !== null) {
+    const p = parseCancellationRules(d.cancellation);
+    if (!p.ok) {
+      throw new DomainError("INVALID_INPUT", p.message, {
+        nextStep: "Fix the cancellation rules and save again.",
+        facts: p.tier === undefined ? { field: "cancellation" } : { field: "cancellation", tier: p.tier },
+      });
+    }
+    return p.rules;
+  }
+  if (isPresetName(d.cancellationPolicy)) return presetRules(d.cancellationPolicy);
+  throw new DomainError(
+    "INVALID_INPUT",
+    d.cancellationPolicy === "custom" ? "Set the custom cancellation rules." : "Cancellation policy is not supported.",
+    { facts: { field: "cancellation" } }
+  );
+}
+
+/**
+ * The rules stored on an experience, re-checked before it goes to review (or
+ * an event built on it does). A draft saved by an older app has only the
+ * one-word preset, which is always fine.
+ */
+export function storedCancellation(doc: Json): CancellationRules {
+  if (doc.cancellation !== undefined && doc.cancellation !== null) {
+    const p = parseCancellationRules(doc.cancellation);
+    if (!p.ok) {
+      throw new DomainError("INVALID_INPUT", p.message, {
+        nextStep: "Edit the cancellation rules, save, and try again.",
+        facts: { field: "cancellation" },
+      });
+    }
+    return p.rules;
+  }
+  if (isPresetName(doc.cancellationPolicy)) return presetRules(doc.cancellationPolicy);
+  throw new DomainError("INVALID_INPUT", "Choose a cancellation policy first.", {
+    nextStep: "Edit the cancellation rules, save, and try again.",
+    facts: { field: "cancellation" },
+  });
+}
+
+/** Case fields the reviewer reads: the rules in plain words and what to look at twice. */
+export function cancellationReview(rules: CancellationRules) {
+  return {
+    cancellationSummary: cancellationSummary(rules),
+    cancellationFlags: cancellationFlags(rules).map((f) => f.key),
+  };
+}
 
 export interface ExperienceContent {
   title: string;
@@ -55,7 +116,9 @@ export interface ExperienceContent {
   rules: string[];
   bring: string[];
   safety: { level: (typeof SAFETY_LEVELS)[number]; measures: string[] };
-  cancellationPolicy: (typeof CANCELLATION_POLICIES)[number];
+  /** Kept for older apps: the preset name, or "custom". The rules are `cancellation`. */
+  cancellationPolicy: CancellationPreset;
+  cancellation: CancellationRules;
   config: Record<string, unknown>;
   coverStyle: { seed: number } | null;
   mediaPaths: string[];
@@ -121,6 +184,7 @@ export function parseExperienceContent(d: Json, orgId: string): ExperienceConten
       throw new DomainError("INVALID_INPUT", "Photos must be uploaded to your organizer's media folder.");
     }
   }
+  const cancellation = parseCancellationInput(d);
   return {
     title: str(d.title, "Title", 3, 80),
     tagline: optStr(d.tagline, "Tagline", 120) ?? "",
@@ -136,7 +200,8 @@ export function parseExperienceContent(d: Json, orgId: string): ExperienceConten
     rules: strList(d.rules, "Rules", 20, 200),
     bring: strList(d.bring, "Things to bring", 20, 120),
     safety,
-    cancellationPolicy: oneOf(d.cancellationPolicy, "Cancellation policy", CANCELLATION_POLICIES),
+    cancellationPolicy: cancellation.preset,
+    cancellation,
     config,
     coverStyle,
     mediaPaths,
@@ -265,6 +330,7 @@ export async function submitExperienceCommand(uid: string, data: unknown) {
     if (!orgSnap.exists || orgSnap.data()!.status !== "active") {
       throw precondition("Your organizer account must be active to submit experiences.", "Contact PULSE support.");
     }
+    const cancellation = storedCancellation(cur);
     const risk = experienceRisk(cur as unknown as ExperienceContent);
     const caseRef = db().collection(COLLECTIONS.governanceCases).doc();
     tx.create(caseRef, {
@@ -283,6 +349,7 @@ export async function submitExperienceCommand(uid: string, data: unknown) {
         ? `Revision of an approved ${cur.category} experience`
         : `New ${cur.category} experience: ${cur.activity}`,
       displayValue: `${cur.category} · ${cur.genderRule} · ${cur.ageMin}+`,
+      ...cancellationReview(cancellation),
       previousVersionId: cur.previousVersionId ?? null,
       submittedBy: uid,
       createdAt: now,
@@ -435,7 +502,15 @@ export const onExperienceRevisionApproved = functions
       if (isStaleEvent(ctx.timestamp, 24 * 3_600_000, { job: "onExperienceRevisionApproved", experienceId })) return;
       try {
         const out = await applyApprovedRevision(experienceId);
-        logInfo({ event: "job.completed", job: "onExperienceRevisionApproved", experienceId, orgId: after.orgId ?? null, outcome: out });
+        // Runs on every delivery (a retry after a merge finds the revision
+        // archived): upcoming events take the merged cancellation rules.
+        const rev = (await experienceRef(experienceId).get()).data();
+        const mergedInto = rev?.status === "archived" && typeof rev.mergedInto === "string" ? rev.mergedInto : null;
+        const sync = mergedInto ? await syncEventCancellation(mergedInto) : null;
+        logInfo({
+          event: "job.completed", job: "onExperienceRevisionApproved", experienceId, orgId: after.orgId ?? null, outcome: out,
+          eventsSynced: sync?.eventsUpdated.length ?? 0, bookingsFrozen: sync?.bookingsFrozen ?? 0,
+        });
       } catch (e) {
         logError({ event: "job.failed", job: "onExperienceRevisionApproved", experienceId, error: String((e as Error)?.message ?? e), willRetry: true });
         throw e;

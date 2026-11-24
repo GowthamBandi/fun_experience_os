@@ -43,4 +43,5 @@ export const C = {
 
 export const bookingLockId = (eventId: string, uid: string) => `${eventId}__${uid}`;
 
-export type CancellationPolicy = "flexible" | "moderate" | "strict";
+/** The `cancellationPolicy` string: a preset name, or "custom" (rules in `cancellation`). */
+export type CancellationPolicy = "flexible" | "moderate" | "strict" | "none" | "custom";

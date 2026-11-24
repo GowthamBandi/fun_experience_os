@@ -25,6 +25,7 @@ import { useBoundedQuery, useOneShot } from "@/lib/use-query";
 import { EventStatusBadge, priceLabel } from "./cells";
 import { EventActions } from "./EventActions";
 import { BookingsTab, ReviewsTab } from "./EventTabs";
+import { CancellationPanel } from "./CancellationPanel";
 import { SafetyTab } from "./SafetyTab";
 
 type TabId = "bookings" | "reviews" | "safety" | "timeline";
@@ -278,6 +279,8 @@ function View({ eventId, onRetry }: { eventId: string; onRetry: () => void }) {
         <Stat label="Commission" value={inrMinor(commission.value)} hint="PULSE share, net of refunds" loading={commission.loading} error={commission.error} onRetry={commission.retry} />
         <Stat label="Refunds" value={inrMinor(refunds.value)} hint="Refunded to customers" loading={refunds.loading} error={refunds.error} onRetry={refunds.retry} />
       </section>
+
+      <CancellationPanel event={d} />
 
       <Tabs tabs={tabs} value={tab} onChange={setTab} label="Event sections" className="self-start" />
 

@@ -3,6 +3,7 @@
  */
 
 import type { CancellationPolicy } from "./config";
+import { refundPercentFor, resolveCancellation } from "./cancellation";
 
 export type GenderRule = "open" | "women-only" | "men-only" | "mixed";
 
@@ -67,21 +68,14 @@ export function checkEligibility(
   return { ok: true, snapshot: { ageVerifiedOk: true, genderOk: true } };
 }
 
-/** Refund percent for a cancellation `hoursBefore` the start (the PULSE presets). */
+/**
+ * Refund percent for a cancellation `hoursBefore` the start under one of the
+ * old string presets. Unknown policy: the most customer-protective reading is
+ * not ours to invent; it falls back to the strict preset. The rules engine
+ * (organizer-set tiers, cut-off, "No cancellations") is commerce/cancellation.ts.
+ */
 export function cancellationPercent(policy: CancellationPolicy | string | undefined, hoursBefore: number): number {
-  if (hoursBefore < 0) return 0;
-  switch (policy) {
-    case "flexible":
-      return hoursBefore >= 24 ? 100 : 50;
-    case "moderate":
-      return hoursBefore >= 72 ? 100 : hoursBefore >= 24 ? 50 : 0;
-    case "strict":
-      return hoursBefore >= 168 ? 100 : 0;
-    default:
-      // Unknown policy: the most customer-protective reading is not ours to
-      // invent; fall back to the strict preset.
-      return hoursBefore >= 168 ? 100 : 0;
-  }
+  return refundPercentFor(resolveCancellation({ cancellationPolicy: policy }).rules, hoursBefore);
 }
 
 /** Integer paise, rounded down (never refunds more than the policy). */

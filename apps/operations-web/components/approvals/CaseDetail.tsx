@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { AlertTriangle, Check, Copy, ExternalLink, FileText, Info, GitCompareArrows, KeyRound, Lock, RotateCw, UsersRound } from "lucide-react";
+import { AlertTriangle, Check, Copy, ExternalLink, FileText, Info, GitCompareArrows, KeyRound, Lock, Receipt, RotateCw, UsersRound } from "lucide-react";
 import { useState } from "react";
 import { Badge, Button, Glyph, Skeleton, Tooltip, useToast, type BadgeTone } from "@/components/pulse";
 import { ExperiencePreview } from "./ExperiencePreview";
 import { KIND_LABEL, caseBadge, caseGlyph, caseTarget, collectionLabel, experienceDiff, type DiffRow } from "@/lib/approvals";
+import { cancellationView } from "@/lib/cancellation";
 import type { CaseOutcome } from "@/lib/console/actions";
 import { isOpenCase } from "@/lib/console/attention";
 import type { ConsoleError } from "@/lib/console/errors";
@@ -124,6 +125,34 @@ function DiffCard({ rows, loading, missing }: { rows: DiffRow[]; loading: boolea
   );
 }
 
+/**
+ * The organizer's cancellation rules as customers will read them, with the two things a reviewer
+ * should look at twice: "No cancellations" and a cut-off over 48 hours (docs/CANCELLATION_POLICY_CONTRACT.md).
+ */
+function CancellationCard({ target }: { target: Raw }) {
+  const v = cancellationView(target);
+  return (
+    <Card title="Cancellation rules" icon={<Receipt />} trailing={<Badge tone={v.flags.length ? "warn" : "muted"}>{v.label}</Badge>}>
+      {v.flags.length ? (
+        <div className="mb-3 flex flex-col gap-2">
+          {v.flags.map((f) => (
+            <div key={f.key} data-testid={`cancellation-flag-${f.key}`}>
+              <Notice tone="warn" title={f.label}>{f.body}</Notice>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      <ul className="flex flex-col gap-1.5" data-testid="cancellation-rules">
+        {v.lines.map((line, i) => <li key={i} className="text-[13.5px] leading-[1.5] text-text">{line}</li>)}
+      </ul>
+      <p className="mt-3 text-[12.5px] text-text-3">
+        If the organizer or PULSE cancels, customers always get a full refund.
+        {v.legacy ? " Set with an older app version: one of the standard presets." : ""}
+      </p>
+    </Card>
+  );
+}
+
 function KycAnswers({ app }: { app: Raw }) {
   const categories = Array.isArray(app.categories) ? app.categories.filter((c): c is string => typeof c === "string") : [];
   const kind = str(app.kind);
@@ -237,6 +266,7 @@ function ExperienceBody({ record, target }: { record: LiveGovernanceRecord; targ
       </div>
       <div className="flex min-w-0 flex-col gap-5">
         {previousId ? <DiffCard rows={previous.data ? experienceDiff(previous.data, target) : []} loading={previous.loading} missing={!previous.loading && !previous.data} /> : null}
+        <CancellationCard target={target} />
         <Card title="Submitted fields"><Fields fields={fields} /></Card>
       </div>
     </div>
@@ -307,6 +337,7 @@ export function CaseDetail({
   else {
     const fields = caseTargetFields(kind, live.data);
     body = <Card title={`Submitted ${collectionLabel(target.collection).toLowerCase()}`}><Fields fields={fields.length ? fields : rawFields(live.data)} /></Card>;
+    if (kind === "event-approval") body = <>{body}<CancellationCard target={live.data} /></>;
   }
   // Every experience, event and trip is submitted under the Organizer Event
   // Agreement (backend catalog/agreement.ts): show what was accepted.
@@ -337,6 +368,9 @@ export function CaseDetail({
               <Badge tone={badge.tone}>{badge.label}</Badge>
               {risk ? <Badge tone={RISK_TONE[risk] ?? "muted"}>{risk} risk</Badge> : null}
               {str(raw.previousVersionId) ? <Badge tone="info">Revision</Badge> : null}
+              {live.data && (kind === "experience-approval" || kind === "event-approval")
+                ? cancellationView(live.data).flags.map((f) => <Badge key={f.key} tone="warn">{f.label}</Badge>)
+                : null}
               <Badge tone="muted">v{record.version}</Badge>
               {str(raw.policyVersion) ? <Badge tone="muted">{String(raw.policyVersion)}</Badge> : null}
             </div>

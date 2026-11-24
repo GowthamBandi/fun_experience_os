@@ -8,6 +8,7 @@
  */
 import * as functions from "firebase-functions/v1";
 import { db } from "../platform/firestore";
+import { cancellationSummary, resolveCancellation } from "../commerce/cancellation";
 
 type Json = Record<string, unknown>;
 
@@ -23,11 +24,16 @@ const CATEGORIES: Record<string, { label: string; color: string }> = {
   workshops: { label: "Workshops", color: "#F2D24B" },
 };
 
-const POLICY: Record<string, string> = {
-  flexible: "Flexible — full refund up to 24 hours before",
-  moderate: "Moderate — full refund up to 3 days before",
-  strict: "Strict — full refund up to 7 days before",
-};
+/**
+ * The cancellation rules in plain words (commerce/cancellation.ts): the
+ * event's copy, else the experience's, else strict — an old one-word preset
+ * reads as its rules.
+ */
+function policyText(event: Json, experience: Json | null): string {
+  const has = (d: Json | null) => !!d && ((d.cancellation !== undefined && d.cancellation !== null) || typeof d.cancellationPolicy === "string");
+  const rules = resolveCancellation(has(event) ? event : has(experience) ? experience : null).rules;
+  return `${cancellationSummary(rules)} If the organizer cancels, you get a full refund.`;
+}
 
 const ID = /^[A-Za-z0-9]{10,40}$/;
 
@@ -97,7 +103,7 @@ export function buildView(id: string, event: Json | null, experience: Json | nul
     priceMinor: Math.max(0, Math.trunc(num(event.priceMinor))),
     spotsLeft: Math.max(0, Math.trunc(remaining)),
     hostName: str(organizer?.name, "a verified PULSE host"),
-    policy: POLICY[str(event.cancellationPolicy, str(exp.cancellationPolicy, "strict"))] ?? POLICY.strict,
+    policy: policyText(event, experience),
   };
 }
 

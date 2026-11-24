@@ -25,7 +25,8 @@ import {
 import { requirePermission, actorRole } from "../access/permissions";
 import type { BookingDoc, EventDoc } from "../bookings/reserveSeat";
 import { C, REFUND_DUAL_CONTROL_MINOR } from "./config";
-import { cancellationPercent, refundAmount } from "./policy";
+import { refundAmount } from "./policy";
+import { cancelVerdict, hasOwnRules, hoursLabel, resolveCancellation, type CancelVerdict } from "./cancellation";
 import { approveRefundInTx, executeRefund, newRefundDoc } from "./refundCore";
 import { assertOwner, getBooking, getPayment, getRefund, raiseRiskAlert, refundRef, ticketRef } from "./shared";
 import { logError } from "../platform/log";
@@ -40,20 +41,57 @@ export interface CancellationQuote {
   reason: string;
 }
 
-function quoteFor(booking: BookingDoc, event: EventDoc, payment: PaymentDoc | null, nowMs: number): CancellationQuote {
+/**
+ * The rules this booking is quoted under: frozen on the booking at
+ * reservation; a booking from before rules were frozen reads the event's
+ * (`cancellation`, else its one-word preset), exactly as it always did.
+ */
+export function bookingCancellation(booking: Pick<BookingDoc, "cancellation">, event: EventDoc | undefined) {
+  return hasOwnRules(booking) ? resolveCancellation(booking) : resolveCancellation(event);
+}
+
+/**
+ * The customer's refusal when the organizer's rules don't let them cancel.
+ * `facts.reason` tells the app which calm line to show instead of a quote.
+ */
+export function cancellationRefusal(v: Exclude<CancelVerdict, { ok: true }>): DomainError {
+  const nextStep = "If something has gone wrong, contact PULSE support.";
+  if (v.reason === "not-allowed") {
+    return new DomainError("PRECONDITION", "This booking can't be cancelled — the organizer doesn't allow cancellations.", {
+      nextStep,
+      facts: { reason: "not-allowed" },
+    });
+  }
+  return new DomainError("PRECONDITION", `Cancelling closed ${hoursLabel(v.cutoffHours)} before the start.`, {
+    nextStep,
+    facts: { reason: "cutoff", cutoffHours: v.cutoffHours },
+  });
+}
+
+/**
+ * Pure: what cancelling `booking` at `nowMs` would refund. Throws the
+ * customer's refusal (PRECONDITION, `facts.reason`) when the rules frozen on
+ * the booking don't allow it: "No cancellations", or inside the cut-off. Free
+ * bookings follow `allowed` and the cut-off too (cancelling frees the spot).
+ * An unpaid hold is always released.
+ */
+export function quoteFor(booking: BookingDoc, event: EventDoc, payment: PaymentDoc | null, nowMs: number): CancellationQuote {
   if (booking.status === "held") return { percent: 0, amountMinor: 0, reason: "hold-release" };
   if (booking.status !== "confirmed") return { percent: 0, amountMinor: 0, reason: "not-cancellable" };
   if (!event.startsAt || event.startsAt.toMillis() <= nowMs) return { percent: 0, amountMinor: 0, reason: "event-started" };
+  const hours = (event.startsAt.toMillis() - nowMs) / 3_600_000;
+  const policy = bookingCancellation(booking, event);
+  const verdict = cancelVerdict(policy.rules, hours);
+  if (!verdict.ok) throw cancellationRefusal(verdict);
   if (!payment || (payment.status !== "captured" && payment.status !== "partially-refunded") || booking.amountMinor === 0) {
     return { percent: 0, amountMinor: 0, reason: "free-booking" };
   }
-  const hours = (event.startsAt.toMillis() - nowMs) / 3_600_000;
-  const percent = cancellationPercent(event.cancellationPolicy, hours);
+  const percent = verdict.percent;
   const paid = payment.amountMinor - (payment.refundedMinor ?? 0);
   return {
     percent,
     amountMinor: refundAmount(paid, percent),
-    reason: percent === 0 ? `outside-policy:${event.cancellationPolicy ?? "strict"}` : `policy:${event.cancellationPolicy ?? "strict"}`,
+    reason: percent === 0 ? `outside-policy:${policy.label}` : `policy:${policy.label}`,
   };
 }
 

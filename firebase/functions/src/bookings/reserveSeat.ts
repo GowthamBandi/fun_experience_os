@@ -50,6 +50,7 @@ import {
   type SeatRequestKind,
 } from "../domain/capacity";
 import { checkEligibility, type Eligibility } from "../commerce/policy";
+import { resolveCancellation, type CancellationRules } from "../commerce/cancellation";
 import { bookingReference, issueTickets } from "../commerce/tickets";
 import { bookingLockId, C, HOLD_MINUTES } from "../commerce/config";
 
@@ -107,7 +108,10 @@ export interface EventDoc {
   priceMinor?: number;
   currency?: string;
   eligibility?: Partial<Eligibility>;
+  /** Old one-word preset; read as its rules when `cancellation` is absent. */
   cancellationPolicy?: string;
+  /** The experience's cancellation rules, copied at save (commerce/cancellation.ts). */
+  cancellation?: unknown;
 }
 
 export interface BookingDoc {
@@ -138,6 +142,13 @@ export interface BookingDoc {
    * event (revert to draft, new terms) never changes what this booking pays.
    */
   commissionBps?: number | null;
+  /**
+   * The cancellation rules the customer agreed to, frozen at reservation from
+   * the event. Quotes and cancellations use these, so an organizer's later
+   * edit applies to new bookings only. Absent on bookings made before rules
+   * were frozen: those read the event's (as they always did).
+   */
+  cancellation?: CancellationRules;
   createdAt: Timestamp;
   updatedAt: Timestamp;
   createdBy: string;
@@ -460,6 +471,7 @@ export async function reserveSeat(cmd: ReserveSeatCommand): Promise<ReserveSeatR
         ticketIds,
         refundedMinor: 0,
         commissionBps,
+        cancellation: resolveCancellation(event).rules,
         createdAt: now,
         updatedAt: now,
         createdBy: cmd.actor.uid,
