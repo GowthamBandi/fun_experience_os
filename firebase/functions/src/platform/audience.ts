@@ -151,6 +151,26 @@ export function matchesViewer(a: Audience, v: Viewer): boolean {
   }
 }
 
+/** Whether [uid] is one of the people an audience is for, by who they are
+ *  (people, organizations, customers/organizers, exclusions). Device and
+ *  city filters aren't known here and don't exclude anyone. */
+export function includesPerson(a: Audience, uid: string, activeOrgIds: string[]): boolean {
+  if (a.excludeUids?.includes(uid)) return false;
+  switch (a.type) {
+    case "all":
+    case "cities":
+      return true;
+    case "customers":
+      return activeOrgIds.length === 0;
+    case "organizers":
+      return activeOrgIds.length > 0;
+    case "users":
+      return (a.uids ?? []).includes(uid);
+    case "orgs":
+      return activeOrgIds.some((o) => (a.orgIds ?? []).includes(o));
+  }
+}
+
 /* -------------------------------------------------------- recipient lists */
 
 interface PersonInfo {

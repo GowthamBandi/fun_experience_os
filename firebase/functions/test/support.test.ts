@@ -76,6 +76,9 @@ describe("support requests", () => {
     let d = await doc(r.id);
     expect(d).toMatchObject({ status: "waiting-on-customer", lastFrom: "pulse" });
     expect(d.messages).toHaveLength(3);
+    // The customer reads this document: the reply carries no operator id.
+    expect(d.messages[2]).toEqual(expect.objectContaining({ from: "pulse", body: "Pull down on the pass to refresh it." }));
+    expect(d.messages[2].by).toBeUndefined();
     const notes = (await db().collection("userNotifications").where("recipientUid", "==", uid).get()).docs.map((x) => x.data());
     expect(notes.find((n) => n.kind === "support-reply")).toMatchObject({ link: { type: "support-request", id: r.id } });
 

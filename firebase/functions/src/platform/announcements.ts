@@ -26,7 +26,7 @@ import { bool, parseInstant, runCommand } from "../catalog/common";
 import { cityKey } from "../catalog/cityKey";
 import { NOTIFICATION_LINK_TYPES, type NotificationLink } from "./notify";
 import {
-  audienceNeedsMemberships, cityTopics, estimateAudience, hasDeviceFilters, hasExclusions, isLimitedAudience, matchesViewer,
+  audienceNeedsMemberships, cityTopics, estimateAudience, hasDeviceFilters, hasExclusions, includesPerson, isLimitedAudience, matchesViewer,
   parseAudience, PLATFORMS, resolveRecipients, MAX_BUILD, type Audience, type Platform,
 } from "./audience";
 import { assertBroadcastQuota, broadcastsInLastDay, BROADCASTS_PER_DAY } from "./broadcast";
@@ -535,6 +535,26 @@ export async function recordEvent(uid: string, data: unknown) {
   await consumeRateLimit({ bucket: `announceevt_${uid}`, ...ANNOUNCEMENT_LIMITS.record });
   const snap = await announcementRef(announcementId).get();
   if (!snap.exists || snap.get("status") === "draft") throw new DomainError("NOT_FOUND", "This announcement isn't available.");
+  // Count only people the announcement is for, and only while it is on:
+  // anyone else's taps (or a stale screen after it ended) change nothing.
+  const status = String(snap.get("status"));
+  const startsMs = (snap.get("startsAt") as Timestamp | undefined)?.toMillis() ?? 0;
+  const endsMs = (snap.get("endsAt") as Timestamp | undefined)?.toMillis() ?? Number.POSITIVE_INFINITY;
+  const nowMs = serverNow().toMillis();
+  const on = (status === "live" || status === "scheduled") && startsMs <= nowMs && nowMs < endsMs;
+  if (!on) return { ok: true as const };
+  let audience: Audience;
+  try {
+    audience = parseAudience(snap.get("audience"), { requireTargets: false });
+  } catch {
+    return { ok: true as const };
+  }
+  let orgs: string[] = [];
+  if (audienceNeedsMemberships(audience)) {
+    const m = await db().collection("memberships").where("uid", "==", uid).get();
+    orgs = m.docs.filter((x) => x.get("status") === "active").map((x) => String(x.get("orgId")));
+  }
+  if (!includesPerson(audience, uid, orgs)) return { ok: true as const };
   const ref = receiptRef(announcementId, uid);
   const counted = await db().runTransaction(async (tx) => {
     const r = (await tx.get(ref)).data();

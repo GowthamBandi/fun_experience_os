@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 /**
  * Reviews: one per checked-in participant per event (`reviews/{eventId}__{uid}`).
  *
@@ -166,6 +167,7 @@ export async function submitReviewCommand(uid: string, data: unknown) {
       moderation: prev?.moderation ?? null,
     });
     if (status === "published") {
+      tx.delete(legacyPublicReviewRef(ref.id));
       tx.set(publicReviewRef(ref.id), {
         kind: "event", orgId, experienceId: ev.experienceId, eventId, title: String(ev.title ?? ""), authorName, rating, comment,
         createdAt: prev?.createdAt ?? now, updatedAt: now,
@@ -184,6 +186,18 @@ export async function submitReviewCommand(uid: string, data: unknown) {
 /** publicReviews/{id}: what anyone may read about a published review (alias,
  *  rating, comment, date) — never the author's account. Removed when hidden. */
 function publicReviewRef(id: string) {
+  return db().collection("publicReviews").doc(publicReviewId(id));
+}
+
+/** The public copy's document id: derived from the review id but not
+ *  reversible, so the public collection never carries the author's account
+ *  id (the review id is `<eventOrDepartureId>__<uid>`). */
+export function publicReviewId(reviewId: string): string {
+  return createHash("sha256").update(`public-review:${reviewId}`).digest("base64url").slice(0, 24);
+}
+
+/** Copies written before ids were hashed used the review id itself. */
+function legacyPublicReviewRef(id: string) {
   return db().collection("publicReviews").doc(id);
 }
 
@@ -274,6 +288,7 @@ export async function submitTripReviewCommand(uid: string, data: unknown) {
       moderation: prev?.moderation ?? null,
     });
     if (status === "published") {
+      tx.delete(legacyPublicReviewRef(ref.id));
       tx.set(publicReviewRef(ref.id), {
         kind: "trip", orgId, tripId, departureId, title, authorName, rating, comment,
         createdAt: prev?.createdAt ?? now, updatedAt: now,
@@ -326,6 +341,7 @@ export async function moderateReviewCommand(admin: { uid: string; roleId: string
         moderation: { by: admin.uid, reason, at: now },
         updatedAt: now,
       });
+      tx.delete(legacyPublicReviewRef(id));
       if (status === "hidden") tx.delete(publicReviewRef(id));
       else if (isTrip) {
         tx.set(publicReviewRef(id), {

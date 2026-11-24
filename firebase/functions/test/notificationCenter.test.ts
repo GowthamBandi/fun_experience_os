@@ -316,6 +316,21 @@ describe("recordAnnouncementEvent + stats", () => {
     expect(await callCode(getAnnouncementStats, { id: "nope-0001" }, ADMIN)).toBe("NOT_FOUND");
   });
 
+  test("only people the announcement is for, and only while it is on, move the counters", async () => {
+    const a = await person();
+    const outsider = await person();
+    const id = await live({ audience: { type: "users", uids: [a.uid] } });
+    await record(outsider, id, "shown");
+    await record(outsider, id, "clicked");
+    expect((await ann(id)).stats).toMatchObject({ shown: 0, clicked: 0, viewers: 0 });
+    expect((await db().doc(`announcementReceipts/${id}__${outsider.uid}`).get()).exists).toBe(false);
+    await record(a, id, "shown");
+    expect((await ann(id)).stats).toMatchObject({ shown: 1, viewers: 1 });
+    await act(id, "end");
+    await record(a, id, "clicked");
+    expect((await ann(id)).stats).toMatchObject({ clicked: 0 });
+  });
+
   test("rate-limited per person", async () => {
     const p = await person();
     const id = await live();

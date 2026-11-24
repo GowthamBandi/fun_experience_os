@@ -5,6 +5,7 @@
  */
 import { ORG, OTHER_ORG, U, H, call, codeOf, messageOf, clearFirestore, db, Timestamp, seedOrg, member, phoneCtx, adminCtx, rid } from "./catalog.fixtures";
 import { submitReview, submitTripReview, moderateReview, getOrganizerHistory } from "../src/catalog";
+import { publicReviewId } from "../src/catalog/reviews";
 import { getTripManifest, setTripBoarding } from "../src/trips";
 
 const DAY = 24 * H;
@@ -134,7 +135,7 @@ describe("submitTripReview", () => {
     let a = await agg();
     expect(a.org).toMatchObject({ ratingCount: 1, ratingSum: 5, ratingAverage: 5 });
     expect(a.trip).toMatchObject({ ratingCount: 1, ratingSum: 5, ratingAverage: 5 });
-    const pub = (await db().doc(`publicReviews/${DEP}__${U.customer}`).get()).data()!;
+    const pub = (await db().collection("publicReviews").doc(publicReviewId(`${DEP}__${U.customer}`)).get()).data()!;
     expect(pub).toMatchObject({ kind: "trip", orgId: ORG, tripId: TRIP, departureId: DEP, title: "Coorg coffee trails", authorName: "Asha", rating: 5 });
     expect(pub).not.toHaveProperty("authorUid");
 
@@ -151,7 +152,7 @@ describe("submitTripReview", () => {
     await db().doc(`events/ev-rv-0001`).set({ orgId: ORG, experienceId: "exp-rv-0001", status: "completed", title: "Football night", startsAt: ts(-4 * H), endsAt: ts(-2 * H) });
     await db().collection("tickets").add({ eventId: "ev-rv-0001", customerUid: U.customer, status: "used", bookingId: "bk", orgId: ORG });
     await call(submitReview, { requestId: rid("rev"), eventId: "ev-rv-0001", rating: 3 }, phoneCtx(U.customer));
-    const evPub = (await db().doc(`publicReviews/ev-rv-0001__${U.customer}`).get()).data()!;
+    const evPub = (await db().collection("publicReviews").doc(publicReviewId(`ev-rv-0001__${U.customer}`)).get()).data()!;
     expect(evPub).toMatchObject({ kind: "event", title: "Football night", eventId: "ev-rv-0001" });
     await board(U.owner);
     await review(U.customer, { rating: 5 });
@@ -164,7 +165,7 @@ describe("submitTripReview", () => {
     const id = `${DEP}__${U.customer}`;
     const mod = (status: string) => call(moderateReview, { requestId: rid("mod"), reviewId: id, status, reason: "Spam report upheld" }, adminCtx());
     await mod("hidden");
-    expect((await db().doc(`publicReviews/${id}`).get()).exists).toBe(false);
+    expect((await db().collection("publicReviews").doc(publicReviewId(id)).get()).exists).toBe(false);
     let a = await agg();
     expect(a.org).toMatchObject({ ratingCount: 0, ratingSum: 0, ratingAverage: null });
     expect(a.trip).toMatchObject({ ratingCount: 0, ratingAverage: null });
@@ -175,7 +176,7 @@ describe("submitTripReview", () => {
     a = await agg();
     expect(a.org).toMatchObject({ ratingCount: 1, ratingSum: 1, ratingAverage: 1 });
     expect(a.trip).toMatchObject({ ratingCount: 1, ratingSum: 1 });
-    const pub = (await db().doc(`publicReviews/${id}`).get()).data()!;
+    const pub = (await db().collection("publicReviews").doc(publicReviewId(id)).get()).data()!;
     expect(pub).toMatchObject({ kind: "trip", tripId: TRIP, departureId: DEP, title: "Coorg coffee trails", rating: 1 });
   });
 });

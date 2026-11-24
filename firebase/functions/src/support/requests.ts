@@ -49,7 +49,8 @@ export interface SupportMessage {
   from: "customer" | "pulse";
   body: string;
   at: Timestamp;
-  /** Ops uid for "pulse" messages (never shown to the customer). */
+  /** Legacy: older replies stored the ops uid here. New replies don't (the
+   *  customer can read the document); the audit trail has who replied. */
   by?: string;
   /** The automatic acknowledgement sent on arrival. */
   auto?: boolean;
@@ -249,7 +250,9 @@ export async function respondSupportRequest(
     const now = serverNow();
     const patch: Record<string, unknown> = { status: input.status, updatedAt: now };
     if (body) {
-      patch.messages = FieldValue.arrayUnion({ from: "pulse", body, at: now, by: admin.uid });
+      // The customer can read this document: no operator id here (the audit
+      // trail below records who replied).
+      patch.messages = FieldValue.arrayUnion({ from: "pulse", body, at: now });
       patch.lastFrom = "pulse";
     }
     tx.update(ref, patch);
