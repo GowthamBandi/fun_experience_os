@@ -99,9 +99,14 @@ export async function seedStandardTeam(eventScopeA: string[]) {
   await member(ORG, U.revoked, { permissions: ALL_PERMS, scope: "all", status: "revoked" });
 }
 
+/** A photo in the organizer's media folder (submitting needs at least one). */
+export const orgMediaUrl = (orgId: string, name = "cover.jpg") =>
+  `https://firebasestorage.googleapis.com/v0/b/demo-experience-os.appspot.com/o/${encodeURIComponent(`orgMedia/${orgId}/${name}`)}?alt=media`;
+
 export const experienceInput = (over: Record<string, unknown> = {}) => ({
   requestId: rid("exp"),
   orgId: ORG,
+  mediaUrls: [orgMediaUrl(typeof over.orgId === "string" ? over.orgId : ORG)],
   title: "Sunday 5-a-side Football",
   tagline: "Friendly games under lights",
   category: "sports",

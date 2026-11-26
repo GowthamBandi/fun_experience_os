@@ -118,6 +118,16 @@ describe("experiences", () => {
     expect((await db().doc(`events/${evId}`).get()).data()!.organizerAgreement.version).toBe("ORG-EVENT-1.0");
   });
 
+  test("submitting needs the organizer's own photo (the cover); PULSE never supplies one", async () => {
+    const d = await call(saveExperience, experienceInput({ mediaUrls: [] }), owner);
+    const sub = () => call(submitExperience, { agreementVersion: "ORG-EVENT-1.0", requestId: rid(), orgId: ORG, experienceId: d.experienceId }, owner);
+    expect(await codeOf(sub())).toBe("PRECONDITION");
+    expect(await messageOf(sub())).toMatch(/photo/);
+    expect((await db().doc(`experiences/${d.experienceId}`).get()).data()!.status).toBe("draft");
+    await call(saveExperience, experienceInput({ experienceId: d.experienceId }), owner);
+    expect(await sub()).toMatchObject({ status: "submitted" });
+  });
+
   test("non-phone (anonymous / email) sign-in is refused", async () => {
     expect(await codeOf(call(saveExperience, experienceInput(), { auth: { uid: U.owner, token: {} } }))).toBe("NOT_PERMITTED");
     expect(await codeOf(call(saveExperience, experienceInput(), {}))).toBe("NOT_AUTHENTICATED");

@@ -326,6 +326,13 @@ export async function submitExperienceCommand(uid: string, data: unknown) {
     if (!EDITABLE.has(cur.status)) {
       throw precondition("Only draft experiences can be sent for review.", undefined, { status: cur.status });
     }
+    // The cover is the organizer's own photo, never a PULSE stock cover (owner rule, 24 Nov 2026).
+    if (!Array.isArray(cur.mediaUrls) || cur.mediaUrls.length === 0) {
+      throw precondition(
+        "Add at least one photo of your own before sending this for review.",
+        "The first photo is the cover customers see. Use a real photo of the venue or a past session.",
+      );
+    }
     const orgSnap = await tx.get(organizerRef(orgId));
     if (!orgSnap.exists || orgSnap.data()!.status !== "active") {
       throw precondition("Your organizer account must be active to submit experiences.", "Contact PULSE support.");

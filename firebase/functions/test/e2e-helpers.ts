@@ -241,6 +241,10 @@ export function experienceInput(orgId: string, over: Record<string, unknown> = {
   return {
     requestId: rid("exp"),
     orgId,
+    // Submitting needs the organizer's own photo (the cover).
+    mediaUrls: [
+      `https://firebasestorage.googleapis.com/v0/b/demo-experience-os.appspot.com/o/${encodeURIComponent(`orgMedia/${orgId}/cover.jpg`)}?alt=media`,
+    ],
     title: "Sunday 5-a-side Football",
     tagline: "Friendly floodlit games",
     category: "sports",

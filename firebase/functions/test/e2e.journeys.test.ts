@@ -108,6 +108,7 @@ describe(`E2E journeys (run ${RUN})`, () => {
       format: "5-a-side", genderRule: "open", ageMin: 18, idRequired: false, rules: ["No studs"], bring: ["Water"],
       safety: { level: "medium", measures: ["First-aid kit"] }, cancellationPolicy: "flexible",
       config: { teamSize: 5, skillLevel: "all-levels", equipmentProvided: true },
+      mediaUrls: [`https://firebasestorage.googleapis.com/v0/b/demo-experience-os.appspot.com/o/${encodeURIComponent(`orgMedia/${orgId}/cover.jpg`)}?alt=media`],
     }, owner.ctx);
     const experienceId = String(saved.experienceId);
     S.experienceId = experienceId;

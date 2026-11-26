@@ -203,7 +203,8 @@ const PAYLOAD_JUNK: Record<string, unknown> = {
 const LENIENT: Record<string, string[]> = {
   updateMyProfile: ["bio"],
   submitOrganizerApplication: ["contactEmail"],
-  saveExperience: ["experienceId", "tagline", "highlights", "rules", "bring", "config", "format", "activity", "idRequired", "safety"],
+  // mediaUrls: optional on a draft (the photo is required at submit, not save).
+  saveExperience: ["experienceId", "tagline", "highlights", "rules", "bring", "config", "format", "activity", "idRequired", "safety", "mediaUrls"],
   saveEvent: ["eventId", "staffUids", "currency"],
   setEventResponsibility: ["staffUids"],
   updateStaff: ["permissions", "eventScope", "title"],
