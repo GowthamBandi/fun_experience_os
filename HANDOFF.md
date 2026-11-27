@@ -11,6 +11,11 @@ paused live staging test live there; the app repo is private, this one is public
 `deleteMyAccount` fix (`getAuth(app())`) deployed to staging on 27 Nov from `main` a9e3294.
 Never commit the local dev tweak in `apps/operations-web/lib/firebase/app-check.ts`.
 
+**Console operators need an authenticator app (TOTP second factor).** Server (`requireActor`),
+Firestore and Storage rules refuse an operator session without it. Switch on TOTP multi-factor for
+the project (Identity Platform) and ship the console before deploying those rules/functions.
+Locally, the seeded `@pulse.test` logins are exempt (demo- emulator only; the Auth emulator has no TOTP).
+
 ## What's here
 
 | Path | What |
