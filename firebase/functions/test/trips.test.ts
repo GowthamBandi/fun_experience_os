@@ -564,6 +564,31 @@ describe("ledger and settlement", () => {
     expect((await db().doc(`riskAlerts/dup-capture_${secondPay}`).get()).data()).toMatchObject({ severity: "high" });
   });
 
+  describe("cancelling a departure that already ran or was paid out", () => {
+    test("refused once the departure has started; nobody is refunded", async () => {
+      const w = await liveTrip();
+      const r = await book(w, uniq("cust"));
+      await db().doc(`tripDepartures/${w.d1}`).update({ start: Timestamp.fromMillis(Date.now() - DAY), end: Timestamp.fromMillis(Date.now() + DAY) });
+      const err = await callErr(trips.cancelDeparture, { requestId: rid(), orgId: w.orgId, departureId: w.d1, reason: "Changed our mind" }, phoneCtx(w.owner));
+      expect(err.code).toBe("PRECONDITION");
+      expect(await booking(r.bookingId)).toMatchObject({ status: "confirmed" });
+      expect((await dep(w.d1)).cancelled).not.toBe(true);
+      expect((await db().collection("tripRefunds").where("bookingId", "==", r.bookingId).get()).size).toBe(0);
+    });
+
+    test("refused once any of the departure's money is in a settlement", async () => {
+      const w = await liveTrip();
+      const r = await book(w, uniq("cust"));
+      const entries = await db().collection("ledgerEntries").where("departureId", "==", w.d1).get();
+      expect(entries.size).toBeGreaterThan(0);
+      await entries.docs[0]!.ref.update({ settlementId: "stl_paid_out" });
+      const err = await callErr(trips.cancelDeparture, { requestId: rid(), orgId: w.orgId, departureId: w.d1, reason: "Landslide on the ghat road" }, phoneCtx(w.owner));
+      expect(err.code).toBe("PRECONDITION");
+      expect(await booking(r.bookingId)).toMatchObject({ status: "confirmed" });
+      expect((await db().collection("tripRefunds").where("bookingId", "==", r.bookingId).get()).size).toBe(0);
+    });
+  });
+
   describe("payment lookup and order binding", () => {
     const tripCapture = (payId: string, orderId: string, amount: number, notes: Record<string, unknown>) => ({
       entity: "event", event: "payment.captured",

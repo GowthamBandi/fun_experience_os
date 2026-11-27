@@ -11,6 +11,7 @@
  */
 
 import { precondition } from "../platform/errors";
+import { C } from "../commerce/config";
 import { Timestamp, db } from "../platform/firestore";
 import { writeAudit } from "../platform/audit";
 import { notify } from "../platform/notify";
@@ -157,11 +158,22 @@ export async function cancelDepartureCommand(uid: string, data: unknown) {
   }), async (tx, now, { a: { departureId, reason }, orgId, rid, role }) => {
     const dep = await departureFor(tx, orgId, departureId);
     if (dep.cancelled === true) return { departureId, cancelled: true, bookings: 0, refundIds: [] as string[] };
-    const [bookings, payments, t] = await Promise.all([
+    // A departure that has started has happened (or is happening): cancelling
+    // it now would refund every traveller in full from the platform.
+    const start = dep.start as Timestamp | undefined;
+    if (!start || start.toMillis() <= now.toMillis()) {
+      throw precondition("This departure has already started, so it can't be cancelled.", "Contact PULSE support if something went wrong on the trip.");
+    }
+    const [bookings, payments, t, ledger] = await Promise.all([
       tx.get(db().collection(T.tripBookings).where("departureId", "==", departureId)),
       tx.get(db().collection(T.tripPayments).where("departureId", "==", departureId)),
       tx.get(tripRef(dep.tripId as string)),
+      tx.get(db().collection(C.ledgerEntries).where("departureId", "==", departureId)),
     ]);
+    // Money already paid out to the organizer can't also be refunded from the platform.
+    if (ledger.docs.some((e) => e.data().settlementId != null)) {
+      throw precondition("Money for this departure has already been paid out to you, so it can't be cancelled here.", "Contact PULSE support to cancel it.");
+    }
     const title = t.exists ? String(t.data()!.title ?? "your trip") : "your trip";
     const byBooking = new Map<string, TripPaymentDoc[]>();
     for (const p of payments.docs) {
