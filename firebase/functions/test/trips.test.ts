@@ -564,6 +564,27 @@ describe("ledger and settlement", () => {
     expect((await db().doc(`riskAlerts/dup-capture_${secondPay}`).get()).data()).toMatchObject({ severity: "high" });
   });
 
+  describe("releasing a hold after a failed or cancelled checkout", () => {
+    test("onlyIfHeld leaves a booking the payment already confirmed untouched", async () => {
+      const w = await liveTrip();
+      const cust = uniq("cust");
+      const r = await book(w, cust);
+      const out = await call<{ status: string; refund: number }>(trips.cancelTripBooking, { requestId: rid(), bookingId: r.bookingId, onlyIfHeld: true }, phoneCtx(cust));
+      expect(out).toMatchObject({ status: "confirmed", refund: 0 });
+      expect(await booking(r.bookingId)).toMatchObject({ status: "confirmed" });
+      expect((await db().collection("tripRefunds").where("bookingId", "==", r.bookingId).get()).size).toBe(0);
+    });
+
+    test("onlyIfHeld still releases a booking that is only held", async () => {
+      const w = await liveTrip();
+      const cust = uniq("cust");
+      const r = await call<{ bookingId: string }>(trips.reserveTripSeats, reserveInput(w), phoneCtx(cust));
+      const out = await call<{ status: string }>(trips.cancelTripBooking, { requestId: rid(), bookingId: r.bookingId, onlyIfHeld: true }, phoneCtx(cust));
+      expect(out.status).toBe("cancelled");
+      expect(await booking(r.bookingId)).toMatchObject({ status: "cancelled" });
+    });
+  });
+
   describe("cancelling a departure that already ran or was paid out", () => {
     test("refused once the departure has started; nobody is refunded", async () => {
       const w = await liveTrip();

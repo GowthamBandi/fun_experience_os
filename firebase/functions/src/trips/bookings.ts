@@ -885,8 +885,16 @@ export async function cancelTripBookingCommand(uid: string, data: unknown) {
   const d = obj(data);
   const rid = requestId(d.requestId);
   const bookingId = docId(d.bookingId, "bookingId");
+  // Checkout passes onlyIfHeld when the phone reported "cancelled/failed":
+  // the payment may still have gone through (UPI often reports a failure after
+  // the bank debited), so a booking that is no longer just held is left alone
+  //. Checked in the same transaction as the cancel.
+  const onlyIfHeld = d.onlyIfHeld === undefined ? false : bool(d.onlyIfHeld, "onlyIfHeld");
   const out = await runCommand("trips.booking-cancelled", uid, rid, async (tx, now) => {
     const b = ownBooking(await tx.get(tripBookingRef(bookingId)), uid);
+    if (onlyIfHeld && b.status !== "held") {
+      return { bookingId, status: b.status, refund: 0, refundIds: [] as string[] };
+    }
     if (b.status === "confirmed" && b.departureStart.toMillis() <= now.toMillis()) {
       throw precondition("This trip has already started, so it can't be cancelled here.", "Talk to your trip captain.");
     }
