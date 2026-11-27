@@ -21,6 +21,10 @@ describe("friendlyAuthError", () => {
     expect(friendlyAuthError({ code: "auth/operation-not-allowed" })).toBe("Authenticator-app sign-in isn't switched on for this project yet. Ask a platform owner.");
     expect(friendlyAuthError({ code: "auth/code-expired" })).toBe("That code expired. Enter the newest code from your authenticator app.");
   });
+  it("uses the caller's fallback for unknown codes (setup isn't sign-in)", () => {
+    expect(friendlyAuthError({ code: "auth/internal-error" }, "The setup couldn't start. Try again in a minute.")).toBe("The setup couldn't start. Try again in a minute.");
+    expect(friendlyAuthError({ code: "auth/invalid-verification-code" }, "x")).toBe("That code didn't match. Enter the current 6-digit code from your authenticator app.");
+  });
   it("falls back without leaking raw text", () => {
     expect(friendlyAuthError(new Error("Firebase: Error (auth/weird).")))
       .toBe("Sign-in didn't work. Try again.");

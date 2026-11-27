@@ -138,6 +138,8 @@ function VerifyEmail() {
 }
 
 /** Groups a setup key in fours so it can be typed into an authenticator app without mistakes. */
+const SETUP_FAILED = "The authenticator setup couldn't start. Try again in a minute, or ask a platform owner.";
+
 const grouped = (key: string) => key.replace(/(.{4})/g, "$1 ").trim();
 
 function SetUpAuthenticator() {
@@ -153,7 +155,7 @@ function SetUpAuthenticator() {
     try {
       setSetup(await session.startAuthenticatorSetup());
     } catch (error) {
-      setNote({ ok: false, message: friendlyAuthError(error) });
+      setNote({ ok: false, message: friendlyAuthError(error, SETUP_FAILED) });
     } finally {
       setBusy(false);
     }
@@ -165,7 +167,7 @@ function SetUpAuthenticator() {
       // Signs out on success: the login page then asks for password + code.
       await session.finishAuthenticatorSetup(code);
     } catch (error) {
-      setNote({ ok: false, message: friendlyAuthError(error) });
+      setNote({ ok: false, message: friendlyAuthError(error, SETUP_FAILED) });
       setBusy(false);
     }
   }

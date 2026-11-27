@@ -4,7 +4,7 @@ export function authErrorCode(error: unknown): string {
   return "";
 }
 
-export function friendlyAuthError(error: unknown): string {
+export function friendlyAuthError(error: unknown, fallback = "Sign-in didn't work. Try again."): string {
   const code = authErrorCode(error);
   if (code === "auth/wrong-password" || code === "auth/invalid-credential" || code === "auth/user-not-found") {
     return "That email and password don't match. Try again or reset your password.";
@@ -18,5 +18,5 @@ export function friendlyAuthError(error: unknown): string {
   if (code === "auth/code-expired") return "That code expired. Enter the newest code from your authenticator app.";
   if (code === "auth/requires-recent-login") return "For your safety this needs a fresh sign-in. Sign out, sign in again, then try once more.";
   if (code === "auth/operation-not-allowed") return "Authenticator-app sign-in isn't switched on for this project yet. Ask a platform owner.";
-  return "Sign-in didn't work. Try again.";
+  return fallback;
 }
