@@ -8,8 +8,7 @@ first (product overview, how to run the app, legal pages). Work on `main` in bot
 
 Read the app repo's `HANDOFF.md` section "Where work stopped" (the open task list and the
 paused live staging test live there; the app repo is private, this one is public).
-Not deployed yet: `deleteMyAccount` fix (`getAuth(app())`) — run
-`npx firebase deploy --project staging --only functions:deleteMyAccount`.
+`deleteMyAccount` fix (`getAuth(app())`) deployed to staging on 27 Nov from `main` a9e3294.
 Never commit the local dev tweak in `apps/operations-web/lib/firebase/app-check.ts`.
 
 ## What's here
