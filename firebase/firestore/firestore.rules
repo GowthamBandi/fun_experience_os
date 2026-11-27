@@ -27,7 +27,17 @@ service cloud.firestore {
     function user() { return signedIn() && notDisabled(); }
 
     // Operations Console operators (email + custom claim; ADR-0004).
-    function verifiedOperator() { return signedIn() && request.auth.token.get('email_verified', false) == true && notDisabled(); }
+    // Console operators signed in with their authenticator-app code (TOTP):
+    // a password alone never opens admin data. Seeded @pulse.test logins are
+    // exempt only in a local demo- emulator project (the Auth emulator can't
+    // do TOTP; on a real project `aud` is that project's id).
+    function operatorSecondFactor() {
+      return request.auth.token.get('firebase', {}).get('sign_in_second_factor', '') == 'totp'
+        || (request.auth.token.get('aud', '').matches('demo-.*') && request.auth.token.get('email', '').matches('.*@pulse[.]test'));
+    }
+    function verifiedOperator() {
+      return signedIn() && request.auth.token.get('email_verified', false) == true && notDisabled() && operatorSecondFactor();
+    }
     function platformRole() { return request.auth.token.get('roleId', ''); }
     function isAdmin() { return verifiedOperator() && platformRole() in ['platform-owner', 'super-admin']; }
     function isAuditor() { return verifiedOperator() && platformRole() == 'auditor'; }

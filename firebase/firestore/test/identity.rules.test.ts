@@ -5,6 +5,7 @@
  * parallel with the storage rules suite.
  */
 import { initializeTestEnvironment, assertFails, assertSucceeds, RulesTestEnvironment } from "@firebase/rules-unit-testing";
+import { TOTP_SIGN_IN } from "./operator-token";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, updateDoc, where } from "firebase/firestore";
@@ -188,7 +189,7 @@ test("a suspended account (disabled claim) loses even its own data", async () =>
 });
 
 describe("payout accounts and KYC documents (2026-11-14)", () => {
-  const admin = () => env.authenticatedContext("admin-x", { email: "a@ops.test", email_verified: true, roleId: "super-admin" }).firestore();
+  const admin = () => env.authenticatedContext("admin-x", { email: "a@ops.test", email_verified: true, roleId: "super-admin" , firebase: TOTP_SIGN_IN }).firestore();
 
   test("payoutAccounts: the owner and admins read it; staff, managers and customers don't; nobody writes", async () => {
     await seed(`payoutAccounts/${ORG}`, { orgId: ORG, method: "bank", masked: "•••• 6789", status: "pending-verification", version: 0 });
@@ -216,7 +217,7 @@ describe("payout accounts and KYC documents (2026-11-14)", () => {
 });
 
 describe("event-day, waitlist, support and agreements (2026-11-14)", () => {
-  const admin = () => env.authenticatedContext("admin-x", { email: "a@ops.test", email_verified: true, roleId: "super-admin" }).firestore();
+  const admin = () => env.authenticatedContext("admin-x", { email: "a@ops.test", email_verified: true, roleId: "super-admin" , firebase: TOTP_SIGN_IN }).firestore();
 
   test("commercialAgreements: the owner reads their org's; other orgs and customers don't", async () => {
     await seed(`commercialAgreements/ca-${ORG}`, { orgId: ORG, status: "approved", commissionBps: 1000, payoutCadence: "weekly" });

@@ -33,7 +33,7 @@ export function phoneCtx(uid: string) {
   } as never;
 }
 export function adminCtx(uid: string, roleId = "super-admin") {
-  return { auth: { uid, token: { roleId, email_verified: true, email: `${uid}@ops.test` } }, rawRequest: {} } as never;
+  return { auth: { uid, token: { roleId, email_verified: true, email: `${uid}@ops.test`, firebase: { sign_in_second_factor: "totp" } } }, rawRequest: {} } as never;
 }
 export function anonEmailCtx(uid: string) {
   return { auth: { uid, token: { email: `${uid}@x.test` } }, rawRequest: {} } as never;

@@ -65,7 +65,7 @@ export function person(tag: string, phone = uniquePhone()): Person {
 }
 
 export function adminCtx(uid: string, roleId = "super-admin") {
-  return { auth: { uid, token: { roleId, email_verified: true, email: `${uid}@ops.test` } }, rawRequest: {} } as never;
+  return { auth: { uid, token: { roleId, email_verified: true, email: `${uid}@ops.test`, firebase: { sign_in_second_factor: "totp" } } }, rawRequest: {} } as never;
 }
 
 export const ADMIN_A = uniq("admin-a");

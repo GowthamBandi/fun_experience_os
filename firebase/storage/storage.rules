@@ -9,9 +9,18 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     function signedIn() { return request.auth != null && request.auth.token.get('disabled', false) != true; }
+    // Console operators signed in with their authenticator-app code (TOTP):
+    // a password alone never opens admin data. Seeded @pulse.test logins are
+    // exempt only in a local demo- emulator project (the Auth emulator can't
+    // do TOTP; on a real project `aud` is that project's id).
+    function operatorSecondFactor() {
+      return request.auth.token.get('firebase', {}).get('sign_in_second_factor', '') == 'totp'
+        || (request.auth.token.get('aud', '').matches('demo-.*') && request.auth.token.get('email', '').matches('.*@pulse[.]test'));
+    }
     function isAdmin() {
       return request.auth != null && request.auth.token.get('email_verified', false) == true
-        && request.auth.token.get('roleId', '') in ['platform-owner', 'super-admin'];
+        && request.auth.token.get('roleId', '') in ['platform-owner', 'super-admin']
+        && operatorSecondFactor();
     }
     function membershipPath(orgId) {
       return /databases/(default)/documents/memberships/$(orgId + '__' + request.auth.uid);

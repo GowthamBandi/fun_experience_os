@@ -36,7 +36,7 @@ let seq = 0;
 export const rid = (tag = "r") => `${tag}-${Date.now().toString(36)}-${(seq++).toString(36)}`.replace(/[^A-Za-z0-9_-]/g, "");
 
 export const phoneCtx = (uid: string) => ({ auth: { uid, token: { phone_number: "+919876543210" } } });
-export const adminCtx = (uid = "admin-0001") => ({ auth: { uid, token: { email_verified: true, roleId: "super-admin", email: "a@x.io" } } });
+export const adminCtx = (uid = "admin-0001") => ({ auth: { uid, token: { email_verified: true, roleId: "super-admin", email: "a@x.io", firebase: { sign_in_second_factor: "totp" } } } });
 
 type Runnable = { run: (data: unknown, ctx: unknown) => unknown };
 export const call = async (fn: unknown, data: unknown, ctx: unknown) =>

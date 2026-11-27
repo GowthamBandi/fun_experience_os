@@ -232,7 +232,7 @@ describe("F2 malformed payloads", () => {
     db(); // initialises the default admin app
     const opTarget = uniq("op-target");
     await getAuth().createUser({ uid: opTarget, email: `${opTarget}@ops.test` });
-    const owner = { auth: { uid: uniq("owner"), token: { roleId: "platform-owner", email_verified: true, email: "o@ops.test" } }, rawRequest: {} } as never;
+    const owner = { auth: { uid: uniq("owner"), token: { roleId: "platform-owner", email_verified: true, email: "o@ops.test", firebase: { sign_in_second_factor: "totp" } } }, rawRequest: {} } as never;
 
     type Case = { fn: unknown; base: Json | null; ctx: "phone" | "admin" | "owner" };
     const r = () => rid("fz");

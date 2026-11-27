@@ -7,6 +7,7 @@
  * Per-test ids; the database is never cleared.
  */
 import { initializeTestEnvironment, assertFails, assertSucceeds, RulesTestEnvironment } from "@firebase/rules-unit-testing";
+import { TOTP_SIGN_IN } from "./operator-token";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, updateDoc } from "firebase/firestore";
@@ -35,8 +36,8 @@ afterAll(async () => env.cleanup());
 
 const phoneUser = (uid: string, claims: Record<string, unknown> = {}) =>
   env.authenticatedContext(uid, { phone_number: "+919800000000", ...claims }).firestore();
-const admin = () => env.authenticatedContext("admin-nc", { email_verified: true, roleId: "super-admin" }).firestore();
-const auditor = () => env.authenticatedContext("auditor-nc", { email_verified: true, roleId: "auditor" }).firestore();
+const admin = () => env.authenticatedContext("admin-nc", { email_verified: true, roleId: "super-admin" , firebase: TOTP_SIGN_IN }).firestore();
+const auditor = () => env.authenticatedContext("auditor-nc", { email_verified: true, roleId: "auditor" , firebase: TOTP_SIGN_IN }).firestore();
 
 async function seed(path: string, value: Record<string, unknown>) {
   await env.withSecurityRulesDisabled(async (ctx) => setDoc(doc(ctx.firestore(), path), value));

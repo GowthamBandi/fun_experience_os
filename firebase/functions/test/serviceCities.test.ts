@@ -41,7 +41,7 @@ afterAll(async () => {
 describe("setServiceCities", () => {
   test("admins only; writes the public list with cityKeys; audited", async () => {
     expect(await codeOf(setCities([HYD], owner))).toBe("NOT_PERMITTED");
-    expect(await codeOf(setCities([HYD], { auth: { uid: "ops-1", token: { email_verified: true, roleId: "operations" } } }))).toBe("NOT_PERMITTED");
+    expect(await codeOf(setCities([HYD], { auth: { uid: "ops-1", token: { email_verified: true, roleId: "operations", firebase: { sign_in_second_factor: "totp" } } } }))).toBe("NOT_PERMITTED");
     expect(await codeOf(call(setServiceCities, { cities: [HYD] }, adminCtx("admin-a")))).toBe("INVALID_INPUT"); // no reason
 
     const r = await setCities([{ ...BLR, name: "  Bangalore " }, { ...HYD, active: false }, { name: "Mysuru", state: "Karnataka" }]);

@@ -4,6 +4,7 @@
  * FIREBASE_STORAGE_EMULATOR_HOST / FIRESTORE_EMULATOR_HOST.
  */
 import { initializeTestEnvironment, assertFails, assertSucceeds, RulesTestEnvironment } from "@firebase/rules-unit-testing";
+import { TOTP_SIGN_IN } from "./operator-token";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { doc, setDoc, updateDoc } from "firebase/firestore";
@@ -64,7 +65,7 @@ const bytes = (size: number) => new Uint8Array(size);
 const MB = 1024 * 1024;
 // Production-shaped phone-auth token: no custom claims at all.
 const user = (uid: string) => env.authenticatedContext(uid, { phone_number: "+919800000000" }).storage();
-const adminCtx = () => env.authenticatedContext(`admin-${s}`, { roleId: "super-admin", email_verified: true, disabled: false }).storage();
+const adminCtx = () => env.authenticatedContext(`admin-${s}`, { roleId: "super-admin", email_verified: true, disabled: false , firebase: TOTP_SIGN_IN }).storage();
 
 async function member(orgId: string, uid: string, permissions: string[], extra: Record<string, unknown> = {}) {
   await env.withSecurityRulesDisabled(async (ctx) =>
@@ -75,6 +76,16 @@ async function member(orgId: string, uid: string, permissions: string[], extra: 
 }
 
 describe("kyc documents", () => {
+  test("an admin who signed in without the authenticator-app step can't open KYC files", async () => {
+    const owner = `kyc-owner-${s}`;
+    const path = `kyc/${owner}/pan.pdf`;
+    await env.withSecurityRulesDisabled(async (c) => {
+      await uploadBytes(ref(c.storage(), path), bytes(10), { contentType: "application/pdf" });
+    });
+    const noTotp = env.authenticatedContext(`admin-nototp-${s}`, { roleId: "super-admin", email_verified: true, disabled: false, email: "ops@example.in" }).storage();
+    await assertFails(getMetadata(ref(noTotp, path)));
+  });
+
   test("are private to the applicant and platform admins", async () => {
     const owner = `app-${s}`;
     const path = `kyc/${owner}/pan.pdf`;

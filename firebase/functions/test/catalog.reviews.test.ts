@@ -118,7 +118,7 @@ test("admin hide/publish adjusts aggregates, is audited; non-admins refused", as
   const mod = (status: string, ctx: unknown = adminCtx()) =>
     call(moderateReview, { requestId: rid("mod"), reviewId: id, status, reason: "Spam report upheld" }, ctx);
   expect(await codeOf(mod("hidden", phoneCtx(U.owner)))).toBe("NOT_PERMITTED");
-  expect(await codeOf(mod("hidden", { auth: { uid: "x", token: { email_verified: true, roleId: "auditor" } } }))).toBe("NOT_PERMITTED");
+  expect(await codeOf(mod("hidden", { auth: { uid: "x", token: { email_verified: true, roleId: "auditor", firebase: { sign_in_second_factor: "totp" } } } }))).toBe("NOT_PERMITTED");
   expect(await codeOf(mod("deleted"))).toBe("INVALID_INPUT");
   await mod("hidden");
   expect((await db().collection("publicReviews").doc(publicReviewId(id)).get()).exists).toBe(false);

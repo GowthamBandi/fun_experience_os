@@ -4,6 +4,7 @@
  */
 
 import { initializeTestEnvironment, assertFails, assertSucceeds, RulesTestEnvironment } from "@firebase/rules-unit-testing";
+import { TOTP_SIGN_IN } from "./operator-token";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, updateDoc, where } from "firebase/firestore";
@@ -62,7 +63,7 @@ beforeEach(async () => {
 });
 
 const phone = (uid: string) => env.authenticatedContext(uid, { phone_number: "+919800000001" }).firestore();
-const admin = () => env.authenticatedContext("admin-1", { roleId: "super-admin", email_verified: true }).firestore();
+const admin = () => env.authenticatedContext("admin-1", { roleId: "super-admin", email_verified: true , firebase: TOTP_SIGN_IN }).firestore();
 
 describe("customers", () => {
   test("read their own bookings, tickets, ticket secrets, payments and refunds", async () => {
@@ -201,7 +202,7 @@ describe("server-only stores", () => {
   });
 
   test("job runs and legal holds: admins and auditors read; nobody else reads; nobody writes", async () => {
-    const auditor = env.authenticatedContext("aud-1", { roleId: "auditor", email_verified: true }).firestore();
+    const auditor = env.authenticatedContext("aud-1", { roleId: "auditor", email_verified: true , firebase: TOTP_SIGN_IN }).firestore();
     for (const p of ["jobRuns/dataRetention_2026-09-30", "legalHolds/user_cust-1"]) {
       await assertSucceeds(getDoc(doc(admin(), p)));
       await assertSucceeds(getDoc(doc(auditor, p)));

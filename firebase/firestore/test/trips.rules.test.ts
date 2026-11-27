@@ -5,6 +5,7 @@
  * organizer team and travellers confirmed on that departure.
  */
 import { initializeTestEnvironment, assertFails, assertSucceeds, RulesTestEnvironment } from "@firebase/rules-unit-testing";
+import { TOTP_SIGN_IN } from "./operator-token";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, where } from "firebase/firestore";
@@ -48,7 +49,7 @@ beforeEach(async () => {
 });
 
 const phone = (uid: string) => env.authenticatedContext(uid, { phone_number: "+919800000001" }).firestore();
-const admin = () => env.authenticatedContext("admin-1", { roleId: "super-admin", email_verified: true }).firestore();
+const admin = () => env.authenticatedContext("admin-1", { roleId: "super-admin", email_verified: true , firebase: TOTP_SIGN_IN }).firestore();
 
 test("published trips and departures are readable by anyone signed in; nobody writes them", async () => {
   const db = phone("cust-9");

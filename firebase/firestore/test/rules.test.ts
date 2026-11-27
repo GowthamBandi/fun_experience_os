@@ -1,4 +1,5 @@
 import { initializeTestEnvironment, assertFails, assertSucceeds, RulesTestEnvironment } from "@firebase/rules-unit-testing";
+import { TOTP_SIGN_IN } from "./operator-token";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { doc, getDoc, getDocs, collection, setDoc } from "firebase/firestore";
@@ -28,7 +29,7 @@ afterEach(async () => {
   await testEnv.clearFirestore();
 });
 
-const claims = (roleId: string, extra: Record<string, unknown> = {}) => ({ roleId, email_verified: true, disabled: false, ...extra });
+const claims = (roleId: string, extra: Record<string, unknown> = {}) => ({ roleId, email_verified: true, disabled: false, firebase: TOTP_SIGN_IN, ...extra });
 
 async function seed(path: string, value: Record<string, unknown> = { status: "pending" }) {
   await testEnv.withSecurityRulesDisabled(async (ctx) => setDoc(doc(ctx.firestore(), path), value));
@@ -47,6 +48,21 @@ test("unverified, disabled and ordinary users cannot read governance data", asyn
     testEnv.authenticatedContext("u3", claims("organizer")),
   ];
   for (const ctx of contexts) await assertFails(getDoc(doc(ctx.firestore(), "governanceCases/case-001")));
+});
+
+test("an admin who signed in without the authenticator-app step can't read governance data", async () => {
+  await seed("governanceCases/case-001");
+  const noTotp = { roleId: "super-admin", email_verified: true, disabled: false, email: "ops@example.in" };
+  const sms = { ...noTotp, firebase: { sign_in_provider: "password", sign_in_second_factor: "phone" } as { sign_in_provider: "password" } };
+  for (const token of [noTotp, sms]) {
+    await assertFails(getDoc(doc(testEnv.authenticatedContext("admin-no-totp", token).firestore(), "governanceCases/case-001")));
+  }
+});
+
+test("the seeded @pulse.test admin still reads governance data in this local demo- emulator project (no TOTP there)", async () => {
+  await seed("governanceCases/case-001");
+  const seedAdmin = { roleId: "platform-owner", email_verified: true, disabled: false, email: "admin@pulse.test" };
+  await assertSucceeds(getDoc(doc(testEnv.authenticatedContext("seed-admin", seedAdmin).firestore(), "governanceCases/case-001")));
 });
 
 test.each(["platform-owner", "super-admin"])("%s can read and list governance data", async (roleId) => {

@@ -4,6 +4,7 @@
  * `memberships` (WHAT × WHERE).
  */
 import { initializeTestEnvironment, assertFails, assertSucceeds, RulesTestEnvironment } from "@firebase/rules-unit-testing";
+import { TOTP_SIGN_IN } from "./operator-token";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, where } from "firebase/firestore";
@@ -44,7 +45,7 @@ beforeEach(async () => {
 // Claims mirror a real token plus explicit defaults; the regression test
 // below uses a realistic token with no custom claims at all.
 const as = (uid: string, claims: Record<string, unknown> = { phone_number: "+919876543210", disabled: false }) => env.authenticatedContext(uid, claims).firestore();
-const admin = () => env.authenticatedContext("admin", { email_verified: true, roleId: "super-admin", disabled: false }).firestore();
+const admin = () => env.authenticatedContext("admin", { email_verified: true, roleId: "super-admin", disabled: false , firebase: TOTP_SIGN_IN }).firestore();
 
 test("any signed-in user reads published events and approved experiences", async () => {
   const db = as("customer");

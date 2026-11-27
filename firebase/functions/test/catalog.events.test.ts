@@ -490,7 +490,7 @@ describe("events", () => {
     const adminCancel = (ctx: unknown, reason = "Venue safety certificate revoked") =>
       call(adminCancelEvent, { requestId: rid(), eventId: id2, reason }, ctx);
     expect(await codeOf(adminCancel(owner))).toBe("NOT_PERMITTED");
-    expect(await codeOf(adminCancel({ auth: { uid: "aud", token: { email_verified: true, roleId: "auditor" } } }))).toBe("NOT_PERMITTED");
+    expect(await codeOf(adminCancel({ auth: { uid: "aud", token: { email_verified: true, roleId: "auditor", firebase: { sign_in_second_factor: "totp" } } } }))).toBe("NOT_PERMITTED");
     expect(await codeOf(adminCancel(adminCtx(), "short"))).toBe("INVALID_INPUT");
     expect((await adminCancel(adminCtx())).status).toBe("cancelled");
     expect((await db().doc(`events/${id2}`).get()).data()).toMatchObject({ cancelledByRole: "admin", cancelledBy: "admin-0001" });

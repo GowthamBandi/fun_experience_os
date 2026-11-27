@@ -1,5 +1,5 @@
 import type { CallableContext } from "firebase-functions/v1/https";
-import { notAuthenticated, notPermitted } from "./errors";
+import { DomainError, notAuthenticated, notPermitted } from "./errors";
 
 export const ADMIN_ROLES = ["platform-owner", "super-admin"] as const;
 export type AdminRole = (typeof ADMIN_ROLES)[number];
@@ -16,6 +16,12 @@ export function requireActor(context: CallableContext): VerifiedActor {
   const disabled = context.auth.token.disabled === true;
   const emailVerified = context.auth.token.email_verified === true;
   if (disabled || !emailVerified) throw notPermitted("use the admin console");
+  if (!hasOperatorSecondFactor(context.auth.token as Record<string, unknown>)) {
+    throw new DomainError("NOT_PERMITTED", "Sign in again with your authenticator app code to use the admin console.", {
+      nextStep: "Sign out, then sign in: after your password, enter the 6-digit code from your authenticator app.",
+      facts: { reason: "second-factor-required" },
+    });
+  }
   return {
     uid: context.auth.uid,
     roleId,
@@ -49,4 +55,23 @@ export function requireCapability(context: CallableContext, capability: AdminCap
   const ok = wanted.some((c) => (ADMIN_CAPABILITIES[c] as readonly string[]).includes(actor.roleId));
   if (!ok) throw notPermitted(wanted.join(" or "));
   return actor;
+}
+
+/**
+ * True when the operator signed in with their authenticator-app code (the ID
+ * token's firebase.sign_in_second_factor is "totp"). An SMS factor doesn't
+ * count. The Auth emulator can't do TOTP, so the seeded @pulse.test logins
+ * are exempt only in a local emulator on a demo- project: neither can exist
+ * on a real project (same guard as the emulator payment provider).
+ */
+export function hasOperatorSecondFactor(
+  token: Record<string, unknown>,
+  env: { emulated: boolean; projectId: string } = {
+    emulated: process.env.FUNCTIONS_EMULATOR === "true",
+    projectId: process.env.GCLOUD_PROJECT ?? process.env.GCP_PROJECT ?? "",
+  }
+): boolean {
+  const fb = (token.firebase ?? {}) as { sign_in_second_factor?: unknown };
+  if (fb.sign_in_second_factor === "totp") return true;
+  return env.emulated && env.projectId.startsWith("demo-") && typeof token.email === "string" && token.email.endsWith("@pulse.test");
 }
