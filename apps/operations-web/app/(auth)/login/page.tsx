@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
-import { useAdminSession } from "@/lib/firebase/auth";
+import { SecondStepNeeded, useAdminSession } from "@/lib/firebase/auth";
 import { ConfigurationNotice } from "@/components/console/ConfigurationNotice";
 import { Button, useToast } from "@/components/pulse";
 import { EnvBadge } from "@/components/shell/EnvBadge";
@@ -16,7 +16,7 @@ const FIELD =
   "mt-1.5 h-12 w-full rounded-control border border-line bg-night px-3.5 text-[14px] text-text outline-none transition-[border-color,box-shadow] duration-200 ease-pulse placeholder:text-text-3 focus:border-primary focus:shadow-[0_0_0_4px_rgba(142,114,255,0.18)] disabled:cursor-not-allowed disabled:opacity-50";
 
 /** Signed in but not ready: the console layout explains the state (verify email, no role, disabled…). */
-const EXPLAINED_STATES = new Set(["unverified", "disabled", "no-role", "forbidden"]);
+const EXPLAINED_STATES = new Set(["unverified", "disabled", "no-role", "forbidden", "enroll-second-factor", "second-factor-required"]);
 
 export default function LoginPage() {
   const router = useRouter();
@@ -27,6 +27,9 @@ export default function LoginPage() {
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ tone: "err" | "info"; text: string } | null>(null);
+  /** Password accepted; waiting for the authenticator-app code. */
+  const [codeStep, setCodeStep] = useState(false);
+  const [code, setCode] = useState("");
 
   useEffect(() => {
     if (session.state === "ready") router.replace(landingRoute(session.consoleRole));
@@ -41,11 +44,26 @@ export default function LoginPage() {
     setBusy(true);
     setNotice(null);
     try {
-      await session.signIn(email, password);
+      if (codeStep) {
+        await session.completeSignIn(code);
+      } else {
+        await session.signIn(email, password);
+      }
     } catch (error) {
-      setNotice({ tone: "err", text: friendlyAuthError(error) });
+      if (error instanceof SecondStepNeeded) {
+        setCodeStep(true);
+        setNotice(null);
+      } else {
+        setNotice({ tone: "err", text: friendlyAuthError(error) });
+      }
       setBusy(false);
     }
+  }
+
+  function backToPassword() {
+    setCodeStep(false);
+    setCode("");
+    setNotice(null);
   }
 
   async function reset() {
@@ -65,7 +83,7 @@ export default function LoginPage() {
 
   const sessionAlert = session.error ?? (session.state === "forbidden" ? "This account cannot use the Operations Console." : null);
   const alert = notice ?? (sessionAlert ? { tone: "err" as const, text: sessionAlert } : null);
-  const disabled = !email.trim() || !password || misconfigured;
+  const disabled = codeStep ? code.replace(/\s/g, "").length !== 6 || misconfigured : !email.trim() || !password || misconfigured;
 
   return (
     <main className="relative grid min-h-screen overflow-hidden bg-ink lg:grid-cols-[1.1fr_1fr]">
@@ -97,9 +115,31 @@ export default function LoginPage() {
         <div className="w-full max-w-[420px]">
           {misconfigured && session.configProblem && <div className="mb-4"><ConfigurationNotice problem={session.configProblem} /></div>}
           <form onSubmit={submit} className="glass rounded-card p-[30px] shadow-glow">
-            <h1 className="font-display text-[24px] font-bold tracking-[-0.02em] text-text">Welcome back 👋</h1>
-            <p className="mt-1 text-[14px] text-text-2">Sign in with your verified work email.</p>
+            <h1 className="font-display text-[24px] font-bold tracking-[-0.02em] text-text">{codeStep ? "One more step 🔐" : "Welcome back 👋"}</h1>
+            <p className="mt-1 text-[14px] text-text-2">
+              {codeStep ? "Enter the 6-digit code from your authenticator app." : "Sign in with your verified work email."}
+            </p>
 
+            {codeStep ? (
+              <label className="mt-5 block">
+                <span className="text-[12px] font-semibold text-text-3">Authenticator code</span>
+                <input
+                  autoFocus
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  pattern="[0-9 ]*"
+                  maxLength={7}
+                  value={code}
+                  onChange={(event) => setCode(event.target.value.replace(/[^0-9 ]/g, ""))}
+                  className={`${FIELD} text-center font-mono text-[20px] tracking-[0.3em]`}
+                  placeholder="123456"
+                  aria-describedby="code-help"
+                />
+                <span id="code-help" className="mt-2 block text-[12px] text-text-3">The code changes every 30 seconds. Signing in as {email.trim()}.</span>
+              </label>
+            ) : null}
+
+            <div hidden={codeStep}>
             <label className="mt-5 block">
               <span className="text-[12px] font-semibold text-text-3">Email</span>
               <input type="email" autoComplete="username" required disabled={misconfigured} value={email} onChange={(event) => setEmail(event.target.value)} className={FIELD} placeholder="admin@company.com" />
@@ -113,15 +153,20 @@ export default function LoginPage() {
                 </button>
               </span>
             </label>
+            </div>
 
             {alert && <div role="alert" className={`mt-4 rounded-control border p-3 text-[13px] leading-5 ${alert.tone === "info" ? "border-[rgba(99,190,255,0.3)] bg-[rgba(99,190,255,0.08)] text-info" : "border-[rgba(255,97,120,0.35)] bg-[rgba(255,97,120,0.1)] text-err"}`}>{alert.text}</div>}
 
             <Button type="submit" variant="volt" size="lg" loading={busy} disabled={disabled} className="mt-6 w-full">
-              {busy ? "Signing in…" : "Sign in →"}
+              {busy ? (codeStep ? "Checking…" : "Signing in…") : codeStep ? "Verify code →" : "Sign in →"}
             </Button>
 
             <div className="mt-4 flex items-center justify-center gap-3 text-[12px]">
-              <button type="button" onClick={reset} disabled={misconfigured} className="focus-ring rounded-[8px] px-1 text-text-3 transition-colors duration-200 hover:text-text disabled:opacity-40">Forgot password?</button>
+              {codeStep ? (
+                <button type="button" onClick={backToPassword} className="focus-ring rounded-[8px] px-1 text-text-3 transition-colors duration-200 hover:text-text">← Use a different account</button>
+              ) : (
+                <button type="button" onClick={reset} disabled={misconfigured} className="focus-ring rounded-[8px] px-1 text-text-3 transition-colors duration-200 hover:text-text disabled:opacity-40">Forgot password?</button>
+              )}
               <EnvBadge />
             </div>
           </form>

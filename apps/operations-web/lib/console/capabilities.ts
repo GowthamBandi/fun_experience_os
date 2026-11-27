@@ -198,6 +198,10 @@ export function landingRoute(role: ConsoleRole | null | undefined): string {
 
 export type SessionGate =
   | { state: "ready"; role: ConsoleRole }
+  /** Console role, but no authenticator app set up yet: set it up (one time). */
+  | { state: "enroll-second-factor"; role: ConsoleRole }
+  /** Authenticator app set up, but this session didn't use it (signed in before setup): sign in again. */
+  | { state: "second-factor-required"; role: ConsoleRole }
   /** Signed in, email not verified: offer "send verification email". */
   | { state: "unverified"; role: ConsoleRole | null }
   /** Claims say the account is disabled/suspended. */
@@ -212,12 +216,39 @@ export type SessionGate =
  * the server refuses unverified or disabled accounts before looking at roles,
  * so those states take precedence.
  */
-export function gateSession(input: { emailVerified: boolean; claims: Record<string, unknown> }): SessionGate {
+/** Where an operator stands on the authenticator-app second step (see operatorSecondFactor). */
+export type SecondFactorStatus = "ok" | "enroll" | "sign-in-again";
+
+/**
+ * The console mirrors the server (requireActor, Firestore and Storage rules):
+ * an operator session must have signed in with the authenticator-app code
+ * (TOTP; the ID token's firebase.sign_in_second_factor). An SMS factor
+ * doesn't count. Seeded @pulse.test logins are exempt only against a local
+ * emulator on a demo- project, where the Auth emulator can't do TOTP.
+ */
+export function operatorSecondFactor(input: {
+  claims: Record<string, unknown>;
+  email: string | null | undefined;
+  enrolledFactorIds: string[];
+  /** The project id when the console runs against the local emulators; null when live. */
+  emulatorProjectId: string | null;
+}): SecondFactorStatus {
+  const fb = (input.claims.firebase ?? {}) as { sign_in_second_factor?: unknown };
+  if (fb.sign_in_second_factor === "totp") return "ok";
+  if (input.emulatorProjectId?.startsWith("demo-") && (input.email ?? "").endsWith("@pulse.test")) return "ok";
+  return input.enrolledFactorIds.includes("totp") ? "sign-in-again" : "enroll";
+}
+
+export function gateSession(input: { emailVerified: boolean; claims: Record<string, unknown>; secondFactor: SecondFactorStatus }): SessionGate {
   const rawRole = String(input.claims.roleId ?? input.claims.role ?? "").trim();
   const role = toConsoleRole(rawRole);
   if (input.claims.disabled === true) return { state: "disabled", role };
   if (!input.emailVerified) return { state: "unverified", role };
-  if (role) return { state: "ready", role };
+  if (role) {
+    if (input.secondFactor === "enroll") return { state: "enroll-second-factor", role };
+    if (input.secondFactor === "sign-in-again") return { state: "second-factor-required", role };
+    return { state: "ready", role };
+  }
   if (!rawRole) return { state: "no-role", role: null };
   return { state: "unsupported-role", role: null, rawRole };
 }

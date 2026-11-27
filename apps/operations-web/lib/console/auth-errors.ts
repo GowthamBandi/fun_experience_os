@@ -13,5 +13,10 @@ export function friendlyAuthError(error: unknown): string {
   if (code === "auth/network-request-failed") return "Can't reach the sign-in service. Check your connection.";
   if (code === "auth/user-disabled") return "This operator account is disabled. Ask a platform owner.";
   if (code === "auth/invalid-email") return "That doesn't look like an email address.";
+  if (code === "auth/invalid-verification-code") return "That code didn't match. Enter the current 6-digit code from your authenticator app.";
+  if (code === "auth/missing-code") return "Enter the 6-digit code from your authenticator app.";
+  if (code === "auth/code-expired") return "That code expired. Enter the newest code from your authenticator app.";
+  if (code === "auth/requires-recent-login") return "For your safety this needs a fresh sign-in. Sign out, sign in again, then try once more.";
+  if (code === "auth/operation-not-allowed") return "Authenticator-app sign-in isn't switched on for this project yet. Ask a platform owner.";
   return "Sign-in didn't work. Try again.";
 }

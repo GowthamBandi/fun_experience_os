@@ -10,6 +10,7 @@ import {
   can,
   canViewRoute,
   gateSession,
+  operatorSecondFactor,
   landingRoute,
   rolesAllowedFor,
   toConsoleRole,
@@ -153,7 +154,7 @@ describe("route guard", () => {
 });
 
 describe("session gate", () => {
-  const verified = (claims: Record<string, unknown>) => gateSession({ emailVerified: true, claims });
+  const verified = (claims: Record<string, unknown>) => gateSession({ emailVerified: true, claims, secondFactor: "ok" });
   it("ready for the three console roles when verified and active", () => {
     for (const role of CONSOLE_ROLES) expect(verified({ roleId: role })).toEqual({ state: "ready", role });
   });
@@ -161,11 +162,11 @@ describe("session gate", () => {
     expect(verified({ role: "super-admin" })).toEqual({ state: "ready", role: "super-admin" });
   });
   it("unverified email takes precedence over role checks (server refuses first)", () => {
-    expect(gateSession({ emailVerified: false, claims: { roleId: "super-admin" } })).toEqual({ state: "unverified", role: "super-admin" });
-    expect(gateSession({ emailVerified: false, claims: {} })).toEqual({ state: "unverified", role: null });
+    expect(gateSession({ emailVerified: false, claims: { roleId: "super-admin" }, secondFactor: "ok" })).toEqual({ state: "unverified", role: "super-admin" });
+    expect(gateSession({ emailVerified: false, claims: {}, secondFactor: "ok" })).toEqual({ state: "unverified", role: null });
   });
   it("disabled accounts are disabled even when unverified", () => {
-    expect(gateSession({ emailVerified: false, claims: { roleId: "platform-owner", disabled: true } }).state).toBe("disabled");
+    expect(gateSession({ emailVerified: false, claims: { roleId: "platform-owner", disabled: true }, secondFactor: "ok" }).state).toBe("disabled");
     expect(verified({ roleId: "super-admin", disabled: true }).state).toBe("disabled");
   });
   it("verified with no role claim → no-role (ask a platform owner)", () => {
@@ -174,6 +175,36 @@ describe("session gate", () => {
   });
   it("verified with an unsupported role → unsupported-role", () => {
     expect(verified({ roleId: "customer" })).toEqual({ state: "unsupported-role", role: null, rawRole: "customer" });
+  });
+});
+
+describe("operator second factor (authenticator app)", () => {
+  const live = { emulatorProjectId: null };
+  it("a session signed in with the authenticator code is ok", () => {
+    expect(operatorSecondFactor({ claims: { firebase: { sign_in_second_factor: "totp" } }, email: "a@ops.in", enrolledFactorIds: ["totp"], ...live })).toBe("ok");
+  });
+  it("enrolled but this session skipped it (an older sign-in) → sign in again", () => {
+    expect(operatorSecondFactor({ claims: {}, email: "a@ops.in", enrolledFactorIds: ["totp"], ...live })).toBe("sign-in-again");
+  });
+  it("not enrolled → set up the authenticator app; an SMS factor doesn't count", () => {
+    expect(operatorSecondFactor({ claims: {}, email: "a@ops.in", enrolledFactorIds: [], ...live })).toBe("enroll");
+    expect(operatorSecondFactor({ claims: { firebase: { sign_in_second_factor: "phone" } }, email: "a@ops.in", enrolledFactorIds: ["phone"], ...live })).toBe("enroll");
+  });
+  it("seeded @pulse.test logins skip it only against a local demo- emulator project (like the server)", () => {
+    expect(operatorSecondFactor({ claims: {}, email: "admin@pulse.test", enrolledFactorIds: [], emulatorProjectId: "demo-experience-os" })).toBe("ok");
+    expect(operatorSecondFactor({ claims: {}, email: "admin@pulse.test", enrolledFactorIds: [], emulatorProjectId: null })).toBe("enroll");
+    expect(operatorSecondFactor({ claims: {}, email: "admin@pulse.test", enrolledFactorIds: [], emulatorProjectId: "experience-os-staging" })).toBe("enroll");
+    expect(operatorSecondFactor({ claims: {}, email: "a@ops.in", enrolledFactorIds: [], emulatorProjectId: "demo-experience-os" })).toBe("enroll");
+  });
+  it("the gate asks for it only once everything else is fine", () => {
+    const g = (secondFactor: "ok" | "enroll" | "sign-in-again", claims: Record<string, unknown> = { roleId: "super-admin" }, emailVerified = true) =>
+      gateSession({ emailVerified, claims, secondFactor }).state;
+    expect(g("enroll")).toBe("enroll-second-factor");
+    expect(g("sign-in-again")).toBe("second-factor-required");
+    expect(g("enroll", { roleId: "super-admin", disabled: true })).toBe("disabled");
+    expect(g("enroll", { roleId: "super-admin" }, false)).toBe("unverified");
+    expect(g("enroll", {})).toBe("no-role");
+    expect(g("enroll", { roleId: "customer" })).toBe("unsupported-role");
   });
 });
 

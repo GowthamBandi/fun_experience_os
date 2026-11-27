@@ -2,11 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import { LogIn, MailCheck, RefreshCw, RotateCw } from "lucide-react";
+import { KeyRound, LogIn, MailCheck, RefreshCw, RotateCw, Smartphone } from "lucide-react";
 import { Button, Empty } from "@/components/pulse";
 import { EnvBadge } from "@/components/shell/EnvBadge";
 import { PulseMark } from "@/components/shell/Rail";
-import { useAdminSession } from "@/lib/firebase/auth";
+import { useAdminSession, type AuthenticatorSetup } from "@/lib/firebase/auth";
+import { friendlyAuthError } from "@/lib/console/auth-errors";
 
 function Frame({ emoji, title, body, actions, children }: { emoji: string; title: string; body: string; actions: ReactNode; children?: ReactNode }) {
   return (
@@ -34,6 +35,17 @@ export function SessionStateScreen() {
   switch (session.state) {
     case "unverified":
       return <VerifyEmail />;
+    case "enroll-second-factor":
+      return <SetUpAuthenticator />;
+    case "second-factor-required":
+      return (
+        <Frame
+          emoji="🔐"
+          title="Sign in again with your code"
+          body={`${who} has an authenticator app, but this session was opened without its code. Sign out, then sign in with your password and the 6-digit code.`}
+          actions={signOut}
+        />
+      );
     case "disabled":
       return (
         <Frame emoji="⛔" title="Account suspended or disabled" body={`A Platform Owner has suspended or disabled console access for ${who}. Contact a Platform Owner if you believe this is a mistake.`} actions={signOut} />
@@ -121,6 +133,84 @@ function VerifyEmail() {
           {note.message}
         </p>
       ) : null}
+    </Frame>
+  );
+}
+
+/** Groups a setup key in fours so it can be typed into an authenticator app without mistakes. */
+const grouped = (key: string) => key.replace(/(.{4})/g, "$1 ").trim();
+
+function SetUpAuthenticator() {
+  const session = useAdminSession();
+  const [setup, setSetup] = useState<AuthenticatorSetup | null>(null);
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<{ ok: boolean; message: string } | null>(null);
+
+  async function start() {
+    setBusy(true);
+    setNote(null);
+    try {
+      setSetup(await session.startAuthenticatorSetup());
+    } catch (error) {
+      setNote({ ok: false, message: friendlyAuthError(error) });
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function confirm() {
+    setBusy(true);
+    setNote(null);
+    try {
+      // Signs out on success: the login page then asks for password + code.
+      await session.finishAuthenticatorSetup(code);
+    } catch (error) {
+      setNote({ ok: false, message: friendlyAuthError(error) });
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Frame
+      emoji="🔐"
+      title="Set up your authenticator app"
+      body={`The console needs a second step at sign-in: a 6-digit code from an authenticator app (Google Authenticator, Microsoft Authenticator or similar). It takes a minute, once.`}
+      actions={setup ? <Button variant="quiet" onClick={() => void session.signOut()}>Sign out</Button> : <>
+        <Button variant="ghost" onClick={() => void session.signOut()}>Sign out</Button>
+        <Button variant="volt" loading={busy} icon={<KeyRound />} onClick={() => void start()}>{busy ? "Preparing…" : "Start setup"}</Button>
+      </>}
+    >
+      {setup ? (
+        <div className="space-y-4 text-[13px] text-text-2">
+          <ol className="list-decimal space-y-2 pl-5">
+            <li>In your authenticator app choose <b className="text-text">Add account → Enter a setup key</b>, and type this key (time-based):</li>
+          </ol>
+          <p data-testid="totp-key" className="select-all break-all rounded-control border border-line bg-night p-3 text-center font-mono text-[15px] tracking-[0.12em] text-text">{grouped(setup.secretKey)}</p>
+          <p>
+            On this phone?{" "}
+            <a href={setup.link} className="focus-ring inline-flex items-center gap-1 rounded-[8px] text-primary underline-offset-2 hover:underline">
+              <Smartphone className="h-3.5 w-3.5" /> Open in the authenticator app
+            </a>
+          </p>
+          <label className="block">
+            <span className="text-[12px] font-semibold text-text-3">2. Enter the 6-digit code it shows</span>
+            <input
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={7}
+              value={code}
+              onChange={(event) => setCode(event.target.value.replace(/[^0-9 ]/g, ""))}
+              className="mt-1.5 h-12 w-full rounded-control border border-line bg-night px-3.5 text-center font-mono text-[20px] tracking-[0.3em] text-text outline-none focus:border-primary"
+              placeholder="123456"
+            />
+          </label>
+          <Button variant="volt" className="w-full" loading={busy} disabled={code.replace(/\s/g, "").length !== 6} onClick={() => void confirm()}>
+            {busy ? "Checking…" : "Confirm and sign in again"}
+          </Button>
+          <p className="text-[12px] text-text-3">Keep the key private. If you lose the phone, a Platform Owner has to reset your second step.</p>
+        </div>
+      ) : null}
+      {note ? <p role="status" className="mt-3 rounded-control border border-[rgba(255,184,77,0.3)] bg-[rgba(255,184,77,0.08)] p-3 text-[13px] text-warn">{note.message}</p> : null}
     </Frame>
   );
 }
