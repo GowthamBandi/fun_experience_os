@@ -331,6 +331,21 @@ export async function decideRefund(
         tx.update(refundRef(refund.id), { approvals, updatedAt: now });
         audit({ status: "under-review", approvals, awaiting: "second-approval" });
         out = { refundId: refund.id, status: "awaiting-second-approval" };
+      } else if (refund.reason === "duplicate-capture" && !refund.ledgerPosted) {
+        // A second charge on an already-paid order: it never entered the
+        // ledger or the payment's refunded total, so approving it only sends
+        // that charge back (executeRefund uses refund.providerPaymentId).
+        tx.update(refundRef(refund.id), { approvals, status: "approved", decidedBy: admin.uid, updatedAt: now });
+        notify(tx, {
+          recipientUid: refund.customerUid,
+          kind: "refund-update",
+          title: "Refund approved",
+          body: `You were charged twice. The extra ₹${(refund.amountMinor / 100).toFixed(2)} is on its way back to you.`,
+          dedupeKey: refund.id,
+          link: { type: "booking", id: refund.bookingId },
+        });
+        audit({ status: "approved", approvals, ledgerNeutral: true });
+        out = { refundId: refund.id, status: "approved" };
       } else {
         if (!payment || payment.amountMinor - (payment.refundedMinor ?? 0) < refund.amountMinor) {
           throw precondition("This refund is larger than what is left to refund on the payment.");

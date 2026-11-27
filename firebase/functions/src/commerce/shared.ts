@@ -8,6 +8,34 @@ import type { PaymentDoc, RefundDoc } from "./types";
 export const paymentRef = (id: string) => db().collection(C.payments).doc(id);
 export const refundRef = (id: string) => db().collection(C.refunds).doc(id);
 export const ticketRef = (id: string) => db().collection(C.tickets).doc(id);
+export const providerPaymentRef = (providerPaymentId: string) =>
+  db().collection(C.providerPayments).doc(providerPaymentId.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 120) || "_");
+
+/** Which PULSE payment a Razorpay payment id was recorded against (`providerPayments/{pay_id}`). */
+export interface ProviderPaymentClaim {
+  kind: "event" | "trip";
+  paymentId: string;
+  providerOrderId: string;
+  claimedAt: FirebaseFirestore.Timestamp;
+}
+
+/** True when [snap] is empty or already names this exact payment. */
+export function claimAllows(snap: FirebaseFirestore.DocumentSnapshot, kind: ProviderPaymentClaim["kind"], paymentId: string): boolean {
+  if (!snap.exists) return true;
+  const c = snap.data() as ProviderPaymentClaim;
+  return c.kind === kind && c.paymentId === paymentId;
+}
+
+/** Records the claim in [tx] when it isn't recorded yet (the caller read [snap] in the same tx). */
+export function writeClaim(
+  tx: Transaction,
+  snap: FirebaseFirestore.DocumentSnapshot,
+  providerPaymentId: string,
+  claim: Omit<ProviderPaymentClaim, "claimedAt">
+): void {
+  if (snap.exists) return;
+  tx.create(providerPaymentRef(providerPaymentId), { ...claim, claimedAt: serverNow() });
+}
 export { bookingRef, sessionRef as eventRef };
 
 export async function getBooking(id: string, tx?: Transaction): Promise<BookingDoc | null> {

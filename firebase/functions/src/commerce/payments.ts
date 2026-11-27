@@ -26,7 +26,7 @@ import { captureLines, commissionFor, postLedger } from "./ledger";
 import { getPaymentProvider, verifyPaymentSignature } from "./provider";
 import { logWarn } from "../platform/log";
 import { approveRefundInTx, executeRefund, newRefundDoc } from "./refundCore";
-import { assertOwner, getBooking, getPayment, paymentRef, raiseRiskAlert, refundRef } from "./shared";
+import { assertOwner, claimAllows, getBooking, getPayment, paymentRef, providerPaymentRef, raiseRiskAlert, refundRef, writeClaim } from "./shared";
 import { issueTickets } from "./tickets";
 import type { PaymentDoc } from "./types";
 
@@ -217,7 +217,7 @@ export async function confirmPayment(
     currency: payment.currency,
     source: "client",
   });
-  if (out.outcome === "amount-mismatch" || out.outcome === "order-mismatch") {
+  if (out.outcome === "amount-mismatch" || out.outcome === "order-mismatch" || out.outcome === "payment-reused") {
     throw precondition("We couldn't confirm this payment automatically.", "Our team has been alerted and will contact you.");
   }
   return { bookingId: out.bookingId, status: out.bookingStatus, ticketIds: out.ticketIds, refundId: out.refundId ?? null };
@@ -241,7 +241,8 @@ export type SettleOutcome =
   | "orphaned"
   | "duplicate-capture"
   | "amount-mismatch"
-  | "order-mismatch";
+  | "order-mismatch"
+  | "payment-reused";
 
 export interface SettleResult {
   outcome: SettleOutcome;
@@ -263,12 +264,13 @@ export async function settleCapturedPayment(input: CaptureInput): Promise<Settle
     const eRef = sessionRef(payment.eventId);
     const lockRef = db().collection(C.bookingLocks).doc(bookingLockId(payment.eventId, payment.customerUid));
     const dupRefundId = `dup_${input.providerPaymentId}`.slice(0, 120);
-    const [bSnap, eSnap, lockSnap, dupSnap, commSnap] = await Promise.all([
+    const [bSnap, eSnap, lockSnap, dupSnap, commSnap, claimSnap] = await Promise.all([
       tx.get(bRef),
       tx.get(eRef),
       tx.get(lockRef),
       tx.get(refundRef(dupRefundId)),
       tx.get(db().collection(C.eventCommercials).doc(payment.eventId)),
+      tx.get(providerPaymentRef(input.providerPaymentId)),
     ]);
     if (!bSnap.exists || !eSnap.exists) throw notFound("We couldn't find that booking.");
     const booking = bSnap.data() as BookingDoc;
@@ -283,27 +285,55 @@ export async function settleCapturedPayment(input: CaptureInput): Promise<Settle
     const now = serverNow();
     const base = { bookingId: booking.id, bookingStatus: booking.status, ticketIds: booking.ticketIds ?? [] };
 
-    /* ---- already settled: replay is a no-op; a second capture is refunded ---- */
+    /* ---- the capture must be for this payment's own order: before ANY branch ---- */
+    // Both sides must be present: a payment whose order isn't recorded yet
+    // ('creating') can't be matched, so it can't be settled.
+    if (!input.providerOrderId || !payment.providerOrderId || input.providerOrderId !== payment.providerOrderId) {
+      raiseRiskAlert(tx, `order-mismatch_${input.providerPaymentId}`, {
+        kind: "payment-order-mismatch",
+        severity: "high",
+        orgId: payment.orgId,
+        summary: "A capture referenced a different provider order than the payment record. Nothing was confirmed or refunded.",
+        detail: { paymentId: payment.id, providerOrderId: input.providerOrderId, expected: payment.providerOrderId },
+      });
+      return { ...base, outcome: "order-mismatch" };
+    }
+    /* ---- one Razorpay payment settles one PULSE payment ---- */
+    if (!claimAllows(claimSnap, "event", payment.id)) {
+      raiseRiskAlert(tx, `payment-reused_${input.providerPaymentId}`, {
+        kind: "payment-reused",
+        severity: "high",
+        orgId: payment.orgId,
+        summary: "A provider payment already recorded against another PULSE payment was presented again. Nothing was confirmed.",
+        detail: { paymentId: payment.id, providerPaymentId: input.providerPaymentId, claimedBy: claimSnap.data() ?? null },
+      });
+      return { ...base, outcome: "payment-reused" };
+    }
+    const claim = () => writeClaim(tx, claimSnap, input.providerPaymentId, { kind: "event", paymentId: payment.id, providerOrderId: payment.providerOrderId! });
+
+    /* ---- already settled: replay is a no-op; a second capture waits for an admin ---- */
     if (payment.status === "captured" || payment.status === "refunded" || payment.status === "partially-refunded") {
       if (payment.providerPaymentId === input.providerPaymentId) return { ...base, outcome: "already-settled" };
       if (dupSnap.exists) return { ...base, outcome: "duplicate-capture", refundId: dupRefundId };
       // The same order was paid twice. The second charge never entered the
-      // ledger, so its refund is ledger-neutral.
+      // ledger, so its refund is ledger-neutral. It is never sent on its own:
+      // an admin checks it first (decideRefund).
       const refund = newRefundDoc(dupRefundId, payment, {
         amountMinor: input.amountMinor,
-        status: "approved",
+        status: "under-review",
         reason: "duplicate-capture",
         requestedBy: "system",
         providerPaymentId: input.providerPaymentId,
         ledgerPosted: false,
       });
       tx.create(refundRef(dupRefundId), refund);
+      claim();
       raiseRiskAlert(tx, `dup-capture_${input.providerPaymentId}`, {
         kind: "payment-duplicate-capture",
-        severity: "medium",
+        severity: "high",
         orgId: payment.orgId,
-        summary: "An order was paid twice; the second payment is being refunded.",
-        detail: { paymentId: payment.id, providerPaymentId: input.providerPaymentId, amountMinor: input.amountMinor },
+        summary: "An order was paid twice. The second payment's refund waits for an admin in Refunds.",
+        detail: { paymentId: payment.id, providerPaymentId: input.providerPaymentId, amountMinor: input.amountMinor, refundId: dupRefundId },
       });
       return { ...base, outcome: "duplicate-capture", refundId: dupRefundId };
     }
@@ -327,16 +357,7 @@ export async function settleCapturedPayment(input: CaptureInput): Promise<Settle
       tx.update(paymentRef(payment.id), { riskFlag: "amount-mismatch", updatedAt: now });
       return { ...base, outcome: "amount-mismatch" };
     }
-    if (input.providerOrderId && payment.providerOrderId && input.providerOrderId !== payment.providerOrderId) {
-      raiseRiskAlert(tx, `order-mismatch_${input.providerPaymentId}`, {
-        kind: "payment-order-mismatch",
-        severity: "high",
-        orgId: payment.orgId,
-        summary: "A capture referenced a different provider order than the payment record.",
-        detail: { paymentId: payment.id, providerOrderId: input.providerOrderId, expected: payment.providerOrderId },
-      });
-      return { ...base, outcome: "order-mismatch" };
-    }
+    claim();
 
     // The booking's reservation-time snapshot is authoritative; the event's
     // current commercial doc is only a fallback for bookings made before
@@ -490,7 +511,8 @@ export async function settleCapturedPayment(input: CaptureInput): Promise<Settle
     return { outcome: "orphaned", bookingId: booking.id, bookingStatus: "payment-orphaned", ticketIds: [], refundId };
   });
 
-  if (result.refundId && (result.outcome === "orphaned" || result.outcome === "duplicate-capture")) {
+  // Duplicate-capture refunds wait for an admin (decideRefund); only orphans go out at once.
+  if (result.refundId && result.outcome === "orphaned") {
     await executeRefund(result.refundId);
   }
   return result;
@@ -526,16 +548,13 @@ export async function markPaymentFailed(paymentId: string, providerPaymentId: st
   });
 }
 
-/** Looks up our payment for a provider entity (notes.paymentId, else by order id). */
-export async function resolvePaymentId(entity: { notes?: unknown; order_id?: unknown }): Promise<string | null> {
-  const notes = (entity.notes && typeof entity.notes === "object" ? entity.notes : {}) as Record<string, unknown>;
-  if (typeof notes.paymentId === "string" && /^[A-Za-z0-9_-]{4,128}$/.test(notes.paymentId)) {
-    const s = await paymentRef(notes.paymentId).get();
-    if (s.exists) return s.id;
-  }
-  if (typeof entity.order_id === "string" && entity.order_id.length > 0) {
-    const q = await db().collection(C.payments).where("providerOrderId", "==", entity.order_id).limit(1).get();
-    if (!q.empty) return q.docs[0]!.id;
-  }
-  return null;
+/**
+ * Looks up our payment for a provider entity by its order id, which the server
+ * set when it created the order. Payment notes are written by the payer at
+ * checkout, so they never decide which payment is settled.
+ */
+export async function resolvePaymentId(entity: Record<string, unknown>): Promise<string | null> {
+  if (typeof entity.order_id !== "string" || entity.order_id.length === 0) return null;
+  const q = await db().collection(C.payments).where("providerOrderId", "==", entity.order_id).limit(1).get();
+  return q.empty ? null : q.docs[0]!.id;
 }

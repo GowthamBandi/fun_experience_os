@@ -3,6 +3,7 @@
  */
 
 import {
+  adminCtx,
   book,
   call,
   callCode,
@@ -188,6 +189,66 @@ describe("confirmPayment", () => {
   });
 });
 
+describe("payment lookup and order binding", () => {
+  test("a capture whose notes name another, already-paid payment is settled on its own order", async () => {
+    const { eventId: first } = await world();
+    const { eventId: second } = await world();
+    const uid = await newCustomer();
+    const paid = await book(uid, first);
+    const r = await reserve(uid, second);
+    const o = await order(uid, r.bookingId);
+    const payId = fakePayId();
+    // A real payment of order 2, with payer-set notes pointing at the paid payment of order 1.
+    const res = await deliverWebhook(capturedEvent({ providerPaymentId: payId, orderId: o.providerOrderId, paymentId: paid.paymentId!, amount: o.amountMinor }));
+    expect(res.body).toMatchObject({ outcome: "confirmed" });
+    expect(await getDoc(`refunds/dup_${payId}`)).toBeUndefined();
+    expect((await getDoc<Payment>(`payments/${o.paymentId}`))!).toMatchObject({ status: "captured", providerPaymentId: payId, refundedMinor: 0 });
+    expect((await getDoc<Booking>(`bookings/${r.bookingId}`))!.status).toBe("confirmed");
+  });
+
+  test("a capture for a different order is refused before any branch, even on an already-paid payment", async () => {
+    const { eventId } = await world();
+    const uid = await newCustomer();
+    const paid = await book(uid, eventId);
+    for (const providerOrderId of ["order_emu_someone_else", null]) {
+      const out = await settleCapturedPayment({
+        paymentId: paid.paymentId!, providerOrderId, providerPaymentId: fakePayId(), amountMinor: 99_900, currency: "INR", source: "webhook",
+      });
+      expect(out.outcome).toBe("order-mismatch");
+    }
+    expect((await db().collection("refunds").where("paymentId", "==", paid.paymentId).get()).size).toBe(0);
+  });
+
+  test("a payment whose order isn't recorded yet can't be settled (race variant)", async () => {
+    const { eventId } = await world();
+    const uid = await newCustomer();
+    const r = await reserve(uid, eventId);
+    const o = await order(uid, r.bookingId);
+    await db().doc(`payments/${o.paymentId}`).update({ providerOrderId: null, status: "creating" });
+    const out = await settleCapturedPayment({
+      paymentId: o.paymentId, providerOrderId: "order_emu_other", providerPaymentId: fakePayId(), amountMinor: o.amountMinor, currency: "INR", source: "webhook",
+    });
+    expect(out.outcome).toBe("order-mismatch");
+    expect((await getDoc<Booking>(`bookings/${r.bookingId}`))!.status).toBe("held");
+  });
+
+  test("one Razorpay payment settles one PULSE payment only", async () => {
+    const { eventId: first } = await world();
+    const { eventId: second } = await world();
+    const uid = await newCustomer();
+    const paid = await book(uid, first);
+    expect(await getDoc(`providerPayments/${paid.providerPaymentId}`)).toMatchObject({ kind: "event", paymentId: paid.paymentId });
+    const r = await reserve(uid, second);
+    const o = await order(uid, r.bookingId);
+    const out = await settleCapturedPayment({
+      paymentId: o.paymentId, providerOrderId: o.providerOrderId, providerPaymentId: paid.providerPaymentId!, amountMinor: o.amountMinor, currency: "INR", source: "webhook",
+    });
+    expect(out.outcome).toBe("payment-reused");
+    expect((await getDoc<Booking>(`bookings/${r.bookingId}`))!.status).toBe("held");
+    expect(await getDoc(`riskAlerts/payment-reused_${paid.providerPaymentId}`)).toBeDefined();
+  });
+});
+
 describe("razorpayWebhook", () => {
   test("bad signature → 400 and nothing recorded; tampered body → 400", async () => {
     const { eventId } = await world();
@@ -239,17 +300,25 @@ describe("razorpayWebhook", () => {
     expect(await getDoc(`paymentEvents/evt_cap_1_${payId}`)).toBeDefined();
   });
 
-  test("a second, different capture on an already-paid order is refunded automatically", async () => {
+  test("a second, different capture on an already-paid order waits for an admin, then refunds without touching the ledger", async () => {
     const { eventId } = await world();
     const uid = await newCustomer();
     const b = await book(uid, eventId);
     const secondPay = fakePayId();
     const res = await deliverWebhook(capturedEvent({ providerPaymentId: secondPay, orderId: b.providerOrderId!, paymentId: b.paymentId!, amount: 99_900 }));
     expect(res.body).toMatchObject({ outcome: "duplicate-capture" });
-    const refund = (await getDoc<{ status: string; amountMinor: number; ledgerPosted: boolean }>(`refunds/dup_${secondPay}`))!;
-    expect(refund.status).toBe("processing");
-    expect(refund.ledgerPosted).toBe(false);
+    const refundId = `dup_${secondPay}`;
+    const held = (await getDoc<{ status: string; ledgerPosted: boolean; providerPaymentId: string }>(`refunds/${refundId}`))!;
+    // Never sent automatically: a person checks every duplicate first.
+    expect(held).toMatchObject({ status: "under-review", ledgerPosted: false, providerPaymentId: secondPay });
+    expect((await getDoc<{ severity: string }>(`riskAlerts/dup-capture_${secondPay}`))!.severity).toBe("high");
     expect((await db().collection("tickets").where("bookingId", "==", b.bookingId).get()).size).toBe(1);
+
+    const out = await call<{ status: string }>(commerce.decideRefund, { requestId: rid(), refundId, decision: "approve", note: "Paid twice" }, adminCtx("admin-dup"));
+    expect(out.status).toBe("processing");
+    // The second charge never entered the ledger or the payment's refunded total.
+    expect((await getDoc<Payment>(`payments/${b.paymentId}`))!).toMatchObject({ status: "captured", refundedMinor: 0 });
+    expect(expectBalanced(await ledgerWhere("bookingId", b.bookingId))).toBe(1);
   });
 
   test("amount mismatch → not confirmed, risk alert raised", async () => {

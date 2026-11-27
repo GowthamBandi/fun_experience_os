@@ -28,7 +28,7 @@ import { runCommand, bool, type Json } from "../catalog/common";
 import { C, CURRENCY, HOLD_MINUTES } from "../commerce/config";
 import { captureLines, commissionFor, postLedger, refundLines, refundSplit, type LedgerContext } from "../commerce/ledger";
 import { getPaymentProvider, verifyPaymentSignature } from "../commerce/provider";
-import { raiseRiskAlert } from "../commerce/shared";
+import { claimAllows, providerPaymentRef, raiseRiskAlert, writeClaim } from "../commerce/shared";
 import {
   BALANCE_DUE_DAYS, DAY_MS, DIETS, MAX_TRAVELLERS_PER_BOOKING, TRAVELLER_GENDERS,
   contentOf, daysUntil, depositPerPerson, quoteTrip, refundPercent, tripReference, type TripQuote,
@@ -109,7 +109,8 @@ export interface TripRefundDoc {
   customerUid: string;
   amountMinor: number;
   currency: string;
-  status: "approved" | "processing" | "completed" | "failed";
+  /** under-review: a duplicate capture held for an admin; never sent automatically. */
+  status: "under-review" | "approved" | "processing" | "completed" | "failed";
   reason: "customer-cancellation" | "departure-cancelled" | "payment-orphaned" | "duplicate-capture";
   providerPaymentId: string | null;
   providerRefundId: string | null;
@@ -526,7 +527,7 @@ export async function confirmTripPaymentCommand(uid: string, input: { paymentId:
     currency: payment.currency,
     source: "client",
   });
-  if (out.outcome === "amount-mismatch" || out.outcome === "order-mismatch") {
+  if (out.outcome === "amount-mismatch" || out.outcome === "order-mismatch" || out.outcome === "payment-reused") {
     throw precondition("We couldn't confirm this payment automatically.", "Our team has been alerted and will contact you.");
   }
   return { bookingId: out.bookingId, status: out.bookingStatus, outcome: out.outcome };
@@ -545,17 +546,18 @@ export interface TripCaptureInput {
 
 export type TripSettleOutcome =
   | "confirmed" | "readmitted" | "balance-paid" | "already-settled" | "orphaned" | "duplicate-capture"
-  | "amount-mismatch" | "order-mismatch";
+  | "amount-mismatch" | "order-mismatch" | "payment-reused";
 
 export interface TripSettleResult { outcome: TripSettleOutcome; bookingId: string; bookingStatus: TripBookingStatus; refundIds: string[] }
 
 function newRefund(
-  id: string, p: TripPaymentDoc, amountMinor: number, reason: TripRefundDoc["reason"], ledgerPosted: boolean, providerPaymentId?: string
+  id: string, p: TripPaymentDoc, amountMinor: number, reason: TripRefundDoc["reason"], ledgerPosted: boolean, providerPaymentId?: string,
+  status: TripRefundDoc["status"] = "approved"
 ): TripRefundDoc {
   const now = serverNow();
   return {
     id, bookingId: p.bookingId, paymentId: p.id, orgId: p.orgId, tripId: p.tripId, customerUid: p.customerUid,
-    amountMinor, currency: p.currency, status: "approved", reason,
+    amountMinor, currency: p.currency, status, reason,
     providerPaymentId: providerPaymentId ?? p.providerPaymentId, providerRefundId: null, lastError: null, ledgerPosted,
     createdAt: now, updatedAt: now,
   };
@@ -587,11 +589,12 @@ export async function settleTripCapture(input: TripCaptureInput): Promise<TripSe
     const payment = pSnap.data() as TripPaymentDoc;
     const bRef = tripBookingRef(payment.bookingId);
     const dupId = `dup_${input.providerPaymentId}`.slice(0, 120);
-    const [bSnap, dSnap, tvSnap, dupSnap] = await Promise.all([
+    const [bSnap, dSnap, tvSnap, dupSnap, claimSnap] = await Promise.all([
       tx.get(bRef),
       tx.get(departureRef(payment.departureId)),
       tx.get(travellerRef(payment.departureId, payment.customerUid)),
       tx.get(tripRefundRef(dupId)),
+      tx.get(providerPaymentRef(input.providerPaymentId)),
     ]);
     if (!bSnap.exists || !dSnap.exists) throw notFound("We couldn't find that booking.");
     const b = bSnap.data() as TripBookingDoc;
@@ -599,17 +602,42 @@ export async function settleTripCapture(input: TripCaptureInput): Promise<TripSe
     const now = serverNow();
     const base = { bookingId: b.id, bookingStatus: b.status };
 
+    // The capture must be for this payment's own order, before ANY branch.
+    // Both sides must be present: a payment whose order isn't recorded yet
+    // can't be matched, so it can't be settled.
+    if (!input.providerOrderId || !payment.providerOrderId || input.providerOrderId !== payment.providerOrderId) {
+      raiseRiskAlert(tx, `order-mismatch_${input.providerPaymentId}`, {
+        kind: "payment-order-mismatch", severity: "high", orgId: payment.orgId,
+        summary: "A trip capture referenced a different provider order than the payment record. Nothing was confirmed or refunded.",
+        detail: { tripPaymentId: payment.id, providerOrderId: input.providerOrderId, expected: payment.providerOrderId },
+      });
+      return { ...base, outcome: "order-mismatch", refundIds: [] };
+    }
+    // One Razorpay payment settles one PULSE payment (event or trip).
+    if (!claimAllows(claimSnap, "trip", payment.id)) {
+      raiseRiskAlert(tx, `payment-reused_${input.providerPaymentId}`, {
+        kind: "payment-reused", severity: "high", orgId: payment.orgId,
+        summary: "A provider payment already recorded against another PULSE payment was presented again. Nothing was confirmed.",
+        detail: { tripPaymentId: payment.id, providerPaymentId: input.providerPaymentId, claimedBy: claimSnap.data() ?? null },
+      });
+      return { ...base, outcome: "payment-reused", refundIds: [] };
+    }
+    // Written only after every read of this transaction (Firestore rule).
+    const claim = () => writeClaim(tx, claimSnap, input.providerPaymentId, { kind: "trip", paymentId: payment.id, providerOrderId: payment.providerOrderId! });
+
     if (payment.status === "captured" || payment.status === "refunded" || payment.status === "partially-refunded") {
       if (payment.providerPaymentId === input.providerPaymentId) return { ...base, outcome: "already-settled", refundIds: [] };
-      if (dupSnap.exists) return { ...base, outcome: "duplicate-capture", refundIds: [dupId] };
-      // The second charge never entered the ledger, so its refund is ledger-neutral.
-      tx.create(tripRefundRef(dupId), newRefund(dupId, payment, input.amountMinor, "duplicate-capture", false, input.providerPaymentId));
+      if (dupSnap.exists) return { ...base, outcome: "duplicate-capture", refundIds: [] };
+      // The second charge never entered the ledger, so its refund is
+      // ledger-neutral. Held for an admin: never sent automatically.
+      tx.create(tripRefundRef(dupId), newRefund(dupId, payment, input.amountMinor, "duplicate-capture", false, input.providerPaymentId, "under-review"));
+      claim();
       raiseRiskAlert(tx, `dup-capture_${input.providerPaymentId}`, {
-        kind: "payment-duplicate-capture", severity: "medium", orgId: payment.orgId,
-        summary: "A trip payment order was paid twice; the second payment is being refunded.",
-        detail: { tripPaymentId: payment.id, providerPaymentId: input.providerPaymentId, amountMinor: input.amountMinor },
+        kind: "payment-duplicate-capture", severity: "high", orgId: payment.orgId,
+        summary: "A trip payment order was paid twice. The second payment's refund (tripRefunds/" + dupId + ") is held for an admin and was not sent.",
+        detail: { tripPaymentId: payment.id, providerPaymentId: input.providerPaymentId, amountMinor: input.amountMinor, tripRefundId: dupId },
       });
-      return { ...base, outcome: "duplicate-capture", refundIds: [dupId] };
+      return { ...base, outcome: "duplicate-capture", refundIds: [] };
     }
     if (input.amountMinor !== payment.amountMinor || input.currency !== payment.currency) {
       raiseRiskAlert(tx, `amount-mismatch_${input.providerPaymentId}`, {
@@ -619,14 +647,6 @@ export async function settleTripCapture(input: TripCaptureInput): Promise<TripSe
       });
       tx.update(tripPaymentRef(payment.id), { riskFlag: "amount-mismatch", updatedAt: now });
       return { ...base, outcome: "amount-mismatch", refundIds: [] };
-    }
-    if (input.providerOrderId && payment.providerOrderId && input.providerOrderId !== payment.providerOrderId) {
-      raiseRiskAlert(tx, `order-mismatch_${input.providerPaymentId}`, {
-        kind: "payment-order-mismatch", severity: "high", orgId: payment.orgId,
-        summary: "A trip capture referenced a different provider order than the payment record.",
-        detail: { tripPaymentId: payment.id, providerOrderId: input.providerOrderId, expected: payment.providerOrderId },
-      });
-      return { ...base, outcome: "order-mismatch", refundIds: [] };
     }
 
     // The booking's reservation-time snapshot is authoritative; the org's
@@ -679,6 +699,7 @@ export async function settleTripCapture(input: TripCaptureInput): Promise<TripSe
     }
 
     // Every valid capture enters the ledger; an orphaned one is reversed below.
+    claim();
     if (snapshotBps === null) {
       raiseRiskAlert(tx, `commission-missing_${payment.id}`, {
         kind: "capture-without-commission-terms", severity: "high", orgId: payment.orgId,
@@ -980,18 +1001,14 @@ export async function releaseHeldTripBooking(bookingId: string, actorUid: string
   });
 }
 
-/** Resolves the trip payment a provider entity belongs to (notes, else order id). */
-export async function resolveTripPaymentId(entity: { notes?: unknown; order_id?: unknown }): Promise<string | null> {
-  const notes = (entity.notes && typeof entity.notes === "object" ? entity.notes : {}) as Record<string, unknown>;
-  if (typeof notes.tripPaymentId === "string" && /^[A-Za-z0-9_-]{4,128}$/.test(notes.tripPaymentId)) {
-    const s = await tripPaymentRef(notes.tripPaymentId).get();
-    if (s.exists) return s.id;
-  }
-  if (typeof entity.order_id === "string" && entity.order_id.length > 0) {
-    const q = await db().collection(T.tripPayments).where("providerOrderId", "==", entity.order_id).limit(1).get();
-    if (!q.empty) return q.docs[0]!.id;
-  }
-  return null;
+/**
+ * Resolves the trip payment a provider entity belongs to, by the order id the
+ * server set. Payer-written notes never decide it.
+ */
+export async function resolveTripPaymentId(entity: Record<string, unknown>): Promise<string | null> {
+  if (typeof entity.order_id !== "string" || entity.order_id.length === 0) return null;
+  const q = await db().collection(T.tripPayments).where("providerOrderId", "==", entity.order_id).limit(1).get();
+  return q.empty ? null : q.docs[0]!.id;
 }
 
 export async function resolveTripRefundId(entity: { notes?: unknown; id?: unknown }): Promise<string | null> {

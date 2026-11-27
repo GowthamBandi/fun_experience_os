@@ -92,6 +92,8 @@ export const COLLECTIONS = {
   experiences: "experiences",
   tickets: "tickets",
   paymentEvents: "paymentEvents",
+  /** One doc per Razorpay payment id: the single PULSE payment it settled. */
+  providerPayments: "providerPayments",
   ledgerEntries: "ledgerEntries",
   settlements: "settlements",
   reviews: "reviews",

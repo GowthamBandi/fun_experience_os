@@ -12,7 +12,7 @@ import {
 import { commissionFor } from "../src/commerce/ledger";
 import { paymentSignature } from "../src/commerce/provider";
 import * as trips from "../src/trips";
-import { releaseExpiredTripHolds } from "../src/trips/bookings";
+import { releaseExpiredTripHolds, settleTripCapture } from "../src/trips/bookings";
 import { notifyTripWaitlist, seatOpened } from "../src/trips/waitlist";
 import { quoteTrip, refundPercent } from "../src/trips/model";
 import { balanceStage, sweepTripBalances } from "../src/trips/balance";
@@ -549,17 +549,86 @@ describe("ledger and settlement", () => {
     expect(docs.every((d) => d.ledgerPosted === true)).toBe(true);
   });
 
-  test("a duplicate capture is refunded without touching the ledger", async () => {
+  test("a duplicate capture is held for an admin (never sent automatically) and doesn't touch the ledger", async () => {
     const w = await liveTrip();
     const cust = uniq("cust");
     const r = await call<{ bookingId: string }>(trips.reserveTripSeats, reserveInput(w), phoneCtx(cust));
     const { order } = await pay(cust, r.bookingId);
-    const res = await deliverWebhook(capturedEvent({ providerPaymentId: fakePayId(), orderId: order.providerOrderId, paymentId: order.paymentId, amount: order.amountMinor }));
+    const secondPay = fakePayId();
+    const res = await deliverWebhook(capturedEvent({ providerPaymentId: secondPay, orderId: order.providerOrderId, paymentId: order.paymentId, amount: order.amountMinor }));
     expect(res.statusCode).toBe(200);
     const entries = await ledger("bookingId", r.bookingId);
     expect(expectBalanced(entries)).toBe(1);
     const dup = (await db().collection("tripRefunds").where("bookingId", "==", r.bookingId).get()).docs.map((d) => d.data());
-    expect(dup).toEqual([expect.objectContaining({ reason: "duplicate-capture", ledgerPosted: false })]);
+    expect(dup).toEqual([expect.objectContaining({ reason: "duplicate-capture", ledgerPosted: false, status: "under-review", providerRefundId: null })]);
+    expect((await db().doc(`riskAlerts/dup-capture_${secondPay}`).get()).data()).toMatchObject({ severity: "high" });
+  });
+
+  describe("payment lookup and order binding", () => {
+    const tripCapture = (payId: string, orderId: string, amount: number, notes: Record<string, unknown>) => ({
+      entity: "event", event: "payment.captured",
+      payload: { payment: { entity: { id: payId, entity: "payment", amount, currency: "INR", status: "captured", order_id: orderId, notes } } },
+    });
+
+    test("notes naming another, already-paid trip payment don't decide the settlement", async () => {
+      const cust = uniq("cust");
+      const first = await liveTrip();
+      const r1 = await call<{ bookingId: string }>(trips.reserveTripSeats, reserveInput(first), phoneCtx(cust));
+      const { order: paid } = await pay(cust, r1.bookingId);
+      const second = await liveTrip();
+      const r2 = await call<{ bookingId: string }>(trips.reserveTripSeats, reserveInput(second), phoneCtx(cust));
+      const o2 = await call<{ paymentId: string; providerOrderId: string; amountMinor: number }>(trips.createTripPaymentOrder, { requestId: rid(), bookingId: r2.bookingId }, phoneCtx(cust));
+      const payId = fakePayId();
+      const res = await deliverWebhook(tripCapture(payId, o2.providerOrderId, o2.amountMinor, { tripPaymentId: paid.paymentId }));
+      expect(res.body).toMatchObject({ outcome: "trip:confirmed" });
+      expect((await db().doc(`tripRefunds/dup_${payId}`).get()).exists).toBe(false);
+      expect((await db().doc(`tripPayments/${o2.paymentId}`).get()).data()).toMatchObject({ status: "captured", providerPaymentId: payId });
+    });
+
+    test("a capture for a different order is refused before any branch, even on a paid trip payment", async () => {
+      const w = await liveTrip();
+      const cust = uniq("cust");
+      const r = await call<{ bookingId: string }>(trips.reserveTripSeats, reserveInput(w), phoneCtx(cust));
+      const { order } = await pay(cust, r.bookingId);
+      for (const providerOrderId of ["order_emu_someone_else", null]) {
+        const out = await settleTripCapture({
+          paymentId: order.paymentId, providerOrderId, providerPaymentId: fakePayId(), amountMinor: order.amountMinor, currency: "INR", source: "webhook",
+        });
+        expect(out.outcome).toBe("order-mismatch");
+      }
+      expect((await db().collection("tripRefunds").where("bookingId", "==", r.bookingId).get()).size).toBe(0);
+    });
+
+    test("a trip payment whose order isn't recorded yet can't be settled (race variant)", async () => {
+      const w = await liveTrip();
+      const cust = uniq("cust");
+      const r = await call<{ bookingId: string }>(trips.reserveTripSeats, reserveInput(w), phoneCtx(cust));
+      const o = await call<{ paymentId: string; amountMinor: number }>(trips.createTripPaymentOrder, { requestId: rid(), bookingId: r.bookingId }, phoneCtx(cust));
+      await db().doc(`tripPayments/${o.paymentId}`).update({ providerOrderId: null, status: "creating" });
+      const out = await settleTripCapture({
+        paymentId: o.paymentId, providerOrderId: "order_emu_other", providerPaymentId: fakePayId(), amountMinor: o.amountMinor, currency: "INR", source: "webhook",
+      });
+      expect(out.outcome).toBe("order-mismatch");
+      expect((await booking(r.bookingId)).status).toBe("held");
+    });
+
+    test("one Razorpay payment settles one trip payment only (and never an event payment too)", async () => {
+      const cust = uniq("cust");
+      const first = await liveTrip();
+      const r1 = await call<{ bookingId: string }>(trips.reserveTripSeats, reserveInput(first), phoneCtx(cust));
+      const o1 = await call<{ paymentId: string; providerOrderId: string }>(trips.createTripPaymentOrder, { requestId: rid(), bookingId: r1.bookingId }, phoneCtx(cust));
+      const payId = fakePayId();
+      await call(trips.confirmTripPayment, { paymentId: o1.paymentId, providerPaymentId: payId, providerSignature: paymentSignature(o1.providerOrderId, payId) }, phoneCtx(cust));
+      expect((await db().doc(`providerPayments/${payId}`).get()).data()).toMatchObject({ kind: "trip", paymentId: o1.paymentId });
+      const second = await liveTrip();
+      const r2 = await call<{ bookingId: string }>(trips.reserveTripSeats, reserveInput(second), phoneCtx(cust));
+      const o2 = await call<{ paymentId: string; providerOrderId: string; amountMinor: number }>(trips.createTripPaymentOrder, { requestId: rid(), bookingId: r2.bookingId }, phoneCtx(cust));
+      const out = await settleTripCapture({
+        paymentId: o2.paymentId, providerOrderId: o2.providerOrderId, providerPaymentId: payId, amountMinor: o2.amountMinor, currency: "INR", source: "webhook",
+      });
+      expect(out.outcome).toBe("payment-reused");
+      expect((await booking(r2.bookingId)).status).toBe("held");
+    });
   });
 
   test("settlement pays the organizer for finished and cancelled departures, not open ones", async () => {
