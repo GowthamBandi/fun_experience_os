@@ -56,6 +56,7 @@ interface LedgerEntryDoc {
   amountMinor: number;
   eventId: string | null;
   departureId?: string | null;
+  bookingId?: string | null;
   settlementId: string | null;
   txnGrossMinor: number;
   txnCommissionMinor: number;
@@ -127,8 +128,28 @@ export async function buildSettlement(
     .where("account", "==", "organizer_payable")
     .where("settlementId", "==", null)
     .get();
-  const candidates = snap.docs.filter((d) => (d.data() as LedgerEntryDoc).createdAt.toMillis() <= periodEnd.toMillis());
   const entry = (d: FirebaseFirestore.QueryDocumentSnapshot) => d.data() as LedgerEntryDoc;
+  // A booking with a refund request still open waits for the decision.
+  const openRefunds = await db()
+    .collection(C.refunds)
+    .where("orgId", "==", input.orgId)
+    .where("status", "in", ["requested", "under-review"])
+    .get();
+  const disputed = new Set(openRefunds.docs.map((d) => String(d.data().bookingId ?? "")));
+  const isDisputed = (d: FirebaseFirestore.QueryDocumentSnapshot) => !!entry(d).bookingId && disputed.has(entry(d).bookingId!);
+  // Earnings: credits up to periodEnd. A refund debit belongs with its
+  // booking's earnings whenever it was made: it goes in with
+  // them, or — when they were already paid out — it claws them back now. It
+  // waits only while some of that booking's earnings are still waiting too.
+  const credits = snap.docs.filter((d) => entry(d).direction === "credit" && !isDisputed(d));
+  const creditsNow = credits.filter((d) => entry(d).createdAt.toMillis() <= periodEnd.toMillis());
+  const waiting = new Set(credits.filter((d) => !creditsNow.includes(d)).map((d) => entry(d).bookingId ?? ""));
+  const debitsNow = snap.docs.filter((d) => {
+    const l = entry(d);
+    if (l.direction !== "debit" || isDisputed(d)) return false;
+    return l.bookingId ? !waiting.has(l.bookingId) : l.createdAt.toMillis() <= periodEnd.toMillis();
+  });
+  const candidates = [...creditsNow, ...debitsNow];
   const eventIds = [...new Set(candidates.map((d) => entry(d).eventId).filter((x): x is string => !!x))];
   const departureIds = [...new Set(candidates.map((d) => entry(d).departureId).filter((x): x is string => !!x))];
   const completed = await idsWhere(C.events, eventIds, (e) => (e as EventDoc).status === "completed");
@@ -213,6 +234,13 @@ export async function buildSettlement(
 
 export type SettlementAction = "approve" | "hold" | "release-hold" | "mark-paid";
 
+/** Refunds took back everything (or more): there is nothing to pay the organizer. */
+const nothingToPay = (s: SettlementDoc) =>
+  precondition(
+    `This settlement nets to ₹${(s.netMinor / 100).toFixed(2)}, so there is nothing to pay.`,
+    "Put it on hold; the amount is recovered from the organizer's next earnings."
+  );
+
 export async function decideSettlement(
   admin: { uid: string; roleId: string },
   input: { requestId: string; settlementId: string; action: SettlementAction; note: string; payoutReference?: string | null }
@@ -232,6 +260,7 @@ export async function decideSettlement(
     switch (input.action) {
       case "approve":
         if (s.status !== "pending-approval") throw precondition("Only a settlement pending approval can be approved.");
+        if (!(s.netMinor > 0)) throw nothingToPay(s);
         next = "approved";
         patch.approvedBy = admin.uid;
         patch.approvedAt = now;
@@ -248,6 +277,7 @@ export async function decideSettlement(
         break;
       case "mark-paid": {
         if (s.status !== "approved") throw precondition("Only an approved settlement can be marked paid.");
+        if (!(s.netMinor > 0)) throw nothingToPay(s);
         const ref = (input.payoutReference ?? "").trim();
         if (ref.length < 3 || ref.length > 100) {
           throw new DomainError("INVALID_INPUT", "Enter the bank or payout reference for this payment.");

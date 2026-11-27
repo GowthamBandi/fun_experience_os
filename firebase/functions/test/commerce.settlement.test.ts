@@ -139,6 +139,41 @@ describe("buildSettlement", () => {
     expect(out.entryCount).toBe(0);
   });
 
+  test("a refund made after periodEnd still counts against the earnings it reverses", async () => {
+    const orgId = uniq("org");
+    await seedOrg(orgId);
+    const eventId = await seedEvent({ orgId, priceMinor: 100_000, commissionBps: 1_000, policy: "flexible", startsInHours: 48 });
+    const buyers = [await newCustomer(), await newCustomer()];
+    const refunded = await book(buyers[0]!, eventId, 1);
+    await book(buyers[1]!, eventId, 1);
+    await new Promise((r) => setTimeout(r, 300));
+    const periodEnd = new Date();
+    await new Promise((r) => setTimeout(r, 300));
+    // Refunded in full after the period the admin picked.
+    await call(commerce.cancelBooking, { requestId: rid(), bookingId: refunded.bookingId }, phoneCtx(buyers[0]!));
+    await db().collection("events").doc(eventId).update({ status: "completed" });
+    const out = await buildSettlement({ uid: "admin-a", roleId: "super-admin" }, { requestId: rid(), orgId, periodEnd });
+    // Only the booking that kept its money is paid out.
+    expect(out.netMinor).toBe(100_000 - 10_000);
+  });
+
+  test("a booking with an open refund request is held back from the settlement", async () => {
+    const orgId = uniq("org");
+    await seedOrg(orgId);
+    const eventId = await seedEvent({ orgId, priceMinor: 100_000, commissionBps: 1_000 });
+    const disputed = await book(await newCustomer(), eventId, 1);
+    await book(await newCustomer(), eventId, 1);
+    await db().collection("refunds").doc(`req_open_${disputed.bookingId}`).set({
+      id: `req_open_${disputed.bookingId}`, bookingId: disputed.bookingId, paymentId: disputed.paymentId, orgId, eventId,
+      amountMinor: 50_000, currency: "INR", status: "under-review", reason: "organizer-request", ledgerPosted: false,
+    });
+    await db().collection("events").doc(eventId).update({ status: "completed" });
+    const out = await buildSettlement({ uid: "admin-a", roleId: "super-admin" }, { requestId: rid(), orgId, periodEnd: new Date() });
+    expect(out.netMinor).toBe(100_000 - 10_000);
+    const held = await db().collection("ledgerEntries").where("bookingId", "==", disputed.bookingId).get();
+    expect(held.docs.every((d) => d.data().settlementId === null)).toBe(true);
+  });
+
   test("organizers (even with earnings.view) cannot build or decide settlements", async () => {
     const { orgId } = await scenario();
     const owner = uniq("owner");
@@ -183,6 +218,24 @@ describe("decideSettlement", () => {
     expect(s).toMatchObject({ approvedBy: "admin-a", paidBy: "admin-b", payoutReference: "UTR998877" });
     const audits = await db().collection("auditEvents").where("resourceId", "==", id).get();
     expect(audits.size).toBeGreaterThanOrEqual(5);
+  });
+
+  test("a settlement that nets to zero or less can't be approved or paid", async () => {
+    const orgId = uniq("org");
+    await seedOrg(orgId);
+    const eventId = await seedEvent({ orgId, priceMinor: 100_000, commissionBps: 1_000, policy: "flexible", startsInHours: 48 });
+    const uid = await newCustomer();
+    const b = await book(uid, eventId, 1);
+    await call(commerce.cancelBooking, { requestId: rid(), bookingId: b.bookingId }, phoneCtx(uid));
+    await db().collection("events").doc(eventId).update({ status: "completed" });
+    const built = await buildSettlement({ uid: "admin-a", roleId: "super-admin" }, { requestId: rid(), orgId, periodEnd: new Date() });
+    expect(built.netMinor).toBe(0);
+    const id = built.settlementId!;
+    expect(await callCode(commerce.decideSettlement, { requestId: rid(), settlementId: id, action: "approve", note: "Checked" }, adminCtx("admin-a"))).toBe("PRECONDITION");
+    // Even one that reached "approved" another way can't be marked paid.
+    await db().collection("settlements").doc(id).update({ status: "approved", approvedBy: "admin-a", netMinor: -500 });
+    await seedPayoutForSettlement(id);
+    expect(await callCode(commerce.decideSettlement, { requestId: rid(), settlementId: id, action: "mark-paid", note: "Paying out", payoutReference: "UTR777" }, adminCtx("admin-b"))).toBe("PRECONDITION");
   });
 
   test("at or below ₹50,000 a single admin may approve and pay", async () => {

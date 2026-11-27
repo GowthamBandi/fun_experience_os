@@ -679,6 +679,20 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
+          "fieldPath": "orgId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "refunds",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
           "fieldPath": "customerUid",
           "order": "ASCENDING"
         },

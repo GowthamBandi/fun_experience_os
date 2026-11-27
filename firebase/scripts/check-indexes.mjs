@@ -82,6 +82,7 @@ export const QUERIES = [
   Q("B22", "backend", "tickets", ["eventId"], null, [], ["firebase/functions/src/commerce/checkin.ts", `tickets).where("eventId"`]),
   Q("B23", "backend", "bookings", ["eventId"], null, [], ["firebase/functions/src/commerce/checkin.ts", `bookings).where("eventId"`]),
   Q("B24", "backend", "tickets", ["eventId", "reference"], null, [], ["firebase/functions/src/commerce/scan.ts", `.where("reference", "==", reference)`]),
+  Q("B25", "backend", "refunds", ["orgId", "status(in)"], null, [], ["firebase/functions/src/commerce/settlements.ts", `.where("status", "in", ["requested", "under-review"])`], "Settlement build holds back bookings with an open refund request."),
   // Trips (firebase/functions/src/trips; `T` is trips/refs.ts).
   Q("BT01", "backend", "tripBookings", ["status"], "holdExpiresAt", [], ["firebase/functions/src/trips/bookings.ts", `.where("holdExpiresAt", "<=", now)`]),
   Q("BT02", "backend", "tripPayments", ["bookingId"], null, [], ["firebase/functions/src/trips/bookings.ts", `tripPayments).where("bookingId"`]),
