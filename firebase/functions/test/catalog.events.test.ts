@@ -447,7 +447,7 @@ describe("events", () => {
     expect((await db().doc(`events/${id}`).get()).data()!.responsibility).toEqual({ primaryUid: U.manager, staffUids: [U.checkin] });
   });
 
-  test("setEventPhase moves forward only; completed requires the start to have passed; needs events.operate", async () => {
+  test("setEventPhase moves forward only; completed requires the END to have passed; needs events.operate", async () => {
     const id = await approvedEvent(expId);
     await pub(id);
     const phase = (p: string, ctx = owner) => call(setEventPhase, { requestId: rid(), orgId: ORG, eventId: id, phase: p }, ctx);
@@ -457,9 +457,12 @@ describe("events", () => {
     expect(await codeOf(phase("completed"))).toBe("PRECONDITION");
     expect(await codeOf(phase("booking-closed"))).toBe("RESOLVED");
     expect(await codeOf(phase("booking-closed"))).toBe("PRECONDITION"); // not forward
-    await db().doc(`events/${id}`).update({ startsAt: Timestamp.fromMillis(Date.now() - H) });
+    await db().doc(`events/${id}`).update({ startsAt: Timestamp.fromMillis(Date.now() - H), endsAt: Timestamp.fromMillis(Date.now() + H) });
     expect(await codeOf(phase("live"))).toBe("RESOLVED");
     expect(await codeOf(phase("booking-closed"))).toBe("PRECONDITION"); // backwards
+    // Started but still running: completing it now would make it payable and end refunds.
+    expect(await codeOf(phase("completed"))).toBe("PRECONDITION");
+    await db().doc(`events/${id}`).update({ endsAt: Timestamp.fromMillis(Date.now() - 60_000) });
     expect(await codeOf(phase("completed"))).toBe("RESOLVED");
     expect(await codeOf(phase("live"))).toBe("PRECONDITION");
     const draft = await draftEvent(expId);

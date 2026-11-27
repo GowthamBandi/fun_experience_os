@@ -518,8 +518,12 @@ export async function setEventPhaseCommand(uid: string, data: unknown) {
     if (phase === "live" && now.toMillis() < startsMs - LIVE_WINDOW_MS) {
       throw precondition("An event can go live at most 3 hours before it starts.");
     }
-    if (phase === "completed" && now.toMillis() < startsMs) {
-      throw precondition("An event can only be completed after it has started.");
+    // Completing makes the event payable to the organizer and closes the
+    // cancel-and-refund path, so it waits for the END. Events
+    // stored before endsAt existed fall back to their start.
+    const endsMs = ev.endsAt instanceof Timestamp ? ev.endsAt.toMillis() : startsMs;
+    if (phase === "completed" && now.toMillis() < endsMs) {
+      throw precondition("An event can only be completed after it has ended.", "Mark it completed once the event is over.");
     }
     const stamp = { "booking-closed": "bookingClosedAt", live: "liveAt", completed: "completedAt" }[phase];
     tx.update(ref, { status: phase, [stamp]: now, version: ((ev.version as number) ?? 0) + 1, updatedAt: now, updatedBy: uid });
