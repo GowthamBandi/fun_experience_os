@@ -29,6 +29,7 @@ import { C, CURRENCY, HOLD_MINUTES } from "../commerce/config";
 import { captureLines, commissionFor, postLedger, refundLines, refundSplit, type LedgerContext } from "../commerce/ledger";
 import { getPaymentProvider, verifyPaymentSignature } from "../commerce/provider";
 import { claimAllows, providerPaymentRef, raiseRiskAlert, writeClaim } from "../commerce/shared";
+import { requireProviderCapture } from "../commerce/payments";
 import {
   BALANCE_DUE_DAYS, DAY_MS, DIETS, MAX_TRAVELLERS_PER_BOOKING, TRAVELLER_GENDERS,
   contentOf, daysUntil, depositPerPerson, quoteTrip, refundPercent, tripReference, type TripQuote,
@@ -115,6 +116,8 @@ export interface TripRefundDoc {
   providerPaymentId: string | null;
   providerRefundId: string | null;
   lastError: string | null;
+  /** Times the refund was sent to the provider (a retry first checks what the provider already holds). */
+  attempts?: number;
   /** False only for refunds of money that never entered the ledger (duplicate captures). */
   ledgerPosted: boolean;
   createdAt: Timestamp;
@@ -519,6 +522,8 @@ export async function confirmTripPaymentCommand(uid: string, input: { paymentId:
       nextStep: "If money left your account, it will be confirmed automatically or refunded. Contact support if not.",
     });
   }
+  // A valid signature isn't proof of capture: ask Razorpay first.
+  await requireProviderCapture(input.providerPaymentId, payment, { kind: "tripPayment", id: payment.id, uid });
   const out = await settleTripCapture({
     paymentId: payment.id,
     providerOrderId: payment.providerOrderId,
@@ -827,8 +832,17 @@ export async function executeTripRefund(refundId: string): Promise<TripRefundDoc
     await tripRefundRef(refundId).update({ lastError: "no-provider-payment", updatedAt: serverNow() });
     return "approved";
   }
+  // Any earlier attempt may have reached the provider without a reply:
+  // count this one first, and on a retry adopt what the provider already
+  // made instead of refunding again.
+  const attemptedBefore = (r.attempts ?? 0) > 0 || !!r.lastError;
+  await tripRefundRef(refundId).update({ attempts: (r.attempts ?? 0) + 1 });
   try {
-    const out = await getPaymentProvider().refund({
+    const provider = getPaymentProvider();
+    const made = attemptedBefore
+      ? (await provider.listRefunds(r.providerPaymentId)).find((x) => x.notes.tripRefundId === refundId)
+      : undefined;
+    const out = made ?? await provider.refund({
       providerPaymentId: r.providerPaymentId,
       amountMinor: r.amountMinor,
       refundId,

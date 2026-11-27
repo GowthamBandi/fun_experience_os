@@ -10,7 +10,7 @@ import {
   commerce, expectBalanced, sum, type Entry,
 } from "./commerce-helpers";
 import { commissionFor } from "../src/commerce/ledger";
-import { paymentSignature } from "../src/commerce/provider";
+import { emulatorProvider, paymentSignature } from "../src/commerce/provider";
 import * as trips from "../src/trips";
 import { releaseExpiredTripHolds, settleTripCapture } from "../src/trips/bookings";
 import { notifyTripWaitlist, seatOpened } from "../src/trips/waitlist";
@@ -562,6 +562,38 @@ describe("ledger and settlement", () => {
     const dup = (await db().collection("tripRefunds").where("bookingId", "==", r.bookingId).get()).docs.map((d) => d.data());
     expect(dup).toEqual([expect.objectContaining({ reason: "duplicate-capture", ledgerPosted: false, status: "under-review", providerRefundId: null })]);
     expect((await db().doc(`riskAlerts/dup-capture_${secondPay}`).get()).data()).toMatchObject({ severity: "high" });
+  });
+
+  test("a valid signature isn't enough: a trip payment Razorpay has only authorized doesn't confirm", async () => {
+    const w = await liveTrip();
+    const cust = uniq("cust");
+    const r = await call<{ bookingId: string }>(trips.reserveTripSeats, reserveInput(w), phoneCtx(cust));
+    const o = await call<{ paymentId: string; providerOrderId: string }>(trips.createTripPaymentOrder, { requestId: rid(), bookingId: r.bookingId }, phoneCtx(cust));
+    const payId = fakePayId();
+    const signature = paymentSignature(o.providerOrderId, payId);
+    emulatorProvider().setPayment(payId, { status: "authorized" });
+    const err = await callErr(trips.confirmTripPayment, { paymentId: o.paymentId, providerPaymentId: payId, providerSignature: signature }, phoneCtx(cust));
+    expect(err.code).toBe("PRECONDITION");
+    expect((await booking(r.bookingId)).status).toBe("held");
+  });
+
+  test("a trip refund retry after a lost reply never refunds twice", async () => {
+    const w = await liveTrip();
+    const r = await book(w, uniq("cust"));
+    const payId = (await db().collection("tripPayments").where("bookingId", "==", r.bookingId).get()).docs[0]!.data().providerPaymentId as string;
+    const emu = emulatorProvider();
+    emu.honorRefundIdempotency = false;
+    emu.loseNextReply = 1;
+    try {
+      await call(trips.cancelDeparture, { requestId: rid(), orgId: w.orgId, departureId: w.d1, reason: "Landslide on the ghat road" }, phoneCtx(w.owner));
+      await releaseExpiredTripHolds();
+      const made = emu.refundsFor(payId);
+      expect(made).toHaveLength(1);
+      const refunds = (await db().collection("tripRefunds").where("bookingId", "==", r.bookingId).get()).docs.map((d) => d.data());
+      expect(refunds).toEqual([expect.objectContaining({ status: "processing", providerRefundId: made[0]!.providerRefundId })]);
+    } finally {
+      emu.honorRefundIdempotency = true;
+    }
   });
 
   describe("releasing a hold after a failed or cancelled checkout", () => {

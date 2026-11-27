@@ -26,7 +26,7 @@ import {
   sum,
   world,
 } from "./commerce-helpers";
-import { paymentSignature, webhookSignature, providerIsEmulated, getPaymentProvider, RazorpayProvider } from "../src/commerce/provider";
+import { paymentSignature, webhookSignature, providerIsEmulated, getPaymentProvider, RazorpayProvider, emulatorProvider } from "../src/commerce/provider";
 import { releaseExpiredHolds } from "../src/commerce/holds";
 import { settleCapturedPayment } from "../src/commerce/payments";
 
@@ -88,6 +88,33 @@ describe("createPaymentOrder", () => {
 });
 
 describe("confirmPayment", () => {
+  test("a valid signature isn't enough: a payment Razorpay has only authorized doesn't confirm", async () => {
+    const { eventId } = await world();
+    const uid = await newCustomer();
+    const r = await reserve(uid, eventId);
+    const o = await order(uid, r.bookingId);
+    const payId = fakePayId();
+    const signature = paymentSignature(o.providerOrderId, payId);
+    emulatorProvider().setPayment(payId, { status: "authorized" });
+    const err = await callErr(commerce.confirmPayment, { paymentId: o.paymentId, providerPaymentId: payId, providerSignature: signature }, phoneCtx(uid));
+    expect(err.code).toBe("PRECONDITION");
+    expect((await getDoc<Booking>(`bookings/${r.bookingId}`))!.status).toBe("held");
+    expect((await getDoc<Payment>(`payments/${o.paymentId}`))!.status).toBe("created");
+  });
+
+  test("Razorpay's own record must match the order and amount", async () => {
+    const { eventId } = await world();
+    const uid = await newCustomer();
+    const r = await reserve(uid, eventId);
+    const o = await order(uid, r.bookingId);
+    const payId = fakePayId();
+    const signature = paymentSignature(o.providerOrderId, payId);
+    emulatorProvider().setPayment(payId, { amountMinor: 100 });
+    expect(await callCode(commerce.confirmPayment, { paymentId: o.paymentId, providerPaymentId: payId, providerSignature: signature }, phoneCtx(uid))).toBe("PRECONDITION");
+    expect((await getDoc<Booking>(`bookings/${r.bookingId}`))!.status).toBe("held");
+    expect(await getDoc(`riskAlerts/capture-unverified_${payId}`)).toBeDefined();
+  });
+
   test("a forged signature is rejected and the booking stays held", async () => {
     const { eventId } = await world();
     const uid = await newCustomer();

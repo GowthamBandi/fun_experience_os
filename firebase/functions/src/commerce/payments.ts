@@ -207,8 +207,10 @@ export async function confirmPayment(
       nextStep: "If money left your account, it will be confirmed automatically or refunded. Contact support if not.",
     });
   }
-  // A verified checkout signature proves capture of this exact order, whose
-  // amount we fixed server-side; the amount is therefore the order amount.
+  // A valid signature proves Razorpay made this payment for this order, not
+  // that the money was captured (manual-capture accounts can still reverse
+  // it): ask Razorpay before confirming.
+  await requireProviderCapture(input.providerPaymentId, payment, { kind: "payment", id: payment.id, uid });
   const out = await settleCapturedPayment({
     paymentId: payment.id,
     providerOrderId: payment.providerOrderId,
@@ -221,6 +223,46 @@ export async function confirmPayment(
     throw precondition("We couldn't confirm this payment automatically.", "Our team has been alerted and will contact you.");
   }
   return { bookingId: out.bookingId, status: out.bookingStatus, ticketIds: out.ticketIds, refundId: out.refundId ?? null };
+}
+
+/**
+ * Asks the provider for its own record of [providerPaymentId] and refuses
+ * unless it is captured, for [expected]'s order, amount and currency. Not
+ * captured yet → the customer is told to wait (the payment.captured webhook
+ * confirms it later); a record that doesn't match raises a high risk alert.
+ * Shared by event and trip confirmation.
+ */
+export async function requireProviderCapture(
+  providerPaymentId: string,
+  expected: { providerOrderId: string | null; amountMinor: number; currency: string; orgId: string },
+  who: { kind: "payment" | "tripPayment"; id: string; uid: string }
+): Promise<void> {
+  const remote = await getPaymentProvider().fetchPayment(providerPaymentId);
+  const matches =
+    !!remote && remote.orderId === expected.providerOrderId && remote.amountMinor === expected.amountMinor && remote.currency === expected.currency;
+  if (matches && remote!.status === "captured") return;
+  if (!matches) {
+    await db().runTransaction(async (tx) => {
+      raiseRiskAlert(tx, `capture-unverified_${providerPaymentId}`.slice(0, 150), {
+        kind: "payment-capture-unverified",
+        severity: "high",
+        orgId: expected.orgId,
+        summary: "A checkout confirmation had a valid signature, but Razorpay's record of the payment doesn't match. Nothing was confirmed.",
+        detail: {
+          [who.kind === "payment" ? "paymentId" : "tripPaymentId"]: who.id,
+          providerPaymentId,
+          expected: { orderId: expected.providerOrderId, amountMinor: expected.amountMinor, currency: expected.currency },
+          provider: remote ? { orderId: remote.orderId, amountMinor: remote.amountMinor, currency: remote.currency, status: remote.status } : null,
+        },
+      });
+    });
+    logWarn({ event: "security.payment-capture-unverified", uid: who.uid, orgId: expected.orgId, paymentId: who.id });
+    throw precondition("We couldn't confirm this payment automatically.", "Our team has been alerted and will contact you.");
+  }
+  throw precondition(
+    "Your bank hasn't finished this payment yet. We'll confirm your booking as soon as it does.",
+    "You don't need to pay again. If it doesn't go through, the money returns to you automatically."
+  );
 }
 
 /* ============================================================ settlement of a capture */

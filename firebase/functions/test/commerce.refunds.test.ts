@@ -178,6 +178,27 @@ describe("customer cancellation", () => {
   });
 });
 
+describe("refund retries never refund twice", () => {
+  test("a retry after a lost reply adopts the refund Razorpay already made, even if it ignores the idempotency key", async () => {
+    const { eventId } = await world({ policy: "flexible", startsInHours: 48 });
+    const uid = await newCustomer();
+    const b = await book(uid, eventId);
+    const emu = emulatorProvider();
+    emu.honorRefundIdempotency = false;
+    emu.loseNextReply = 1;
+    try {
+      const out = await call<{ refund: { refundId: string; status: string } }>(commerce.cancelBooking, { requestId: rid(), bookingId: b.bookingId }, phoneCtx(uid));
+      expect(out.refund.status).toBe("approved");
+      await retryApprovedRefunds();
+      const made = emu.refundsFor(b.providerPaymentId!);
+      expect(made).toHaveLength(1);
+      expect((await getDoc<Refund>(`refunds/${out.refund.refundId}`))!).toMatchObject({ status: "processing", providerRefundId: made[0]!.providerRefundId });
+    } finally {
+      emu.honorRefundIdempotency = true;
+    }
+  });
+});
+
 describe("refund retry time budget", () => {
   async function stuckRefund(): Promise<string> {
     const { eventId } = await world({ policy: "flexible", startsInHours: 48 });

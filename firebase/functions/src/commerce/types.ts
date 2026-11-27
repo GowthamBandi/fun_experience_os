@@ -64,6 +64,8 @@ export interface RefundDoc {
   ledgerPosted: boolean;
   executingUntil?: Timestamp | null;
   lastError?: string | null;
+  /** Times the refund was sent to the provider (a retry first checks what the provider already holds). */
+  attempts?: number;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

@@ -132,11 +132,14 @@ export async function executeRefund(refundId: string): Promise<RefundDoc["status
     const now = serverNow();
     if (r.executingUntil && r.executingUntil.toMillis() > now.toMillis()) return null;
     const p = await getPayment(r.paymentId, tx);
-    tx.update(refundRef(refundId), { executingUntil: Timestamp.fromMillis(now.toMillis() + LEASE_MS) });
-    return { r, providerPaymentId: r.providerPaymentId ?? p?.providerPaymentId ?? null };
+    // Any earlier attempt may have reached the provider even though we never
+    // heard back (timeout, crash): count it before sending.
+    const attemptedBefore = (r.attempts ?? 0) > 0 || !!r.lastError;
+    tx.update(refundRef(refundId), { executingUntil: Timestamp.fromMillis(now.toMillis() + LEASE_MS), attempts: (r.attempts ?? 0) + 1 });
+    return { r, providerPaymentId: r.providerPaymentId ?? p?.providerPaymentId ?? null, attemptedBefore };
   });
   if (!leased) return (await getRefund(refundId))?.status ?? null;
-  const { r, providerPaymentId } = leased;
+  const { r, providerPaymentId, attemptedBefore } = leased;
 
   if (!providerPaymentId) {
     await refundRef(refundId).update({ executingUntil: null, lastError: "no-provider-payment", updatedAt: serverNow() });
@@ -145,7 +148,12 @@ export async function executeRefund(refundId: string): Promise<RefundDoc["status
   }
 
   try {
-    const out = await getPaymentProvider().refund({
+    const provider = getPaymentProvider();
+    // A retry first looks for the refund the provider may already have made,
+    // so a lost reply can never turn into a second refund, whether or not the
+    // provider honours the idempotency key.
+    const made = attemptedBefore ? (await provider.listRefunds(providerPaymentId)).find((x) => x.notes.refundId === refundId) : undefined;
+    const out = made ?? await provider.refund({
       providerPaymentId,
       amountMinor: r.amountMinor,
       refundId,
