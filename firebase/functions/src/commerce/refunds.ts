@@ -121,11 +121,12 @@ async function readTickets(tx: Transaction, ids: string[]): Promise<TicketDoc[]>
 
 export interface CancelResult {
   bookingId: string;
-  status: "cancelled";
+  /** "cancelled", or the untouched status when onlyIfHeld found the booking no longer held. */
+  status: BookingDoc["status"];
   refund: { refundId: string; amountMinor: number; status: RefundDoc["status"] } | null;
 }
 
-export async function cancelBooking(uid: string, bookingId: string, requestId: string): Promise<CancelResult> {
+export async function cancelBooking(uid: string, bookingId: string, requestId: string, opts: { onlyIfHeld?: boolean } = {}): Promise<CancelResult> {
   const receipt = receiptRef(`cancelBooking_${uid}_${requestId}`);
   const result = await db().runTransaction(async (tx): Promise<CancelResult> => {
     const rSnap = await tx.get(receipt);
@@ -139,6 +140,13 @@ export async function cancelBooking(uid: string, bookingId: string, requestId: s
     const refundId = `cxl_${bookingId}`;
     const existingRefund = await getRefund(refundId, tx);
     const now = serverNow();
+
+    // Checkout releasing its hold after the phone reported "cancelled/failed":
+    // the payment may still have gone through (UPI), so anything that is no
+    // longer just held is left alone, checked in this transaction.
+    if (opts.onlyIfHeld && booking.status !== "held") {
+      return { bookingId, status: booking.status, refund: null };
+    }
 
     if (booking.status === "cancelled") {
       // Already cancelled by an earlier request: report the same outcome.

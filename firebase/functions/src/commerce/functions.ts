@@ -120,7 +120,8 @@ export const cancelBooking = callable(
     const rid = requestId(d.requestId);
     const bookingId = docId(d.bookingId, "bookingId");
     await consumeRateLimit({ bucket: `cancel_${actor.uid}`, ...RATE_LIMITS.cancel });
-    const r = await cancelBookingSvc(actor.uid, bookingId, rid);
+    const onlyIfHeld = d.onlyIfHeld === undefined ? false : d.onlyIfHeld === true;
+    const r = await cancelBookingSvc(actor.uid, bookingId, rid, { onlyIfHeld });
     return { bookingId: r.bookingId, status: r.status, refund: r.refund };
   },
   { secrets: RZP }

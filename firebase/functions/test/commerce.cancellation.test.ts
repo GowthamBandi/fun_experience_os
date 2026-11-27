@@ -215,3 +215,23 @@ describe("refusal reaches the callable with the message the app shows", () => {
     });
   });
 });
+
+describe("releasing a hold after a failed or cancelled checkout", () => {
+  test("onlyIfHeld leaves a booking the payment already confirmed untouched", async () => {
+    const { eventId } = await world({ policy: "flexible", startsInHours: 48 });
+    const uid = await newCustomer();
+    const b = await book(uid, eventId);
+    const out = await call<{ status: string; refund: unknown }>(commerce.cancelBooking, { requestId: rid(), bookingId: b.bookingId, onlyIfHeld: true }, phoneCtx(uid));
+    expect(out).toMatchObject({ status: "confirmed", refund: null });
+    expect((await db().doc(`bookings/${b.bookingId}`).get()).data()!.status).toBe("confirmed");
+    expect((await db().collection("refunds").where("bookingId", "==", b.bookingId).get()).size).toBe(0);
+  });
+
+  test("onlyIfHeld still releases a booking that is only held", async () => {
+    const { eventId } = await world();
+    const uid = await newCustomer();
+    const r = await reserve(uid, eventId);
+    const out = await call<{ status: string }>(commerce.cancelBooking, { requestId: rid(), bookingId: r.bookingId, onlyIfHeld: true }, phoneCtx(uid));
+    expect(out.status).toBe("cancelled");
+  });
+});
