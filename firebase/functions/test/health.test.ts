@@ -6,11 +6,20 @@
  */
 
 const PROJECT_ID = "demo-experience-os";
-const FUNCTIONS_HOST = "127.0.0.1";
-const FUNCTIONS_PORT = 5001;
+
+/** Ask the emulator hub where Functions runs, so spare-port configs (--config) work too. */
+async function functionsOrigin(): Promise<string> {
+  const hub = process.env.FIREBASE_EMULATOR_HUB;
+  if (hub) {
+    const res = await fetch(`http://${hub}/emulators`);
+    const list = (await res.json()) as { functions?: { host: string; port: number } };
+    if (list.functions) return `http://${list.functions.host}:${list.functions.port}`;
+  }
+  return "http://127.0.0.1:5001";
+}
 
 test("checkHealth callable returns ok:true from emulator", async () => {
-  const url = `http://${FUNCTIONS_HOST}:${FUNCTIONS_PORT}/${PROJECT_ID}/us-central1/checkHealth`;
+  const url = `${await functionsOrigin()}/${PROJECT_ID}/us-central1/checkHealth`;
 
   const res = await fetch(url, {
     method: "POST",
