@@ -1,6 +1,6 @@
 import { getAuth } from "firebase-admin/auth";
 import { writeAudit } from "../platform/audit";
-import { COLLECTIONS, db, serverNow } from "../platform/firestore";
+import { COLLECTIONS, app, db, serverNow } from "../platform/firestore";
 import { DomainError } from "../platform/errors";
 import { isUnderLegalHold } from "../platform/legalHolds";
 import { consumeLimit } from "../platform/rateLimit";
@@ -104,7 +104,8 @@ export async function deleteMyAccount(actor: PhoneActor) {
   }
 
   try {
-    await getAuth().deleteUser(actor.uid);
+    // app(): a fresh instance may not have initialised Firebase yet (live staging: app/no-app).
+    await getAuth(app()).deleteUser(actor.uid);
   } catch (error) {
     if ((error as { code?: string }).code !== "auth/user-not-found") throw error;
   }

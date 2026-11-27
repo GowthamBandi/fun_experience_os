@@ -42,6 +42,15 @@ else
   gcloud firestore databases create --project "$PROJECT_ID" --database='(default)' --location="$REGION" --type=firestore-native
 fi
 
+echo "-- 2b. Storage rules may read Firestore (orgMedia checks memberships/)"
+# Without this role every firestore.get()/exists() in storage.rules is denied:
+# organizers couldn't upload listing photos on staging (26 Nov 2026).
+PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:service-${PROJECT_NUMBER}@gcp-sa-firebasestorage.iam.gserviceaccount.com" \
+  --role="roles/firebaserules.firestoreServiceAgent" --condition=None >/dev/null
+echo "granted: roles/firebaserules.firestoreServiceAgent to the Storage service agent"
+
 has_secret() { firebase functions:secrets:get "$1" --project "$ENV_NAME" >/dev/null 2>&1; }
 set_secret_from_stdin() { firebase functions:secrets:set "$1" --project "$ENV_NAME" --data-file=- --force >/dev/null; }
 

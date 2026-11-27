@@ -4,6 +4,14 @@ Last updated 18 Nov 2026. The Flutter app lives in
 [GowthamBandi/exprerience_os](https://github.com/GowthamBandi/exprerience_os) — read its `HANDOFF.md`
 first (product overview, how to run the app, legal pages). Work on `main` in both repos.
 
+## Where work stopped (27 Nov 2026)
+
+Read the app repo's `HANDOFF.md` section "Where work stopped" (the open task list and the
+paused live staging test live there; the app repo is private, this one is public).
+Not deployed yet: `deleteMyAccount` fix (`getAuth(app())`) — run
+`npx firebase deploy --project staging --only functions:deleteMyAccount`.
+Never commit the local dev tweak in `apps/operations-web/lib/firebase/app-check.ts`.
+
 ## What's here
 
 | Path | What |
